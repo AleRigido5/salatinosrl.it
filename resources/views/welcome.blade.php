@@ -5,8 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Login - Green System</title>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    
+    <!-- Custom CSS per override colori Tailwind (opzionale) -->
+    <style>
+        /* Personalizzazione colori green/lime se necessario */
+        .bg-gradient-custom {
+            background: linear-gradient(135deg, #f0fdf4 0%, #f7fee7 50%, #dcfce7 100%);
+        }
+        .btn-gradient {
+            background: linear-gradient(135deg, #16a34a 0%, #84cc16 100%);
+        }
+        .btn-gradient:hover {
+            background: linear-gradient(135deg, #15803d 0%, #65a30d 100%);
+        }
+        .text-gradient {
+            background: linear-gradient(135deg, #166534 0%, #4d7c0f 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .card-glass {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(74, 222, 128, 0.2);
+        }
+    </style>
 </head>
 <body class="font-sans antialiased">
     <div class="min-h-screen bg-gradient-to-br from-green-50 via-lime-50 to-green-100">

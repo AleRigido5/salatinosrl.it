@@ -1,4 +1,4 @@
-name: "🚀 Deploy SalatinoSRL Laravel"
+name: "🚀 Deploy Laravel SalatinoSRL Gestionale"
 
 on:
   push:
@@ -14,23 +14,13 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      # 2) Installa PHP e Composer (per preparare i file)
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          extensions: mbstring, pdo, mysql, tokenizer, xml, ctype, json
-          
-      - name: Install Composer dependencies
-        run: composer install --no-dev --optimize-autoloader --no-interaction
-
-      # 3) Build frontend
+      # 2) Install Node e build frontend (opzionale)
       # - name: 📦 Build frontend
       #   run: |
       #     npm ci
       #     npm run build
 
-      # 4) Prepara i file per il deploy (escludi vendor dal deploy)
+      # 3) Deploy Laravel essentials via FTP
       - name: 🚀 Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -45,13 +35,16 @@ jobs:
             **/.git*
             **/.git*/**
             **/node_modules/**
-            **/tests/**
+            **/vendor/**
+            **/.env
+            **/storage/framework/**
+            **/storage/logs/**
             **/.github/**
+            **/tests/**
             **/docker-compose.yml
             **/phpunit.xml
             **/README.md
-            **/.env.example
-            **/.gitattributes
-            # NON escludere vendor/ perché l'abbiamo già preparato
           dangerous-clean-slate: false
           dry-run: false
+
+            

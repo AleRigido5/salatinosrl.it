@@ -1,0 +1,57 @@
+name: "🚀 Deploy SalatinoSRL Laravel"
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Checkout repo
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      # 2) Installa PHP e Composer (per preparare i file)
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo, mysql, tokenizer, xml, ctype, json
+          
+      - name: Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+
+      # 3) Build frontend
+      # - name: 📦 Build frontend
+      #   run: |
+      #     npm ci
+      #     npm run build
+
+      # 4) Prepara i file per il deploy (escludi vendor dal deploy)
+      - name: 🚀 Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: "82.198.228.245"
+          username: u394310809.salatinosrlftp
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          local-dir: ./
+          server-dir: /
+          timeout: 60000
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/tests/**
+            **/.github/**
+            **/docker-compose.yml
+            **/phpunit.xml
+            **/README.md
+            **/.env.example
+            **/.gitattributes
+            # NON escludere vendor/ perché l'abbiamo già preparato
+          dangerous-clean-slate: false
+          dry-run: false

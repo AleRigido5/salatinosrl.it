@@ -10,7 +10,7 @@
                        placeholder="Cerca per nome, slug o descrizione..." 
                        class="w-full pl-10 pr-3 py-2 border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
                 
-                <!-- Suggerimenti autocomplete (opzionale) -->
+                <!-- Suggerimenti autocomplete -->
                 @if(strlen($search) > 2 && !empty($search))
                 <div class="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg border border-emerald-100 max-h-60 overflow-y-auto">
                     @php
@@ -208,7 +208,6 @@
     <script>
         document.addEventListener('livewire:initialized', () => {
             Livewire.on('success', (message) => {
-                // Mostra notifica di successo
                 const alert = document.createElement('div');
                 alert.className = 'fixed top-4 right-4 z-50 p-4 bg-green-100 border-l-4 border-green-500 text-green-700 rounded-lg shadow-lg animate-pulse';
                 alert.innerHTML = '<i class="fas fa-check-circle mr-2"></i> ' + message;
@@ -217,7 +216,6 @@
             });
             
             Livewire.on('error', (message) => {
-                // Mostra notifica di errore
                 const alert = document.createElement('div');
                 alert.className = 'fixed top-4 right-4 z-50 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg shadow-lg';
                 alert.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i> ' + message;

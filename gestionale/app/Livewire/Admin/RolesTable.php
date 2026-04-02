@@ -16,6 +16,7 @@ class RolesTable extends Component
     public $sortField = 'level';
     public $sortDirection = 'asc';
     
+    // Aggiungi queste proprietà mancanti
     protected $queryString = ['search', 'status', 'sortField', 'sortDirection'];
     
     protected $listeners = ['roleDeleted' => 'refreshTable'];
@@ -41,6 +42,11 @@ class RolesTable extends Component
     }
     
     public function updatingStatus()
+    {
+        $this->resetPage();
+    }
+    
+    public function updatingPerPage()
     {
         $this->resetPage();
     }
@@ -87,15 +93,16 @@ class RolesTable extends Component
         $this->dispatch('roleDeleted');
         $this->dispatch('success', 'Ruolo eliminato con successo!');
     }
-
     
     public function resetFilters()
     {
         $this->search = '';
         $this->status = '';
+        $this->sortField = 'level';
+        $this->sortDirection = 'asc';
         $this->resetPage();
     }
-
+    
     public function toggleStatus($id)
     {
         $role = Role::find($id);

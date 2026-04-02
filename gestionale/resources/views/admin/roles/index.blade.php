@@ -17,6 +17,6 @@
     </div>
 
     {{-- Chiamata al componente Livewire --}}
-    <livewire:roles-table />
+    @livewire('admin.roles-table')
 </div>
 @endsection

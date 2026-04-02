@@ -16,7 +16,7 @@
         @endif
     </div>
 
-    <!-- Componente Livewire per la tabella ruoli -->
-    @livewire('roles-table')
+    {{-- Chiamata al componente Livewire --}}
+    <livewire:roles-table />
 </div>
 @endsection

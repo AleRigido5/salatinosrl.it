@@ -10,10 +10,18 @@ class UsersTableSeeder extends Seeder
 {
     public function run(): void
     {
-        User::create([
-            'name' => 'Admin User',
-            'email' => 'admin@example.com',
-            'password' => Hash::make('password'),
-        ]);
+        // Utente normale
+        User::updateOrCreate(
+            ['email' => 'user@example.com'],
+            [
+                'name' => 'Utente Normale',
+                'password' => Hash::make('password'),
+                'role' => 'user',
+                'is_active' => true,
+                'phone' => '+39 333 0000000',
+                'permissions' => json_encode([]),
+                'metadata' => json_encode(['city' => 'Roma']),
+            ]
+        );
     }
 }

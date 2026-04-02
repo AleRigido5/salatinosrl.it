@@ -2,32 +2,13 @@
     <!-- Filtri e Ricerca Live -->
     <div class="bg-gradient-to-r from-white to-emerald-50 rounded-xl shadow-md mb-6 p-5 border border-emerald-100">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <!-- Ricerca live con autocomplete -->
+            <!-- Ricerca live -->
             <div class="relative md:col-span-2">
                 <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
                 <input type="text" 
                        wire:model.live.debounce.300ms="search" 
                        placeholder="Cerca per nome, slug o descrizione..." 
                        class="w-full pl-10 pr-3 py-2 border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
-                
-                <!-- Suggerimenti autocomplete -->
-                @if(strlen($search) > 2 && !empty($search))
-                <div class="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg border border-emerald-100 max-h-60 overflow-y-auto">
-                    @php
-                        $suggestions = App\Models\Role::where('name', 'like', '%'.$search.'%')
-                            ->orWhere('slug', 'like', '%'.$search.'%')
-                            ->limit(5)
-                            ->get();
-                    @endphp
-                    @foreach($suggestions as $suggestion)
-                    <div class="px-4 py-2 hover:bg-emerald-50 cursor-pointer transition-colors"
-                         wire:click="$set('search', '{{ $suggestion->name }}')">
-                        <div class="font-medium text-gray-800">{{ $suggestion->name }}</div>
-                        <div class="text-xs text-gray-500">{{ $suggestion->slug }}</div>
-                    </div>
-                    @endforeach
-                </div>
-                @endif
             </div>
             
             <!-- Filtro stato -->
@@ -162,7 +143,7 @@
                                 
                                 @if(auth()->guard('admin')->user()->hasPermission('delete_roles') && !in_array($role->slug, ['super_admin', 'admin', 'editor', 'viewer']))
                                 <button wire:click="deleteRole({{ $role->id }})" 
-                                        wire:confirm="Sei sicuro di voler eliminare questo ruolo?"
+                                        onclick="return confirm('Sei sicuro di voler eliminare questo ruolo?')"
                                         class="text-red-600 hover:text-red-800 transition-colors p-1.5 rounded-lg hover:bg-red-50"
                                         title="Elimina">
                                     <i class="fas fa-trash-alt"></i>
@@ -202,27 +183,4 @@
             </div>
         </div>
     </div>
-    
-    <!-- Script per notifiche -->
-    @push('scripts')
-    <script>
-        document.addEventListener('livewire:initialized', () => {
-            Livewire.on('success', (message) => {
-                const alert = document.createElement('div');
-                alert.className = 'fixed top-4 right-4 z-50 p-4 bg-green-100 border-l-4 border-green-500 text-green-700 rounded-lg shadow-lg animate-pulse';
-                alert.innerHTML = '<i class="fas fa-check-circle mr-2"></i> ' + message;
-                document.body.appendChild(alert);
-                setTimeout(() => alert.remove(), 3000);
-            });
-            
-            Livewire.on('error', (message) => {
-                const alert = document.createElement('div');
-                alert.className = 'fixed top-4 right-4 z-50 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg shadow-lg';
-                alert.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i> ' + message;
-                document.body.appendChild(alert);
-                setTimeout(() => alert.remove(), 3000);
-            });
-        });
-    </script>
-    @endpush
 </div>

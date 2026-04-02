@@ -16,7 +16,6 @@ class RolesTable extends Component
     public $sortField = 'level';
     public $sortDirection = 'asc';
     
-    // Aggiungi queste proprietà mancanti
     protected $queryString = ['search', 'status', 'sortField', 'sortDirection'];
     
     protected $listeners = ['roleDeleted' => 'refreshTable'];
@@ -74,24 +73,23 @@ class RolesTable extends Component
         $role = Role::find($id);
         
         if (!$role) {
-            $this->dispatch('error', 'Ruolo non trovato');
+            session()->flash('error', 'Ruolo non trovato');
             return;
         }
         
-        // Impedisci eliminazione ruoli di sistema
         if (in_array($role->slug, ['super_admin', 'admin', 'editor', 'viewer'])) {
-            $this->dispatch('error', 'Non puoi eliminare i ruoli di sistema.');
+            session()->flash('error', 'Non puoi eliminare i ruoli di sistema.');
             return;
         }
         
         if ($role->administrators()->count() > 0) {
-            $this->dispatch('error', 'Non puoi eliminare un ruolo che ha amministratori associati.');
+            session()->flash('error', 'Non puoi eliminare un ruolo che ha amministratori associati.');
             return;
         }
         
         $role->delete();
-        $this->dispatch('roleDeleted');
-        $this->dispatch('success', 'Ruolo eliminato con successo!');
+        session()->flash('success', 'Ruolo eliminato con successo!');
+        $this->resetPage();
     }
     
     public function resetFilters()
@@ -108,13 +106,13 @@ class RolesTable extends Component
         $role = Role::find($id);
         if ($role && $role->slug != 'super_admin') {
             $role->update(['is_active' => !$role->is_active]);
-            $this->dispatch('success', 'Stato del ruolo aggiornato con successo!');
+            session()->flash('success', 'Stato del ruolo aggiornato con successo!');
         }
     }
     
     public function render()
     {
-        return view('livewire.roles-table', [
+        return view('livewire.admin.roles-table', [
             'roles' => $this->roles
         ]);
     }

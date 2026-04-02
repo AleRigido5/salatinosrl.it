@@ -16,7 +16,20 @@
         @endif
     </div>
 
-    {{-- Chiamata al componente Livewire --}}
+    <!-- Mostra messaggi flash -->
+    @if(session('success'))
+        <div class="mb-4 p-4 bg-green-100 border-l-4 border-green-500 text-green-700 rounded-lg">
+            <i class="fas fa-check-circle mr-2"></i> {{ session('success') }}
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="mb-4 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg">
+            <i class="fas fa-exclamation-circle mr-2"></i> {{ session('error') }}
+        </div>
+    @endif
+
+    <!-- Componente Livewire -->
     @livewire('admin.roles-table')
 </div>
 @endsection

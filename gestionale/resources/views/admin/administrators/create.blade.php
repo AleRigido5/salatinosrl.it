@@ -1,14 +1,14 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Nuovo Utente')
+@section('title', 'Nuovo Amministratore')
 
 @section('content')
 <div class="p-6">
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold text-gray-800">
-            <i class="fas fa-user-plus mr-2 text-emerald-600"></i> Nuovo Utente
+            <i class="fas fa-user-plus mr-2 text-emerald-600"></i> Nuovo Amministratore
         </h1>
-        <a href="{{ route('admin.users.index') }}" class="text-emerald-600 hover:text-emerald-700 transition-colors">
+        <a href="{{ route('admin.administrators.index') }}" class="text-emerald-600 hover:text-emerald-700 transition-colors">
             <i class="fas fa-arrow-left mr-1"></i> Torna indietro
         </a>
     </div>
@@ -16,12 +16,12 @@
     <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-emerald-100">
         <div class="bg-gradient-to-r from-emerald-50 to-green-50 px-6 py-4 border-b border-emerald-100">
             <h2 class="text-lg font-semibold text-emerald-800">
-                <i class="fas fa-info-circle mr-2"></i> Informazioni Utente
+                <i class="fas fa-info-circle mr-2"></i> Informazioni Amministratore
             </h2>
         </div>
         
         <div class="p-6">
-            <form method="POST" action="{{ route('admin.users.store') }}">
+            <form method="POST" action="{{ route('admin.administrators.store') }}">
                 @csrf
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -64,14 +64,15 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             <i class="fas fa-tag mr-1 text-emerald-500"></i> Ruolo *
                         </label>
-                        <select name="role" required class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
-                            @foreach($roles as $key => $label)
-                                <option value="{{ $key }}" {{ old('role') == $key ? 'selected' : '' }}>
-                                    {{ $label }}
+                        <select name="role_id" required class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
+                            <option value="">Seleziona ruolo</option>
+                            @foreach($roles as $role)
+                                <option value="{{ $role->id }}" {{ old('role_id') == $role->id ? 'selected' : '' }}>
+                                    {{ $role->name }} (Livello {{ $role->level }})
                                 </option>
                             @endforeach
                         </select>
-                        @error('role') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                        @error('role_id') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                     
                     <div>
@@ -80,6 +81,7 @@
                         </label>
                         <input type="text" name="phone" value="{{ old('phone') }}"
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
+                        @error('phone') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                     
                     <div class="col-span-2">
@@ -95,7 +97,7 @@
                 
                 <div class="mt-8 flex justify-end">
                     <button type="submit" class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-6 py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg">
-                        <i class="fas fa-save mr-2"></i> Crea Utente
+                        <i class="fas fa-save mr-2"></i> Crea Amministratore
                     </button>
                 </div>
             </form>

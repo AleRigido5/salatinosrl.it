@@ -10,13 +10,27 @@ use Illuminate\Support\Facades\Auth;
 
 class RoleController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         if (!Auth::guard('admin')->user()->hasPermission('view_roles')) {
             abort(403, 'Non hai i permessi necessari.');
         }
         
-        $roles = Role::withCount('administrators')->get();
+        $query = Role::withCount('administrators');
+        
+        if ($request->filled('search')) {
+            $query->where(function($q) use ($request) {
+                $q->where('name', 'like', "%{$request->search}%")
+                ->orWhere('slug', 'like', "%{$request->search}%");
+            });
+        }
+        
+        if ($request->filled('status')) {
+            $query->where('is_active', $request->status === 'active');
+        }
+        
+        $roles = $query->latest()->paginate(15);
+        
         return view('admin.roles.index', compact('roles'));
     }
 

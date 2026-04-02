@@ -11,11 +11,32 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
+        
+        /* Scrollbar personalizzata */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #10b981;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #059669;
+        }
+        
+        /* Link disabilitati */
         .disabled-link {
             opacity: 0.5;
             cursor: not-allowed;
             pointer-events: none;
         }
+        
+        /* Tooltip */
         [data-tooltip] {
             position: relative;
             cursor: help;
@@ -26,18 +47,33 @@
             bottom: 100%;
             left: 50%;
             transform: translateX(-50%);
-            background: #333;
+            background: #1f2937;
             color: white;
-            padding: 5px 10px;
-            border-radius: 5px;
+            padding: 6px 12px;
+            border-radius: 8px;
             font-size: 12px;
             white-space: nowrap;
             display: none;
             z-index: 1000;
+            font-weight: normal;
+            letter-spacing: 0.3px;
         }
-        [data-tooltip]:hover:before {
+        [data-tooltip]:after {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #1f2937;
+            display: none;
+        }
+        [data-tooltip]:hover:before,
+        [data-tooltip]:hover:after {
             display: block;
         }
+        
+        /* Dropdown Menu */
         .dropdown-menu {
             display: none;
             position: absolute;
@@ -45,13 +81,26 @@
             top: 100%;
             margin-top: 0.5rem;
             background: white;
-            border-radius: 0.5rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            min-width: 240px;
+            border-radius: 0.75rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            min-width: 260px;
             z-index: 50;
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
         }
         .dropdown-menu.show {
             display: block;
+            animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         .dropdown-item {
             display: flex;
@@ -60,62 +109,99 @@
             color: #374151;
             transition: all 0.2s;
             border-left: 3px solid transparent;
+            font-size: 0.875rem;
         }
         .dropdown-item:hover {
-            background-color: #F3F4F6;
-            border-left-color: #3B82F6;
+            background-color: #f0fdf4;
+            border-left-color: #10b981;
         }
         .dropdown-item i {
             width: 1.25rem;
             margin-right: 0.75rem;
-            color: #6B7280;
+            color: #6b7280;
+            font-size: 1rem;
         }
         .dropdown-item:hover i {
-            color: #3B82F6;
+            color: #10b981;
         }
         .dropdown-divider {
             height: 1px;
-            background-color: #E5E7EB;
+            background: linear-gradient(to right, #e5e7eb, #10b981, #e5e7eb);
             margin: 0.25rem 0;
         }
         .dropdown-header {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid #E5E7EB;
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+        }
+        
+        /* Transizioni */
+        .sidebar-link {
+            transition: all 0.2s ease;
+        }
+        .sidebar-link:hover {
+            padding-left: 1.75rem;
+        }
+        
+        /* Badge personalizzati */
+        .badge-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+        .badge-warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+        .badge-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+        .badge-info {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
         }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gradient-to-br from-gray-50 to-gray-100">
     @php
         $currentAdmin = Auth::guard('admin')->user();
     @endphp
     
-    <div class="flex h-screen">
+    <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
-        <aside class="w-64 bg-gray-900 text-white flex flex-col">
-            <div class="p-6 border-b border-gray-800">
-                <h1 class="text-2xl font-bold">AdminLTE</h1>
-                <p class="text-sm text-gray-400 mt-1">Pannello di Controllo</p>
+        <aside class="w-64 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col shadow-xl">
+            <!-- Logo -->
+            <div class="p-6 border-b border-gray-700/50">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 bg-gradient-to-r from-emerald-400 to-green-500 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-crown text-white text-sm"></i>
+                    </div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text text-transparent">AdminLTE</h1>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">Pannello di Controllo</p>
             </div>
             
-            <nav class="flex-1 mt-6 overflow-y-auto">
+            <!-- Navigation -->
+            <nav class="flex-1 mt-6 overflow-y-auto px-3">
                 <!-- Dashboard -->
                 @if($currentAdmin && $currentAdmin->hasPermission('access_dashboard'))
                 <a href="{{ route('admin.dashboard') }}" 
-                   class="flex items-center px-6 py-3 hover:bg-gray-800 transition {{ request()->routeIs('admin.dashboard') ? 'bg-gray-800 border-l-4 border-blue-500' : '' }}">
-                    <i class="fas fa-tachometer-alt w-5 h-5 mr-3"></i>
-                    <span>Dashboard</span>
+                   class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
+                    <i class="fas fa-tachometer-alt w-5 h-5 mr-3 {{ request()->routeIs('admin.dashboard') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
+                    <span class="text-sm font-medium">Dashboard</span>
                 </a>
                 @endif
                 
                 <!-- Amministratori -->
                 @if($currentAdmin && $currentAdmin->hasPermission('view_administrators'))
-                <div class="mt-4">
-                    <div class="px-6 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        Amministratori
+                <div class="mt-6">
+                    <div class="px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                        <i class="fas fa-circle mr-1 text-[8px]"></i> Amministratori
                     </div>
-                    <a href="#" class="flex items-center px-6 py-3 hover:bg-gray-800 transition">
-                        <i class="fas fa-users w-5 h-5 mr-3"></i>
-                        <span>Lista Admin</span>
+                    <a href="{{ route('admin.administrators.index') }}" 
+                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.administrators.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
+                        <i class="fas fa-user-shield w-5 h-5 mr-3 {{ request()->routeIs('admin.administrators.*') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
+                        <span class="text-sm font-medium">Lista Admin</span>
                     </a>
                 </div>
                 @endif
@@ -123,13 +209,13 @@
                 <!-- Ruoli e Permessi -->
                 @if($currentAdmin && $currentAdmin->hasPermission('view_roles'))
                 <div class="mt-4">
-                    <div class="px-6 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        Sicurezza
+                    <div class="px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                        <i class="fas fa-circle mr-1 text-[8px]"></i> Sicurezza
                     </div>
                     <a href="{{ route('admin.roles.index') }}" 
-                       class="flex items-center px-6 py-3 hover:bg-gray-800 transition {{ request()->routeIs('admin.roles.*') ? 'bg-gray-800 border-l-4 border-blue-500' : '' }}">
-                        <i class="fas fa-shield-alt w-5 h-5 mr-3"></i>
-                        <span>Ruoli & Permessi</span>
+                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.roles.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
+                        <i class="fas fa-shield-alt w-5 h-5 mr-3 {{ request()->routeIs('admin.roles.*') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
+                        <span class="text-sm font-medium">Ruoli & Permessi</span>
                     </a>
                 </div>
                 @endif
@@ -137,46 +223,57 @@
                 <!-- Utenti -->
                 @if($currentAdmin && $currentAdmin->hasPermission('view_users'))
                 <div class="mt-4">
-                    <div class="px-6 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                        Gestione
+                    <div class="px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                        <i class="fas fa-circle mr-1 text-[8px]"></i> Gestione
                     </div>
                     <a href="{{ route('admin.users.index') }}" 
-                       class="flex items-center px-6 py-3 hover:bg-gray-800 transition {{ request()->routeIs('admin.users.*') ? 'bg-gray-800 border-l-4 border-blue-500' : '' }}">
-                        <i class="fas fa-user w-5 h-5 mr-3"></i>
-                        <span>Utenti</span>
+                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.users.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
+                        <i class="fas fa-users w-5 h-5 mr-3 {{ request()->routeIs('admin.users.*') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
+                        <span class="text-sm font-medium">Utenti</span>
                     </a>
                 </div>
                 @endif
             </nav>
+            
+            <!-- Footer Sidebar -->
+            <div class="p-4 border-t border-gray-700/50 mt-auto">
+                <div class="text-center">
+                    <p class="text-xs text-gray-500">Versione 1.0.0</p>
+                    <p class="text-xs text-gray-600 mt-1">© {{ date('Y') }} AdminLTE</p>
+                </div>
+            </div>
         </aside>
 
         <!-- Main Content -->
         <div class="flex-1 overflow-auto">
-            <!-- Header con avatar e dropdown -->
-            <header class="bg-white shadow-sm sticky top-0 z-10">
-                <div class="flex justify-end items-center px-8 py-4">
+            <!-- Header -->
+            <header class="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10 border-b border-gray-100">
+                <div class="flex justify-end items-center px-8 py-3">
                     <!-- Avatar e Dropdown -->
                     <div class="relative">
-                        <button id="userMenuButton" class="flex items-center space-x-3 focus:outline-none hover:bg-gray-50 rounded-lg px-3 py-2 transition">
-                            <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                        <button id="userMenuButton" class="flex items-center space-x-3 focus:outline-none hover:bg-gray-50 rounded-xl px-3 py-2 transition-all duration-200 group">
+                            <div class="w-10 h-10 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full flex items-center justify-center text-white font-semibold shadow-md group-hover:shadow-lg transition">
                                 {{ strtoupper(substr($currentAdmin->name ?? 'A', 0, 1)) }}
                             </div>
                             <div class="text-left">
-                                <p class="font-medium text-gray-700">{{ $currentAdmin->name ?? 'Admin' }}</p>
-                                <p class="text-gray-500 text-xs">{{ $currentAdmin->role->name ?? 'Nessun ruolo' }}</p>
+                                <p class="font-semibold text-gray-800 text-sm">{{ $currentAdmin->name ?? 'Admin' }}</p>
+                                <p class="text-gray-500 text-xs">
+                                    <i class="fas {{ $currentAdmin->role && $currentAdmin->role->slug == 'super_admin' ? 'fa-lock text-gray-800' : 'fa-shield-alt' }} mr-1"></i>
+                                    {{ $currentAdmin->role->name ?? 'Nessun ruolo' }}
+                                </p>
                             </div>
-                            <i class="fas fa-chevron-down text-gray-400 text-sm transition-transform duration-200" id="userMenuChevron"></i>
+                            <i class="fas fa-chevron-down text-gray-400 text-xs transition-transform duration-200 group-hover:text-emerald-500" id="userMenuChevron"></i>
                         </button>
                         
                         <!-- Dropdown Menu -->
                         <div id="userDropdown" class="dropdown-menu">
                             <div class="dropdown-header">
                                 <div class="flex items-center space-x-3">
-                                    <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                                    <div class="w-12 h-12 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">
                                         {{ strtoupper(substr($currentAdmin->name ?? 'A', 0, 1)) }}
                                     </div>
                                     <div>
-                                        <p class="font-medium text-gray-900">{{ $currentAdmin->name ?? 'Admin' }}</p>
+                                        <p class="font-bold text-gray-900">{{ $currentAdmin->name ?? 'Admin' }}</p>
                                         <p class="text-xs text-gray-500">{{ $currentAdmin->email ?? '' }}</p>
                                     </div>
                                 </div>
@@ -199,19 +296,46 @@
                 </div>
             </header>
 
-            <main>
+            <!-- Main Content Area -->
+            <main class="p-6">
+                <!-- Alert Messages -->
                 @if(session('success'))
-                    <div class="m-6 p-4 bg-green-100 border-l-4 border-green-500 text-green-700 rounded">
-                        <i class="fas fa-check-circle mr-2"></i> {{ session('success') }}
+                    <div class="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 text-green-700 rounded-lg shadow-sm animate-pulse">
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 text-lg mr-3"></i>
+                            <span class="font-medium">{{ session('success') }}</span>
+                        </div>
                     </div>
                 @endif
 
                 @if(session('error'))
-                    <div class="m-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded">
-                        <i class="fas fa-exclamation-circle mr-2"></i> {{ session('error') }}
+                    <div class="mb-6 p-4 bg-gradient-to-r from-red-50 to-rose-50 border-l-4 border-red-500 text-red-700 rounded-lg shadow-sm">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-circle text-red-500 text-lg mr-3"></i>
+                            <span class="font-medium">{{ session('error') }}</span>
+                        </div>
                     </div>
                 @endif
 
+                @if(session('warning'))
+                    <div class="mb-6 p-4 bg-gradient-to-r from-amber-50 to-yellow-50 border-l-4 border-amber-500 text-amber-700 rounded-lg shadow-sm">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-triangle text-amber-500 text-lg mr-3"></i>
+                            <span class="font-medium">{{ session('warning') }}</span>
+                        </div>
+                    </div>
+                @endif
+
+                @if(session('info'))
+                    <div class="mb-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-l-4 border-blue-500 text-blue-700 rounded-lg shadow-sm">
+                        <div class="flex items-center">
+                            <i class="fas fa-info-circle text-blue-500 text-lg mr-3"></i>
+                            <span class="font-medium">{{ session('info') }}</span>
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Page Content -->
                 @yield('content')
             </main>
         </div>
@@ -243,7 +367,28 @@
                     }
                 }
             });
+            
+            // Auto-hide success message after 5 seconds
+            const successAlert = document.querySelector('.animate-pulse');
+            if (successAlert) {
+                setTimeout(function() {
+                    successAlert.style.opacity = '0';
+                    successAlert.style.transition = 'opacity 0.5s ease';
+                    setTimeout(function() {
+                        successAlert.remove();
+                    }, 500);
+                }, 5000);
+            }
+        });
+        
+        // Tooltip auto-initialization
+        document.querySelectorAll('[data-tooltip]').forEach(element => {
+            if (element.classList.contains('disabled-link')) {
+                element.setAttribute('data-tooltip', 'Non hai i permessi necessari');
+            }
         });
     </script>
+    
+    @stack('scripts')
 </body>
 </html>

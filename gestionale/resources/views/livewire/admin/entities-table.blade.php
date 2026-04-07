@@ -297,24 +297,24 @@
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
                                 @if(auth()->guard('admin')->user()->hasPermission('view_entities'))
-                                <a href="{{ url('/admin/entities/' . $entity->id_cliente) }}" 
-                                   class="text-blue-600 hover:text-blue-900 transition-colors"
-                                   title="Visualizza">
+                                <button wire:click="viewEntity({{ $entity->id_cliente }})" 
+                                        class="text-blue-600 hover:text-blue-900 transition-colors"
+                                        title="Visualizza">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                     </svg>
-                                </a>
+                                </button>
                                 @endif
                                 
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_entities'))
-                                <a href="{{ url('/admin/entities/' . $entity->id_cliente . '/edit') }}" 
-                                   class="text-yellow-600 hover:text-yellow-900 transition-colors"
-                                   title="Modifica">
+                                <button wire:click="openEditModal({{ $entity->id_cliente }})" 
+                                        class="text-yellow-600 hover:text-yellow-900 transition-colors"
+                                        title="Modifica">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                     </svg>
-                                </a>
+                                </button>
                                 @endif
                                 
                                 @if(auth()->guard('admin')->user()->hasPermission('delete_entities'))
@@ -351,7 +351,7 @@
         </div>
     </div>
 
-    <!-- Paginazione fuori dalla tabella -->
+    <!-- Paginazione -->
     @if($entities->hasPages())
     <div class="mt-6">
         <div class="flex items-center justify-between">
@@ -360,7 +360,6 @@
             </div>
             <div>
                 <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                    {{-- Previous Page Link --}}
                     @if ($entities->onFirstPage())
                         <span class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-300 cursor-not-allowed">
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -375,7 +374,6 @@
                         </button>
                     @endif
 
-                    {{-- Pagination Elements --}}
                     @foreach ($entities->links()->elements as $element)
                         @if (is_string($element))
                             <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">{{ $element }}</span>
@@ -392,7 +390,6 @@
                         @endif
                     @endforeach
 
-                    {{-- Next Page Link --}}
                     @if ($entities->hasMorePages())
                         <button wire:click="nextPage" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -412,7 +409,7 @@
     </div>
     @endif
 
-        <!-- Modal di conferma eliminazione -->
+    <!-- Modal di conferma eliminazione -->
     @if($showDeleteModal)
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
          x-data="{ show: true }" 
@@ -465,7 +462,7 @@
     </div>
     @endif
 
-    <!-- Modal di inserimento migliorato -->
+    <!-- Modal di inserimento -->
     @if($showCreateModal)
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
          x-data="{ show: true }" 
@@ -491,74 +488,67 @@
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Nome -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
                     <input type="text" 
-                           wire:model="nome" 
+                           wire:model="formNome" 
                            placeholder="Inserisci il nome" 
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
                 
-                <!-- Cognome -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
                     <input type="text" 
-                           wire:model="cognome" 
+                           wire:model="formCognome" 
                            placeholder="Inserisci il cognome" 
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
                 
-                <!-- Tipologia -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         Tipologia <span class="text-red-500">*</span>
                     </label>
-                    <select wire:model="tipologia" 
+                    <select wire:model="formTipologia" 
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">Seleziona Tipologia</option>
                         <option value="cliente">Cliente</option>
                         <option value="fornitore">Fornitore</option>
                         <option value="entrambi">Entrambi</option>
                     </select>
-                    @error('tipologia') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
+                    @error('formTipologia') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
                 </div>
                 
-                <!-- Persona di Riferimento -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Persona di Riferimento</label>
                     <input type="text" 
-                           wire:model="riferimento" 
+                           wire:model="formRiferimento" 
                            placeholder="Persona di riferimento" 
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
                 
-                <!-- Ragione Sociale -->
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Ragione Sociale</label>
                     <input type="text" 
-                           wire:model="ragione_sociale" 
+                           wire:model="formRagioneSociale" 
                            placeholder="Ragione Sociale (opzionale)" 
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
                 
-                <!-- Partita IVA -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Partita IVA</label>
                     <input type="text" 
-                           wire:model="partita_iva" 
+                           wire:model="formPartitaIva" 
                            placeholder="Partita IVA" 
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
                 
-                <!-- Email -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
                     <input type="email" 
-                           wire:model="email" 
+                           wire:model="formEmail" 
                            placeholder="Email" 
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    @error('email') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
+                    @error('formEmail') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
                 </div>
             </div>
             
@@ -570,6 +560,438 @@
                 <button wire:click="save" 
                         class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors">
                     Salva
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Modal di modifica -->
+    @if($showEditModal && $editingEntity)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
+         x-data="{ show: true }" 
+         x-show="show" 
+         x-transition.opacity.duration.200ms>
+        
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl p-6 max-h-[90vh] overflow-y-auto" 
+             x-on:click.away="show = false"
+             x-transition.scale.origin.top>
+            
+            <div class="flex justify-between items-center mb-6 border-b pb-3">
+                <h2 class="text-2xl font-bold text-gray-800">
+                    <svg class="inline-block w-6 h-6 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                    Modifica Cliente / Fornitore
+                </h2>
+                <button wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Colonna Sinistra - Dati Anagrafici -->
+                <div class="space-y-4">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
+                            <i class="fas fa-user-circle mr-2 text-blue-500"></i> Dati Anagrafici
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                                <input type="text" 
+                                       wire:model="editNome" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
+                                <input type="text" 
+                                       wire:model="editCognome" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Tipologia <span class="text-red-500">*</span>
+                                </label>
+                                <select wire:model="editTipologia" 
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="cliente">Cliente</option>
+                                    <option value="fornitore">Fornitore</option>
+                                    <option value="entrambi">Entrambi</option>
+                                </select>
+                                @error('editTipologia') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Persona di Riferimento</label>
+                                <input type="text" 
+                                       wire:model="editRiferimento" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Ragione Sociale</label>
+                                <input type="text" 
+                                       wire:model="editRagioneSociale" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Partita IVA</label>
+                                <input type="text" 
+                                       wire:model="editPartitaIva" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                <input type="email" 
+                                       wire:model="editEmail" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                @error('editEmail') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
+                                <input type="text" 
+                                       wire:model="editCodiceFiscale" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Colonna Destra - Dati Fattura Elettronica -->
+                <div class="space-y-4">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
+                            <i class="fas fa-file-invoice-dollar mr-2 text-green-500"></i> Dati Fattura Elettronica
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">PEC (Posta Elettronica Certificata)</label>
+                                <input type="email" 
+                                       wire:model="editPec" 
+                                       placeholder="esempio@pec.it"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <p class="text-xs text-gray-500 mt-1">Indirizzo PEC per l'invio delle fatture elettroniche</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Codice SDI (Sistema di Interscambio)</label>
+                                <input type="text" 
+                                       wire:model="editCodiceSdi" 
+                                       placeholder="es: XXXXXXX"
+                                       maxlength="7"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase">
+                                <p class="text-xs text-gray-500 mt-1">Codice a 7 caratteri per la ricezione delle fatture elettroniche</p>
+                            </div>
+                            
+                            <div class="mt-4 p-3 bg-blue-50 rounded-md border border-blue-200">
+                                <div class="flex items-start">
+                                    <i class="fas fa-info-circle text-blue-500 mt-0.5 mr-2"></i>
+                                    <div class="text-xs text-blue-700">
+                                        <p class="font-medium mb-1">Informazioni sulla Fattura Elettronica:</p>
+                                        <p>Il codice SDI (anche chiamato "codice destinatario") è obbligatorio per ricevere fatture elettroniche dalla Pubblica Amministrazione. Se non specificato, verrà utilizzata la PEC.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Stato -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
+                            <i class="fas fa-toggle-on mr-2 text-purple-500"></i> Stato
+                        </h3>
+                        
+                        <div>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" 
+                                       wire:model="editValid" 
+                                       class="rounded border-gray-300 text-green-600 shadow-sm focus:border-green-300 focus:ring focus:ring-green-200 focus:ring-opacity-50">
+                                <span class="ml-2 text-sm text-gray-700">Account attivo</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Footer con azioni -->
+            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <button wire:click="closeEditModal" 
+                        class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
+                    Annulla
+                </button>
+                <button wire:click="updateEntity" 
+                        class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
+                    <i class="fas fa-save mr-2"></i> Aggiorna
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Modal di visualizzazione dettagli -->
+    @if($showViewModal && $viewingEntity)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
+         x-data="{ show: true }" 
+         x-show="show" 
+         x-transition.opacity.duration.200ms>
+        
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl p-6 max-h-[90vh] overflow-y-auto" 
+             x-on:click.away="show = false"
+             x-transition.scale.origin.top>
+            
+            <!-- Header -->
+            <div class="flex justify-between items-center mb-6 border-b pb-3">
+                <div class="flex items-center space-x-3">
+                    <div class="flex-shrink-0 h-12 w-12 rounded-full flex items-center justify-center
+                        @if($viewingEntity->entity_type == 'cliente') bg-green-100
+                        @elseif($viewingEntity->entity_type == 'fornitore') bg-blue-100
+                        @else bg-purple-100
+                        @endif">
+                        @if($viewingEntity->entity_type == 'cliente')
+                            <i class="fas fa-user text-green-600 text-xl"></i>
+                        @elseif($viewingEntity->entity_type == 'fornitore')
+                            <i class="fas fa-truck text-blue-600 text-xl"></i>
+                        @else
+                            <i class="fas fa-handshake text-purple-600 text-xl"></i>
+                        @endif
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">{{ $viewingEntity->full_name }}</h2>
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            @if($viewingEntity->entity_type == 'cliente') bg-green-100 text-green-800
+                            @elseif($viewingEntity->entity_type == 'fornitore') bg-blue-100 text-blue-800
+                            @else bg-purple-100 text-purple-800
+                            @endif">
+                            {{ $entityTypes[$viewingEntity->entity_type] ?? $viewingEntity->entity_type }}
+                        </span>
+                    </div>
+                </div>
+                <button wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Contenuto -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- Colonna Sinistra - Info Anagrafiche -->
+                <div class="space-y-4">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
+                            <i class="fas fa-info-circle mr-2 text-blue-500"></i> Informazioni Anagrafiche
+                        </h3>
+                        <div class="space-y-2">
+                            @if($viewingEntity->ragione_sociale)
+                            <div class="flex">
+                                <span class="w-32 text-gray-600 font-medium">Ragione Sociale:</span>
+                                <span class="text-gray-800">{{ $viewingEntity->ragione_sociale }}</span>
+                            </div>
+                            @endif
+                            
+                            @if($viewingEntity->nome || $viewingEntity->cognome)
+                            <div class="flex">
+                                <span class="w-32 text-gray-600 font-medium">Nome/Cognome:</span>
+                                <span class="text-gray-800">{{ $viewingEntity->nome }} {{ $viewingEntity->cognome }}</span>
+                            </div>
+                            @endif
+                            
+                            @if($viewingEntity->persona_riferimento)
+                            <div class="flex">
+                                <span class="w-32 text-gray-600 font-medium">Riferimento:</span>
+                                <span class="text-gray-800">{{ $viewingEntity->persona_riferimento }}</span>
+                            </div>
+                            @endif
+                            
+                            @if($viewingEntity->partita_iva)
+                            <div class="flex">
+                                <span class="w-32 text-gray-600 font-medium">Partita IVA:</span>
+                                <span class="text-gray-800 font-mono">{{ $viewingEntity->partita_iva }}</span>
+                            </div>
+                            @endif
+                            
+                            @if($viewingEntity->codice_fiscale)
+                            <div class="flex">
+                                <span class="w-32 text-gray-600 font-medium">Codice Fiscale:</span>
+                                <span class="text-gray-800 font-mono">{{ $viewingEntity->codice_fiscale }}</span>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    
+                    <!-- Dati Fattura Elettronica -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
+                            <i class="fas fa-file-invoice-dollar mr-2 text-green-500"></i> Dati Fattura Elettronica
+                        </h3>
+                        <div class="space-y-2">
+                            @if($viewingEntity->pec)
+                            <div class="flex">
+                                <span class="w-32 text-gray-600 font-medium">PEC:</span>
+                                <span class="text-gray-800">{{ $viewingEntity->pec }}</span>
+                            </div>
+                            @else
+                            <div class="flex">
+                                <span class="w-32 text-gray-600 font-medium">PEC:</span>
+                                <span class="text-gray-400 italic">Non impostata</span>
+                            </div>
+                            @endif
+                            
+                            @if($viewingEntity->codice_sdi)
+                            <div class="flex">
+                                <span class="w-32 text-gray-600 font-medium">Codice SDI:</span>
+                                <span class="text-gray-800 font-mono">{{ $viewingEntity->codice_sdi }}</span>
+                            </div>
+                            @else
+                            <div class="flex">
+                                <span class="w-32 text-gray-600 font-medium">Codice SDI:</span>
+                                <span class="text-gray-400 italic">Non impostato</span>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    
+                    <!-- Stato e Date -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
+                            <i class="fas fa-calendar-alt mr-2 text-purple-500"></i> Stato e Date
+                        </h3>
+                        <div class="space-y-2">
+                            <div class="flex">
+                                <span class="w-32 text-gray-600 font-medium">Stato:</span>
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                    {{ $viewingEntity->valid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                    {{ $viewingEntity->valid ? 'Attivo' : 'Disattivo' }}
+                                </span>
+                            </div>
+                            <div class="flex">
+                                <span class="w-32 text-gray-600 font-medium">Data inserimento:</span>
+                                <span class="text-gray-800">{{ $viewingEntity->created_at ? $viewingEntity->created_at->format('d/m/Y H:i') : ($viewingEntity->data_inserimento ? date('d/m/Y H:i', strtotime($viewingEntity->data_inserimento)) : '-') }}</span>
+                            </div>
+                            @if($viewingEntity->updated_at && $viewingEntity->updated_at != $viewingEntity->created_at)
+                            <div class="flex">
+                                <span class="w-32 text-gray-600 font-medium">Ultima modifica:</span>
+                                <span class="text-gray-800">{{ $viewingEntity->updated_at->format('d/m/Y H:i') }}</span>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Colonna Destra - Contatti -->
+                <div class="space-y-4">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
+                            <i class="fas fa-address-card mr-2 text-orange-500"></i> Contatti
+                        </h3>
+                        <div class="space-y-3">
+                            @if($viewingEntity->email)
+                            <div class="flex items-start">
+                                <i class="fas fa-envelope w-5 text-gray-500 mt-1 mr-3"></i>
+                                <div>
+                                    <span class="text-gray-600 font-medium block text-sm">Email</span>
+                                    <a href="mailto:{{ $viewingEntity->email }}" class="text-blue-600 hover:text-blue-800">
+                                        {{ $viewingEntity->email }}
+                                    </a>
+                                </div>
+                            </div>
+                            @endif
+                            
+                            @php
+                                $phoneContact = $viewingEntity->contacts->firstWhere('id_settings', 1);
+                                $mobileContact = $viewingEntity->contacts->firstWhere('id_settings', 2);
+                                $faxContact = $viewingEntity->contacts->firstWhere('id_settings', 3);
+                                $emailContact = $viewingEntity->contacts->firstWhere('id_settings', 4);
+                                $otherContacts = $viewingEntity->contacts->filter(function($c) {
+                                    return !in_array($c->id_settings, [1, 2, 3, 4]);
+                                });
+                            @endphp
+                            
+                            @if($phoneContact)
+                            <div class="flex items-start">
+                                <i class="fas fa-phone w-5 text-gray-500 mt-1 mr-3"></i>
+                                <div>
+                                    <span class="text-gray-600 font-medium block text-sm">Telefono</span>
+                                    <a href="tel:{{ $phoneContact->valore }}" class="text-gray-800">
+                                        {{ $phoneContact->valore }}
+                                    </a>
+                                </div>
+                            </div>
+                            @endif
+                            
+                            @if($mobileContact)
+                            <div class="flex items-start">
+                                <i class="fab fa-whatsapp w-5 text-green-500 mt-1 mr-3"></i>
+                                <div>
+                                    <span class="text-gray-600 font-medium block text-sm">Cellulare / WhatsApp</span>
+                                    <a href="tel:{{ $mobileContact->valore }}" class="text-gray-800">
+                                        {{ $mobileContact->valore }}
+                                    </a>
+                                </div>
+                            </div>
+                            @endif
+                            
+                            @if($faxContact)
+                            <div class="flex items-start">
+                                <i class="fas fa-fax w-5 text-gray-500 mt-1 mr-3"></i>
+                                <div>
+                                    <span class="text-gray-600 font-medium block text-sm">Fax</span>
+                                    <span class="text-gray-800">{{ $faxContact->valore }}</span>
+                                </div>
+                            </div>
+                            @endif
+                            
+                            @if($emailContact)
+                            <div class="flex items-start">
+                                <i class="fas fa-envelope w-5 text-gray-500 mt-1 mr-3"></i>
+                                <div>
+                                    <span class="text-gray-600 font-medium block text-sm">Email (contatto)</span>
+                                    <a href="mailto:{{ $emailContact->valore }}" class="text-blue-600 hover:text-blue-800">
+                                        {{ $emailContact->valore }}
+                                    </a>
+                                </div>
+                            </div>
+                            @endif
+                            
+                            @foreach($otherContacts as $contact)
+                            <div class="flex items-start">
+                                <i class="fas fa-address-card w-5 text-gray-500 mt-1 mr-3"></i>
+                                <div>
+                                    <span class="text-gray-600 font-medium block text-sm">
+                                        {{ $contact->setting->nome ?? 'Altro contatto' }}
+                                    </span>
+                                    <span class="text-gray-800">{{ $contact->valore }}</span>
+                                </div>
+                            </div>
+                            @endforeach
+                            
+                            @if(!$viewingEntity->email && !$phoneContact && !$mobileContact && !$faxContact && !$emailContact && $otherContacts->isEmpty())
+                            <div class="text-center py-4">
+                                <i class="fas fa-ban text-gray-400 text-3xl mb-2"></i>
+                                <p class="text-gray-500">Nessun contatto disponibile</p>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Footer con azioni -->
+            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <button wire:click="closeViewModal" 
+                        class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
+                    Chiudi
                 </button>
             </div>
         </div>

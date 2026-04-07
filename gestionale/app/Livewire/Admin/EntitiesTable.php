@@ -34,6 +34,26 @@ class EntitiesTable extends Component
     public $entityToDelete = null;
     public $entityNameToDelete = '';
     
+    // Modal visualizzazione dettagli
+    public $showViewModal = false;
+    public $viewingEntity = null;
+    
+    // Modal modifica
+    public $showEditModal = false;
+    public $editingEntity = null;
+    public $editId = null;
+    public $editNome = '';
+    public $editCognome = '';
+    public $editEmail = '';
+    public $editTipologia = '';
+    public $editRagioneSociale = '';
+    public $editPartitaIva = '';
+    public $editRiferimento = '';
+    public $editCodiceFiscale = '';
+    public $editPec = '';
+    public $editCodiceSdi = '';
+    public $editValid = true;
+    
     protected $queryString = ['search', 'typeFilter', 'statusFilter', 'sortField', 'sortDirection'];
     
     protected $listeners = [
@@ -116,6 +136,118 @@ class EntitiesTable extends Component
         return $query->paginate($this->perPage);
     }
     
+    // ==================== METODI VISUALIZZAZIONE ====================
+    
+    public function viewEntity($id)
+    {
+        try {
+            $entity = Entity::with(['contacts' => function($q) {
+                $q->with('setting');
+            }])->find($id);
+            
+            if (!$entity) {
+                session()->flash('error', 'Cliente/Fornitore non trovato');
+                return;
+            }
+            
+            $this->viewingEntity = $entity;
+            $this->showViewModal = true;
+            
+        } catch (\Exception $e) {
+            session()->flash('error', 'Errore nel caricamento dei dettagli: ' . $e->getMessage());
+        }
+    }
+    
+    public function closeViewModal()
+    {
+        $this->showViewModal = false;
+        $this->viewingEntity = null;
+    }
+    
+    // ==================== METODI MODIFICA ====================
+    
+    public function openEditModal($id)
+    {
+        try {
+            $entity = Entity::find($id);
+            
+            if (!$entity) {
+                session()->flash('error', 'Cliente/Fornitore non trovato');
+                return;
+            }
+            
+            $this->editingEntity = $entity;
+            $this->editId = $entity->id_cliente;
+            $this->editNome = $entity->nome;
+            $this->editCognome = $entity->cognome;
+            $this->editEmail = $entity->email;
+            $this->editTipologia = $entity->entity_type;
+            $this->editRagioneSociale = $entity->ragione_sociale;
+            $this->editPartitaIva = $entity->partita_iva;
+            $this->editRiferimento = $entity->persona_riferimento;
+            $this->editCodiceFiscale = $entity->codice_fiscale;
+            $this->editPec = $entity->pec;
+            $this->editCodiceSdi = $entity->codice_sdi;
+            $this->editValid = $entity->valid;
+            
+            $this->showEditModal = true;
+            
+        } catch (\Exception $e) {
+            session()->flash('error', 'Errore nel caricamento dei dati: ' . $e->getMessage());
+        }
+    }
+    
+    public function closeEditModal()
+    {
+        $this->showEditModal = false;
+        $this->editingEntity = null;
+        $this->reset([
+            'editId', 'editNome', 'editCognome', 'editEmail', 'editTipologia',
+            'editRagioneSociale', 'editPartitaIva', 'editRiferimento',
+            'editCodiceFiscale', 'editPec', 'editCodiceSdi', 'editValid'
+        ]);
+    }
+    
+    public function updateEntity()
+    {
+        $this->validate([
+            'editTipologia' => 'required|in:cliente,fornitore,entrambi',
+            'editEmail' => 'nullable|email',
+            'editPec' => 'nullable|email',
+        ]);
+        
+        try {
+            $entity = Entity::find($this->editId);
+            
+            if (!$entity) {
+                throw new \Exception('Entità non trovata');
+            }
+            
+            $entity->update([
+                'entity_type' => $this->editTipologia,
+                'ragione_sociale' => $this->editRagioneSociale ?: null,
+                'nome' => $this->editNome ?: null,
+                'cognome' => $this->editCognome ?: null,
+                'persona_riferimento' => $this->editRiferimento ?: null,
+                'email' => $this->editEmail ?: null,
+                'partita_iva' => $this->editPartitaIva ?: null,
+                'codice_fiscale' => $this->editCodiceFiscale ?: null,
+                'pec' => $this->editPec ?: null,
+                'codice_sdi' => $this->editCodiceSdi ?: null,
+                'valid' => $this->editValid
+            ]);
+            
+            $this->closeEditModal();
+            session()->flash('success', 'Cliente/Fornitore aggiornato con successo!');
+            $this->refreshTable();
+            
+        } catch (\Exception $e) {
+            session()->flash('error', 'Errore durante l\'aggiornamento: ' . $e->getMessage());
+        }
+    }
+    
+    // ==================== METODI ELIMINAZIONE ====================
+    
     public function confirmDelete($id)
     {
         $entity = Entity::find($id);
@@ -161,6 +293,8 @@ class EntitiesTable extends Component
         $this->entityNameToDelete = '';
     }
     
+    // ==================== METODI STATO ====================
+    
     public function toggleStatus($id)
     {
         try {
@@ -176,6 +310,8 @@ class EntitiesTable extends Component
         }
     }
     
+    // ==================== METODI FILTRI ====================
+    
     public function resetFilters()
     {
         $this->search = '';
@@ -185,6 +321,8 @@ class EntitiesTable extends Component
         $this->sortDirection = 'asc';
         $this->resetPage();
     }
+    
+    // ==================== METODI INSERIMENTO ====================
     
     public function openCreateModal()
     {
@@ -217,7 +355,6 @@ class EntitiesTable extends Component
         ]);
         
         try {
-            // Usa DB::table per maggiore controllo
             $id = DB::table('entities')->insertGetId([
                 'entity_type' => $this->formTipologia,
                 'ragione_sociale' => $this->formRagioneSociale ?: null,
@@ -234,7 +371,7 @@ class EntitiesTable extends Component
             
             if ($id) {
                 $this->closeCreateModal();
-                session()->flash('success', 'Cliente/Fornitore creato con successo! ID: ' . $id);
+                session()->flash('success', 'Cliente/Fornitore creato con successo!');
                 $this->refreshTable();
             } else {
                 throw new \Exception('Nessun ID restituito');

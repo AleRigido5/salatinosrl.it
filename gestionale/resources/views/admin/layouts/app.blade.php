@@ -9,6 +9,8 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         
@@ -221,15 +223,15 @@
                 @endif
                 
                 <!-- Utenti -->
-                @if($currentAdmin && $currentAdmin->hasPermission('view_users'))
+                @if($currentAdmin && $currentAdmin->hasPermission('view_entities'))
                 <div class="mt-4">
                     <div class="px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
                         <i class="fas fa-circle mr-1 text-[8px]"></i> Gestione
                     </div>
-                    <a href="{{ route('admin.users.index') }}" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.users.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
-                        <i class="fas fa-users w-5 h-5 mr-3 {{ request()->routeIs('admin.users.*') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
-                        <span class="text-sm font-medium">Utenti</span>
+                    <a href="{{ route('admin.entities.index') }}" 
+                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.entities.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
+                        <i class="fas fa-building w-5 h-5 mr-3 {{ request()->routeIs('admin.entities.*') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
+                        <span class="text-sm font-medium">Clienti / Fornitori</span>
                     </a>
                 </div>
                 @endif

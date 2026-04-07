@@ -20,11 +20,13 @@ return new class extends Migration
             $table->timestamp('last_login_at')->nullable();
             $table->string('last_login_ip')->nullable();
             $table->rememberToken();
+            $table->softDeletes();
             $table->timestamps();
             
             $table->index('email');
             $table->index('is_active');
             $table->index('role_id');
+            $table->index('deleted_at');
         });
     }
 

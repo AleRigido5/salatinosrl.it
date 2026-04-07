@@ -15,11 +15,17 @@ class AdministratorTable extends Component
     public $search = '';
     public $roleFilter = '';
     public $statusFilter = '';
+    public $trashedFilter = ''; // Filtro per soft delete
     public $perPage = 15;
     public $sortField = 'created_at';
     public $sortDirection = 'desc';
+    public $confirmingDelete = false;
+    public $confirmingForceDelete = false;
+    public $confirmingRestore = false;
+    public $selectedAdminId = null;
+    public $selectedAdminName = '';
     
-    protected $queryString = ['search', 'roleFilter', 'statusFilter', 'sortField', 'sortDirection'];
+    protected $queryString = ['search', 'roleFilter', 'statusFilter', 'trashedFilter', 'sortField', 'sortDirection'];
     
     protected $listeners = ['administratorDeleted' => 'refreshTable', 'refreshTable' => '$refresh'];
     
@@ -53,6 +59,11 @@ class AdministratorTable extends Component
         $this->resetPage();
     }
     
+    public function updatingTrashedFilter()
+    {
+        $this->resetPage();
+    }
+    
     public function updatingPerPage()
     {
         $this->resetPage();
@@ -67,7 +78,7 @@ class AdministratorTable extends Component
     {
         $currentAdmin = Auth::guard('admin')->user();
         
-        return Administrator::query()
+        $query = Administrator::query()
             ->with('role')
             ->when($this->search, function($query) {
                 $query->where(function($q) {
@@ -79,42 +90,147 @@ class AdministratorTable extends Component
             ->when($this->roleFilter, fn($q) => $q->where('role_id', $this->roleFilter))
             ->when($this->statusFilter !== '', function($q) {
                 $q->where('is_active', $this->statusFilter === 'active');
-            })
-            ->when(!$currentAdmin->isSuperAdmin(), function($q) use ($currentAdmin) {
-                // Non mostra admin con livello superiore o uguale se non è super admin
-                $q->whereHas('role', function($roleQuery) use ($currentAdmin) {
-                    $roleQuery->where('level', '>', $currentAdmin->role->level);
-                });
-            })
-            ->orderBy($this->sortField, $this->sortDirection)
+            });
+        
+        // Filtro per soft delete
+        if ($this->trashedFilter === 'only_trashed') {
+            $query->onlyTrashed();
+        } elseif ($this->trashedFilter === 'with_trashed') {
+            $query->withTrashed();
+        }
+        
+        // Filtro per livello (solo per non super admin)
+        if (!$currentAdmin->isSuperAdmin()) {
+            $query->whereHas('role', function($roleQuery) use ($currentAdmin) {
+                $roleQuery->where('level', '>', $currentAdmin->role->level);
+            });
+        }
+        
+        return $query->orderBy($this->sortField, $this->sortDirection)
             ->paginate($this->perPage);
     }
     
-    public function deleteAdministrator($id)
+    public function confirmDelete($id)
     {
         $admin = Administrator::find($id);
+        if ($admin) {
+            $this->selectedAdminId = $id;
+            $this->selectedAdminName = $admin->name;
+            $this->confirmingDelete = true;
+        }
+    }
+    
+    public function confirmForceDelete($id)
+    {
+        $admin = Administrator::withTrashed()->find($id);
+        if ($admin) {
+            $this->selectedAdminId = $id;
+            $this->selectedAdminName = $admin->name;
+            $this->confirmingForceDelete = true;
+        }
+    }
+    
+    public function confirmRestore($id)
+    {
+        $admin = Administrator::withTrashed()->find($id);
+        if ($admin) {
+            $this->selectedAdminId = $id;
+            $this->selectedAdminName = $admin->name;
+            $this->confirmingRestore = true;
+        }
+    }
+    
+    public function deleteAdministrator()
+    {
+        $admin = Administrator::find($this->selectedAdminId);
         $currentAdmin = Auth::guard('admin')->user();
         
         if (!$admin) {
             session()->flash('error', 'Amministratore non trovato');
+            $this->cancelDelete();
             return;
         }
         
         // Non puoi eliminare te stesso
         if ($admin->id === $currentAdmin->id) {
             session()->flash('error', 'Non puoi eliminare il tuo account!');
+            $this->cancelDelete();
             return;
         }
         
         // Non puoi eliminare super admin se non sei super admin
         if ($admin->isSuperAdmin() && !$currentAdmin->isSuperAdmin()) {
             session()->flash('error', 'Non puoi eliminare un Super Amministratore!');
+            $this->cancelDelete();
             return;
         }
         
         $admin->delete();
-        session()->flash('success', 'Amministratore eliminato con successo!');
+        session()->flash('success', "Amministratore {$admin->name} è stato spostato nel cestino.");
         $this->dispatch('administratorDeleted');
+        $this->cancelDelete();
+    }
+    
+    public function forceDeleteAdministrator()
+    {
+        $admin = Administrator::withTrashed()->find($this->selectedAdminId);
+        $currentAdmin = Auth::guard('admin')->user();
+        
+        if (!$admin) {
+            session()->flash('error', 'Amministratore non trovato');
+            $this->cancelDelete();
+            return;
+        }
+        
+        // Non puoi eliminare te stesso permanentemente
+        if ($admin->id === $currentAdmin->id) {
+            session()->flash('error', 'Non puoi eliminare permanentemente il tuo account!');
+            $this->cancelDelete();
+            return;
+        }
+        
+        // Non puoi eliminare super admin se non sei super admin
+        if ($admin->isSuperAdmin() && !$currentAdmin->isSuperAdmin()) {
+            session()->flash('error', 'Non puoi eliminare permanentemente un Super Amministratore!');
+            $this->cancelDelete();
+            return;
+        }
+        
+        $adminName = $admin->name;
+        $admin->forceDelete();
+        session()->flash('success', "Amministratore {$adminName} è stato eliminato permanentemente.");
+        $this->dispatch('administratorDeleted');
+        $this->cancelDelete();
+    }
+    
+    public function restoreAdministrator()
+    {
+        $admin = Administrator::withTrashed()->find($this->selectedAdminId);
+        
+        if (!$admin) {
+            session()->flash('error', 'Amministratore non trovato');
+            $this->cancelDelete();
+            return;
+        }
+        
+        $admin->restore();
+        session()->flash('success', "Amministratore {$admin->name} è stato ripristinato con successo.");
+        $this->dispatch('administratorDeleted');
+        $this->cancelDelete();
+    }
+    
+    public function cancelDelete()
+    {
+        $this->confirmingDelete = false;
+        $this->confirmingForceDelete = false;
+        $this->confirmingRestore = false;
+        $this->selectedAdminId = null;
+        $this->selectedAdminName = '';
+    }
+
+    public function getTrashCountProperty()
+    {
+        return Administrator::onlyTrashed()->count();
     }
     
     public function toggleStatus($id)
@@ -150,6 +266,7 @@ class AdministratorTable extends Component
         $this->search = '';
         $this->roleFilter = '';
         $this->statusFilter = '';
+        $this->trashedFilter = '';
         $this->sortField = 'created_at';
         $this->sortDirection = 'desc';
         $this->resetPage();

@@ -26,11 +26,25 @@ class PermissionsTableSeeder extends Seeder
             ['name' => 'Eliminare Ruoli', 'slug' => 'delete_roles', 'group' => 'roles', 'icon' => '🗑️', 'sort_order' => 23],
             ['name' => 'Gestire Permessi Ruoli', 'slug' => 'manage_role_permissions', 'group' => 'roles', 'icon' => '🔑', 'sort_order' => 24],
             
-            // Gestione Utenti
-            ['name' => 'Visualizzare Utenti', 'slug' => 'view_users', 'group' => 'users', 'icon' => '👤', 'sort_order' => 30],
-            ['name' => 'Creare Utenti', 'slug' => 'create_users', 'group' => 'users', 'icon' => '➕', 'sort_order' => 31],
-            ['name' => 'Modificare Utenti', 'slug' => 'edit_users', 'group' => 'users', 'icon' => '✏️', 'sort_order' => 32],
-            ['name' => 'Eliminare Utenti', 'slug' => 'delete_users', 'group' => 'users', 'icon' => '🗑️', 'sort_order' => 33],
+            // Gestione Entità (Clienti/Fornitori)
+            ['name' => 'Visualizzare Entità', 'slug' => 'view_entities', 'group' => 'entities', 'icon' => '🏢', 'sort_order' => 30],
+            ['name' => 'Creare Entità', 'slug' => 'create_entities', 'group' => 'entities', 'icon' => '➕', 'sort_order' => 31],
+            ['name' => 'Modificare Entità', 'slug' => 'edit_entities', 'group' => 'entities', 'icon' => '✏️', 'sort_order' => 32],
+            ['name' => 'Eliminare Entità', 'slug' => 'delete_entities', 'group' => 'entities', 'icon' => '🗑️', 'sort_order' => 33],
+            
+            // Gestione Contatti
+            ['name' => 'Visualizzare Contatti', 'slug' => 'view_contacts', 'group' => 'contacts', 'icon' => '📞', 'sort_order' => 40],
+            ['name' => 'Gestire Contatti', 'slug' => 'manage_contacts', 'group' => 'contacts', 'icon' => '✏️', 'sort_order' => 41],
+            
+            // Gestione Settings
+            ['name' => 'Visualizzare Settings', 'slug' => 'view_settings', 'group' => 'settings', 'icon' => '⚙️', 'sort_order' => 50],
+            ['name' => 'Modificare Settings', 'slug' => 'edit_settings', 'group' => 'settings', 'icon' => '🔧', 'sort_order' => 51],
+            
+            // Gestione Utenti (normali)
+            ['name' => 'Visualizzare Utenti', 'slug' => 'view_users', 'group' => 'users', 'icon' => '👤', 'sort_order' => 60],
+            ['name' => 'Creare Utenti', 'slug' => 'create_users', 'group' => 'users', 'icon' => '➕', 'sort_order' => 61],
+            ['name' => 'Modificare Utenti', 'slug' => 'edit_users', 'group' => 'users', 'icon' => '✏️', 'sort_order' => 62],
+            ['name' => 'Eliminare Utenti', 'slug' => 'delete_users', 'group' => 'users', 'icon' => '🗑️', 'sort_order' => 63],
         ];
 
         foreach ($permissions as $permission) {

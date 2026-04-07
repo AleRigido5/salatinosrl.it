@@ -5,9 +5,26 @@
 @section('content')
 <div class="p-6">
     <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold text-gray-800">
-            <i class="fas fa-user-shield mr-2 text-emerald-600"></i> Gestione Amministratori
-        </h1>
+        <div class="flex space-x-3">
+            <h1 class="text-2xl font-bold text-gray-800">
+                <i class="fas fa-user-shield mr-2 text-emerald-600"></i> Gestione Amministratori
+            </h1>
+            
+            <!-- Bottone Cestino con contatore -->
+            @php
+                $trashCount = \App\Models\Administrator::onlyTrashed()->count();
+            @endphp
+            <a href="{{ route('admin.trash.index', 'administrators') }}" 
+               class="relative inline-flex items-center px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg transition-all duration-200">
+                <i class="fas fa-trash-alt mr-2"></i> Cestino
+                @if($trashCount > 0)
+                    <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {{ $trashCount }}
+                    </span>
+                @endif
+            </a>
+        </div>
+        
         @if(auth()->guard('admin')->user()->hasPermission('create_administrators'))
         <a href="{{ route('admin.administrators.create') }}" 
            class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg">

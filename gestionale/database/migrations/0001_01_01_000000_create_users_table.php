@@ -23,6 +23,7 @@ return new class extends Migration
             $table->json('permissions')->nullable();
             $table->json('metadata')->nullable();
             $table->rememberToken();
+            $table->softDeletes();
             $table->timestamps();
         });
     }

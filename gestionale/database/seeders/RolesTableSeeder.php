@@ -66,18 +66,24 @@ class RolesTableSeeder extends Seeder
             'access_dashboard',
             'view_administrators', 'create_administrators', 'edit_administrators',
             'view_roles', 'create_roles', 'edit_roles', 'manage_role_permissions',
+            'view_entities', 'create_entities', 'edit_entities', 'delete_entities',
+            'view_contacts', 'manage_contacts',
+            'view_settings', 'edit_settings',
             'view_users', 'create_users', 'edit_users', 'delete_users',
         ])->pluck('id')->toArray();
         $admin->permissions()->sync($adminPermissions);
 
         $editorPermissions = Permission::whereIn('slug', [
             'access_dashboard',
+            'view_entities',
+            'view_contacts',
             'view_users',
         ])->pluck('id')->toArray();
         $editor->permissions()->sync($editorPermissions);
 
         $viewerPermissions = Permission::whereIn('slug', [
             'access_dashboard',
+            'view_entities',
         ])->pluck('id')->toArray();
         $viewer->permissions()->sync($viewerPermissions);
     }

@@ -1,7 +1,7 @@
 <div>
     <!-- Filtri e Ricerca Live -->
     <div class="bg-gradient-to-r from-white to-emerald-50 rounded-xl shadow-md mb-6 p-5 border border-emerald-100">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <!-- Ricerca live -->
             <div class="relative md:col-span-2">
                 <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
@@ -25,6 +25,13 @@
                 <option value="active">Attivi</option>
                 <option value="inactive">Disattivi</option>
             </select>
+            
+            <!-- Filtro cestino -->
+            <select wire:model.live="trashedFilter" class="px-3 py-2 border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
+                <option value="">Solo attivi</option>
+                <option value="only_trashed">Cestino</option>
+                <option value="with_trashed">Tutti (inclusi cancellati)</option>
+            </select>
         </div>
         
         <!-- Seconda riga: elementi per pagina e reset filtri -->
@@ -42,7 +49,7 @@
             </div>
             
             <div class="flex justify-end">
-                @if($search || $roleFilter || $statusFilter)
+                @if($search || $roleFilter || $statusFilter || $trashedFilter)
                 <button wire:click="resetFilters" class="text-emerald-600 hover:text-emerald-800 text-sm transition-colors">
                     <i class="fas fa-undo-alt mr-1"></i> Resetta tutti i filtri
                 </button>
@@ -51,7 +58,7 @@
         </div>
         
         <!-- Info ricerca attiva -->
-        @if($search || $roleFilter || $statusFilter)
+        @if($search || $roleFilter || $statusFilter || $trashedFilter)
         <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
             <span class="text-gray-500">Filtri attivi:</span>
             @if($search)
@@ -74,6 +81,15 @@
             <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-emerald-100 text-emerald-700">
                 <i class="fas fa-filter mr-1"></i> {{ $statusFilter === 'active' ? 'Attivi' : 'Disattivi' }}
                 <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-emerald-900">
+                    <i class="fas fa-times-circle"></i>
+                </button>
+            </span>
+            @endif
+            @if($trashedFilter)
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-amber-100 text-amber-700">
+                <i class="fas fa-trash mr-1"></i> 
+                {{ $trashedFilter === 'only_trashed' ? 'Solo cestino' : 'Tutti (inclusi cancellati)' }}
+                <button wire:click="$set('trashedFilter', '')" class="ml-1 hover:text-amber-900">
                     <i class="fas fa-times-circle"></i>
                 </button>
             </span>
@@ -134,17 +150,27 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse($administrators as $admin)
-                    <tr class="hover:bg-emerald-50/30 transition-colors duration-150">
+                    <tr class="hover:bg-emerald-50/30 transition-colors duration-150 {{ $admin->trashed() ? 'bg-gray-50 opacity-75' : '' }}">
                         <td class="px-6 py-4">
                             <div class="flex items-center space-x-3">
                                 <div class="w-10 h-10 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full flex items-center justify-center shadow-md">
                                     <span class="text-white font-semibold">{{ strtoupper(substr($admin->name, 0, 1)) }}</span>
                                 </div>
                                 <div>
-                                    <div class="font-semibold text-gray-800">{{ $admin->name }}</div>
+                                    <div class="font-semibold text-gray-800">
+                                        {{ $admin->name }}
+                                        @if($admin->trashed())
+                                            <span class="ml-2 text-xs text-red-500">(Cestinato)</span>
+                                        @endif
+                                    </div>
                                     <div class="text-sm text-gray-500">
                                         <i class="fas fa-envelope mr-1 text-gray-400"></i> {{ $admin->email }}
                                     </div>
+                                    @if($admin->deleted_at)
+                                        <div class="text-xs text-gray-400 mt-1">
+                                            <i class="far fa-calendar-alt mr-1"></i> Eliminato: {{ $admin->deleted_at->format('d/m/Y H:i') }}
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         </td>
@@ -172,12 +198,18 @@
                             @endif
                         </td>
                         <td class="px-6 py-4">
+                            @if(!$admin->trashed())
                             <button wire:click="toggleStatus({{ $admin->id }})" 
                                     class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full transition-all duration-200
                                         {{ $admin->is_active ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-red-100 text-red-800 hover:bg-red-200' }}">
                                 <i class="fas {{ $admin->is_active ? 'fa-check-circle' : 'fa-times-circle' }} mr-1"></i>
                                 {{ $admin->is_active ? 'Attivo' : 'Disattivo' }}
                             </button>
+                            @else
+                            <span class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-500">
+                                <i class="fas fa-trash mr-1"></i> Eliminato
+                            </span>
+                            @endif
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-500">
                             <i class="far fa-clock mr-1 text-emerald-500"></i>
@@ -185,29 +217,43 @@
                         </td>
                         <td class="px-6 py-4 text-sm">
                             <div class="flex space-x-2">
-                                @if(auth()->guard('admin')->user()->hasPermission('view_administrators'))
-                                <a href="{{ route('admin.administrators.show', $admin) }}" 
-                                   class="text-emerald-600 hover:text-emerald-800 transition-colors p-1.5 rounded-lg hover:bg-emerald-50"
-                                   title="Visualizza">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-                                @endif
-                                
-                                @if(auth()->guard('admin')->user()->hasPermission('edit_administrators') && $admin->id != auth()->guard('admin')->id())
-                                <a href="{{ route('admin.administrators.edit', $admin) }}" 
-                                   class="text-lime-600 hover:text-lime-800 transition-colors p-1.5 rounded-lg hover:bg-lime-50"
-                                   title="Modifica">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                                @endif
-                                
-                                @if(auth()->guard('admin')->user()->hasPermission('delete_administrators') && $admin->id != auth()->guard('admin')->id() && !$admin->isSuperAdmin())
-                                <button wire:click="deleteAdministrator({{ $admin->id }})" 
-                                        onclick="return confirm('Sei sicuro di voler eliminare questo amministratore?')"
-                                        class="text-red-600 hover:text-red-800 transition-colors p-1.5 rounded-lg hover:bg-red-50"
-                                        title="Elimina">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
+                                @if(!$admin->trashed())
+                                    @if(auth()->guard('admin')->user()->hasPermission('view_administrators'))
+                                    <a href="{{ route('admin.administrators.show', $admin) }}" 
+                                       class="text-emerald-600 hover:text-emerald-800 transition-colors p-1.5 rounded-lg hover:bg-emerald-50"
+                                       title="Visualizza">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    @endif
+                                    
+                                    @if(auth()->guard('admin')->user()->hasPermission('edit_administrators') && $admin->id != auth()->guard('admin')->id())
+                                    <a href="{{ route('admin.administrators.edit', $admin) }}" 
+                                       class="text-lime-600 hover:text-lime-800 transition-colors p-1.5 rounded-lg hover:bg-lime-50"
+                                       title="Modifica">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    @endif
+                                    
+                                    @if(auth()->guard('admin')->user()->hasPermission('delete_administrators') && $admin->id != auth()->guard('admin')->id() && !$admin->isSuperAdmin())
+                                    <button wire:click="confirmDelete({{ $admin->id }})" 
+                                            class="text-amber-600 hover:text-amber-800 transition-colors p-1.5 rounded-lg hover:bg-amber-50"
+                                            title="Sposta nel cestino">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                    @endif
+                                @else
+                                    @if(auth()->guard('admin')->user()->hasPermission('delete_administrators'))
+                                    <button wire:click="confirmRestore({{ $admin->id }})" 
+                                            class="text-green-600 hover:text-green-800 transition-colors p-1.5 rounded-lg hover:bg-green-50"
+                                            title="Ripristina">
+                                        <i class="fas fa-trash-restore"></i>
+                                    </button>
+                                    <button wire:click="confirmForceDelete({{ $admin->id }})" 
+                                            class="text-red-600 hover:text-red-800 transition-colors p-1.5 rounded-lg hover:bg-red-50"
+                                            title="Elimina permanentemente">
+                                        <i class="fas fa-skull-crossbones"></i>
+                                    </button>
+                                    @endif
                                 @endif
                             </div>
                         </td>
@@ -218,7 +264,7 @@
                             <div class="flex flex-col items-center justify-center text-gray-400">
                                 <i class="fas fa-user-shield text-5xl mb-3"></i>
                                 <p class="text-lg">Nessun amministratore trovato</p>
-                                @if($search || $roleFilter || $statusFilter)
+                                @if($search || $roleFilter || $statusFilter || $trashedFilter)
                                 <button wire:click="resetFilters" class="mt-2 text-emerald-600 hover:text-emerald-800">
                                     <i class="fas fa-undo-alt mr-1"></i> Resetta filtri
                                 </button>
@@ -244,4 +290,94 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal Conferma Soft Delete -->
+    @if($confirmingDelete)
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div class="text-center">
+                <div class="mx-auto w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-trash-alt text-amber-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">Conferma eliminazione</h3>
+                <p class="text-gray-600 mb-4">
+                    Sei sicuro di voler spostare nel cestino <strong>{{ $selectedAdminName }}</strong>?
+                </p>
+                <p class="text-sm text-gray-500 mb-6">
+                    L'amministratore verrà spostato nel cestino e potrà essere ripristinato in seguito.
+                </p>
+                <div class="flex space-x-3">
+                    <button wire:click="cancelDelete" 
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                        Annulla
+                    </button>
+                    <button wire:click="deleteAdministrator" 
+                            class="flex-1 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition">
+                        Sposta nel cestino
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Modal Conferma Restore -->
+    @if($confirmingRestore)
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div class="text-center">
+                <div class="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-trash-restore text-green-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">Conferma ripristino</h3>
+                <p class="text-gray-600 mb-4">
+                    Sei sicuro di voler ripristinare <strong>{{ $selectedAdminName }}</strong>?
+                </p>
+                <p class="text-sm text-gray-500 mb-6">
+                    L'amministratore tornerà ad essere attivo nel sistema.
+                </p>
+                <div class="flex space-x-3">
+                    <button wire:click="cancelDelete" 
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                        Annulla
+                    </button>
+                    <button wire:click="restoreAdministrator" 
+                            class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition">
+                        Ripristina
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Modal Conferma Force Delete -->
+    @if($confirmingForceDelete)
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div class="text-center">
+                <div class="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-skull-crossbones text-red-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">Eliminazione permanente</h3>
+                <p class="text-gray-600 mb-4">
+                    Sei sicuro di voler eliminare PERMANENTEMENTE <strong>{{ $selectedAdminName }}</strong>?
+                </p>
+                <p class="text-sm text-red-500 mb-6">
+                    ⚠️ Questa azione è irreversibile! Tutti i dati associati verranno persi.
+                </p>
+                <div class="flex space-x-3">
+                    <button wire:click="cancelDelete" 
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                        Annulla
+                    </button>
+                    <button wire:click="forceDeleteAdministrator" 
+                            class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition">
+                        Elimina permanentemente
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 </div>

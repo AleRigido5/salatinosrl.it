@@ -245,10 +245,7 @@
             <!-- Logo -->
             <div class="p-6 border-b border-gray-700/50 flex items-center justify-between">
                 <div class="flex items-center space-x-2">
-                    <div class="logo-icon flex items-center justify-center w-8 h-8 bg-gradient-to-r from-emerald-500 to-green-500 rounded-lg">
-                        <i class="fas fa-utensils text-white text-sm"></i>
-                    </div>
-                    <h1 class="logo-text text-xl font-bold bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text text-transparent">Salatino</h1>
+                    <h1 class="logo-text text-xl font-bold bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text text-transparent">Gestionale Salatino</h1>
                 </div>
                 <button onclick="window.dispatchEvent(new Event('toggle-sidebar'))" 
                         class="toggle-sidebar-btn text-gray-400 hover:text-emerald-400 transition-all duration-200 focus:outline-none">
@@ -319,7 +316,7 @@
             <div class="p-4 border-t border-gray-700/50 mt-auto">
                 <div class="text-center">
                     <p class="footer-text text-xs text-gray-500">Versione 1.0.0</p>
-                    <p class="footer-text text-xs text-gray-600 mt-1">© {{ date('Y') }} Salatino</p>
+                    <p class="footer-text text-xs text-gray-600 mt-1">© {{ date('Y') }} Gestionale Salatino</p>
                 </div>
             </div>
         </aside>

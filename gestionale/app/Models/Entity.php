@@ -13,6 +13,7 @@ class Entity extends Model
     protected $table = 'entities';
     protected $primaryKey = 'id_cliente';
     
+    // IMPORTANTE: Laravel di solito assume 'id', ma noi usiamo 'id_cliente'
     public $incrementing = true;
     protected $keyType = 'int';
 
@@ -28,7 +29,6 @@ class Entity extends Model
         'stato',
         'partita_iva',
         'codice_fiscale',
-        'codice_sdi',
         'id_gruppo',
         'valid',
         'data_inserimento',
@@ -41,6 +41,8 @@ class Entity extends Model
 
     /**
      * Relazione con i contatti
+     * Foreign key: id_entities sulla tabella contacts
+     * Local key: id_cliente sulla tabella entities
      */
     public function contacts()
     {
@@ -70,11 +72,13 @@ class Entity extends Model
      */
     public function getEmailContactAttribute()
     {
+        // Prima cerca id_settings=4
         $contact = $this->contacts->firstWhere('id_settings', 4);
         if ($contact) {
             return $contact->valore;
         }
         
+        // Poi cerca tra id_settings=3 che sembrano email
         $emailContact = $this->contacts->first(function($c) {
             return $c->id_settings == 3 && filter_var($c->valore, FILTER_VALIDATE_EMAIL);
         });
@@ -83,6 +87,7 @@ class Entity extends Model
             return $emailContact->valore;
         }
         
+        // Infine usa il campo email dell'entità
         return $this->email;
     }
     

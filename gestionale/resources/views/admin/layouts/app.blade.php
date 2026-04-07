@@ -11,7 +11,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    @livewireStyles
     <style>
         body { font-family: 'Inter', sans-serif; }
         
@@ -138,59 +137,12 @@
             background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
         }
         
-        /* Sidebar - Stato normale */
-        .sidebar {
-            transition: width 0.3s ease;
+        /* Transizioni */
+        .sidebar-link {
+            transition: all 0.2s ease;
         }
-        
-        /* Sidebar - Stato compresso */
-        .sidebar-collapsed {
-            width: 80px !important;
-        }
-        
-        .sidebar-collapsed .logo-text,
-        .sidebar-collapsed .nav-text,
-        .sidebar-collapsed .sidebar-section-title span,
-        .sidebar-collapsed .footer-text {
-            display: none !important;
-        }
-        
-        .sidebar-collapsed .sidebar-link {
-            justify-content: center !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-        }
-        
-        .sidebar-collapsed .sidebar-link i {
-            margin-right: 0 !important;
-            font-size: 1.25rem !important;
-        }
-        
-        .sidebar-collapsed .sidebar-section-title {
-            justify-content: center !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-        }
-        
-        .sidebar-collapsed .sidebar-section-title i {
-            margin-right: 0 !important;
-        }
-        
-        .sidebar-collapsed .logo-icon {
-            margin-right: 0 !important;
-        }
-        
-        .sidebar-collapsed .flex.items-center.space-x-2 {
-            justify-content: center !important;
-        }
-        
-        /* Bottone toggle sidebar */
-        .toggle-sidebar-btn {
-            transition: transform 0.3s ease;
-        }
-        
-        .sidebar-collapsed .toggle-sidebar-btn {
-            transform: rotate(180deg);
+        .sidebar-link:hover {
+            padding-left: 1.75rem;
         }
         
         /* Badge personalizzati */
@@ -217,66 +169,38 @@
         $currentAdmin = Auth::guard('admin')->user();
     @endphp
     
-    <div x-data="{ sidebarCollapsed: false }" 
-         x-init="
-             let saved = localStorage.getItem('sidebarCollapsed');
-             if (saved === 'true') {
-                 sidebarCollapsed = true;
-                 $el.querySelector('#sidebar').classList.add('sidebar-collapsed');
-             }
-             
-             // Ascolta l'evento di toggle
-             window.addEventListener('toggle-sidebar', () => {
-                 sidebarCollapsed = !sidebarCollapsed;
-                 if (sidebarCollapsed) {
-                     $el.querySelector('#sidebar').classList.add('sidebar-collapsed');
-                 } else {
-                     $el.querySelector('#sidebar').classList.remove('sidebar-collapsed');
-                 }
-                 localStorage.setItem('sidebarCollapsed', sidebarCollapsed);
-             });
-         "
-         class="flex h-screen overflow-hidden">
-        
+    <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
-        <aside id="sidebar" 
-               class="sidebar w-64 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col shadow-xl">
-            
+        <aside class="w-64 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col shadow-xl">
             <!-- Logo -->
-            <div class="p-6 border-b border-gray-700/50 flex items-center justify-between">
+            <div class="p-6 border-b border-gray-700/50">
                 <div class="flex items-center space-x-2">
-                    <h1 class="logo-text text-xl font-bold bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text text-transparent">Gestionale Salatino</h1>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text text-transparent">Gestionale Salatino</h1>
                 </div>
-                <button onclick="window.dispatchEvent(new Event('toggle-sidebar'))" 
-                        class="toggle-sidebar-btn text-gray-400 hover:text-emerald-400 transition-all duration-200 focus:outline-none">
-                    <i class="fas fa-chevron-left text-sm"></i>
-                </button>
+                <p class="text-xs text-gray-500 mt-2">Pannello di Controllo</p>
             </div>
             
             <!-- Navigation -->
             <nav class="flex-1 mt-6 overflow-y-auto px-3">
                 <!-- Dashboard -->
                 @if($currentAdmin && $currentAdmin->hasPermission('access_dashboard'))
-                <div class="mb-4">
-                    <a href="{{ route('admin.dashboard') }}" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }}">
-                        <i class="fas fa-tachometer-alt w-5 h-5 mr-3 {{ request()->routeIs('admin.dashboard') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
-                        <span class="nav-text text-sm font-medium">Dashboard</span>
-                    </a>
-                </div>
+                <a href="{{ route('admin.dashboard') }}" 
+                   class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
+                    <i class="fas fa-tachometer-alt w-5 h-5 mr-3 {{ request()->routeIs('admin.dashboard') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
+                    <span class="text-sm font-medium">Dashboard</span>
+                </a>
                 @endif
                 
                 <!-- Amministratori -->
                 @if($currentAdmin && $currentAdmin->hasPermission('view_administrators'))
-                <div class="mt-4">
-                    <div class="sidebar-section-title px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center">
-                        <i class="fas fa-circle mr-1 text-[8px]"></i>
-                        <span>Amministratori</span>
+                <div class="mt-6">
+                    <div class="px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                        <i class="fas fa-circle mr-1 text-[8px]"></i> Amministratori
                     </div>
                     <a href="{{ route('admin.administrators.index') }}" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.administrators.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }}">
+                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.administrators.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
                         <i class="fas fa-user-shield w-5 h-5 mr-3 {{ request()->routeIs('admin.administrators.*') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
-                        <span class="nav-text text-sm font-medium">Lista Admin</span>
+                        <span class="text-sm font-medium">Lista Admin</span>
                     </a>
                 </div>
                 @endif
@@ -284,14 +208,13 @@
                 <!-- Ruoli e Permessi -->
                 @if($currentAdmin && $currentAdmin->hasPermission('view_roles'))
                 <div class="mt-4">
-                    <div class="sidebar-section-title px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center">
-                        <i class="fas fa-circle mr-1 text-[8px]"></i>
-                        <span>Sicurezza</span>
+                    <div class="px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                        <i class="fas fa-circle mr-1 text-[8px]"></i> Sicurezza
                     </div>
                     <a href="{{ route('admin.roles.index') }}" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.roles.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }}">
+                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.roles.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
                         <i class="fas fa-shield-alt w-5 h-5 mr-3 {{ request()->routeIs('admin.roles.*') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
-                        <span class="nav-text text-sm font-medium">Ruoli & Permessi</span>
+                        <span class="text-sm font-medium">Ruoli & Permessi</span>
                     </a>
                 </div>
                 @endif
@@ -299,14 +222,13 @@
                 <!-- Clienti / Fornitori -->
                 @if($currentAdmin && $currentAdmin->hasPermission('view_entities'))
                 <div class="mt-4">
-                    <div class="sidebar-section-title px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center">
-                        <i class="fas fa-circle mr-1 text-[8px]"></i>
-                        <span>Gestione</span>
+                    <div class="px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                        <i class="fas fa-circle mr-1 text-[8px]"></i> Gestione
                     </div>
                     <a href="{{ route('admin.entities.index') }}" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.entities.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }}">
+                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.entities.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
                         <i class="fas fa-building w-5 h-5 mr-3 {{ request()->routeIs('admin.entities.*') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
-                        <span class="nav-text text-sm font-medium">Clienti / Fornitori</span>
+                        <span class="text-sm font-medium">Clienti / Fornitori</span>
                     </a>
                 </div>
                 @endif
@@ -315,8 +237,8 @@
             <!-- Footer Sidebar -->
             <div class="p-4 border-t border-gray-700/50 mt-auto">
                 <div class="text-center">
-                    <p class="footer-text text-xs text-gray-500">Versione 1.0.0</p>
-                    <p class="footer-text text-xs text-gray-600 mt-1">© {{ date('Y') }} Gestionale Salatino</p>
+                    <p class="text-xs text-gray-500">Versione 1.0.0</p>
+                    <p class="text-xs text-gray-600 mt-1">© {{ date('Y') }} Gestionale Salatino</p>
                 </div>
             </div>
         </aside>
@@ -325,15 +247,7 @@
         <div class="flex-1 overflow-auto">
             <!-- Header -->
             <header class="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10 border-b border-gray-100">
-                <div class="flex justify-between items-center px-8 py-3">
-                    <!-- Toggle button for mobile -->
-                    <button onclick="window.dispatchEvent(new Event('toggle-sidebar'))" 
-                            class="lg:hidden text-gray-500 hover:text-emerald-500 transition-colors">
-                        <i class="fas fa-bars text-xl"></i>
-                    </button>
-                    
-                    <div class="flex-1"></div>
-                    
+                <div class="flex justify-end items-center px-8 py-3">
                     <!-- Avatar e Dropdown -->
                     <div class="relative">
                         <button id="userMenuButton" class="flex items-center space-x-3 focus:outline-none hover:bg-gray-50 rounded-xl px-3 py-2 transition-all duration-200 group">
@@ -460,9 +374,7 @@
                     successAlert.style.opacity = '0';
                     successAlert.style.transition = 'opacity 0.5s ease';
                     setTimeout(function() {
-                        if (successAlert && successAlert.remove) {
-                            successAlert.remove();
-                        }
+                        successAlert.remove();
                     }, 500);
                 }, 5000);
             }
@@ -476,7 +388,6 @@
         });
     </script>
     
-    @livewireScripts
     @stack('scripts')
 </body>
 </html>

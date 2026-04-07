@@ -138,60 +138,57 @@
             background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
         }
         
-        /* Transizioni Sidebar */
+        /* Sidebar - Stato normale */
         .sidebar {
             transition: width 0.3s ease;
         }
-        .sidebar-link {
-            transition: all 0.2s ease;
-            white-space: nowrap;
-            overflow: hidden;
+        
+        /* Sidebar - Stato compresso */
+        .sidebar-collapsed {
+            width: 80px !important;
         }
-        .sidebar-link:hover {
-            padding-left: 1.75rem;
-        }
-        .sidebar-collapsed .sidebar-link span,
-        .sidebar-collapsed .sidebar-link .nav-text {
-            display: none;
-        }
-        .sidebar-collapsed .sidebar-link i {
-            margin-right: 0;
-        }
-        .sidebar-collapsed .sidebar-link {
-            justify-content: center;
-            padding-left: 0;
-            padding-right: 0;
-        }
+        
         .sidebar-collapsed .logo-text,
+        .sidebar-collapsed .nav-text,
         .sidebar-collapsed .sidebar-section-title span,
         .sidebar-collapsed .footer-text {
-            display: none;
+            display: none !important;
         }
-        .sidebar-collapsed .logo-icon {
-            margin-right: 0 !important;
-        }
-        .sidebar-collapsed .sidebar-section-title {
-            justify-content: center;
+        
+        .sidebar-collapsed .sidebar-link {
+            justify-content: center !important;
             padding-left: 0 !important;
             padding-right: 0 !important;
         }
+        
+        .sidebar-collapsed .sidebar-link i {
+            margin-right: 0 !important;
+            font-size: 1.25rem !important;
+        }
+        
+        .sidebar-collapsed .sidebar-section-title {
+            justify-content: center !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+        
         .sidebar-collapsed .sidebar-section-title i {
             margin-right: 0 !important;
         }
-        .sidebar-collapsed .footer-text {
-            display: none;
+        
+        .sidebar-collapsed .logo-icon {
+            margin-right: 0 !important;
         }
-        .sidebar-collapsed {
-            width: 80px;
-        }
-        .sidebar-collapsed .sidebar-link i {
-            font-size: 1.25rem;
+        
+        .sidebar-collapsed .flex.items-center.space-x-2 {
+            justify-content: center !important;
         }
         
         /* Bottone toggle sidebar */
         .toggle-sidebar-btn {
             transition: transform 0.3s ease;
         }
+        
         .sidebar-collapsed .toggle-sidebar-btn {
             transform: rotate(180deg);
         }
@@ -220,20 +217,30 @@
         $currentAdmin = Auth::guard('admin')->user();
     @endphp
     
-    <div x-data="{ sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true' }" 
-         x-init="() => {
-             if (sidebarCollapsed) {
-                 document.getElementById('sidebar').classList.add('sidebar-collapsed');
+    <div x-data="{ sidebarCollapsed: false }" 
+         x-init="
+             let saved = localStorage.getItem('sidebarCollapsed');
+             if (saved === 'true') {
+                 sidebarCollapsed = true;
+                 $el.querySelector('#sidebar').classList.add('sidebar-collapsed');
              }
-         }"
-         @sidebar-toggle.window="sidebarCollapsed = !sidebarCollapsed; localStorage.setItem('sidebarCollapsed', sidebarCollapsed); 
-                if (sidebarCollapsed) { document.getElementById('sidebar').classList.add('sidebar-collapsed'); } 
-                else { document.getElementById('sidebar').classList.remove('sidebar-collapsed'); }"
+             
+             // Ascolta l'evento di toggle
+             window.addEventListener('toggle-sidebar', () => {
+                 sidebarCollapsed = !sidebarCollapsed;
+                 if (sidebarCollapsed) {
+                     $el.querySelector('#sidebar').classList.add('sidebar-collapsed');
+                 } else {
+                     $el.querySelector('#sidebar').classList.remove('sidebar-collapsed');
+                 }
+                 localStorage.setItem('sidebarCollapsed', sidebarCollapsed);
+             });
+         "
          class="flex h-screen overflow-hidden">
         
         <!-- Sidebar -->
         <aside id="sidebar" 
-               class="sidebar w-64 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col shadow-xl transition-all duration-300">
+               class="sidebar w-64 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col shadow-xl">
             
             <!-- Logo -->
             <div class="p-6 border-b border-gray-700/50 flex items-center justify-between">
@@ -243,7 +250,7 @@
                     </div>
                     <h1 class="logo-text text-xl font-bold bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text text-transparent">Salatino</h1>
                 </div>
-                <button @click="$dispatch('sidebar-toggle')" 
+                <button onclick="window.dispatchEvent(new Event('toggle-sidebar'))" 
                         class="toggle-sidebar-btn text-gray-400 hover:text-emerald-400 transition-all duration-200 focus:outline-none">
                     <i class="fas fa-chevron-left text-sm"></i>
                 </button>
@@ -322,8 +329,8 @@
             <!-- Header -->
             <header class="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10 border-b border-gray-100">
                 <div class="flex justify-between items-center px-8 py-3">
-                    <!-- Toggle button for mobile (optional) -->
-                    <button @click="$dispatch('sidebar-toggle')" 
+                    <!-- Toggle button for mobile -->
+                    <button onclick="window.dispatchEvent(new Event('toggle-sidebar'))" 
                             class="lg:hidden text-gray-500 hover:text-emerald-500 transition-colors">
                         <i class="fas fa-bars text-xl"></i>
                     </button>

@@ -17,15 +17,6 @@
                 <option value="active">Attivi</option>
                 <option value="inactive">Disattivi</option>
             </select>
-            
-            <!-- Select per elementi per pagina -->
-            <select wire:model.live="perPage" class="px-3 py-2 border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
-                <option value="10">10 per pagina</option>
-                <option value="15">15 per pagina</option>
-                <option value="25">25 per pagina</option>
-                <option value="50">50 per pagina</option>
-                <option value="100">100 per pagina</option>
-            </select>
         </div>
         
         <!-- Info ricerca attiva -->

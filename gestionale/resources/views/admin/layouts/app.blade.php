@@ -175,10 +175,7 @@
             <!-- Logo -->
             <div class="p-6 border-b border-gray-700/50">
                 <div class="flex items-center space-x-2">
-                    <div class="w-8 h-8 bg-gradient-to-r from-emerald-400 to-green-500 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-crown text-white text-sm"></i>
-                    </div>
-                    <h1 class="text-xl font-bold bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text text-transparent">AdminLTE</h1>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-emerald-400 to-green-400 bg-clip-text text-transparent">Gestionale Salatino</h1>
                 </div>
                 <p class="text-xs text-gray-500 mt-2">Pannello di Controllo</p>
             </div>
@@ -241,7 +238,7 @@
             <div class="p-4 border-t border-gray-700/50 mt-auto">
                 <div class="text-center">
                     <p class="text-xs text-gray-500">Versione 1.0.0</p>
-                    <p class="text-xs text-gray-600 mt-1">© {{ date('Y') }} AdminLTE</p>
+                    <p class="text-xs text-gray-600 mt-1">© {{ date('Y') }} Gestionale Salatino</p>
                 </div>
             </div>
         </aside>

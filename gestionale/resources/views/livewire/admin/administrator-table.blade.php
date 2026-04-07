@@ -36,18 +36,6 @@
         
         <!-- Seconda riga: elementi per pagina e reset filtri -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div class="flex items-center space-x-3">
-                <span class="text-sm text-gray-500">Mostra:</span>
-                <select wire:model.live="perPage" class="px-3 py-2 border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
-                    <option value="10">10</option>
-                    <option value="15">15</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select>
-                <span class="text-sm text-gray-500">elementi per pagina</span>
-            </div>
-            
             <div class="flex justify-end">
                 @if($search || $roleFilter || $statusFilter || $trashedFilter)
                 <button wire:click="resetFilters" class="text-emerald-600 hover:text-emerald-800 text-sm transition-colors">

@@ -222,7 +222,7 @@
                 </div>
                 @endif
                 
-                <!-- Utenti -->
+                <!-- Clienti / Fornitori -->
                 @if($currentAdmin && $currentAdmin->hasPermission('view_entities'))
                 <div class="mt-4">
                     <div class="px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider">

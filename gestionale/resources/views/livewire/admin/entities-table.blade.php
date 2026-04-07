@@ -204,16 +204,26 @@
                     <tr class="hover:bg-gray-50 transition-colors duration-150">
                         <td class="px-6 py-4">
                             <div class="flex items-center">
-                                <div class="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                                    <svg class="h-6 w-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if($entity->entity_type == 'cliente')
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                        @elseif($entity->entity_type == 'fornitore')
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 18l4-4m0 0l4 4m-4-4v8m12 0h-8a4 4 0 00-4 4v8m8-4l4 4m0 0l4-4m-4 4V8a4 4 0 00-4-4H8a4 4 0 00-4 4v16m8-12h4"></path>
-                                        @else
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                                        @endif
-                                    </svg>
+                                <div class="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center
+                                    @if($entity->entity_type == 'cliente') bg-green-100
+                                    @elseif($entity->entity_type == 'fornitore') bg-blue-100
+                                    @else bg-purple-100
+                                    @endif">
+                                    
+                                    @if($entity->entity_type == 'cliente')
+                                        <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                        </svg>
+                                    @elseif($entity->entity_type == 'fornitore')
+                                        <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13.5L20 13.5M20 13.5c-1.5-1.5-4-2-6-2m6 2c1.5 1.5 2 4 2 6m0-6h-2.5M4 10.5L4 10.5M4 10.5C5.5 9 8 8.5 10 8.5m-6 2C2.5 12 2 14.5 2 16.5m6-8c1.5-1.5 4-2 6-2m-6 2h2.5m10 6c0 1.5-1.5 4-4 4h-6c-2.5 0-4-2-4-4.5m14 0c0-2.5-2-5-5-5h-4c-2 0-4 1.5-4 4"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 15h6m-3-3v6"/>
+                                        </svg>
+                                    @else
+                                        <svg class="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                        </svg>
+                                    @endif
                                 </div>
                                 <div class="ml-4">
                                     <div class="text-sm font-medium text-gray-900">
@@ -228,11 +238,24 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            <span class="px-3 py-1 inline-flex items-center text-xs leading-5 font-semibold rounded-full 
                                 @if($entity->entity_type == 'cliente') bg-green-100 text-green-800
                                 @elseif($entity->entity_type == 'fornitore') bg-blue-100 text-blue-800
                                 @else bg-purple-100 text-purple-800
                                 @endif">
+                                @if($entity->entity_type == 'cliente')
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                    </svg>
+                                @elseif($entity->entity_type == 'fornitore')
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13.5L20 13.5M20 13.5c-1.5-1.5-4-2-6-2m6 2c1.5 1.5 2 4 2 6m0-6h-2.5M4 10.5L4 10.5M4 10.5C5.5 9 8 8.5 10 8.5m-6 2C2.5 12 2 14.5 2 16.5m6-8c1.5-1.5 4-2 6-2m-6 2h2.5m10 6c0 1.5-1.5 4-4 4h-6c-2.5 0-4-2-4-4.5m14 0c0-2.5-2-5-5-5h-4c-2 0-4 1.5-4 4"/>
+                                    </svg>
+                                @else
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"/>
+                                    </svg>
+                                @endif
                                 {{ $entityTypes[$entity->entity_type] ?? $entity->entity_type }}
                             </span>
                         </td>
@@ -276,11 +299,17 @@
                             <div class="flex flex-col space-y-1">
                                 @if($entity->partita_iva)
                                     <div class="flex items-center">
+                                        <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
                                         <span class="font-mono text-xs">{{ $entity->partita_iva }}</span>
                                     </div>
                                 @endif
                                 @if($entity->codice_fiscale && $entity->codice_fiscale != $entity->partita_iva)
                                     <div class="flex items-center">
+                                        <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"/>
+                                        </svg>
                                         <span class="font-mono text-xs">{{ $entity->codice_fiscale }}</span>
                                     </div>
                                 @endif
@@ -292,14 +321,28 @@
                         
                         <td class="px-6 py-4 whitespace-nowrap">
                             <button wire:click="toggleStatus({{ $entity->id_cliente }})" 
-                                    class="px-2 py-1 text-xs font-medium rounded-md transition-colors duration-200
+                                    class="px-3 py-1 text-xs font-medium rounded-full transition-colors duration-200 flex items-center
                                         {{ $entity->valid ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200' }}">
+                                @if($entity->valid)
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                @else
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                @endif
                                 {{ $entity->valid ? 'Attivo' : 'Disattivo' }}
                             </button>
                         </td>
                         
                         <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                            {{ $entity->created_at ? $entity->created_at->format('d/m/Y') : ($entity->data_inserimento ? date('d/m/Y', strtotime($entity->data_inserimento)) : '-') }}
+                            <div class="flex items-center">
+                                <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                                {{ $entity->created_at ? $entity->created_at->format('d/m/Y') : ($entity->data_inserimento ? date('d/m/Y', strtotime($entity->data_inserimento)) : '-') }}
+                            </div>
                         </td>
                         
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
@@ -309,8 +352,8 @@
                                    class="text-blue-600 hover:text-blue-900 transition-colors"
                                    title="Visualizza">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                     </svg>
                                 </a>
                                 @endif
@@ -320,7 +363,7 @@
                                    class="text-yellow-600 hover:text-yellow-900 transition-colors"
                                    title="Modifica">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                                     </svg>
                                 </a>
                                 @endif
@@ -330,7 +373,7 @@
                                         class="text-red-600 hover:text-red-900 transition-colors"
                                         title="Elimina">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                     </svg>
                                 </button>
                                 @endif
@@ -342,7 +385,7 @@
                         <td colspan="7" class="px-6 py-12 text-center">
                             <div class="text-gray-500">
                                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                                 </svg>
                                 <p class="mt-2 text-sm">Nessun cliente/fornitore trovato</p>
                                 @if($search || $typeFilter || $statusFilter)
@@ -359,7 +402,7 @@
         </div>
     </div>
 
-    <!-- Paginazione fuori dalla tabella -->
+    <!-- Paginazione -->
     @if($entities->hasPages())
     <div class="mt-6">
         <div class="flex items-center justify-between">
@@ -367,60 +410,13 @@
                 Mostrando {{ $entities->firstItem() ?? 0 }} - {{ $entities->lastItem() ?? 0 }} di {{ $entities->total() }} risultati
             </div>
             <div>
-                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                    {{-- Previous Page Link --}}
-                    @if ($entities->onFirstPage())
-                        <span class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-300 cursor-not-allowed">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                            </svg>
-                        </span>
-                    @else
-                        <button wire:click="previousPage" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                            </svg>
-                        </button>
-                    @endif
-
-                    {{-- Pagination Elements --}}
-                    @foreach ($entities->links()->elements as $element)
-                        @if (is_string($element))
-                            <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">{{ $element }}</span>
-                        @endif
-
-                        @if (is_array($element))
-                            @foreach ($element as $page => $url)
-                                @if ($page == $entities->currentPage())
-                                    <span class="relative inline-flex items-center px-4 py-2 border border-blue-500 bg-blue-50 text-sm font-medium text-blue-600">{{ $page }}</span>
-                                @else
-                                    <button wire:click="setPage({{ $page }})" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">{{ $page }}</button>
-                                @endif
-                            @endforeach
-                        @endif
-                    @endforeach
-
-                    {{-- Next Page Link --}}
-                    @if ($entities->hasMorePages())
-                        <button wire:click="nextPage" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                            </svg>
-                        </button>
-                    @else
-                        <span class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-300 cursor-not-allowed">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                            </svg>
-                        </span>
-                    @endif
-                </nav>
+                {{ $entities->links() }}
             </div>
         </div>
     </div>
     @endif
 
-        <!-- Modal di conferma eliminazione -->
+    <!-- Modal di conferma eliminazione -->
     @if($showDeleteModal)
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
          x-data="{ show: true }" 
@@ -435,7 +431,7 @@
                 <h2 class="text-xl font-bold text-gray-800">Conferma Eliminazione</h2>
                 <button wire:click="cancelDelete" class="text-gray-400 hover:text-gray-600 transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>
             </div>
@@ -444,7 +440,7 @@
                 <div class="flex items-center justify-center mb-4">
                     <div class="bg-red-100 rounded-full p-3">
                         <svg class="w-12 h-12 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                         </svg>
                     </div>
                 </div>
@@ -473,7 +469,7 @@
     </div>
     @endif
 
-    <!-- Modal di inserimento migliorato -->
+    <!-- Modal di inserimento -->
     @if($showCreateModal)
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
          x-data="{ show: true }" 
@@ -487,13 +483,13 @@
             <div class="flex justify-between items-center mb-6 border-b pb-3">
                 <h2 class="text-2xl font-bold text-gray-800">
                     <svg class="inline-block w-6 h-6 mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                     </svg>
                     Nuovo Cliente / Fornitore
                 </h2>
                 <button wire:click="closeCreateModal" class="text-gray-400 hover:text-gray-600 transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>
             </div>

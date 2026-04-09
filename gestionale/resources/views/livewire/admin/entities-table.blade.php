@@ -425,15 +425,15 @@
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- RIGA 1: Ragione Sociale e Tipologia -->
-                <div class="md:col-span-2">
+                <!-- RIGA 1: Ragione Sociale e Tipologia (affiancati) -->
+                <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Ragione Sociale</label>
                     <input type="text" 
-                           wire:model="formRagioneSociale" 
-                           placeholder="Ragione Sociale (opzionale)" 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        wire:model="formRagioneSociale" 
+                        placeholder="Ragione Sociale (opzionale)" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
-                
+
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         Tipologia <span class="text-red-500">*</span>
@@ -448,7 +448,7 @@
                     @error('formTipologia') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
                 </div>
                 
-                <!-- RIGA 2: Cognome e Nome -->
+                <!-- RIGA 2: Cognome e Nome (affiancati) -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
                     <input type="text" 
@@ -465,7 +465,7 @@
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
                 
-                <!-- RIGA 3: Persona Riferimento e P.IVA -->
+                <!-- RIGA 3: Persona Riferimento e P.IVA (affiancati) -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Persona di Riferimento</label>
                     <input type="text" 

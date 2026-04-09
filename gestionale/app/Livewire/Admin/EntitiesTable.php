@@ -5,6 +5,8 @@ namespace App\Livewire\Admin;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Entity;
+use App\Models\Address;
+use App\Models\Contact;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -37,22 +39,6 @@ class EntitiesTable extends Component
     // Modal visualizzazione dettagli
     public $showViewModal = false;
     public $viewingEntity = null;
-    
-    // Modal modifica
-    public $showEditModal = false;
-    public $editingEntity = null;
-    public $editId = null;
-    public $editNome = '';
-    public $editCognome = '';
-    public $editEmail = '';
-    public $editTipologia = '';
-    public $editRagioneSociale = '';
-    public $editPartitaIva = '';
-    public $editRiferimento = '';
-    public $editCodiceFiscale = '';
-    public $editPec = '';
-    public $editCodiceSdi = '';
-    public $editValid = true;
     
     protected $queryString = ['search', 'typeFilter', 'statusFilter', 'sortField', 'sortDirection'];
     
@@ -91,11 +77,6 @@ class EntitiesTable extends Component
         $this->resetPage();
     }
     
-    public function updatingPerPage()
-    {
-        $this->resetPage();
-    }
-    
     public function getEntityTypesProperty()
     {
         return [
@@ -109,31 +90,56 @@ class EntitiesTable extends Component
     {
         $query = Entity::query();
         
-        $query->with(['contacts' => function($q) {
-            $q->orderBy('id_settings');
-        }]);
+        // Join con address e contacts per la ricerca
+        $query->leftJoin('address', 'entities.id_cliente', '=', 'address.clienti_id_cliente')
+              ->leftJoin('contacts', 'entities.id_cliente', '=', 'contacts.id_entities');
         
+        // Ricerca su tutti i campi
         if ($this->search) {
             $searchTerm = '%' . $this->search . '%';
+            
             $query->where(function($q) use ($searchTerm) {
-                $q->where('ragione_sociale', 'like', $searchTerm)
-                  ->orWhere('nome', 'like', $searchTerm)
-                  ->orWhere('cognome', 'like', $searchTerm)
-                  ->orWhere('email', 'like', $searchTerm);
+                // Campi di entities
+                $q->where('entities.ragione_sociale', 'like', $searchTerm)
+                  ->orWhere('entities.nome', 'like', $searchTerm)
+                  ->orWhere('entities.cognome', 'like', $searchTerm)
+                  ->orWhere('entities.email', 'like', $searchTerm)
+                  ->orWhere('entities.pec', 'like', $searchTerm)
+                  ->orWhere('entities.partita_iva', 'like', $searchTerm)
+                  ->orWhere('entities.codice_fiscale', 'like', $searchTerm)
+                  ->orWhere('entities.persona_riferimento', 'like', $searchTerm)
+                  // Campi di address
+                  ->orWhere('address.indirizzo', 'like', $searchTerm)
+                  ->orWhere('address.citta', 'like', $searchTerm)
+                  ->orWhere('address.provincia', 'like', $searchTerm)
+                  ->orWhere('address.cap', 'like', $searchTerm)
+                  // Campi di contacts
+                  ->orWhere('contacts.valore', 'like', $searchTerm);
             });
         }
         
+        // Filtro per tipo entità
         if ($this->typeFilter) {
-            $query->where('entity_type', $this->typeFilter);
+            $query->where('entities.entity_type', $this->typeFilter);
         }
         
+        // Filtro per stato
         if ($this->statusFilter !== '') {
-            $query->where('valid', $this->statusFilter === 'active');
+            $query->where('entities.valid', $this->statusFilter === 'active');
         }
         
+        // Raggruppa per evitare duplicati dovuti ai JOIN
+        $query->select('entities.*')->distinct();
+        
+        // Ordina e paginate
         $query->orderBy($this->sortField, $this->sortDirection);
         
-        return $query->paginate($this->perPage);
+        // Carica le relazioni necessarie
+        $entities = $query->with(['contacts' => function($q) {
+            $q->orderBy('id_settings');
+        }])->paginate($this->perPage);
+        
+        return $entities;
     }
     
     // ==================== METODI VISUALIZZAZIONE ====================
@@ -143,7 +149,7 @@ class EntitiesTable extends Component
         try {
             $entity = Entity::with(['contacts' => function($q) {
                 $q->with('setting');
-            }])->find($id);
+            }, 'addresses'])->find($id);
             
             if (!$entity) {
                 session()->flash('error', 'Cliente/Fornitore non trovato');
@@ -164,86 +170,11 @@ class EntitiesTable extends Component
         $this->viewingEntity = null;
     }
     
-    // ==================== METODI MODIFICA ====================
+    // ==================== METODO MODIFICA ====================
     
-    public function openEditModal($id)
+    public function openEditPage($id)
     {
-        try {
-            $entity = Entity::find($id);
-            
-            if (!$entity) {
-                session()->flash('error', 'Cliente/Fornitore non trovato');
-                return;
-            }
-            
-            $this->editingEntity = $entity;
-            $this->editId = $entity->id_cliente;
-            $this->editNome = $entity->nome;
-            $this->editCognome = $entity->cognome;
-            $this->editEmail = $entity->email;
-            $this->editTipologia = $entity->entity_type;
-            $this->editRagioneSociale = $entity->ragione_sociale;
-            $this->editPartitaIva = $entity->partita_iva;
-            $this->editRiferimento = $entity->persona_riferimento;
-            $this->editCodiceFiscale = $entity->codice_fiscale;
-            $this->editPec = $entity->pec;
-            $this->editCodiceSdi = $entity->codice_sdi;
-            $this->editValid = $entity->valid;
-            
-            $this->showEditModal = true;
-            
-        } catch (\Exception $e) {
-            session()->flash('error', 'Errore nel caricamento dei dati: ' . $e->getMessage());
-        }
-    }
-    
-    public function closeEditModal()
-    {
-        $this->showEditModal = false;
-        $this->editingEntity = null;
-        $this->reset([
-            'editId', 'editNome', 'editCognome', 'editEmail', 'editTipologia',
-            'editRagioneSociale', 'editPartitaIva', 'editRiferimento',
-            'editCodiceFiscale', 'editPec', 'editCodiceSdi', 'editValid'
-        ]);
-    }
-    
-    public function updateEntity()
-    {
-        $this->validate([
-            'editTipologia' => 'required|in:cliente,fornitore,entrambi',
-            'editEmail' => 'nullable|email',
-            'editPec' => 'nullable|email',
-        ]);
-        
-        try {
-            $entity = Entity::find($this->editId);
-            
-            if (!$entity) {
-                throw new \Exception('Entità non trovata');
-            }
-            
-            $entity->update([
-                'entity_type' => $this->editTipologia,
-                'ragione_sociale' => $this->editRagioneSociale ?: null,
-                'nome' => $this->editNome ?: null,
-                'cognome' => $this->editCognome ?: null,
-                'persona_riferimento' => $this->editRiferimento ?: null,
-                'email' => $this->editEmail ?: null,
-                'partita_iva' => $this->editPartitaIva ?: null,
-                'codice_fiscale' => $this->editCodiceFiscale ?: null,
-                'pec' => $this->editPec ?: null,
-                'codice_sdi' => $this->editCodiceSdi ?: null,
-                'valid' => $this->editValid
-            ]);
-            
-            $this->closeEditModal();
-            session()->flash('success', 'Cliente/Fornitore aggiornato con successo!');
-            $this->refreshTable();
-            
-        } catch (\Exception $e) {
-            session()->flash('error', 'Errore durante l\'aggiornamento: ' . $e->getMessage());
-        }
+        return redirect()->route('admin.entities.edit', $id);
     }
     
     // ==================== METODI ELIMINAZIONE ====================

@@ -115,12 +115,23 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         // =============================================
+        // GESTIONE SETTINGS
+        // =============================================
+        Route::resource('settings', SettingController::class);
+
+        // =============================================
         // API PER RICERCHE AJAX / Livewire
         // =============================================
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('/search-entities', [EntityController::class, 'search'])->name('search-entities');
             // Route::get('/search-settings', [SettingController::class, 'search'])->name('search-settings');
             Route::get('/entity-contacts/{entity}', [ContactController::class, 'getEntityContacts'])->name('entity-contacts');
+            
+            // API per indirizzi
+            Route::get('/entities/{entityId}/addresses', [EntityController::class, 'getAddresses']);
+            Route::post('/entities/{entityId}/addresses', [EntityController::class, 'storeAddress']);
+            Route::put('/entities/{entityId}/addresses/{addressId}', [EntityController::class, 'updateAddress']);
+            Route::delete('/entities/{entityId}/addresses/{addressId}', [EntityController::class, 'deleteAddress']);
         });
     });
 });

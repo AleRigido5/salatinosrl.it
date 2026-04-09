@@ -162,6 +162,14 @@
             background: linear-gradient(135deg, #3b82f6, #2563eb);
             color: white;
         }
+        
+        /* Pulsante impostazioni nella navbar */
+        .settings-btn {
+            transition: all 0.2s ease;
+        }
+        .settings-btn:hover {
+            transform: rotate(30deg);
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-gray-100">
@@ -184,46 +192,23 @@
             <nav class="flex-1 mt-6 overflow-y-auto px-3">
                 <!-- Dashboard -->
                 @if($currentAdmin && $currentAdmin->hasPermission('access_dashboard'))
-                <a href="{{ route('admin.dashboard') }}" 
-                   class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
-                    <i class="fas fa-tachometer-alt w-5 h-5 mr-3 {{ request()->routeIs('admin.dashboard') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
-                    <span class="text-sm font-medium">Dashboard</span>
-                </a>
-                @endif
-                
-                <!-- Amministratori -->
-                @if($currentAdmin && $currentAdmin->hasPermission('view_administrators'))
-                <div class="mt-6">
+                <div class="mb-6">
                     <div class="px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-                        <i class="fas fa-circle mr-1 text-[8px]"></i> Amministratori
+                        <i class="fas fa-circle mr-1 text-[8px]"></i> Navigazione
                     </div>
-                    <a href="{{ route('admin.administrators.index') }}" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.administrators.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
-                        <i class="fas fa-user-shield w-5 h-5 mr-3 {{ request()->routeIs('admin.administrators.*') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
-                        <span class="text-sm font-medium">Lista Admin</span>
+                    <a href="{{ route('admin.dashboard') }}" 
+                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
+                        <i class="fas fa-tachometer-alt w-5 h-5 mr-3 {{ request()->routeIs('admin.dashboard') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
+                        <span class="text-sm font-medium">Dashboard</span>
                     </a>
                 </div>
                 @endif
                 
-                <!-- Ruoli e Permessi -->
-                @if($currentAdmin && $currentAdmin->hasPermission('view_roles'))
-                <div class="mt-4">
-                    <div class="px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-                        <i class="fas fa-circle mr-1 text-[8px]"></i> Sicurezza
-                    </div>
-                    <a href="{{ route('admin.roles.index') }}" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.roles.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
-                        <i class="fas fa-shield-alt w-5 h-5 mr-3 {{ request()->routeIs('admin.roles.*') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
-                        <span class="text-sm font-medium">Ruoli & Permessi</span>
-                    </a>
-                </div>
-                @endif
-                
-                <!-- Clienti / Fornitori -->
+                <!-- Anagrafica -->
                 @if($currentAdmin && $currentAdmin->hasPermission('view_entities'))
-                <div class="mt-4">
+                <div class="mb-6">
                     <div class="px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-                        <i class="fas fa-circle mr-1 text-[8px]"></i> Gestione
+                        <i class="fas fa-circle mr-1 text-[8px]"></i> Anagrafica
                     </div>
                     <a href="{{ route('admin.entities.index') }}" 
                        class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.entities.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
@@ -247,49 +232,104 @@
         <div class="flex-1 overflow-auto">
             <!-- Header -->
             <header class="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10 border-b border-gray-100">
-                <div class="flex justify-end items-center px-8 py-3">
-                    <!-- Avatar e Dropdown -->
-                    <div class="relative">
-                        <button id="userMenuButton" class="flex items-center space-x-3 focus:outline-none hover:bg-gray-50 rounded-xl px-3 py-2 transition-all duration-200 group">
-                            <div class="w-10 h-10 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full flex items-center justify-center text-white font-semibold shadow-md group-hover:shadow-lg transition">
-                                {{ strtoupper(substr($currentAdmin->name ?? 'A', 0, 1)) }}
-                            </div>
-                            <div class="text-left">
-                                <p class="font-semibold text-gray-800 text-sm">{{ $currentAdmin->name ?? 'Admin' }}</p>
-                                <p class="text-gray-500 text-xs">
-                                    <i class="fas {{ $currentAdmin->role && $currentAdmin->role->slug == 'super_admin' ? 'fa-lock text-gray-800' : 'fa-shield-alt' }} mr-1"></i>
-                                    {{ $currentAdmin->role->name ?? 'Nessun ruolo' }}
-                                </p>
-                            </div>
-                            <i class="fas fa-chevron-down text-gray-400 text-xs transition-transform duration-200 group-hover:text-emerald-500" id="userMenuChevron"></i>
-                        </button>
-                        
-                        <!-- Dropdown Menu -->
-                        <div id="userDropdown" class="dropdown-menu">
-                            <div class="dropdown-header">
-                                <div class="flex items-center space-x-3">
-                                    <div class="w-12 h-12 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">
-                                        {{ strtoupper(substr($currentAdmin->name ?? 'A', 0, 1)) }}
-                                    </div>
-                                    <div>
-                                        <p class="font-bold text-gray-900">{{ $currentAdmin->name ?? 'Admin' }}</p>
-                                        <p class="text-xs text-gray-500">{{ $currentAdmin->email ?? '' }}</p>
+                <div class="flex justify-between items-center px-8 py-3">
+                    <!-- Left side - empty or page title -->
+                    <div class="text-sm text-gray-500">
+                        <i class="fas fa-home text-emerald-500 mr-1"></i> 
+                        @yield('title', 'Dashboard')
+                    </div>
+                    
+                    <!-- Right side - Avatar e Dropdown -->
+                    <div class="flex items-center space-x-4">
+                        <!-- Settings Dropdown (Ingranaggio) -->
+                        <div class="relative">
+                            <button id="settingsMenuButton" class="settings-btn text-gray-500 hover:text-emerald-600 focus:outline-none transition-all duration-200">
+                                <i class="fas fa-cog text-xl"></i>
+                            </button>
+                            
+                            <!-- Settings Dropdown Menu -->
+                            <div id="settingsDropdown" class="dropdown-menu" style="min-width: 220px; right: 0; left: auto;">
+                                <div class="dropdown-header">
+                                    <div class="flex items-center space-x-3">
+                                        <i class="fas fa-sliders-h text-emerald-500 text-lg"></i>
+                                        <div>
+                                            <p class="font-bold text-gray-900">Impostazioni</p>
+                                            <p class="text-xs text-gray-500">Gestisci il sistema</p>
+                                        </div>
                                     </div>
                                 </div>
+                                <div class="dropdown-divider"></div>
+                                
+                                <!-- Gestione Utenti (Lista Admin) -->
+                                @if($currentAdmin && $currentAdmin->hasPermission('view_administrators'))
+                                <a href="{{ route('admin.administrators.index') }}" class="dropdown-item">
+                                    <i class="fas fa-users"></i>
+                                    <span>Gestione Utenti</span>
+                                </a>
+                                @endif
+                                
+                                <!-- Ruoli e Permessi -->
+                                @if($currentAdmin && $currentAdmin->hasPermission('view_roles'))
+                                <a href="{{ route('admin.roles.index') }}" class="dropdown-item">
+                                    <i class="fas fa-shield-alt"></i>
+                                    <span>Ruoli e Permessi</span>
+                                </a>
+                                @endif
+                                
+                                <!-- Settings -->
+                                @if($currentAdmin && $currentAdmin->hasPermission('access_settings'))
+                                <div class="dropdown-divider"></div>
+                                <a href="{{ route('admin.settings.index') }}" class="dropdown-item">
+                                    <i class="fas fa-cog"></i>
+                                    <span>Settings</span>
+                                </a>
+                                @endif
                             </div>
-                            <div class="dropdown-divider"></div>
-                            <a href="{{ route('admin.profile.edit') }}" class="dropdown-item">
-                                <i class="fas fa-user-circle"></i>
-                                <span>Il mio profilo</span>
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            <form method="POST" action="{{ route('admin.logout') }}">
-                                @csrf
-                                <button type="submit" class="dropdown-item w-full text-left">
-                                    <i class="fas fa-sign-out-alt"></i>
-                                    <span>Logout</span>
-                                </button>
-                            </form>
+                        </div>
+                        
+                        <!-- Avatar e Dropdown Profilo -->
+                        <div class="relative">
+                            <button id="userMenuButton" class="flex items-center space-x-3 focus:outline-none hover:bg-gray-50 rounded-xl px-3 py-2 transition-all duration-200 group">
+                                <div class="w-10 h-10 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full flex items-center justify-center text-white font-semibold shadow-md group-hover:shadow-lg transition">
+                                    {{ strtoupper(substr($currentAdmin->name ?? 'A', 0, 1)) }}
+                                </div>
+                                <div class="text-left">
+                                    <p class="font-semibold text-gray-800 text-sm">{{ $currentAdmin->name ?? 'Admin' }}</p>
+                                    <p class="text-gray-500 text-xs">
+                                        <i class="fas {{ $currentAdmin->role && $currentAdmin->role->slug == 'super_admin' ? 'fa-lock text-gray-800' : 'fa-shield-alt' }} mr-1"></i>
+                                        {{ $currentAdmin->role->name ?? 'Nessun ruolo' }}
+                                    </p>
+                                </div>
+                                <i class="fas fa-chevron-down text-gray-400 text-xs transition-transform duration-200 group-hover:text-emerald-500" id="userMenuChevron"></i>
+                            </button>
+                            
+                            <!-- Dropdown Menu Profilo -->
+                            <div id="userDropdown" class="dropdown-menu">
+                                <div class="dropdown-header">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-12 h-12 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">
+                                            {{ strtoupper(substr($currentAdmin->name ?? 'A', 0, 1)) }}
+                                        </div>
+                                        <div>
+                                            <p class="font-bold text-gray-900">{{ $currentAdmin->name ?? 'Admin' }}</p>
+                                            <p class="text-xs text-gray-500">{{ $currentAdmin->email ?? '' }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="dropdown-divider"></div>
+                                <a href="{{ route('admin.profile.edit') }}" class="dropdown-item">
+                                    <i class="fas fa-user-circle"></i>
+                                    <span>Il mio profilo</span>
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <form method="POST" action="{{ route('admin.logout') }}">
+                                    @csrf
+                                    <button type="submit" class="dropdown-item w-full text-left">
+                                        <i class="fas fa-sign-out-alt"></i>
+                                        <span>Logout</span>
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -343,6 +383,7 @@
     <script>
         // Dropdown menu functionality
         document.addEventListener('DOMContentLoaded', function() {
+            // User dropdown
             const userMenuButton = document.getElementById('userMenuButton');
             const userDropdown = document.getElementById('userDropdown');
             const userMenuChevron = document.getElementById('userMenuChevron');
@@ -357,13 +398,27 @@
                 });
             }
             
-            // Close dropdown when clicking outside
+            // Settings dropdown
+            const settingsMenuButton = document.getElementById('settingsMenuButton');
+            const settingsDropdown = document.getElementById('settingsDropdown');
+            
+            if (settingsMenuButton) {
+                settingsMenuButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    settingsDropdown.classList.toggle('show');
+                });
+            }
+            
+            // Close dropdowns when clicking outside
             document.addEventListener('click', function(e) {
                 if (userMenuButton && !userMenuButton.contains(e.target)) {
                     userDropdown.classList.remove('show');
                     if (userMenuChevron) {
                         userMenuChevron.style.transform = 'rotate(0deg)';
                     }
+                }
+                if (settingsMenuButton && !settingsMenuButton.contains(e.target)) {
+                    settingsDropdown.classList.remove('show');
                 }
             });
             
@@ -374,7 +429,9 @@
                     successAlert.style.opacity = '0';
                     successAlert.style.transition = 'opacity 0.5s ease';
                     setTimeout(function() {
-                        successAlert.remove();
+                        if (successAlert && successAlert.remove) {
+                            successAlert.remove();
+                        }
                     }, 500);
                 }, 5000);
             }

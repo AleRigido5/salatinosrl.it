@@ -8,7 +8,7 @@
                 </svg>
                 <input type="text" 
                        wire:model.live.debounce.300ms="search" 
-                       placeholder="Cerca per nome, cognome, ragione sociale, email..." 
+                       placeholder="Cerca per: P.IVA, Ragione Sociale, Nome, Cognome, Persona Riferimento, Città, Telefono, Email..." 
                        class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
             </div>
             
@@ -308,21 +308,11 @@
                                 @endif
                                 
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_entities'))
-                                <button wire:click="openEditModal({{ $entity->id_cliente }})" 
+                                <button wire:click="openEditPage({{ $entity->id_cliente }})" 
                                         class="text-yellow-600 hover:text-yellow-900 transition-colors"
                                         title="Modifica">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                    </svg>
-                                </button>
-                                @endif
-                                
-                                @if(auth()->guard('admin')->user()->hasPermission('delete_entities'))
-                                <button wire:click="confirmDelete({{ $entity->id_cliente }})" 
-                                        class="text-red-600 hover:text-red-900 transition-colors"
-                                        title="Elimina">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                     </svg>
                                 </button>
                                 @endif
@@ -404,59 +394,6 @@
                         </span>
                     @endif
                 </nav>
-            </div>
-        </div>
-    </div>
-    @endif
-
-    <!-- Modal di conferma eliminazione -->
-    @if($showDeleteModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
-         x-data="{ show: true }" 
-         x-show="show" 
-         x-transition.opacity.duration.200ms>
-        
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6" 
-             x-on:click.away="show = false"
-             x-transition.scale.origin.top>
-            
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-800">Conferma Eliminazione</h2>
-                <button wire:click="cancelDelete" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="mb-6">
-                <div class="flex items-center justify-center mb-4">
-                    <div class="bg-red-100 rounded-full p-3">
-                        <svg class="w-12 h-12 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                        </svg>
-                    </div>
-                </div>
-                <p class="text-center text-gray-700 mb-2">
-                    Sei sicuro di voler eliminare il seguente elemento?
-                </p>
-                <p class="text-center font-semibold text-gray-900 bg-gray-50 p-2 rounded">
-                    {{ $entityNameToDelete }}
-                </p>
-                <p class="text-center text-sm text-gray-500 mt-3">
-                    L'elemento verrà spostato nel cestino e potrà essere ripristinato in seguito.
-                </p>
-            </div>
-            
-            <div class="flex justify-end space-x-3">
-                <button wire:click="cancelDelete" 
-                        class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
-                    Annulla
-                </button>
-                <button wire:click="deleteEntity" 
-                        class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">
-                    Elimina
-                </button>
             </div>
         </div>
     </div>
@@ -560,178 +497,6 @@
                 <button wire:click="save" 
                         class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors">
                     Salva
-                </button>
-            </div>
-        </div>
-    </div>
-    @endif
-
-    <!-- Modal di modifica -->
-    @if($showEditModal && $editingEntity)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
-         x-data="{ show: true }" 
-         x-show="show" 
-         x-transition.opacity.duration.200ms>
-        
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl p-6 max-h-[90vh] overflow-y-auto" 
-             x-on:click.away="show = false"
-             x-transition.scale.origin.top>
-            
-            <div class="flex justify-between items-center mb-6 border-b pb-3">
-                <h2 class="text-2xl font-bold text-gray-800">
-                    <svg class="inline-block w-6 h-6 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                    </svg>
-                    Modifica Cliente / Fornitore
-                </h2>
-                <button wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Colonna Sinistra - Dati Anagrafici -->
-                <div class="space-y-4">
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
-                            <i class="fas fa-user-circle mr-2 text-blue-500"></i> Dati Anagrafici
-                        </h3>
-                        
-                        <div class="grid grid-cols-1 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-                                <input type="text" 
-                                       wire:model="editNome" 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
-                                <input type="text" 
-                                       wire:model="editCognome" 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Tipologia <span class="text-red-500">*</span>
-                                </label>
-                                <select wire:model="editTipologia" 
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <option value="cliente">Cliente</option>
-                                    <option value="fornitore">Fornitore</option>
-                                    <option value="entrambi">Entrambi</option>
-                                </select>
-                                @error('editTipologia') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Persona di Riferimento</label>
-                                <input type="text" 
-                                       wire:model="editRiferimento" 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Ragione Sociale</label>
-                                <input type="text" 
-                                       wire:model="editRagioneSociale" 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Partita IVA</label>
-                                <input type="text" 
-                                       wire:model="editPartitaIva" 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                <input type="email" 
-                                       wire:model="editEmail" 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                @error('editEmail') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
-                                <input type="text" 
-                                       wire:model="editCodiceFiscale" 
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Colonna Destra - Dati Fattura Elettronica -->
-                <div class="space-y-4">
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
-                            <i class="fas fa-file-invoice-dollar mr-2 text-green-500"></i> Dati Fattura Elettronica
-                        </h3>
-                        
-                        <div class="grid grid-cols-1 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">PEC (Posta Elettronica Certificata)</label>
-                                <input type="email" 
-                                       wire:model="editPec" 
-                                       placeholder="esempio@pec.it"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <p class="text-xs text-gray-500 mt-1">Indirizzo PEC per l'invio delle fatture elettroniche</p>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Codice SDI (Sistema di Interscambio)</label>
-                                <input type="text" 
-                                       wire:model="editCodiceSdi" 
-                                       placeholder="es: XXXXXXX"
-                                       maxlength="7"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase">
-                                <p class="text-xs text-gray-500 mt-1">Codice a 7 caratteri per la ricezione delle fatture elettroniche</p>
-                            </div>
-                            
-                            <div class="mt-4 p-3 bg-blue-50 rounded-md border border-blue-200">
-                                <div class="flex items-start">
-                                    <i class="fas fa-info-circle text-blue-500 mt-0.5 mr-2"></i>
-                                    <div class="text-xs text-blue-700">
-                                        <p class="font-medium mb-1">Informazioni sulla Fattura Elettronica:</p>
-                                        <p>Il codice SDI (anche chiamato "codice destinatario") è obbligatorio per ricevere fatture elettroniche dalla Pubblica Amministrazione. Se non specificato, verrà utilizzata la PEC.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Stato -->
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
-                            <i class="fas fa-toggle-on mr-2 text-purple-500"></i> Stato
-                        </h3>
-                        
-                        <div>
-                            <label class="inline-flex items-center">
-                                <input type="checkbox" 
-                                       wire:model="editValid" 
-                                       class="rounded border-gray-300 text-green-600 shadow-sm focus:border-green-300 focus:ring focus:ring-green-200 focus:ring-opacity-50">
-                                <span class="ml-2 text-sm text-gray-700">Account attivo</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Footer con azioni -->
-            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
-                <button wire:click="closeEditModal" 
-                        class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
-                    Annulla
-                </button>
-                <button wire:click="updateEntity" 
-                        class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
-                    <i class="fas fa-save mr-2"></i> Aggiorna
                 </button>
             </div>
         </div>

@@ -10,7 +10,7 @@
                 <i class="fas fa-building mr-2 text-emerald-600"></i> Gestione Clienti / Fornitori
             </h1>
             
-            @php
+            {{-- @php
                 $trashCount = \App\Models\Entity::onlyTrashed()->count();
             @endphp
             <a href="{{ route('admin.trash.index', 'entities') }}" 
@@ -21,7 +21,7 @@
                         {{ $trashCount }}
                     </span>
                 @endif
-            </a>
+            </a> --}}
         </div>
         
         @if(auth()->guard('admin')->user()->hasPermission('create_entities'))

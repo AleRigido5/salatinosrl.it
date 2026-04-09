@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Address;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -45,6 +46,15 @@ class Entity extends Model
     public function contacts()
     {
         return $this->hasMany(Contact::class, 'id_entities', 'id_cliente');
+    }
+
+    /**
+     * Relazione con gli indirizzi
+     * Nota: la tabella address usa 'clienti_id_cliente' come foreign key
+     */
+    public function addresses()
+    {
+        return $this->hasMany(Address::class, 'clienti_id_cliente', 'id_cliente');
     }
 
     /**

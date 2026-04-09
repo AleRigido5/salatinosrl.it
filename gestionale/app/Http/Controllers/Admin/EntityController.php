@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Entity;
+use App\Models\Address;
 use App\Models\Permission;
 use App\Models\Contact;
 use App\Models\Setting;
@@ -88,7 +89,7 @@ class EntityController extends Controller
             foreach ($request->contacts as $settingId => $valore) {
                 if (!empty($valore)) {
                     Contact::create([
-                        'id_entities' => $entity->id,
+                        'id_entities' => $entity->id_cliente,
                         'id_settings' => $settingId,
                         'valore' => $valore,
                         'principale' => isset($request->principal_contact) && $request->principal_contact == $settingId,
@@ -112,31 +113,36 @@ class EntityController extends Controller
 
     public function edit(Entity $entity)
     {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_entities')) {
+            abort(403, 'Non hai i permessi necessari.');
+        }
+        
+        // Carica l'entità con i contatti e gli indirizzi
+        $entity->load('contacts', 'addresses');
+        
         $entityTypes = Entity::getEntityTypes();
-        $contactTypes = Setting::where('tabella_riferimento', 'contacts')
-            ->where('valid', true)
-            ->orderBy('ordinamento')
-            ->get();
         
-        $existingContacts = $entity->contacts()
-            ->with('setting')
-            ->get()
-            ->keyBy('id_settings');
-        
-        return view('admin.entities.edit', compact('entity', 'entityTypes', 'contactTypes', 'existingContacts'));
+        return view('admin.entities.edit', compact('entity', 'entityTypes'));
     }
 
     public function update(Request $request, Entity $entity)
     {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_entities')) {
+            abort(403, 'Non hai i permessi necessari.');
+        }
+        
         $request->validate([
             'entity_type' => 'required|in:cliente,fornitore,entrambi',
             'ragione_sociale' => 'nullable|string|max:255',
             'nome' => 'nullable|string|max:255',
             'cognome' => 'nullable|string|max:255',
+            'persona_riferimento' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
             'pec' => 'nullable|email|max:255',
             'partita_iva' => 'nullable|string|max:20',
             'codice_fiscale' => 'nullable|string|max:20',
+            'codice_sdi' => 'nullable|string|max:7',
+            'valid' => 'boolean',
         ]);
 
         $entity->update([
@@ -149,34 +155,13 @@ class EntityController extends Controller
             'pec' => $request->pec,
             'partita_iva' => $request->partita_iva,
             'codice_fiscale' => $request->codice_fiscale,
+            'codice_sdi' => $request->codice_sdi,
             'id_gruppo' => $request->id_gruppo ?? 0,
             'valid' => $request->boolean('valid'),
         ]);
 
-        // Aggiorna i contatti
-        if ($request->has('contacts')) {
-            foreach ($request->contacts as $settingId => $valore) {
-                if (!empty($valore)) {
-                    Contact::updateOrCreate(
-                        [
-                            'id_entities' => $entity->id,
-                            'id_settings' => $settingId,
-                        ],
-                        [
-                            'valore' => $valore,
-                            'principale' => isset($request->principal_contact) && $request->principal_contact == $settingId,
-                        ]
-                    );
-                } else {
-                    // Elimina contatti vuoti
-                    Contact::where('id_entities', $entity->id)
-                        ->where('id_settings', $settingId)
-                        ->delete();
-                }
-            }
-        }
-
-        return redirect()->route('admin.entities.index')->with('success', 'Entità aggiornata con successo!');
+        return redirect()->route('admin.entities.index')
+            ->with('success', 'Entità aggiornata con successo!');
     }
 
     public function destroy(Entity $entity)
@@ -190,5 +175,86 @@ class EntityController extends Controller
         $entity->update(['valid' => !$entity->valid]);
         $status = $entity->valid ? 'attivata' : 'disattivata';
         return back()->with('success', "Entità {$status} con successo!");
+    }
+    
+    // API per la gestione degli indirizzi
+    public function getAddresses($entityId)
+    {
+        $addresses = Address::where('clienti_id_cliente', $entityId)->get();
+        return response()->json($addresses);
+    }
+
+    public function storeAddress(Request $request, $entityId)
+    {
+        $request->validate([
+            'sede' => 'nullable|string|max:50',
+            'indirizzo' => 'nullable|string|max:255',
+            'citta' => 'nullable|string|max:50',
+            'provincia' => 'nullable|string|max:5',
+            'nazione' => 'nullable|string|max:50',
+            'cap' => 'nullable|string|max:10',
+            'telefono' => 'nullable|string|max:255',
+            'cellulare' => 'nullable|string|max:255',
+            'fax' => 'nullable|string|max:255',
+        ]);
+
+        $address = Address::create([
+            'clienti_id_cliente' => $entityId,
+            'sede' => $request->sede ?: 'principale',
+            'indirizzo' => $request->indirizzo,
+            'citta' => $request->citta,
+            'provincia' => $request->provincia,
+            'nazione' => $request->nazione ?: 'Italia',
+            'cap' => $request->cap,
+            'telefono' => $request->telefono,
+            'cellulare' => $request->cellulare,
+            'fax' => $request->fax,
+        ]);
+
+        return response()->json(['success' => true, 'address' => $address]);
+    }
+
+    public function updateAddress(Request $request, $entityId, $addressId)
+    {
+        $request->validate([
+            'sede' => 'nullable|string|max:50',
+            'indirizzo' => 'nullable|string|max:255',
+            'citta' => 'nullable|string|max:50',
+            'provincia' => 'nullable|string|max:5',
+            'nazione' => 'nullable|string|max:50',
+            'cap' => 'nullable|string|max:10',
+            'telefono' => 'nullable|string|max:255',
+            'cellulare' => 'nullable|string|max:255',
+            'fax' => 'nullable|string|max:255',
+        ]);
+
+        $address = Address::where('clienti_id_cliente', $entityId)
+            ->where('id_indirizzo', $addressId)
+            ->firstOrFail();
+
+        $address->update([
+            'sede' => $request->sede ?: 'principale',
+            'indirizzo' => $request->indirizzo,
+            'citta' => $request->citta,
+            'provincia' => $request->provincia,
+            'nazione' => $request->nazione ?: 'Italia',
+            'cap' => $request->cap,
+            'telefono' => $request->telefono,
+            'cellulare' => $request->cellulare,
+            'fax' => $request->fax,
+        ]);
+
+        return response()->json(['success' => true, 'address' => $address]);
+    }
+
+    public function deleteAddress($entityId, $addressId)
+    {
+        $address = Address::where('clienti_id_cliente', $entityId)
+            ->where('id_indirizzo', $addressId)
+            ->firstOrFail();
+
+        $address->delete();
+
+        return response()->json(['success' => true]);
     }
 }

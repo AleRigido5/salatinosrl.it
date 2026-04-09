@@ -87,21 +87,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         // =============================================
-        // GESTIONE SETTINGS (Tipi di contatto)
+        // GESTIONE SETTINGS (Impostazioni di Sistema)
         // =============================================
-        // Route::prefix('settings')->name('settings.')->group(function () {
-        //     Route::get('/', [SettingController::class, 'index'])->name('index');
-        //     Route::get('/create', [SettingController::class, 'create'])->name('create');
-        //     Route::post('/', [SettingController::class, 'store'])->name('store');
-        //     Route::get('/{setting}', [SettingController::class, 'show'])->name('show');
-        //     Route::get('/{setting}/edit', [SettingController::class, 'edit'])->name('edit');
-        //     Route::put('/{setting}', [SettingController::class, 'update'])->name('update');
-        //     Route::delete('/{setting}', [SettingController::class, 'destroy'])->name('destroy');
-        //     Route::post('/{setting}/toggle-status', [SettingController::class, 'toggleStatus'])->name('toggle-status');
-            
-        //     // Ordine dei settings
-        //     Route::post('/reorder', [SettingController::class, 'reorder'])->name('reorder');
-        // });
+        Route::resource('settings', SettingController::class);
 
         // =============================================
         // GESTIONE CONTATTI
@@ -115,16 +103,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         // =============================================
-        // GESTIONE SETTINGS
-        // =============================================
-        Route::resource('settings', SettingController::class);
-
-        // =============================================
         // API PER RICERCHE AJAX / Livewire
         // =============================================
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('/search-entities', [EntityController::class, 'search'])->name('search-entities');
-            // Route::get('/search-settings', [SettingController::class, 'search'])->name('search-settings');
             Route::get('/entity-contacts/{entity}', [ContactController::class, 'getEntityContacts'])->name('entity-contacts');
             
             // API per indirizzi

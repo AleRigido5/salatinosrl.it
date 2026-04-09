@@ -24,7 +24,17 @@ class AddressManager extends Component
     public $cellulare = '';
     public $fax = '';
     
-    protected $listeners = ['refreshAddresses' => 'loadAddresses', 'addressSaved' => 'handleAddressSaved'];
+    // Modal di conferma eliminazione
+    public $showDeleteModal = false;
+    public $addressToDelete = null;
+    public $addressToDeleteName = '';
+    
+    // Modal di notifica
+    public $showNotification = false;
+    public $notificationMessage = '';
+    public $notificationType = 'success';
+    
+    protected $listeners = ['refreshAddresses' => 'loadAddresses'];
     
     public function mount($entityId)
     {
@@ -97,39 +107,89 @@ class AddressManager extends Component
             'fax' => $this->fax,
         ];
         
-        if ($this->editingAddressId) {
-            // Update
-            Address::where('clienti_id_cliente', $this->entityId)
-                ->where('id_indirizzo', $this->editingAddressId)
-                ->update($data);
-            $message = 'Indirizzo aggiornato con successo!';
-        } else {
-            // Create
-            Address::create($data);
-            $message = 'Indirizzo aggiunto con successo!';
-        }
-        
-        $this->resetForm();
-        $this->loadAddresses();
-        
-        // Invia notifica di successo
-        $this->dispatch('address-saved', $message);
-    }
-    
-    public function deleteAddress($id)
-    {
-        Address::where('clienti_id_cliente', $this->entityId)
-            ->where('id_indirizzo', $id)
-            ->delete();
+        try {
+            if ($this->editingAddressId) {
+                Address::where('clienti_id_cliente', $this->entityId)
+                    ->where('id_indirizzo', $this->editingAddressId)
+                    ->update($data);
+                $message = 'Indirizzo aggiornato con successo!';
+            } else {
+                Address::create($data);
+                $message = 'Indirizzo aggiunto con successo!';
+            }
             
-        $this->loadAddresses();
-        $this->dispatch('address-deleted', 'Indirizzo eliminato con successo!');
+            $this->resetForm();
+            $this->loadAddresses();
+            $this->showNotificationMessage($message, 'success');
+            
+        } catch (\Exception $e) {
+            $this->showNotificationMessage('Errore: ' . $e->getMessage(), 'error');
+        }
     }
     
-    public function handleAddressSaved($message)
+    public function confirmDelete($id)
     {
-        // Questo metodo viene chiamato quando un indirizzo viene salvato
-        // Puoi aggiungere qui eventuali azioni aggiuntive
+        $address = Address::where('clienti_id_cliente', $this->entityId)
+            ->where('id_indirizzo', $id)
+            ->first();
+            
+        if ($address) {
+            $this->addressToDelete = $id;
+            // Crea un nome descrittivo per l'indirizzo
+            $this->addressToDeleteName = $address->sede ?: 'Indirizzo';
+            if ($address->indirizzo) {
+                $this->addressToDeleteName .= ' - ' . $address->indirizzo;
+            }
+            if ($address->citta) {
+                $this->addressToDeleteName .= ' (' . $address->citta . ')';
+            }
+            $this->showDeleteModal = true;
+        }
+    }
+    
+    public function deleteAddress()
+    {
+        try {
+            if ($this->addressToDelete) {
+                Address::where('clienti_id_cliente', $this->entityId)
+                    ->where('id_indirizzo', $this->addressToDelete)
+                    ->delete();
+                    
+                $this->loadAddresses();
+                $this->showNotificationMessage('Indirizzo eliminato con successo!', 'success');
+            }
+            
+            $this->showDeleteModal = false;
+            $this->addressToDelete = null;
+            $this->addressToDeleteName = '';
+            
+        } catch (\Exception $e) {
+            $this->showNotificationMessage('Errore durante l\'eliminazione', 'error');
+            $this->showDeleteModal = false;
+        }
+    }
+    
+    public function cancelDelete()
+    {
+        $this->showDeleteModal = false;
+        $this->addressToDelete = null;
+        $this->addressToDeleteName = '';
+    }
+    
+    public function showNotificationMessage($message, $type = 'success')
+    {
+        $this->notificationMessage = $message;
+        $this->notificationType = $type;
+        $this->showNotification = true;
+        
+        // Auto-hide dopo 3 secondi
+        $this->dispatch('hide-notification');
+    }
+    
+    public function hideNotification()
+    {
+        $this->showNotification = false;
+        $this->notificationMessage = '';
     }
     
     public function render()

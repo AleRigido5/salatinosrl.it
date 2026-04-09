@@ -1,4 +1,106 @@
 <div>
+    <!-- Modal di notifica -->
+    @if($showNotification)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 transition-opacity duration-300"
+         x-data="{ show: true }"
+         x-show="show"
+         x-transition.opacity.duration.200ms
+         @hide-notification.window="setTimeout(() => show = false, 3000)">
+        
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6 transform transition-all duration-300"
+             x-show="show"
+             x-transition.scale.origin.top>
+            
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    @if($notificationType == 'success')
+                        <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                        </div>
+                    @elseif($notificationType == 'error')
+                        <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </div>
+                    @else
+                        <div class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            </svg>
+                        </div>
+                    @endif
+                </div>
+                <div class="ml-4">
+                    <h3 class="text-lg font-medium text-gray-900">
+                        {{ $notificationType == 'success' ? 'Successo!' : ($notificationType == 'error' ? 'Errore!' : 'Attenzione!') }}
+                    </h3>
+                    <p class="text-sm text-gray-500 mt-1">{{ $notificationMessage }}</p>
+                </div>
+            </div>
+            
+            <div class="mt-4 flex justify-end">
+                <button type="button"
+                        wire:click="hideNotification"
+                        class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm transition-colors">
+                    Chiudi
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Modal di conferma eliminazione indirizzo -->
+    @if($showDeleteModal)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 transition-opacity duration-300"
+         x-data="{ show: true }"
+         x-show="show"
+         x-transition.opacity.duration.200ms>
+        
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6 transform transition-all duration-300"
+             x-show="show"
+             x-transition.scale.origin.top>
+            
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <h3 class="text-lg font-medium text-gray-900">Conferma Eliminazione</h3>
+                    <p class="text-sm text-gray-500 mt-1">
+                        Sei sicuro di voler eliminare il seguente indirizzo?
+                    </p>
+                    <p class="text-sm font-semibold text-gray-700 mt-2 bg-gray-100 p-2 rounded">
+                        {{ $addressToDeleteName }}
+                    </p>
+                    <p class="text-xs text-gray-400 mt-2">
+                        Questa azione non può essere annullata.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end space-x-3">
+                <button type="button"
+                        wire:click="cancelDelete"
+                        class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
+                    Annulla
+                </button>
+                <button type="button"
+                        wire:click="deleteAddress"
+                        class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">
+                    Elimina
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <div class="bg-gray-50 rounded-lg p-4">
         <div class="flex justify-between items-center mb-3 border-b pb-2">
             <h3 class="text-lg font-semibold text-gray-800">
@@ -131,8 +233,7 @@
                                     <i class="fas fa-edit"></i>
                                 </button>
                                 <button type="button" 
-                                        wire:click="deleteAddress({{ $address['id_indirizzo'] }})"
-                                        wire:confirm="Sei sicuro di voler eliminare questo indirizzo?"
+                                        wire:click="confirmDelete({{ $address['id_indirizzo'] }})"
                                         class="text-red-600 hover:text-red-800 transition-colors"
                                         title="Elimina Indirizzo">
                                     <i class="fas fa-trash-alt"></i>
@@ -152,15 +253,4 @@
             </table>
         </div>
     </div>
-    
-    <script>
-        document.addEventListener('livewire:initialized', () => {
-            Livewire.on('address-saved', (message) => {
-                alert(message);
-            });
-            Livewire.on('address-deleted', (message) => {
-                alert(message);
-            });
-        });
-    </script>
 </div>

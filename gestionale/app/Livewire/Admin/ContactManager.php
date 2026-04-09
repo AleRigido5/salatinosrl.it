@@ -15,14 +15,25 @@ class ContactManager extends Component
     public $editingContactId = null;
     public $showForm = false;
     
-    // Per selezione multipla
-    public $selectedContacts = [];
-    public $selectAll = false;
-    
     // Form fields
     public $id_settings = '';
     public $valore = '';
     public $principale = false;
+    
+    // Modal di conferma per creazione/modifica
+    public $showConfirmModal = false;
+    public $confirmAction = ''; // 'create' o 'update'
+    public $confirmData = [];
+    
+    // Modal di notifica
+    public $showNotification = false;
+    public $notificationMessage = '';
+    public $notificationType = 'success';
+    
+    // Modal di conferma eliminazione
+    public $showDeleteModal = false;
+    public $contactToDelete = null;
+    public $contactToDeleteName = '';
     
     protected $listeners = ['refreshContacts' => 'loadContacts'];
     
@@ -49,10 +60,6 @@ class ContactManager extends Component
             ->orderBy('id_settings')
             ->get()
             ->toArray();
-            
-        // Reset selezione dopo il refresh
-        $this->selectedContacts = [];
-        $this->selectAll = false;
     }
     
     public function resetForm()
@@ -90,86 +97,125 @@ class ContactManager extends Component
         $this->resetForm();
     }
     
-    public function saveContact()
+    public function confirmSave()
     {
         $this->validate([
-            'id_settings' => 'required|exists:settings,id_settings',
+            'id_settings' => 'required|exists:settings,id',
             'valore' => 'required|string|max:255',
         ]);
         
-        // Se questo contatto è impostato come principale, rimuovi principale dagli altri dello stesso tipo
-        if ($this->principale) {
-            Contact::where('id_entities', $this->entityId)
-                ->where('id_settings', $this->id_settings)
-                ->update(['principale' => 0]);
-        }
-        
-        $data = [
-            'id_entities' => $this->entityId,
+        $this->confirmAction = $this->editingContactId ? 'update' : 'create';
+        $this->confirmData = [
             'id_settings' => $this->id_settings,
             'valore' => $this->valore,
-            'principale' => $this->principale ? 1 : 0,
+            'principale' => $this->principale,
         ];
-        
-        if ($this->editingContactId) {
-            // Update
-            Contact::where('id_entities', $this->entityId)
-                ->where('id', $this->editingContactId)
-                ->update($data);
-            $message = 'Contatto aggiornato con successo!';
-        } else {
-            // Create
-            Contact::create($data);
-            $message = 'Contatto aggiunto con successo!';
-        }
-        
-        $this->resetForm();
-        $this->loadContacts();
-        $this->dispatch('contact-saved', $message);
+        $this->showConfirmModal = true;
     }
     
-    public function deleteContact($id)
+    public function saveContact()
     {
-        Contact::where('id_entities', $this->entityId)
-            ->where('id', $id)
-            ->delete();
+        try {
+            $data = [
+                'id_entities' => $this->entityId,
+                'id_settings' => $this->confirmData['id_settings'],
+                'valore' => $this->confirmData['valore'],
+                'principale' => $this->confirmData['principale'] ? 1 : 0,
+            ];
             
-        $this->loadContacts();
-        $this->dispatch('contact-deleted', 'Contatto eliminato con successo!');
-    }
-    
-    public function deleteSelectedContacts()
-    {
-        if (empty($this->selectedContacts)) {
-            $this->dispatch('contact-deleted', 'Nessun contatto selezionato!');
-            return;
-        }
-        
-        Contact::where('id_entities', $this->entityId)
-            ->whereIn('id', $this->selectedContacts)
-            ->delete();
-            
-        $this->loadContacts();
-        $this->dispatch('contact-deleted', count($this->selectedContacts) . ' contatti eliminati con successo!');
-    }
-    
-    public function updatedSelectAll($value)
-    {
-        if ($value) {
-            $this->selectedContacts = array_column($this->contacts, 'id');
-        } else {
-            $this->selectedContacts = [];
-        }
-    }
-    
-    public function getTypeName($idSettings)
-    {
-        foreach ($this->contactTypes as $type) {
-            if ($type['id_settings'] == $idSettings) {
-                return $type['valore'];
+            // Se questo contatto è impostato come principale, rimuovi principale dagli altri dello stesso tipo
+            if ($this->confirmData['principale']) {
+                Contact::where('id_entities', $this->entityId)
+                    ->where('id_settings', $this->confirmData['id_settings'])
+                    ->update(['principale' => 0]);
             }
+            
+            if ($this->confirmAction == 'update') {
+                Contact::where('id_entities', $this->entityId)
+                    ->where('id', $this->editingContactId)
+                    ->update($data);
+                $message = 'Contatto aggiornato con successo!';
+            } else {
+                Contact::create($data);
+                $message = 'Contatto aggiunto con successo!';
+            }
+            
+            $this->showConfirmModal = false;
+            $this->resetForm();
+            $this->loadContacts();
+            $this->showNotificationMessage($message, 'success');
+            
+        } catch (\Exception $e) {
+            $this->showConfirmModal = false;
+            $this->showNotificationMessage('Errore: ' . $e->getMessage(), 'error');
         }
-        return 'Tipo sconosciuto';
+    }
+    
+    public function cancelConfirm()
+    {
+        $this->showConfirmModal = false;
+        $this->confirmAction = '';
+        $this->confirmData = [];
+    }
+    
+    public function confirmDelete($id)
+    {
+        $contact = Contact::where('id_entities', $this->entityId)
+            ->where('id', $id)
+            ->with('setting')
+            ->first();
+            
+        if ($contact) {
+            $this->contactToDelete = $contact->id;
+            $tipo = $contact->setting->valore ?? 'Contatto';
+            $this->contactToDeleteName = $tipo . ': ' . $contact->valore;
+            $this->showDeleteModal = true;
+        }
+    }
+    
+    public function deleteContact()
+    {
+        try {
+            if ($this->contactToDelete) {
+                Contact::where('id_entities', $this->entityId)
+                    ->where('id', $this->contactToDelete)
+                    ->delete();
+                    
+                $this->loadContacts();
+                $this->showNotificationMessage('Contatto eliminato con successo!', 'success');
+            }
+            
+            $this->showDeleteModal = false;
+            $this->contactToDelete = null;
+            $this->contactToDeleteName = '';
+            
+        } catch (\Exception $e) {
+            $this->showNotificationMessage('Errore durante l\'eliminazione', 'error');
+            $this->showDeleteModal = false;
+        }
+    }
+    
+    public function cancelDelete()
+    {
+        $this->showDeleteModal = false;
+        $this->contactToDelete = null;
+        $this->contactToDeleteName = '';
+    }
+    
+    public function showNotificationMessage($message, $type = 'success')
+    {
+        $this->notificationMessage = $message;
+        $this->notificationType = $type;
+        $this->showNotification = true;
+        
+        // Auto-hide dopo 3 secondi
+        $this->dispatch('hide-notification');
+    }
+    
+    public function hideNotification()
+    {
+        $this->showNotification = false;
+        $this->notificationMessage = '';
     }
     
     public function render()

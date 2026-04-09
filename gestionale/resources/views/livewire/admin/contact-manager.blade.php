@@ -93,10 +93,10 @@
                         <td class="px-3 py-2">
                             <input type="checkbox" 
                                    wire:model="selectedContacts" 
-                                   value="{{ $contact['id_contatto'] }}"
+                                   value="{{ $contact['id'] }}"
                                    class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
                         </td>
-                        <td class="px-3 py-2 text-gray-500">{{ $contact['id_contatto'] }}</td>
+                        <td class="px-3 py-2 text-gray-500">{{ $contact['id'] }}</td>
                         <td class="px-3 py-2">
                             <span class="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">
                                 {{ $contact['setting']['valore'] ?? 'Tipo sconosciuto' }}
@@ -130,13 +130,13 @@
                         <td class="px-3 py-2">
                             <div class="flex space-x-2">
                                 <button type="button" 
-                                        wire:click="editContact({{ $contact['id_contatto'] }})"
+                                        wire:click="editContact({{ $contact['id'] }})"
                                         class="text-yellow-600 hover:text-yellow-800 transition-colors"
                                         title="Modifica Contatto">
                                     <i class="fas fa-edit"></i>
                                 </button>
                                 <button type="button" 
-                                        wire:click="deleteContact({{ $contact['id_contatto'] }})"
+                                        wire:click="deleteContact({{ $contact['id'] }})"
                                         wire:confirm="Sei sicuro di voler eliminare questo contatto?"
                                         class="text-red-600 hover:text-red-800 transition-colors"
                                         title="Elimina Contatto">

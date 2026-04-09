@@ -73,7 +73,7 @@ class ContactManager extends Component
     public function editContact($id)
     {
         $contact = Contact::where('id_entities', $this->entityId)
-            ->where('id_contatto', $id)
+            ->where('id', $id)
             ->first();
             
         if ($contact) {
@@ -114,7 +114,7 @@ class ContactManager extends Component
         if ($this->editingContactId) {
             // Update
             Contact::where('id_entities', $this->entityId)
-                ->where('id_contatto', $this->editingContactId)
+                ->where('id', $this->editingContactId)
                 ->update($data);
             $message = 'Contatto aggiornato con successo!';
         } else {
@@ -131,7 +131,7 @@ class ContactManager extends Component
     public function deleteContact($id)
     {
         Contact::where('id_entities', $this->entityId)
-            ->where('id_contatto', $id)
+            ->where('id', $id)
             ->delete();
             
         $this->loadContacts();
@@ -146,7 +146,7 @@ class ContactManager extends Component
         }
         
         Contact::where('id_entities', $this->entityId)
-            ->whereIn('id_contatto', $this->selectedContacts)
+            ->whereIn('id', $this->selectedContacts)
             ->delete();
             
         $this->loadContacts();
@@ -156,7 +156,7 @@ class ContactManager extends Component
     public function updatedSelectAll($value)
     {
         if ($value) {
-            $this->selectedContacts = array_column($this->contacts, 'id_contatto');
+            $this->selectedContacts = array_column($this->contacts, 'id');
         } else {
             $this->selectedContacts = [];
         }

@@ -4,13 +4,23 @@
             <h3 class="text-lg font-semibold text-gray-800">
                 <i class="fas fa-address-card mr-2 text-orange-500"></i> Contatti
             </h3>
-            @if(!$showForm)
-            <button type="button" 
-                    wire:click="showCreateForm"
-                    class="text-emerald-600 hover:text-emerald-700 transition-colors text-sm">
-                <i class="fas fa-plus mr-1"></i> Nuovo Contatto
-            </button>
-            @endif
+            <div class="flex space-x-2">
+                @if(count($contacts) > 0 && count($selectedContacts) > 0)
+                <button type="button" 
+                        wire:click="deleteSelectedContacts"
+                        wire:confirm="Sei sicuro di voler eliminare i contatti selezionati?"
+                        class="text-red-600 hover:text-red-700 transition-colors text-sm">
+                    <i class="fas fa-trash-alt mr-1"></i> Elimina selezionati
+                </button>
+                @endif
+                @if(!$showForm)
+                <button type="button" 
+                        wire:click="showCreateForm"
+                        class="text-emerald-600 hover:text-emerald-700 transition-colors text-sm">
+                    <i class="fas fa-plus mr-1"></i> Nuovo Contatto
+                </button>
+                @endif
+            </div>
         </div>
         
         <!-- Form di inserimento/modifica contatto -->
@@ -23,7 +33,7 @@
                             class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">Seleziona tipo</option>
                         @foreach($contactTypes as $type)
-                            <option value="{{ $type['id_settings'] }}">{{ $type['nome'] }}</option>
+                            <option value="{{ $type['id_settings'] }}">{{ $type['valore'] }}</option>
                         @endforeach
                     </select>
                     @error('id_settings') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
@@ -60,13 +70,18 @@
         </div>
         @endif
         
-        <!-- Tabella Contatti -->
+        <!-- Tabella Contatti con selezione multipla -->
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 text-sm">
                 <thead class="bg-gray-100">
                     <tr>
+                        <th class="px-3 py-2 text-left">
+                            <input type="checkbox" 
+                                   wire:model="selectAll"
+                                   class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                        </th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipologia</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Valore</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Principale</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Azioni</th>
@@ -75,21 +90,27 @@
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($contacts as $contact)
                     <tr class="hover:bg-gray-50">
+                        <td class="px-3 py-2">
+                            <input type="checkbox" 
+                                   wire:model="selectedContacts" 
+                                   value="{{ $contact['id_contatto'] }}"
+                                   class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                        </td>
                         <td class="px-3 py-2 text-gray-500">{{ $contact['id_contatto'] }}</td>
                         <td class="px-3 py-2">
                             <span class="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">
-                                {{ $contact['setting']['nome'] ?? 'Tipo sconosciuto' }}
+                                {{ $contact['setting']['valore'] ?? 'Tipo sconosciuto' }}
                             </span>
                         </td>
                         <td class="px-3 py-2">
                             @php
-                                $settingSlug = $contact['setting']['slug'] ?? '';
+                                $settingValore = $contact['setting']['valore'] ?? '';
                             @endphp
-                            @if($settingSlug == 'email' || $settingSlug == 'pec')
+                            @if($settingValore == 'Email' || $settingValore == 'PEC')
                                 <a href="mailto:{{ $contact['valore'] }}" class="text-blue-600 hover:text-blue-800">
                                     {{ $contact['valore'] }}
                                 </a>
-                            @elseif($settingSlug == 'telefono' || $settingSlug == 'cellulare')
+                            @elseif($settingValore == 'Telefono' || $settingValore == 'Cellulare')
                                 <a href="tel:{{ $contact['valore'] }}" class="text-gray-800 hover:text-emerald-600">
                                     {{ $contact['valore'] }}
                                 </a>
@@ -126,7 +147,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="px-3 py-6 text-center text-gray-400">
+                        <td colspan="6" class="px-3 py-6 text-center text-gray-400">
                             <i class="fas fa-address-card text-2xl mb-2 block"></i>
                             Nessun contatto associato
                         </td>
@@ -135,6 +156,14 @@
                 </tbody>
             </table>
         </div>
+        
+        <!-- Info selezione -->
+        @if(count($selectedContacts) > 0)
+        <div class="mt-3 text-sm text-gray-500">
+            <i class="fas fa-check-circle text-emerald-500 mr-1"></i>
+            {{ count($selectedContacts) }} contatto/i selezionato/i
+        </div>
+        @endif
     </div>
     
     <script>

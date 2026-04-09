@@ -15,6 +15,10 @@ class ContactManager extends Component
     public $editingContactId = null;
     public $showForm = false;
     
+    // Per selezione multipla
+    public $selectedContacts = [];
+    public $selectAll = false;
+    
     // Form fields
     public $id_settings = '';
     public $valore = '';
@@ -45,6 +49,10 @@ class ContactManager extends Component
             ->orderBy('id_settings')
             ->get()
             ->toArray();
+            
+        // Reset selezione dopo il refresh
+        $this->selectedContacts = [];
+        $this->selectAll = false;
     }
     
     public function resetForm()
@@ -130,11 +138,35 @@ class ContactManager extends Component
         $this->dispatch('contact-deleted', 'Contatto eliminato con successo!');
     }
     
+    public function deleteSelectedContacts()
+    {
+        if (empty($this->selectedContacts)) {
+            $this->dispatch('contact-deleted', 'Nessun contatto selezionato!');
+            return;
+        }
+        
+        Contact::where('id_entities', $this->entityId)
+            ->whereIn('id_contatto', $this->selectedContacts)
+            ->delete();
+            
+        $this->loadContacts();
+        $this->dispatch('contact-deleted', count($this->selectedContacts) . ' contatti eliminati con successo!');
+    }
+    
+    public function updatedSelectAll($value)
+    {
+        if ($value) {
+            $this->selectedContacts = array_column($this->contacts, 'id_contatto');
+        } else {
+            $this->selectedContacts = [];
+        }
+    }
+    
     public function getTypeName($idSettings)
     {
         foreach ($this->contactTypes as $type) {
             if ($type['id_settings'] == $idSettings) {
-                return $type['nome'];
+                return $type['valore'];
             }
         }
         return 'Tipo sconosciuto';

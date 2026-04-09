@@ -425,19 +425,12 @@
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                <!-- RIGA 1: Ragione Sociale e Tipologia -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Ragione Sociale</label>
                     <input type="text" 
-                           wire:model="formNome" 
-                           placeholder="Inserisci il nome" 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
-                    <input type="text" 
-                           wire:model="formCognome" 
-                           placeholder="Inserisci il cognome" 
+                           wire:model="formRagioneSociale" 
+                           placeholder="Ragione Sociale (opzionale)" 
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
                 
@@ -455,19 +448,29 @@
                     @error('formTipologia') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
                 </div>
                 
+                <!-- RIGA 2: Cognome e Nome -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
+                    <input type="text" 
+                           wire:model="formCognome" 
+                           placeholder="Inserisci il cognome" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                    <input type="text" 
+                           wire:model="formNome" 
+                           placeholder="Inserisci il nome" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                
+                <!-- RIGA 3: Persona Riferimento e P.IVA -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Persona di Riferimento</label>
                     <input type="text" 
                            wire:model="formRiferimento" 
                            placeholder="Persona di riferimento" 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                </div>
-                
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Ragione Sociale</label>
-                    <input type="text" 
-                           wire:model="formRagioneSociale" 
-                           placeholder="Ragione Sociale (opzionale)" 
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
                 
@@ -477,15 +480,6 @@
                            wire:model="formPartitaIva" 
                            placeholder="Partita IVA" 
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input type="email" 
-                           wire:model="formEmail" 
-                           placeholder="Email" 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    @error('formEmail') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
                 </div>
             </div>
             

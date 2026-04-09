@@ -107,7 +107,6 @@
                     </h3>
                     
                     <div class="grid grid-cols-1 gap-6">
-                        <!-- PEC - intera larghezza -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">PEC (Posta Elettronica Certificata)</label>
                             <input type="email" 
@@ -120,7 +119,6 @@
                             <p class="text-xs text-gray-500 mt-1">Indirizzo PEC per l'invio delle fatture elettroniche</p>
                         </div>
                         
-                        <!-- Codice SDI - intera larghezza -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Codice SDI (Sistema di Interscambio)</label>
                             <input type="text" 
@@ -166,7 +164,7 @@
                 </div>
             </div>
             
-            <!-- BOTTONE AGGIORNA - Prima della linea degli indirizzi -->
+            <!-- BOTTONE AGGIORNA -->
             <div class="px-6 pb-4">
                 <div class="flex justify-end">
                     <button type="submit" 
@@ -178,12 +176,17 @@
                 </div>
             </div>
             
-            <!-- Linea di divisione prima degli indirizzi -->
+            <!-- Linea di divisione -->
             <div class="border-t border-gray-200"></div>
             
             <!-- Sezione Indirizzi -->
             <div class="px-6 pb-6 pt-4">
                 @livewire('admin.address-manager', ['entityId' => $entity->id_cliente])
+            </div>
+            
+            <!-- Sezione Contatti -->
+            <div class="px-6 pb-6 pt-2">
+                @livewire('admin.contact-manager', ['entityId' => $entity->id_cliente])
             </div>
         </form>
     </div>
@@ -206,7 +209,6 @@ const originalValues = {
 function enableUpdateButton() {
     const updateButton = document.getElementById('updateButton');
     
-    // Controlla se i valori sono cambiati
     const isChanged = 
         document.getElementById('ragione_sociale')?.value !== originalValues.ragione_sociale ||
         document.getElementById('entity_type')?.value !== originalValues.entity_type ||
@@ -218,11 +220,9 @@ function enableUpdateButton() {
         document.getElementById('codice_sdi')?.value !== originalValues.codice_sdi ||
         document.getElementById('valid')?.checked !== originalValues.valid;
     
-    // Abilita/disabilita il bottone
     updateButton.disabled = !isChanged;
 }
 
-// Resetta il form dopo il submit
 document.getElementById('entityForm')?.addEventListener('submit', function() {
     const updateButton = document.getElementById('updateButton');
     updateButton.disabled = true;

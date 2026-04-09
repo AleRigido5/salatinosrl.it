@@ -29,14 +29,14 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                     <label class="block text-xs font-medium text-gray-700 mb-1">Tipo Contatto <span class="text-red-500">*</span></label>
-                    <select wire:model="id_settings" 
+                    <select wire:model="id" 
                             class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">Seleziona tipo</option>
                         @foreach($contactTypes as $type)
-                            <option value="{{ $type['id_settings'] }}">{{ $type['valore'] }}</option>
+                            <option value="{{ $type['id'] }}">{{ $type['valore'] }}</option>
                         @endforeach
                     </select>
-                    @error('id_settings') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                    @error('id') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-700 mb-1">Valore <span class="text-red-500">*</span></label>

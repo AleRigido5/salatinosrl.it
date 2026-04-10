@@ -8,27 +8,40 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Setting extends Model
 {
     use SoftDeletes;
-    
+
     protected $table = 'settings';
-    
+
+    protected $primaryKey = 'id';
+
     protected $fillable = [
+        'category_id',
         'tabella_riferimento',
         'valore',
         'descrizione',
         'ordinamento',
-        'valid',
+        'valid'
     ];
-    
+
     protected $casts = [
         'valid' => 'boolean',
-        'ordinamento' => 'integer',
+        'ordinamento' => 'integer'
     ];
-    
-    /**
-     * Relazione con i contatti
-     */
-    public function contacts()
+
+    // Relazione con la categoria
+    public function category()
     {
-        return $this->hasMany(Contact::class, 'id_settings');
+        return $this->belongsTo(SettingCategory::class, 'category_id');
+    }
+
+    // Scope per tabella di riferimento
+    public function scopeByTable($query, $table)
+    {
+        return $query->where('tabella_riferimento', $table);
+    }
+
+    // Scope per categoria
+    public function scopeByCategory($query, $categoryId)
+    {
+        return $query->where('category_id', $categoryId);
     }
 }

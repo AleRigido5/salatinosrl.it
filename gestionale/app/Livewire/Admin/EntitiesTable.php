@@ -44,12 +44,15 @@ class EntitiesTable extends Component
     
     protected $listeners = [
         'refreshTable' => '$refresh',
-        'openCreateModal' => 'openCreateModal'
+        'openCreateModal' => 'openCreateModal',
+        'closeViewModal' => 'closeViewModal',
+        'closeCreateModal' => 'closeCreateModal'
     ];
     
     public function refreshTable()
     {
         $this->resetPage();
+        $this->dispatch('tableRefreshed');
     }
     
     public function sortBy($field)
@@ -60,6 +63,7 @@ class EntitiesTable extends Component
             $this->sortField = $field;
             $this->sortDirection = 'asc';
         }
+        $this->resetPage();
     }
     
     public function updatingSearch()
@@ -99,7 +103,6 @@ class EntitiesTable extends Component
             $searchTerm = '%' . $this->search . '%';
             
             $query->where(function($q) use ($searchTerm) {
-                // Campi di entities
                 $q->where('entities.ragione_sociale', 'like', $searchTerm)
                   ->orWhere('entities.nome', 'like', $searchTerm)
                   ->orWhere('entities.cognome', 'like', $searchTerm)
@@ -108,12 +111,10 @@ class EntitiesTable extends Component
                   ->orWhere('entities.partita_iva', 'like', $searchTerm)
                   ->orWhere('entities.codice_fiscale', 'like', $searchTerm)
                   ->orWhere('entities.persona_riferimento', 'like', $searchTerm)
-                  // Campi di address
                   ->orWhere('address.indirizzo', 'like', $searchTerm)
                   ->orWhere('address.citta', 'like', $searchTerm)
                   ->orWhere('address.provincia', 'like', $searchTerm)
                   ->orWhere('address.cap', 'like', $searchTerm)
-                  // Campi di contacts
                   ->orWhere('contacts.valore', 'like', $searchTerm);
             });
         }
@@ -128,13 +129,13 @@ class EntitiesTable extends Component
             $query->where('entities.valid', $this->statusFilter === 'active');
         }
         
-        // Raggruppa per evitare duplicati dovuti ai JOIN
+        // Raggruppa per evitare duplicati
         $query->select('entities.*')->distinct();
         
         // Ordina e paginate
         $query->orderBy($this->sortField, $this->sortDirection);
         
-        // Carica le relazioni necessarie
+        // Carica le relazioni
         $entities = $query->with(['contacts' => function($q) {
             $q->orderBy('id_settings');
         }])->paginate($this->perPage);
@@ -152,7 +153,7 @@ class EntitiesTable extends Component
             }, 'addresses'])->find($id);
             
             if (!$entity) {
-                session()->flash('error', 'Cliente/Fornitore non trovato');
+                $this->dispatch('showError', message: 'Cliente/Fornitore non trovato');
                 return;
             }
             
@@ -160,7 +161,7 @@ class EntitiesTable extends Component
             $this->showViewModal = true;
             
         } catch (\Exception $e) {
-            session()->flash('error', 'Errore nel caricamento dei dettagli: ' . $e->getMessage());
+            $this->dispatch('showError', message: 'Errore nel caricamento: ' . $e->getMessage());
         }
     }
     
@@ -174,7 +175,8 @@ class EntitiesTable extends Component
     
     public function openEditPage($id)
     {
-        return redirect()->route('admin.entities.edit', $id);
+        // Dispatch evento per redirect via JavaScript
+        $this->dispatch('redirectToEdit', id: $id);
     }
     
     // ==================== METODI ELIMINAZIONE ====================
@@ -184,7 +186,7 @@ class EntitiesTable extends Component
         $entity = Entity::find($id);
         
         if (!$entity) {
-            session()->flash('error', 'Cliente/Fornitore non trovato');
+            $this->dispatch('showError', message: 'Cliente/Fornitore non trovato');
             return;
         }
         
@@ -197,14 +199,14 @@ class EntitiesTable extends Component
     {
         try {
             if (!$this->entityToDelete) {
-                session()->flash('error', 'Nessun elemento selezionato per l\'eliminazione');
+                $this->dispatch('showError', message: 'Nessun elemento selezionato');
                 return;
             }
             
             $entityName = $this->entityToDelete->full_name;
             $this->entityToDelete->delete();
             
-            session()->flash('success', "Cliente/Fornitore '{$entityName}' eliminato con successo!");
+            $this->dispatch('showSuccess', message: "Cliente/Fornitore '{$entityName}' eliminato con successo!");
             
             $this->showDeleteModal = false;
             $this->entityToDelete = null;
@@ -212,7 +214,7 @@ class EntitiesTable extends Component
             
             $this->refreshTable();
         } catch (\Exception $e) {
-            session()->flash('error', 'Errore durante l\'eliminazione: ' . $e->getMessage());
+            $this->dispatch('showError', message: 'Errore durante l\'eliminazione: ' . $e->getMessage());
             $this->showDeleteModal = false;
         }
     }
@@ -233,11 +235,11 @@ class EntitiesTable extends Component
             if ($entity) {
                 $entity->update(['valid' => !$entity->valid]);
                 $status = $entity->valid ? 'attivato' : 'disattivato';
-                session()->flash('success', "Cliente/Fornitore {$status} con successo!");
+                $this->dispatch('showSuccess', message: "Cliente/Fornitore {$status} con successo!");
                 $this->refreshTable();
             }
         } catch (\Exception $e) {
-            session()->flash('error', 'Errore durante il cambio di stato');
+            $this->dispatch('showError', message: 'Errore durante il cambio di stato');
         }
     }
     
@@ -302,14 +304,14 @@ class EntitiesTable extends Component
             
             if ($id) {
                 $this->closeCreateModal();
-                session()->flash('success', 'Cliente/Fornitore creato con successo!');
+                $this->dispatch('showSuccess', message: 'Cliente/Fornitore creato con successo!');
                 $this->refreshTable();
             } else {
                 throw new \Exception('Nessun ID restituito');
             }
             
         } catch (\Exception $e) {
-            session()->flash('error', 'Errore: ' . $e->getMessage());
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
 

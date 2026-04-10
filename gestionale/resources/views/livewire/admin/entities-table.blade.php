@@ -189,17 +189,17 @@
                         
                         $emailValue = $email ? $email->valore : ($entity->email ?? null);
                     @endphp
-                    <tr class="hover:bg-gray-50 transition-colors duration-150">
+                    <tr wire:key="entity-{{ $entity->id_cliente }}" class="hover:bg-gray-50 transition-colors duration-150">
                         <td class="px-6 py-4">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center
-                                    @if($entity->entity_type == 'cliente') bg-green-100
+                                    @if($entity->entity_type == 'cliente') bg-lime-100
                                     @elseif($entity->entity_type == 'fornitore') bg-blue-100
                                     @else bg-purple-100
                                     @endif">
                                     
                                     @if($entity->entity_type == 'cliente')
-                                        <i class="fas fa-user text-green-600 text-lg"></i>
+                                        <i class="fas fa-user text-lime-600 text-lg"></i>
                                     @elseif($entity->entity_type == 'fornitore')
                                         <i class="fas fa-truck text-blue-600 text-lg"></i>
                                     @else
@@ -221,7 +221,7 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                @if($entity->entity_type == 'cliente') bg-green-100 text-green-800
+                                @if($entity->entity_type == 'cliente') bg-lime-100 text-lime-800
                                 @elseif($entity->entity_type == 'fornitore') bg-blue-100 text-blue-800
                                 @else bg-purple-100 text-purple-800
                                 @endif">
@@ -284,8 +284,9 @@
                         
                         <td class="px-6 py-4 whitespace-nowrap">
                             <button wire:click="toggleStatus({{ $entity->id_cliente }})" 
+                                    wire:key="toggle-{{ $entity->id_cliente }}"
                                     class="px-2 py-1 text-xs font-medium rounded-md transition-colors duration-200
-                                        {{ $entity->valid ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200' }}">
+                                        {{ $entity->valid ? 'bg-lime-100 text-lime-800 hover:bg-lime-200' : 'bg-red-100 text-red-800 hover:bg-red-200' }}">
                                 {{ $entity->valid ? 'Attivo' : 'Disattivo' }}
                             </button>
                         </td>
@@ -298,6 +299,7 @@
                             <div class="flex space-x-3">
                                 @if(auth()->guard('admin')->user()->hasPermission('view_entities'))
                                 <button wire:click="viewEntity({{ $entity->id_cliente }})" 
+                                        wire:key="view-{{ $entity->id_cliente }}"
                                         class="text-blue-600 hover:text-blue-900 transition-colors"
                                         title="Visualizza">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -309,6 +311,7 @@
                                 
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_entities'))
                                 <button wire:click="openEditPage({{ $entity->id_cliente }})" 
+                                        wire:key="edit-{{ $entity->id_cliente }}"
                                         class="text-yellow-600 hover:text-yellow-900 transition-colors"
                                         title="Modifica">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -344,75 +347,74 @@
     <!-- Paginazione -->
     @if($entities->hasPages())
     <div class="mt-6">
-        <div class="flex items-center justify-between">
-            <div class="text-sm text-gray-500">
-                Mostrando {{ $entities->firstItem() ?? 0 }} - {{ $entities->lastItem() ?? 0 }} di {{ $entities->total() }} risultati
-            </div>
-            <div>
-                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                    @if ($entities->onFirstPage())
-                        <span class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-300 cursor-not-allowed">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                            </svg>
-                        </span>
-                    @else
-                        <button wire:click="previousPage" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                            </svg>
-                        </button>
-                    @endif
-
-                    @foreach ($entities->links()->elements as $element)
-                        @if (is_string($element))
-                            <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">{{ $element }}</span>
-                        @endif
-
-                        @if (is_array($element))
-                            @foreach ($element as $page => $url)
-                                @if ($page == $entities->currentPage())
-                                    <span class="relative inline-flex items-center px-4 py-2 border border-blue-500 bg-blue-50 text-sm font-medium text-blue-600">{{ $page }}</span>
-                                @else
-                                    <button wire:click="setPage({{ $page }})" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">{{ $page }}</button>
-                                @endif
-                            @endforeach
-                        @endif
-                    @endforeach
-
-                    @if ($entities->hasMorePages())
-                        <button wire:click="nextPage" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                            </svg>
-                        </button>
-                    @else
-                        <span class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-300 cursor-not-allowed">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                            </svg>
-                        </span>
-                    @endif
-                </nav>
-            </div>
+        <div class="text-sm text-gray-500">
+            Mostrando {{ $entities->firstItem() ?? 0 }} - {{ $entities->lastItem() ?? 0 }} di {{ $entities->total() }} risultati
+        </div>
+        <div class="flex justify-center">
+            {{ $entities->links() }}
         </div>
     </div>
     @endif
 
+    <style>
+        /* Stile paginazione bianco */
+        nav[role="navigation"] div.flex-1 {
+            display: none !important;
+        }
+        
+        nav[role="navigation"] .relative.z-0 {
+            justify-content: center !important;
+            display: flex !important;
+        }
+        
+        /* Personalizzazione link paginazione */
+        nav[role="navigation"] span[aria-current="page"] span,
+        nav[role="navigation"] .relative.inline-flex.items-center {
+            background-color: white !important;
+            border-color: #e5e7eb !important;
+            color: #374151 !important;
+        }
+        
+        nav[role="navigation"] span[aria-current="page"] span {
+            background-color: #10b981 !important;
+            border-color: #10b981 !important;
+            color: white !important;
+        }
+        
+        nav[role="navigation"] .relative.inline-flex.items-center:hover {
+            background-color: #f9fafb !important;
+            border-color: #d1d5db !important;
+        }
+        
+        /* Nasconde il testo "Showing" e "to" e "results" */
+        nav[role="navigation"] p.text-sm {
+            display: none !important;
+        }
+        
+        /* Centra completamente la paginazione */
+        nav[role="navigation"] > div:first-child {
+            justify-content: center !important;
+        }
+        
+        nav[role="navigation"] > div:first-child > div:first-child {
+            display: none !important;
+        }
+    </style>
+
     <!-- Modal di inserimento -->
     @if($showCreateModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
+    <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
          x-data="{ show: true }" 
          x-show="show" 
          x-transition.opacity.duration.200ms>
         
         <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto" 
-             x-on:click.away="show = false"
+             x-on:click.away="show = false; $wire.closeCreateModal()"
              x-transition.scale.origin.top>
             
             <div class="flex justify-between items-center mb-6 border-b pb-3">
                 <h2 class="text-2xl font-bold text-gray-800">
-                    <svg class="inline-block w-6 h-6 mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="inline-block w-6 h-6 mr-2 text-lime-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                     </svg>
                     Nuovo Cliente / Fornitore
@@ -425,7 +427,6 @@
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- RIGA 1: Ragione Sociale e Tipologia (affiancati) -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Ragione Sociale</label>
                     <input type="text" 
@@ -448,7 +449,6 @@
                     @error('formTipologia') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
                 </div>
                 
-                <!-- RIGA 2: Cognome e Nome (affiancati) -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
                     <input type="text" 
@@ -465,7 +465,6 @@
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
                 
-                <!-- RIGA 3: Persona Riferimento e P.IVA (affiancati) -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Persona di Riferimento</label>
                     <input type="text" 
@@ -489,7 +488,7 @@
                     Annulla
                 </button>
                 <button wire:click="save" 
-                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors">
+                        class="px-4 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-md transition-colors">
                     Salva
                 </button>
             </div>
@@ -499,25 +498,24 @@
 
     <!-- Modal di visualizzazione dettagli -->
     @if($showViewModal && $viewingEntity)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
+    <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
          x-data="{ show: true }" 
          x-show="show" 
          x-transition.opacity.duration.200ms>
         
         <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl p-6 max-h-[90vh] overflow-y-auto" 
-             x-on:click.away="show = false"
+             x-on:click.away="show = false; $wire.closeViewModal()"
              x-transition.scale.origin.top>
             
-            <!-- Header -->
             <div class="flex justify-between items-center mb-6 border-b pb-3">
                 <div class="flex items-center space-x-3">
                     <div class="flex-shrink-0 h-12 w-12 rounded-full flex items-center justify-center
-                        @if($viewingEntity->entity_type == 'cliente') bg-green-100
+                        @if($viewingEntity->entity_type == 'cliente') bg-lime-100
                         @elseif($viewingEntity->entity_type == 'fornitore') bg-blue-100
                         @else bg-purple-100
                         @endif">
                         @if($viewingEntity->entity_type == 'cliente')
-                            <i class="fas fa-user text-green-600 text-xl"></i>
+                            <i class="fas fa-user text-lime-600 text-xl"></i>
                         @elseif($viewingEntity->entity_type == 'fornitore')
                             <i class="fas fa-truck text-blue-600 text-xl"></i>
                         @else
@@ -527,7 +525,7 @@
                     <div>
                         <h2 class="text-2xl font-bold text-gray-800">{{ $viewingEntity->full_name }}</h2>
                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            @if($viewingEntity->entity_type == 'cliente') bg-green-100 text-green-800
+                            @if($viewingEntity->entity_type == 'cliente') bg-lime-100 text-lime-800
                             @elseif($viewingEntity->entity_type == 'fornitore') bg-blue-100 text-blue-800
                             @else bg-purple-100 text-purple-800
                             @endif">
@@ -542,10 +540,7 @@
                 </button>
             </div>
             
-            <!-- Contenuto -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                <!-- Colonna Sinistra - Info Anagrafiche -->
                 <div class="space-y-4">
                     <div class="bg-gray-50 rounded-lg p-4">
                         <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
@@ -589,10 +584,9 @@
                         </div>
                     </div>
                     
-                    <!-- Dati Fattura Elettronica -->
                     <div class="bg-gray-50 rounded-lg p-4">
                         <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
-                            <i class="fas fa-file-invoice-dollar mr-2 text-green-500"></i> Dati Fattura Elettronica
+                            <i class="fas fa-file-invoice-dollar mr-2 text-lime-500"></i> Dati Fattura Elettronica
                         </h3>
                         <div class="space-y-2">
                             @if($viewingEntity->pec)
@@ -621,7 +615,6 @@
                         </div>
                     </div>
                     
-                    <!-- Stato e Date -->
                     <div class="bg-gray-50 rounded-lg p-4">
                         <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
                             <i class="fas fa-calendar-alt mr-2 text-purple-500"></i> Stato e Date
@@ -630,7 +623,7 @@
                             <div class="flex">
                                 <span class="w-32 text-gray-600 font-medium">Stato:</span>
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                    {{ $viewingEntity->valid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                    {{ $viewingEntity->valid ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
                                     {{ $viewingEntity->valid ? 'Attivo' : 'Disattivo' }}
                                 </span>
                             </div>
@@ -648,7 +641,6 @@
                     </div>
                 </div>
                 
-                <!-- Colonna Destra - Contatti -->
                 <div class="space-y-4">
                     <div class="bg-gray-50 rounded-lg p-4">
                         <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
@@ -691,7 +683,7 @@
                             
                             @if($mobileContact)
                             <div class="flex items-start">
-                                <i class="fab fa-whatsapp w-5 text-green-500 mt-1 mr-3"></i>
+                                <i class="fab fa-whatsapp w-5 text-lime-500 mt-1 mr-3"></i>
                                 <div>
                                     <span class="text-gray-600 font-medium block text-sm">Cellulare / WhatsApp</span>
                                     <a href="tel:{{ $mobileContact->valore }}" class="text-gray-800">
@@ -746,7 +738,6 @@
                 </div>
             </div>
             
-            <!-- Footer con azioni -->
             <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
                 <button wire:click="closeViewModal" 
                         class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">

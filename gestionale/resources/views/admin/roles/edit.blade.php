@@ -25,75 +25,123 @@
                 @csrf
                 @method('PUT')
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-tag mr-1 text-emerald-500"></i> Nome Ruolo *
-                        </label>
-                        <input type="text" name="name" value="{{ old('name', $role->name) }}" required
-                               class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
-                        @error('name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                <!-- Verifica se l'utente è autenticato e se è Super Admin -->
+                @php
+                    $isSuperAdmin = false;
+                    if (auth()->guard('admin')->check()) {
+                        $currentAdmin = auth()->guard('admin')->user();
+                        $isSuperAdmin = $currentAdmin->role_id == 1;
+                    } else {
+                        // Fallback: usa auth()->user() se il guard admin non è configurato
+                        $currentAdmin = auth()->user();
+                        $isSuperAdmin = $currentAdmin && $currentAdmin->role_id == 1;
+                    }
+                @endphp
+
+                @if($isSuperAdmin)
+                    <!-- Campi modificabili solo dal Super Admin -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-tag mr-1 text-emerald-500"></i> Nome Ruolo *
+                            </label>
+                            <input type="text" name="name" value="{{ old('name', $role->name) }}" required
+                                   class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
+                            @error('name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-code mr-1 text-emerald-500"></i> Slug *
+                            </label>
+                            <input type="text" name="slug" value="{{ old('slug', $role->slug) }}" required
+                                   class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
+                            <p class="text-xs text-gray-500 mt-1">Identificatore unico (es: content_manager)</p>
+                            @error('slug') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-sort-numeric-down mr-1 text-emerald-500"></i> Livello *
+                            </label>
+                            <input type="number" name="level" value="{{ old('level', $role->level) }}" required min="1" max="100"
+                                   class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
+                            <p class="text-xs text-gray-500 mt-1">Più basso è il numero, più alti sono i privilegi</p>
+                            @error('level') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-align-left mr-1 text-emerald-500"></i> Descrizione
+                            </label>
+                            <textarea name="description" rows="2" 
+                                      class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">{{ old('description', $role->description) }}</textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" name="is_default" value="1" {{ old('is_default', $role->is_default) ? 'checked' : '' }}
+                                       class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                                <span class="ml-2 text-sm text-gray-700">
+                                    <i class="fas fa-star text-amber-500 mr-1"></i> Ruolo predefinito per nuovi admin
+                                </span>
+                            </label>
+                        </div>
+                        
+                        <div>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" name="is_active" value="1" {{ old('is_active', $role->is_active) ? 'checked' : '' }}
+                                       class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                                <span class="ml-2 text-sm text-gray-700">
+                                    <i class="fas fa-check-circle text-emerald-500 mr-1"></i> Ruolo attivo
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                @else
+                    <!-- Visualizzazione sola lettura per non super admin -->
+                    <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-sm text-gray-500">Nome Ruolo</p>
+                                <p class="font-medium text-gray-800">{{ $role->name }}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Slug</p>
+                                <p class="font-medium text-gray-800">{{ $role->slug }}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Livello</p>
+                                <p class="font-medium text-gray-800">{{ $role->level }}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500">Descrizione</p>
+                                <p class="font-medium text-gray-800">{{ $role->description ?: 'Nessuna descrizione' }}</p>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-code mr-1 text-emerald-500"></i> Slug *
-                        </label>
-                        <input type="text" name="slug" value="{{ old('slug', $role->slug) }}" required
-                               class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
-                        <p class="text-xs text-gray-500 mt-1">Identificatore unico (es: content_manager)</p>
-                        @error('slug') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-sort-numeric-down mr-1 text-emerald-500"></i> Livello *
-                        </label>
-                        <input type="number" name="level" value="{{ old('level', $role->level) }}" required min="1" max="100"
-                               class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
-                        <p class="text-xs text-gray-500 mt-1">Più basso è il numero, più alti sono i privilegi</p>
-                        @error('level') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-align-left mr-1 text-emerald-500"></i> Descrizione
-                        </label>
-                        <textarea name="description" rows="2" 
-                                  class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">{{ old('description', $role->description) }}</textarea>
-                    </div>
-                    
-                    <div>
-                        <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" name="is_default" value="1" {{ old('is_default', $role->is_default) ? 'checked' : '' }}
-                                   class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
-                            <span class="ml-2 text-sm text-gray-700">
-                                <i class="fas fa-star text-amber-500 mr-1"></i> Ruolo predefinito per nuovi admin
-                            </span>
-                        </label>
-                    </div>
-                    
-                    <div>
-                        <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" name="is_active" value="1" {{ old('is_active', $role->is_active) ? 'checked' : '' }}
-                                   class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
-                            <span class="ml-2 text-sm text-gray-700">
-                                <i class="fas fa-check-circle text-emerald-500 mr-1"></i> Ruolo attivo
-                            </span>
-                        </label>
-                    </div>
-                </div>
-                
+                    <!-- Campi nascosti per mantenere i valori originali -->
+                    <input type="hidden" name="name" value="{{ $role->name }}">
+                    <input type="hidden" name="slug" value="{{ $role->slug }}">
+                    <input type="hidden" name="level" value="{{ $role->level }}">
+                    <input type="hidden" name="description" value="{{ $role->description }}">
+                    <input type="hidden" name="is_default" value="{{ $role->is_default }}">
+                    <input type="hidden" name="is_active" value="{{ $role->is_active }}">
+                @endif
+
                 <h3 class="text-lg font-semibold mb-4 text-gray-800">
                     <i class="fas fa-key mr-2 text-emerald-500"></i> Permessi del Ruolo
                 </h3>
+                
                 <div class="mb-6">
                     @foreach($permissionsByGroup as $group => $perms)
                     <div class="mb-4 border border-emerald-100 rounded-lg overflow-hidden">
                         <div class="bg-gradient-to-r from-emerald-50 to-green-50 px-4 py-2 border-b border-emerald-100">
                             <label class="flex items-center cursor-pointer">
                                 <input type="checkbox" class="group-selector mr-2" data-group="{{ $group }}"
-                                       {{ count($perms->whereIn('id', $rolePermissions)) == count($perms) ? 'checked' : '' }}>
+                                       {{ count($perms->whereIn('id', $rolePermissions)) == count($perms) ? 'checked' : '' }}
+                                       {{ !$isSuperAdmin ? 'disabled' : '' }}>
                                 <span class="font-semibold text-emerald-800">
                                     <i class="fas fa-folder-open mr-1"></i> {{ ucfirst($group) }}
                                 </span>
@@ -101,32 +149,60 @@
                         </div>
                         <div class="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                             @foreach($perms as $perm)
-                            <label class="flex items-center space-x-2 cursor-pointer hover:bg-emerald-50 p-1 rounded transition-colors">
-                                <input type="checkbox" name="permissions[]" value="{{ $perm->id }}"
-                                       class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 permission-checkbox"
-                                       data-group="{{ $group }}"
-                                       {{ in_array($perm->id, $rolePermissions) ? 'checked' : '' }}>
-                                <span class="text-sm text-gray-700">
-                                    <i class="{{ $perm->icon ? 'fas ' . $perm->icon : 'fas fa-check' }} text-emerald-500 mr-1"></i>
-                                    {{ $perm->name }}
-                                </span>
-                            </label>
+                                @php
+                                    // Nascondere i permessi di modifica per Editor e Viewer
+                                    $isEditPermission = str_contains($perm->slug, 'edit_') || 
+                                                       str_contains($perm->slug, 'create_') || 
+                                                       str_contains($perm->slug, 'delete_') ||
+                                                       str_contains($perm->slug, 'manage_') ||
+                                                       str_contains($perm->slug, 'bulk_') ||
+                                                       str_contains($perm->slug, 'export_') ||
+                                                       str_contains($perm->slug, 'backup_') ||
+                                                       str_contains($perm->slug, 'empty_') ||
+                                                       str_contains($perm->slug, 'force_delete_');
+                                    
+                                    $showPermission = $isSuperAdmin || !$isEditPermission;
+                                @endphp
+                                
+                                @if($showPermission)
+                                <label class="flex items-center space-x-2 cursor-pointer hover:bg-emerald-50 p-1 rounded transition-colors">
+                                    <input type="checkbox" name="permissions[]" value="{{ $perm->id }}"
+                                           class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 permission-checkbox"
+                                           data-group="{{ $group }}"
+                                           {{ in_array($perm->id, $rolePermissions) ? 'checked' : '' }}
+                                           {{ !$isSuperAdmin ? 'disabled' : '' }}>
+                                    <span class="text-sm text-gray-700">
+                                        <i class="{{ $perm->icon ?? 'fas fa-check' }} text-emerald-500 mr-1"></i>
+                                        {{ $perm->name }}
+                                    </span>
+                                </label>
+                                @endif
                             @endforeach
                         </div>
                     </div>
                     @endforeach
                 </div>
                 
+                @if($isSuperAdmin)
                 <div class="flex justify-end">
                     <button type="submit" class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-6 py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg">
                         <i class="fas fa-save mr-2"></i> Aggiorna Ruolo
                     </button>
                 </div>
+                @else
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <p class="text-amber-700 text-sm">
+                        <i class="fas fa-info-circle mr-2"></i> 
+                        Solo il Super Amministratore può modificare i permessi dei ruoli.
+                    </p>
+                </div>
+                @endif
             </form>
         </div>
     </div>
 </div>
 
+@if($isSuperAdmin)
 <script>
     document.querySelectorAll('.group-selector').forEach(checkbox => {
         checkbox.addEventListener('change', function() {
@@ -136,4 +212,5 @@
         });
     });
 </script>
+@endif
 @endsection

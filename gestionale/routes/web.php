@@ -10,6 +10,9 @@ use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\EntityController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\ContactController;
+use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Admin\MezziController;
+use App\Http\Controllers\Admin\SettingCategoryController;
 use Illuminate\Support\Facades\Route;
 
 // Rotte pubbliche
@@ -84,11 +87,63 @@ Route::prefix('admin')->name('admin.')->group(function () {
             // Export entities
             Route::get('/export/csv', [EntityController::class, 'export'])->name('export');
             Route::get('/export/pdf', [EntityController::class, 'exportPdf'])->name('export.pdf');
+            
+            // Route per ripristinare i filtri dopo la modifica
+            Route::post('/restore-filters', [EntityController::class, 'restoreFilters'])->name('restore-filters');
+        });
+
+        // =============================================
+        // GESTIONE PERSONALE (STAFF)
+        // =============================================
+        Route::prefix('staff')->name('staff.')->group(function () {
+            Route::get('/', [StaffController::class, 'index'])->name('index');
+            Route::get('/create', [StaffController::class, 'create'])->name('create');
+            Route::post('/', [StaffController::class, 'store'])->name('store');
+            Route::get('/{staff}', [StaffController::class, 'show'])->name('show');
+            Route::get('/{staff}/edit', [StaffController::class, 'edit'])->name('edit');
+            Route::put('/{staff}', [StaffController::class, 'update'])->name('update');
+            Route::delete('/{staff}', [StaffController::class, 'destroy'])->name('destroy');
+            Route::post('/{staff}/toggle-status', [StaffController::class, 'toggleStatus'])->name('toggle-status');
+            
+            // Export staff
+            Route::get('/export/csv', [StaffController::class, 'export'])->name('export');
+            Route::get('/export/pdf', [StaffController::class, 'exportPdf'])->name('export.pdf');
+        });
+
+        // =============================================
+        // GESTIONE MEZZI (VEHICLES)
+        // =============================================
+        Route::prefix('vehicles')->name('vehicles.')->group(function () {
+            Route::get('/', [MezziController::class, 'index'])->name('index');
+            Route::get('/create', [MezziController::class, 'create'])->name('create');
+            Route::post('/', [MezziController::class, 'store'])->name('store');
+            Route::get('/{vehicle}', [MezziController::class, 'show'])->name('show');
+            Route::get('/{vehicle}/edit', [MezziController::class, 'edit'])->name('edit');
+            Route::put('/{vehicle}', [MezziController::class, 'update'])->name('update');
+            Route::delete('/{vehicle}', [MezziController::class, 'destroy'])->name('destroy');
+            Route::post('/{vehicle}/toggle-status', [MezziController::class, 'toggleStatus'])->name('toggle-status');
+            
+            // Export vehicles
+            Route::get('/export/csv', [MezziController::class, 'export'])->name('export');
+            Route::get('/export/pdf', [MezziController::class, 'exportPdf'])->name('export.pdf');
         });
 
         // =============================================
         // GESTIONE SETTINGS (Impostazioni di Sistema)
         // =============================================
+
+        // Settings Categories Routes - DEVONO ESSERE PRIMA della resource
+        Route::prefix('settings/categories')->name('settings.categories.')->group(function () {
+            Route::get('/', [SettingCategoryController::class, 'index'])->name('index');
+            Route::get('/create', [SettingCategoryController::class, 'create'])->name('create');
+            Route::post('/', [SettingCategoryController::class, 'store'])->name('store');
+            Route::get('/{slug}', [SettingCategoryController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [SettingCategoryController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [SettingCategoryController::class, 'update'])->name('update');
+            Route::delete('/{id}', [SettingCategoryController::class, 'destroy'])->name('destroy');
+        });
+
+        // Resource settings - DOPO le route delle categorie
         Route::resource('settings', SettingController::class);
 
         // =============================================
@@ -114,6 +169,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('/entities/{entityId}/addresses', [EntityController::class, 'storeAddress']);
             Route::put('/entities/{entityId}/addresses/{addressId}', [EntityController::class, 'updateAddress']);
             Route::delete('/entities/{entityId}/addresses/{addressId}', [EntityController::class, 'deleteAddress']);
+            
+            // API per Personale (Staff) - da implementare quando crei StaffController
+            Route::get('/search-staff', [StaffController::class, 'search'])->name('search-staff');
+            Route::get('/staff/{staff}/contacts', [StaffController::class, 'getContacts'])->name('staff-contacts');
+            
+            // API per Mezzi (Vehicles) - da implementare quando crei MezziController
+            Route::get('/search-vehicles', [MezziController::class, 'search'])->name('search-vehicles');
+            Route::get('/vehicles/{vehicle}/documents', [MezziController::class, 'getDocuments'])->name('vehicle-documents');
         });
     });
 });

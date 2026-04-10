@@ -287,7 +287,7 @@
                 <div class="logo-container flex items-center space-x-3">
                     <!-- Logo Image -->
                     <div class="w-10 h-10 flex-shrink-0">
-                        <img src="{{ asset('images/logo.png') }}" alt="Logo" class="w-full h-full object-contain" onerror="this.src='https://via.placeholder.com/40?text=GS'">
+                        <img src="{{ asset('/images/logo.png') }}" alt="Logo" class="w-full h-full object-contain" onerror="this.src='https://via.placeholder.com/40?text=GS'">
                     </div>
                     <div class="logo-text">
                         <h1 class="text-xl font-bold bg-gradient-to-r from-lime-400 to-lime-600 bg-clip-text text-transparent">Gruppo Salatino</h1>

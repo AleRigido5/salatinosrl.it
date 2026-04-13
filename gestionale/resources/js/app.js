@@ -8,10 +8,8 @@ import Alpine from 'alpinejs';
 // Rendi Alpine disponibile globalmente
 window.Alpine = Alpine;
 
-// Avvia Livewire (che inizializzerà anche Alpine)
+// Avvia Livewire
 Livewire.start();
 
-// Se hai componenti Alpine personali, inizializzali dopo
-document.addEventListener('alpine:init', () => {
-    // I tuoi componenti Alpine qui
-});
+// Inizializza Alpine
+Alpine.start();

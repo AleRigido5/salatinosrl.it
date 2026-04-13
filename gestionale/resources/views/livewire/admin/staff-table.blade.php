@@ -250,7 +250,6 @@
             </table>
         </div>
     </div>
-    
 
     <!-- Paginazione -->
     @if($staff->hasPages())

@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Staff;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class StaffController extends Controller
 {
@@ -28,6 +27,18 @@ class StaffController extends Controller
         }
         
         return view('admin.staff.index');
+    }
+    
+    /**
+     * Show the form for creating a new resource.
+     */
+    public function create()
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('create_staff')) {
+            abort(403, 'Non hai i permessi necessari.');
+        }
+        
+        return view('admin.staff.create');
     }
     
     /**
@@ -102,6 +113,19 @@ class StaffController extends Controller
     }
     
     /**
+     * Show the form for editing the specified staff.
+     */
+    public function edit($id)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_staff')) {
+            abort(403, 'Non hai i permessi necessari.');
+        }
+        
+        $staff = Staff::findOrFail($id);
+        return view('admin.staff.edit', compact('staff'));
+    }
+    
+    /**
      * Update the specified staff in storage.
      */
     public function update(Request $request, $id)
@@ -171,7 +195,7 @@ class StaffController extends Controller
         
         try {
             $staff = Staff::findOrFail($id);
-            $name = $staff->full_name;
+            $name = $staff->full_name ?? $staff->NomePers . ' ' . $staff->CognomePers;
             $staff->delete();
             
             return response()->json([

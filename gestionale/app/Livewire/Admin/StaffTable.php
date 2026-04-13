@@ -42,7 +42,14 @@ class StaffTable extends Component
     
     protected $paginationTheme = 'tailwind';
     
-    // RIMUOVI $renderKey
+    // Mantieni i filtri nell'URL
+    protected $queryString = [
+        'search' => ['except' => ''],
+        'statusFilter' => ['except' => ''],
+        'sortField' => ['except' => 'id_personale'],
+        'sortDirection' => ['except' => 'asc'],
+        'page' => ['except' => 1],
+    ];
     
     public function mount()
     {
@@ -74,6 +81,8 @@ class StaffTable extends Component
             $this->sortField = $field;
             $this->sortDirection = 'asc';
         }
+        
+        $this->resetPage();
     }
     
     public function updatingSearch()
@@ -166,10 +175,39 @@ class StaffTable extends Component
         session()->forget('staff_filters');
     }
     
+    public function openCreateModal()
+    {
+        $this->resetCreateForm();
+        $this->showCreateModal = true;
+    }
+    
     public function closeCreateModal()
     {
         $this->showCreateModal = false;
         $this->resetCreateForm();
+    }
+    
+    public function openEditModal($id)
+    {
+        $staff = Staff::find($id);
+        if ($staff) {
+            $this->editingId = $id;
+            $this->formNome = $staff->NomePers;
+            $this->formCognome = $staff->CognomePers;
+            $this->formSoprannome = $staff->Soprannome;
+            $this->formCodFiscale = $staff->CodFiscPers;
+            $this->formTelefono = $staff->TelPers;
+            $this->formCellulare = $staff->CellPers;
+            $this->formEmail = $staff->EmailPers;
+            $this->formIndirizzo = $staff->IndirPers;
+            $this->formCitta = $staff->CittaPers;
+            $this->formProvincia = $staff->ProvPers;
+            $this->formCap = $staff->CapPers;
+            $this->formDataNascita = $staff->DataNascPers;
+            $this->formLuogoNascita = $staff->LuogoNasc;
+            $this->formValid = $staff->valid;
+            $this->showEditModal = true;
+        }
     }
     
     public function closeEditModal()

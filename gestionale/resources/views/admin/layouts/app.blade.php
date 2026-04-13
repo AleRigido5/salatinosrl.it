@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Admin Panel - @yield('title')</title>
-    <link rel="shortcut icon" href="{{ asset('../../../../public/images/logo.png') }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ asset('images/logo.png') }}" type="image/x-icon">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -143,49 +143,96 @@
         /* Transizioni sidebar */
         .sidebar-link {
             transition: all 0.2s ease;
+            white-space: nowrap;
         }
         .sidebar-link:hover {
             padding-left: 1.75rem;
         }
         
-        /* Sidebar transitions */
+        /* Sidebar transitions - Hover effect */
         .sidebar {
             transition: width 0.3s ease;
+            position: relative;
+            z-index: 40;
         }
-        .sidebar-collapsed {
+        
+        /* Sidebar chiusa di default (80px) */
+        .sidebar-closed {
             width: 80px;
         }
-        .sidebar-expanded {
-            width: 264px;
+        
+        /* Sidebar aperta al hover (264px) */
+        .sidebar:hover {
+            width: 264px !important;
         }
-        .sidebar-link-text {
-            transition: opacity 0.2s ease, width 0.2s ease;
-        }
-        .sidebar-collapsed .sidebar-link-text {
+        
+        /* Testi nascosti quando sidebar è chiusa */
+        .sidebar:not(:hover) .sidebar-link-text {
             opacity: 0;
             width: 0;
             display: none;
         }
-        .sidebar-collapsed .sidebar-link i {
+        
+        .sidebar:not(:hover) .sidebar-link i {
             margin-right: 0;
         }
-        .sidebar-collapsed .sidebar-link {
+        
+        .sidebar:not(:hover) .sidebar-link {
             justify-content: center;
         }
-        .sidebar-collapsed .logo-text {
+        
+        .sidebar:not(:hover) .logo-text {
             display: none;
         }
-        .sidebar-collapsed .logo-container {
+        
+        .sidebar:not(:hover) .logo-container {
             justify-content: center;
         }
-        .sidebar-collapsed .nav-label span {
+        
+        .sidebar:not(:hover) .nav-label span {
             display: none;
         }
-        .sidebar-collapsed .nav-label {
+        
+        .sidebar:not(:hover) .nav-label {
             justify-content: center;
         }
-        .sidebar-collapsed .footer-text {
+        
+        .sidebar:not(:hover) .footer-text {
             display: none;
+        }
+        
+        /* Quando sidebar è hover, mostra tutto */
+        .sidebar:hover .sidebar-link-text {
+            display: inline-block !important;
+            opacity: 1 !important;
+        }
+        
+        .sidebar:hover .sidebar-link i {
+            margin-right: 0.75rem !important;
+        }
+        
+        .sidebar:hover .sidebar-link {
+            justify-content: flex-start !important;
+        }
+        
+        .sidebar:hover .logo-text {
+            display: block !important;
+        }
+        
+        .sidebar:hover .logo-container {
+            justify-content: flex-start !important;
+        }
+        
+        .sidebar:hover .nav-label span {
+            display: inline !important;
+        }
+        
+        .sidebar:hover .nav-label {
+            justify-content: flex-start !important;
+        }
+        
+        .sidebar:hover .footer-text {
+            display: block !important;
         }
         
         /* Badge personalizzati */
@@ -212,14 +259,6 @@
         }
         .settings-btn:hover {
             transform: rotate(30deg);
-        }
-        
-        /* Toggle sidebar button */
-        .toggle-sidebar-btn {
-            transition: all 0.2s ease;
-        }
-        .toggle-sidebar-btn:hover {
-            transform: scale(1.1);
         }
         
         /* Tab styling */
@@ -281,14 +320,14 @@
     @endphp
     
     <div class="flex h-screen overflow-hidden">
-        <!-- Sidebar -->
-        <aside id="sidebar" class="sidebar sidebar-expanded bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col shadow-xl transition-all duration-300" style="width: 264px;">
+        <!-- Sidebar - si apre al hover, si chiude quando il mouse esce -->
+        <aside id="sidebar" class="sidebar sidebar-closed bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col shadow-xl transition-all duration-300" style="width: 80px;">
             <!-- Logo -->
             <div class="p-6 border-b border-gray-700/50">
                 <div class="logo-container flex items-center space-x-3">
                     <!-- Logo Image -->
                     <div class="w-10 h-10 flex-shrink-0">
-                        <img src="{{ asset('../../../../public/images/logo.png') }}" alt="Logo" class="w-full h-full object-contain">
+                        <img src="{{ asset('images/logo.png') }}" alt="Logo" class="w-full h-full object-contain" onerror="this.onerror=null; this.src='https://placehold.co/40x40/84cc16/white?text=GS'">
                     </div>
                     <div class="logo-text">
                         <h1 class="text-xl font-bold bg-gradient-to-r from-lime-400 to-lime-600 bg-clip-text text-transparent">Gruppo Salatino</h1>
@@ -356,18 +395,13 @@
 
         <!-- Main Content -->
         <div class="flex-1 overflow-auto">
-            <!-- Header -->
+            <!-- Header - Senza pulsante hamburger -->
             <header class="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10 border-b border-gray-100">
                 <div class="flex justify-between items-center px-8 py-3">
-                    <!-- Left side - Toggle button and page title -->
-                    <div class="flex items-center space-x-4">
-                        <button id="toggleSidebar" class="toggle-sidebar-btn text-gray-500 hover:text-lime-600 focus:outline-none transition-all duration-200">
-                            <i class="fas fa-bars text-xl"></i>
-                        </button>
-                        <div class="text-sm text-gray-500">
-                            <i class="fas fa-home text-lime-500 mr-1"></i> 
-                            @yield('title', 'Dashboard')
-                        </div>
+                    <!-- Left side - solo page title (senza toggle button) -->
+                    <div class="text-sm text-gray-500">
+                        <i class="fas fa-home text-lime-500 mr-1"></i> 
+                        @yield('title', 'Dashboard')
                     </div>
                     
                     <!-- Right side - Avatar e Dropdown -->
@@ -570,38 +604,8 @@
                 }, 5000);
             }
             
-            // Toggle sidebar functionality
-            const toggleButton = document.getElementById('toggleSidebar');
-            const sidebar = document.getElementById('sidebar');
-            let isSidebarCollapsed = false;
-            
-            if (toggleButton && sidebar) {
-                toggleButton.addEventListener('click', function() {
-                    isSidebarCollapsed = !isSidebarCollapsed;
-                    
-                    if (isSidebarCollapsed) {
-                        sidebar.classList.add('sidebar-collapsed');
-                        sidebar.classList.remove('sidebar-expanded');
-                        sidebar.style.width = '80px';
-                    } else {
-                        sidebar.classList.remove('sidebar-collapsed');
-                        sidebar.classList.add('sidebar-expanded');
-                        sidebar.style.width = '264px';
-                    }
-                    
-                    // Save state to localStorage
-                    localStorage.setItem('sidebarCollapsed', isSidebarCollapsed);
-                });
-                
-                // Load saved state
-                const savedState = localStorage.getItem('sidebarCollapsed');
-                if (savedState === 'true') {
-                    isSidebarCollapsed = true;
-                    sidebar.classList.add('sidebar-collapsed');
-                    sidebar.classList.remove('sidebar-expanded');
-                    sidebar.style.width = '80px';
-                }
-            }
+            // Sidebar hover effect è gestito completamente da CSS
+            // Non serve più JavaScript per il toggle
         });
         
         // Tooltip auto-initialization

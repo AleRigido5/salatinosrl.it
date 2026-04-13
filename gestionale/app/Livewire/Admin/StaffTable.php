@@ -345,8 +345,7 @@ class StaffTable extends Component
     public function render()
     {
         return view('livewire.admin.staff-table', [
-            'staff' => $this->staff,
-            'renderKey' => $this->renderKey
+            'staff' => $this->staff
         ]);
     }
 }

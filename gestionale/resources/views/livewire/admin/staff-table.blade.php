@@ -253,7 +253,7 @@
 
     <!-- Paginazione -->
     @if($staff->hasPages())
-    <div class="mt-6" wire:key="pagination-{{ $staff->currentPage() }}">
+    <div class="mt-6" wire:key="pagination-wrapper">
         <div class="text-sm text-gray-500 mb-2">
             Mostrando {{ $staff->firstItem() ?? 0 }} - {{ $staff->lastItem() ?? 0 }} di {{ $staff->total() }} risultati
         </div>

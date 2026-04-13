@@ -17,13 +17,11 @@ class StaffTable extends Component
     public $sortField = 'id_personale';
     public $sortDirection = 'asc';
     
-    // Modal visualizzazione
     public $showViewModal = false;
     public $viewingStaff = null;
     public $showCreateModal = false;
     public $showEditModal = false;
     
-    // Form fields
     public $formNome = '';
     public $formCognome = '';
     public $formSoprannome = '';
@@ -42,17 +40,20 @@ class StaffTable extends Component
     
     protected $paginationTheme = 'tailwind';
     
-    // Mantieni i filtri nell'URL
+    // IMPORTANTE: Non mantenere la pagina nell'URL
     protected $queryString = [
         'search' => ['except' => ''],
         'statusFilter' => ['except' => ''],
         'sortField' => ['except' => 'id_personale'],
         'sortDirection' => ['except' => 'asc'],
-        'page' => ['except' => 1],
+        // 'page' => ['except' => 1], // RIMOSSO - causa problemi
     ];
     
     public function mount()
     {
+        // Resetta sempre la pagina all'inizio
+        $this->resetPage();
+        
         if (session()->has('staff_filters')) {
             $filters = session('staff_filters');
             $this->search = $filters['search'] ?? '';
@@ -304,7 +305,7 @@ class StaffTable extends Component
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
-
+    
     public function render()
     {
         return view('livewire.admin.staff-table', [

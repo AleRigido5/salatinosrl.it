@@ -6,7 +6,6 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Staff;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class StaffTable extends Component
 {
@@ -18,39 +17,54 @@ class StaffTable extends Component
     public $sortField = 'id_personale';
     public $sortDirection = 'asc';
     
-    // Modal properties
-    public $showCreateModal = false;
-    public $showEditModal = false;
+    // Modal visualizzazione
     public $showViewModal = false;
-    public $showDeleteModal = false;
-    
-    // Form properties
-    public $formId = '';
-    public $formNome = '';
-    public $formCognome = '';
-    public $formSoprannome = '';
-    public $formCodFiscale = '';
-    public $formTelefono = '';
-    public $formCellulare = '';
-    public $formEmail = '';
-    public $formIndirizzo = '';
-    public $formCitta = '';
-    public $formProvincia = '';
-    public $formCap = '';
-    public $formDataNascita = '';
-    public $formLuogoNascita = '';
-    public $formValid = true;
-    
     public $viewingStaff = null;
-    public $deletingStaffId = null;
-    public $deletingStaffName = '';
     
-    protected $queryString = ['search', 'statusFilter', 'sortField', 'sortDirection'];
+    // Modal modifica
+    public $showEditModal = false;
+    public $editingStaff = null;
+    public $editingId = null;
     
-    protected $listeners = [
-        'refreshTable' => '$refresh',
-        'openCreateModal' => 'openCreateModal'
-    ];
+    // Form fields per modifica
+    public $editNome = '';
+    public $editCognome = '';
+    public $editSoprannome = '';
+    public $editCodFiscale = '';
+    public $editTelefono = '';
+    public $editCellulare = '';
+    public $editEmail = '';
+    public $editIndirizzo = '';
+    public $editCitta = '';
+    public $editProvincia = '';
+    public $editCap = '';
+    public $editDataNascita = '';
+    public $editLuogoNascita = '';
+    public $editValid = true;
+    
+    protected $paginationTheme = 'tailwind';
+    
+    public function mount()
+    {
+        if (session()->has('staff_filters')) {
+            $filters = session('staff_filters');
+            $this->search = $filters['search'] ?? '';
+            $this->statusFilter = $filters['statusFilter'] ?? '';
+            $this->sortField = $filters['sortField'] ?? 'id_personale';
+            $this->sortDirection = $filters['sortDirection'] ?? 'asc';
+            session()->forget('staff_filters');
+        }
+    }
+    
+    public function saveFiltersToSession()
+    {
+        session(['staff_filters' => [
+            'search' => $this->search,
+            'statusFilter' => $this->statusFilter,
+            'sortField' => $this->sortField,
+            'sortDirection' => $this->sortDirection
+        ]]);
+    }
     
     public function sortBy($field)
     {
@@ -60,7 +74,6 @@ class StaffTable extends Component
             $this->sortField = $field;
             $this->sortDirection = 'asc';
         }
-        $this->resetPage();
     }
     
     public function updatingSearch()
@@ -77,7 +90,6 @@ class StaffTable extends Component
     {
         $query = Staff::query();
         
-        // Ricerca
         if ($this->search) {
             $searchTerm = '%' . $this->search . '%';
             $query->where(function($q) use ($searchTerm) {
@@ -90,100 +102,27 @@ class StaffTable extends Component
             });
         }
         
-        // Filtro per stato
         if ($this->statusFilter !== '') {
             $query->where('valid', $this->statusFilter === 'active');
         }
         
-        // Ordina
         $query->orderBy($this->sortField, $this->sortDirection);
         
         return $query->paginate($this->perPage);
     }
     
-    // ==================== MODAL CREAZIONE ====================
-    
-    public function openCreateModal()
-    {
-        $this->resetForm();
-        $this->showCreateModal = true;
-    }
-    
-    public function closeCreateModal()
-    {
-        $this->showCreateModal = false;
-        $this->resetForm();
-    }
-    
-    public function resetForm()
-    {
-        $this->formId = '';
-        $this->formNome = '';
-        $this->formCognome = '';
-        $this->formSoprannome = '';
-        $this->formCodFiscale = '';
-        $this->formTelefono = '';
-        $this->formCellulare = '';
-        $this->formEmail = '';
-        $this->formIndirizzo = '';
-        $this->formCitta = '';
-        $this->formProvincia = '';
-        $this->formCap = '';
-        $this->formDataNascita = '';
-        $this->formLuogoNascita = '';
-        $this->formValid = true;
-    }
-    
-    public function save()
-    {
-        if (!Auth::guard('admin')->user()->hasPermission('create_staff')) {
-            session()->flash('error', 'Non hai i permessi necessari.');
-            return;
-        }
-        
-        $this->validate([
-            'formNome' => 'nullable|string|max:255',
-            'formCognome' => 'nullable|string|max:255',
-            'formEmail' => 'nullable|email|max:255',
-            'formCellulare' => 'nullable|string|max:20',
-        ]);
-        
-        try {
-            DB::table('staff')->insert([
-                'NomePers' => $this->formNome ?: null,
-                'CognomePers' => $this->formCognome ?: null,
-                'Soprannome' => $this->formSoprannome ?: null,
-                'CodFiscPers' => $this->formCodFiscale ?: null,
-                'TelPers' => $this->formTelefono ?: null,
-                'CellPers' => $this->formCellulare ?: null,
-                'EmailPers' => $this->formEmail ?: null,
-                'IndirPers' => $this->formIndirizzo ?: null,
-                'CittaPers' => $this->formCitta ?: null,
-                'ProvPers' => $this->formProvincia ?: null,
-                'CapPers' => $this->formCap ?: null,
-                'DataNascPers' => $this->formDataNascita ?: null,
-                'LuogoNasc' => $this->formLuogoNascita ?: null,
-                'valid' => $this->formValid ? 1 : 0,
-            ]);
-            
-            $this->closeCreateModal();
-            $this->dispatch('showSuccess', message: 'Personale aggiunto con successo!');
-            $this->resetPage();
-            
-        } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
-        }
-    }
-    
-    // ==================== MODAL VISUALIZZAZIONE ====================
-    
     public function viewStaff($id)
     {
-        $this->viewingStaff = Staff::find($id);
-        if ($this->viewingStaff) {
+        try {
+            $staff = Staff::find($id);
+            if (!$staff) {
+                $this->dispatch('showError', message: 'Personale non trovato');
+                return;
+            }
+            $this->viewingStaff = $staff;
             $this->showViewModal = true;
-        } else {
-            $this->dispatch('showError', message: 'Personale non trovato');
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore nel caricamento dei dettagli: ' . $e->getMessage());
         }
     }
     
@@ -193,145 +132,120 @@ class StaffTable extends Component
         $this->viewingStaff = null;
     }
     
-    // ==================== MODAL MODIFICA ====================
-    
+    // Apre il modal di modifica
     public function editStaff($id)
     {
-        $staff = Staff::find($id);
-        if (!$staff) {
-            $this->dispatch('showError', message: 'Personale non trovato');
-            return;
+        try {
+            $staff = Staff::find($id);
+            if (!$staff) {
+                $this->dispatch('showError', message: 'Personale non trovato');
+                return;
+            }
+            
+            $this->editingId = $id;
+            $this->editingStaff = $staff;
+            $this->editNome = $staff->NomePers;
+            $this->editCognome = $staff->CognomePers;
+            $this->editSoprannome = $staff->Soprannome;
+            $this->editCodFiscale = $staff->CodFiscPers;
+            $this->editTelefono = $staff->TelPers;
+            $this->editCellulare = $staff->CellPers;
+            $this->editEmail = $staff->EmailPers;
+            $this->editIndirizzo = $staff->IndirPers;
+            $this->editCitta = $staff->CittaPers;
+            $this->editProvincia = $staff->ProvPers;
+            $this->editCap = $staff->CapPers;
+            $this->editDataNascita = $staff->DataNascPers;
+            $this->editLuogoNascita = $staff->LuogoNasc;
+            $this->editValid = (bool)$staff->valid;
+            
+            $this->showEditModal = true;
+            
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore nel caricamento dei dati: ' . $e->getMessage());
         }
-        
-        $this->formId = $staff->id_personale;
-        $this->formNome = $staff->NomePers ?? '';
-        $this->formCognome = $staff->CognomePers ?? '';
-        $this->formSoprannome = $staff->Soprannome ?? '';
-        $this->formCodFiscale = $staff->CodFiscPers ?? '';
-        $this->formTelefono = $staff->TelPers ?? '';
-        $this->formCellulare = $staff->CellPers ?? '';
-        $this->formEmail = $staff->EmailPers ?? '';
-        $this->formIndirizzo = $staff->IndirPers ?? '';
-        $this->formCitta = $staff->CittaPers ?? '';
-        $this->formProvincia = $staff->ProvPers ?? '';
-        $this->formCap = $staff->CapPers ?? '';
-        $this->formDataNascita = $staff->DataNascPers ?? '';
-        $this->formLuogoNascita = $staff->LuogoNasc ?? '';
-        $this->formValid = $staff->valid == 1;
-        
-        $this->showEditModal = true;
     }
     
     public function closeEditModal()
     {
         $this->showEditModal = false;
-        $this->resetForm();
+        $this->editingStaff = null;
+        $this->editingId = null;
+        $this->resetEditForm();
     }
     
-    public function update()
+    public function resetEditForm()
     {
-        if (!Auth::guard('admin')->user()->hasPermission('edit_staff')) {
-            $this->dispatch('showError', message: 'Non hai i permessi necessari.');
-            return;
-        }
-        
+        $this->editNome = '';
+        $this->editCognome = '';
+        $this->editSoprannome = '';
+        $this->editCodFiscale = '';
+        $this->editTelefono = '';
+        $this->editCellulare = '';
+        $this->editEmail = '';
+        $this->editIndirizzo = '';
+        $this->editCitta = '';
+        $this->editProvincia = '';
+        $this->editCap = '';
+        $this->editDataNascita = '';
+        $this->editLuogoNascita = '';
+        $this->editValid = true;
+    }
+    
+    public function updateStaff()
+    {
         $this->validate([
-            'formNome' => 'nullable|string|max:255',
-            'formCognome' => 'nullable|string|max:255',
-            'formEmail' => 'nullable|email|max:255',
-            'formCellulare' => 'nullable|string|max:20',
+            'editNome' => 'nullable|string|max:255',
+            'editCognome' => 'nullable|string|max:255',
+            'editEmail' => 'nullable|email|max:255',
         ]);
         
         try {
-            DB::table('staff')
-                ->where('id_personale', $this->formId)
-                ->update([
-                    'NomePers' => $this->formNome ?: null,
-                    'CognomePers' => $this->formCognome ?: null,
-                    'Soprannome' => $this->formSoprannome ?: null,
-                    'CodFiscPers' => $this->formCodFiscale ?: null,
-                    'TelPers' => $this->formTelefono ?: null,
-                    'CellPers' => $this->formCellulare ?: null,
-                    'EmailPers' => $this->formEmail ?: null,
-                    'IndirPers' => $this->formIndirizzo ?: null,
-                    'CittaPers' => $this->formCitta ?: null,
-                    'ProvPers' => $this->formProvincia ?: null,
-                    'CapPers' => $this->formCap ?: null,
-                    'DataNascPers' => $this->formDataNascita ?: null,
-                    'LuogoNasc' => $this->formLuogoNascita ?: null,
-                    'valid' => $this->formValid ? 1 : 0,
-                ]);
-            
-            $this->closeEditModal();
-            $this->dispatch('showSuccess', message: 'Personale aggiornato con successo!');
-            $this->resetPage();
-            
-        } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
-        }
-    }
-    
-    // ==================== MODAL ELIMINAZIONE ====================
-    
-    public function confirmDelete($id)
-    {
-        $staff = Staff::find($id);
-        if ($staff) {
-            $this->deletingStaffId = $id;
-            $this->deletingStaffName = trim($staff->NomePers . ' ' . $staff->CognomePers);
-            $this->showDeleteModal = true;
-        }
-    }
-    
-    public function closeDeleteModal()
-    {
-        $this->showDeleteModal = false;
-        $this->deletingStaffId = null;
-        $this->deletingStaffName = '';
-    }
-    
-    public function deleteStaff()
-    {
-        if (!Auth::guard('admin')->user()->hasPermission('delete_staff')) {
-            $this->dispatch('showError', message: 'Non hai i permessi necessari.');
-            return;
-        }
-        
-        try {
-            DB::table('staff')->where('id_personale', $this->deletingStaffId)->delete();
-            $this->dispatch('showSuccess', message: "Personale '{$this->deletingStaffName}' eliminato con successo!");
-            $this->closeDeleteModal();
-            $this->resetPage();
-        } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
-            $this->closeDeleteModal();
-        }
-    }
-    
-    // ==================== METODI STATO ====================
-    
-    public function toggleStatus($id)
-    {
-        if (!Auth::guard('admin')->user()->hasPermission('edit_staff')) {
-            $this->dispatch('showError', message: 'Non hai i permessi necessari.');
-            return;
-        }
-        
-        try {
-            $staff = Staff::find($id);
+            $staff = Staff::find($this->editingId);
             if ($staff) {
-                $newStatus = !$staff->valid;
-                DB::table('staff')->where('id_personale', $id)->update(['valid' => $newStatus ? 1 : 0]);
-                $status = $newStatus ? 'attivato' : 'disattivato';
-                $this->dispatch('showSuccess', message: "Personale {$status} con successo!");
+                $staff->update([
+                    'NomePers' => $this->editNome,
+                    'CognomePers' => $this->editCognome,
+                    'Soprannome' => $this->editSoprannome,
+                    'CodFiscPers' => $this->editCodFiscale,
+                    'TelPers' => $this->editTelefono,
+                    'CellPers' => $this->editCellulare,
+                    'EmailPers' => $this->editEmail,
+                    'IndirPers' => $this->editIndirizzo,
+                    'CittaPers' => $this->editCitta,
+                    'ProvPers' => $this->editProvincia,
+                    'CapPers' => $this->editCap,
+                    'DataNascPers' => $this->editDataNascita,
+                    'LuogoNasc' => $this->editLuogoNascita,
+                    'valid' => $this->editValid
+                ]);
+                
+                $this->closeEditModal();
+                $this->dispatch('showSuccess', message: 'Personale aggiornato con successo!');
                 $this->resetPage();
             }
         } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore durante il cambio di stato');
+            $this->dispatch('showError', message: 'Errore durante l\'aggiornamento: ' . $e->getMessage());
         }
     }
     
-    // ==================== FILTRI ====================
+    public function toggleStatus($id)
+    {
+        try {
+            $staff = Staff::find($id);
+            if (!$staff) {
+                $this->dispatch('showError', message: 'Personale non trovato');
+                return;
+            }
+            $newStatus = !$staff->valid;
+            $staff->update(['valid' => $newStatus]);
+            $statusText = $newStatus ? 'attivato' : 'disattivato';
+            $this->dispatch('showSuccess', message: "Personale '{$staff->NomePers} {$staff->CognomePers}' {$statusText} con successo!");
+            $this->resetPage();
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore durante il cambio di stato: ' . $e->getMessage());
+        }
+    }
     
     public function resetFilters()
     {
@@ -340,12 +254,13 @@ class StaffTable extends Component
         $this->sortField = 'id_personale';
         $this->sortDirection = 'asc';
         $this->resetPage();
+        session()->forget('staff_filters');
     }
-    
+
     public function render()
     {
         return view('livewire.admin.staff-table', [
-            'staff' => $this->staff
+            'staff' => $this->staff,
         ]);
     }
 }

@@ -92,45 +92,82 @@ class EntitiesTable extends Component
     
     public function getEntitiesProperty()
     {
-        $query = Entity::query();
+        // Prima query per ottenere gli ID delle entità filtrate
+        $idsQuery = Entity::query();
         
-        // Join con address e contacts per la ricerca
-        $query->leftJoin('address', 'entities.id_cliente', '=', 'address.clienti_id_cliente')
-              ->leftJoin('contacts', 'entities.id_cliente', '=', 'contacts.id_entities');
-        
-        // Ricerca su tutti i campi
+        // Applica i filtri di ricerca
         if ($this->search) {
             $searchTerm = '%' . $this->search . '%';
             
-            $query->where(function($q) use ($searchTerm) {
-                $q->where('entities.ragione_sociale', 'like', $searchTerm)
-                  ->orWhere('entities.nome', 'like', $searchTerm)
-                  ->orWhere('entities.cognome', 'like', $searchTerm)
-                  ->orWhere('entities.email', 'like', $searchTerm)
-                  ->orWhere('entities.pec', 'like', $searchTerm)
-                  ->orWhere('entities.partita_iva', 'like', $searchTerm)
-                  ->orWhere('entities.codice_fiscale', 'like', $searchTerm)
-                  ->orWhere('entities.persona_riferimento', 'like', $searchTerm)
-                  ->orWhere('address.indirizzo', 'like', $searchTerm)
-                  ->orWhere('address.citta', 'like', $searchTerm)
-                  ->orWhere('address.provincia', 'like', $searchTerm)
-                  ->orWhere('address.cap', 'like', $searchTerm)
-                  ->orWhere('contacts.valore', 'like', $searchTerm);
+            $idsQuery->where(function($q) use ($searchTerm) {
+                $q->where('ragione_sociale', 'like', $searchTerm)
+                ->orWhere('nome', 'like', $searchTerm)
+                ->orWhere('cognome', 'like', $searchTerm)
+                ->orWhere('email', 'like', $searchTerm)
+                ->orWhere('pec', 'like', $searchTerm)
+                ->orWhere('partita_iva', 'like', $searchTerm)
+                ->orWhere('codice_fiscale', 'like', $searchTerm)
+                ->orWhere('persona_riferimento', 'like', $searchTerm)
+                // Ricerca su address
+                ->orWhereExists(function($subq) use ($searchTerm) {
+                    $subq->select(DB::raw(1))
+                        ->from('address')
+                        ->whereColumn('address.clienti_id_cliente', 'entities.id_cliente')
+                        ->where(function($add) use ($searchTerm) {
+                            $add->where('address.indirizzo', 'like', $searchTerm)
+                                ->orWhere('address.citta', 'like', $searchTerm)
+                                ->orWhere('address.provincia', 'like', $searchTerm)
+                                ->orWhere('address.cap', 'like', $searchTerm);
+                        });
+                })
+                // Ricerca su contacts
+                ->orWhereExists(function($subq) use ($searchTerm) {
+                    $subq->select(DB::raw(1))
+                        ->from('contacts')
+                        ->whereColumn('contacts.id_entities', 'entities.id_cliente')
+                        ->where('contacts.valore', 'like', $searchTerm);
+                });
             });
         }
         
         // Filtro per tipo entità
         if ($this->typeFilter) {
-            $query->where('entities.entity_type', $this->typeFilter);
+            $idsQuery->where('entity_type', $this->typeFilter);
         }
         
         // Filtro per stato
         if ($this->statusFilter !== '') {
-            $query->where('entities.valid', $this->statusFilter === 'active');
+            $idsQuery->where('valid', $this->statusFilter === 'active');
         }
         
-        // Raggruppa per evitare duplicati
-        $query->select('entities.*')->distinct();
+        // Ottieni gli ID totali per il conteggio corretto
+        $totalIds = $idsQuery->count();
+        
+        // Ora esegui la query principale con paginazione usando gli ID
+        $query = Entity::query();
+        
+        // Applica gli stessi filtri
+        if ($this->search) {
+            $searchTerm = '%' . $this->search . '%';
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('ragione_sociale', 'like', $searchTerm)
+                ->orWhere('nome', 'like', $searchTerm)
+                ->orWhere('cognome', 'like', $searchTerm)
+                ->orWhere('email', 'like', $searchTerm)
+                ->orWhere('pec', 'like', $searchTerm)
+                ->orWhere('partita_iva', 'like', $searchTerm)
+                ->orWhere('codice_fiscale', 'like', $searchTerm)
+                ->orWhere('persona_riferimento', 'like', $searchTerm);
+            });
+        }
+        
+        if ($this->typeFilter) {
+            $query->where('entity_type', $this->typeFilter);
+        }
+        
+        if ($this->statusFilter !== '') {
+            $query->where('valid', $this->statusFilter === 'active');
+        }
         
         // Ordina e paginate
         $query->orderBy($this->sortField, $this->sortDirection);
@@ -139,6 +176,9 @@ class EntitiesTable extends Component
         $entities = $query->with(['contacts' => function($q) {
             $q->orderBy('id_settings');
         }])->paginate($this->perPage);
+        
+        // Forza il conteggio corretto
+        $entities->setCollection($entities->getCollection());
         
         return $entities;
     }

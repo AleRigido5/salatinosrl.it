@@ -1,4 +1,4 @@
-<div wire:key="staff-table-{{ $renderKey ?? 0 }}">
+<div wire:key="staff-table-{{ $renderKey }}">
     <!-- Filtri e Ricerca -->
     <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -59,7 +59,7 @@
     </div>
 
     <!-- Tabella Personale -->
-    <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200" wire:key="staff-table-body-{{ $renderKey ?? 0 }}">
+    <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200" wire:key="staff-table-body-{{ $renderKey }}">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
@@ -248,9 +248,9 @@
         </div>
     </div>
 
-    <!-- Paginazione in italiano con stile chiaro -->
+    <!-- Paginazione -->
     @if($staff->hasPages())
-    <div class="mt-6" wire:key="pagination-{{ $renderKey ?? 0 }}">
+    <div class="mt-6" wire:key="pagination-{{ $renderKey }}">
         <div class="text-sm text-gray-500 mb-2">
             Mostrando {{ $staff->firstItem() ?? 0 }} - {{ $staff->lastItem() ?? 0 }} di {{ $staff->total() }} risultati
         </div>
@@ -271,7 +271,6 @@
             display: flex !important;
         }
         
-        /* Personalizzazione link paginazione */
         nav[role="navigation"] span[aria-current="page"] span,
         nav[role="navigation"] .relative.inline-flex.items-center {
             background-color: white !important;
@@ -290,12 +289,10 @@
             border-color: #d1d5db !important;
         }
         
-        /* Nasconde il testo "Showing" e "to" e "results" */
         nav[role="navigation"] p.text-sm {
             display: none !important;
         }
         
-        /* Centra completamente la paginazione */
         nav[role="navigation"] > div:first-child {
             justify-content: center !important;
         }

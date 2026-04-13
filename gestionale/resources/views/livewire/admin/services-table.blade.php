@@ -1,26 +1,25 @@
 <div wire:key="services-table-{{ $renderKey }}">
     <!-- Filtri e Ricerca -->
     <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="relative md:col-span-2">
                 <svg class="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                 </svg>
                 <input type="text" 
-                       wire:model="search" 
-                       wire:keyup.debounce.300ms="updatedSearch"
+                       wire:model.live.debounce.300ms="search" 
                        placeholder="Cerca per titolo o descrizione..." 
                        class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
             </div>
             
-            <select wire:model="categoryFilter" wire:change="updatedCategoryFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+            <select wire:model.live="categoryFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 <option value="">Tutte le categorie</option>
                 @foreach($categories as $category)
                     <option value="{{ $category->id }}">{{ $category->valore }}</option>
                 @endforeach
             </select>
             
-            <select wire:model="statusFilter" wire:change="updatedStatusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+            <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 <option value="">Tutti gli stati</option>
                 <option value="active">Attivi</option>
                 <option value="inactive">Disattivi</option>
@@ -75,8 +74,8 @@
         @endif
     </div>
 
-    <!-- Tabella Servizi - aggiungi wire:key -->
-    <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200" wire:key="services-table-body-{{ $renderKey }}">
+    <!-- Tabella Servizi -->
+    <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
@@ -147,15 +146,17 @@
                                 {{ $service->Titolo }}
                             </div>
                             @if($service->Descrizione)
-                            <div class="text-xs text-gray-500">
+                            <div class="text-xs text-gray-500 line-clamp-1">
                                 {{ Str::limit($service->Descrizione, 60) }}
                             </div>
                             @endif
+                        </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                                 {{ $service->category_name }}
                             </span>
+                        </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             @if($service->Prezzo_un)
@@ -166,12 +167,14 @@
                             @else
                                 -
                             @endif
+                        </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                                 {{ $service->Stato ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
                                 {{ $service->Stato ? 'Attivo' : 'Disattivo' }}
                             </span>
+                        </div>
                         </td>
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
@@ -209,8 +212,8 @@
                                 </button>
                                 @endif
                             </div>
-                        </td>
-                    </tr>
+                        </div>
+                    </div>
                     @empty
                     <tr>
                         <td colspan="5" class="px-6 py-12 text-center">
@@ -223,8 +226,8 @@
                                     Resetta filtri
                                 </button>
                             </div>
-                        </td>
-                    </tr>
+                        </div>
+                    </div>
                     @endforelse
                 </tbody>
             </table>
@@ -233,7 +236,7 @@
 
     <!-- Paginazione -->
     @if($services->hasPages())
-    <div class="mt-6" wire:key="pagination-{{ $renderKey }}">
+    <div class="mt-6">
         <div class="text-sm text-gray-500 mb-2">
             Mostrando {{ $services->firstItem() ?? 0 }} - {{ $services->lastItem() ?? 0 }} di {{ $services->total() }} risultati
         </div>
@@ -244,48 +247,40 @@
     @endif
 
     <style>
-        /* Stile paginazione bianco */
         nav[role="navigation"] div.flex-1 {
             display: none !important;
         }
-        
         nav[role="navigation"] .relative.z-0 {
             justify-content: center !important;
             display: flex !important;
         }
-        
         nav[role="navigation"] span[aria-current="page"] span,
         nav[role="navigation"] .relative.inline-flex.items-center {
             background-color: white !important;
             border-color: #e5e7eb !important;
             color: #374151 !important;
         }
-        
         nav[role="navigation"] span[aria-current="page"] span {
             background-color: #84cc16 !important;
             border-color: #84cc16 !important;
             color: white !important;
         }
-        
         nav[role="navigation"] .relative.inline-flex.items-center:hover {
             background-color: #f9fafb !important;
             border-color: #d1d5db !important;
         }
-        
         nav[role="navigation"] p.text-sm {
             display: none !important;
         }
-        
         nav[role="navigation"] > div:first-child {
             justify-content: center !important;
         }
-        
         nav[role="navigation"] > div:first-child > div:first-child {
             display: none !important;
         }
     </style>
 
-    <!-- Modal Visualizzazione Dettagli (uguale a prima) -->
+    <!-- Modal Visualizzazione Dettagli -->
     @if($showViewModal && $viewingService)
     <div id="viewServiceModal" 
          x-data="{ open: true }" 

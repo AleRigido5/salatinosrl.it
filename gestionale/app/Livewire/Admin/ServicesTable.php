@@ -24,13 +24,10 @@ class ServicesTable extends Component
     public $viewingService = null;
     
     protected $paginationTheme = 'tailwind';
-    
-    // Aggiungi un key unico per forzare il refresh
     public $renderKey = 0;
     
     public function mount()
     {
-        // Recupera i filtri dalla sessione se esistono (quando si torna dalla modifica)
         if (session()->has('services_filters')) {
             $filters = session('services_filters');
             $this->search = $filters['search'] ?? '';
@@ -63,21 +60,8 @@ class ServicesTable extends Component
         }
     }
     
-    // IMPORTANTE: Usa updated invece di updating per evitare conflitti
-    public function updatedSearch()
-    {
-        $this->resetPage();
-    }
-    
-    public function updatedCategoryFilter()
-    {
-        $this->resetPage();
-    }
-    
-    public function updatedStatusFilter()
-    {
-        $this->resetPage();
-    }
+    // Livewire automaticamente gestisce updated{PropertyName}
+    // Non devi chiamare manualmente questi metodi
     
     public function getCategoriesProperty()
     {
@@ -127,7 +111,7 @@ class ServicesTable extends Component
             $this->showViewModal = true;
             
         } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore nel caricamento dei dettagli: ' . $e->getMessage());
+            $this->dispatch('showError', message: 'Errore nel caricamento: ' . $e->getMessage());
         }
     }
     
@@ -157,15 +141,13 @@ class ServicesTable extends Component
             $service->update(['Stato' => $newStatus]);
             
             $statusText = $newStatus ? 'attivato' : 'disattivato';
-            
             $this->dispatch('showSuccess', message: "Servizio '{$service->Titolo}' {$statusText} con successo!");
             
-            // Forza il refresh incrementando il key
             $this->renderKey++;
             $this->resetPage();
             
         } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore durante il cambio di stato: ' . $e->getMessage());
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
     

@@ -1,4 +1,4 @@
-<div>
+<div wire:key="staff-table-{{ $renderKey ?? 0 }}">
     <!-- Filtri e Ricerca -->
     <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -7,12 +7,13 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                 </svg>
                 <input type="text" 
-                       wire:model.live.debounce.300ms="search" 
+                       wire:model="search" 
+                       wire:keyup.debounce.300ms="updatedSearch"
                        placeholder="Cerca per: Nome, Cognome, Soprannome, Cellulare, Email, Codice Fiscale..." 
-                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
             </div>
             
-            <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select wire:model="statusFilter" wire:change="updatedStatusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 <option value="">Tutti gli stati</option>
                 <option value="active">Attivi</option>
                 <option value="inactive">Disattivi</option>
@@ -34,9 +35,9 @@
         <div class="mt-3 flex flex-wrap items-center gap-2">
             <span class="text-sm text-gray-500">Filtri attivi:</span>
             @if($search)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
                 Ricerca: "{{ $search }}"
-                <button wire:click="$set('search', '')" class="ml-1 hover:text-blue-900">
+                <button wire:click="$set('search', '')" class="ml-1 hover:text-lime-900">
                     <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -44,9 +45,9 @@
             </span>
             @endif
             @if($statusFilter)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
                 Stato: {{ $statusFilter === 'active' ? 'Attivi' : 'Disattivi' }}
-                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-blue-900">
+                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-lime-900">
                     <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -58,7 +59,7 @@
     </div>
 
     <!-- Tabella Personale -->
-    <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
+    <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200" wire:key="staff-table-body-{{ $renderKey ?? 0 }}">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
@@ -234,7 +235,7 @@
                                 </svg>
                                 <p class="mt-2 text-sm">Nessun personale trovato</p>
                                 @if($search || $statusFilter)
-                                <button wire:click="resetFilters" class="mt-2 text-sm text-blue-600 hover:text-blue-800">
+                                <button wire:click="resetFilters" class="mt-2 text-sm text-lime-600 hover:text-lime-800">
                                     Resetta filtri
                                 </button>
                                 @endif
@@ -247,10 +248,10 @@
         </div>
     </div>
 
-   <!-- Paginazione -->
+    <!-- Paginazione in italiano con stile chiaro -->
     @if($staff->hasPages())
-    <div class="mt-6">
-        <div class="text-sm text-gray-500">
+    <div class="mt-6" wire:key="pagination-{{ $renderKey ?? 0 }}">
+        <div class="text-sm text-gray-500 mb-2">
             Mostrando {{ $staff->firstItem() ?? 0 }} - {{ $staff->lastItem() ?? 0 }} di {{ $staff->total() }} risultati
         </div>
         <div class="flex justify-center">
@@ -279,8 +280,8 @@
         }
         
         nav[role="navigation"] span[aria-current="page"] span {
-            background-color: #10b981 !important;
-            border-color: #10b981 !important;
+            background-color: #84cc16 !important;
+            border-color: #84cc16 !important;
             color: white !important;
         }
         

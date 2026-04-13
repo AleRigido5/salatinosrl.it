@@ -384,14 +384,6 @@
                 </div>
                 @endif
             </nav>
-            
-            <!-- Footer Sidebar -->
-            <div class="p-4 border-t border-gray-700/50 mt-auto">
-                <div class="footer-text text-center">
-                    <p class="text-xs text-gray-500">Versione 1.0.0</p>
-                    <p class="text-xs text-gray-600 mt-1">© {{ date('Y') }} Gruppo Salatino</p>
-                </div>
-            </div>
         </aside>
 
         <!-- Main Content -->

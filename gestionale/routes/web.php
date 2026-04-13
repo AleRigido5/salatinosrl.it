@@ -147,6 +147,19 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('settings', SettingController::class);
 
         // =============================================
+        // GESTIONE SERVIZI
+        // =============================================
+        Route::prefix('services')->name('services.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\ServiceController::class, 'index'])->name('index');
+            Route::get('/create', [App\Http\Controllers\Admin\ServiceController::class, 'create'])->name('create');
+            Route::post('/', [App\Http\Controllers\Admin\ServiceController::class, 'store'])->name('store');
+            Route::get('/{service}', [App\Http\Controllers\Admin\ServiceController::class, 'show'])->name('show');
+            Route::get('/{service}/edit', [App\Http\Controllers\Admin\ServiceController::class, 'edit'])->name('edit');
+            Route::put('/{service}', [App\Http\Controllers\Admin\ServiceController::class, 'update'])->name('update');
+            Route::post('/{service}/toggle-status', [App\Http\Controllers\Admin\ServiceController::class, 'toggleStatus'])->name('toggle-status');
+        });
+
+        // =============================================
         // GESTIONE CONTATTI
         // =============================================
         Route::prefix('contacts')->name('contacts.')->group(function () {

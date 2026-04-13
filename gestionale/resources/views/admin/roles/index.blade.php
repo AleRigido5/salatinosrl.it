@@ -11,7 +11,7 @@
             </h1>
             
             <!-- Bottone Cestino con contatore -->
-            @php
+            {{-- @php
                 $trashCount = \App\Models\Role::onlyTrashed()->count();
             @endphp
             <a href="{{ route('admin.trash.index', 'roles') }}" 
@@ -22,7 +22,7 @@
                         {{ $trashCount }}
                     </span>
                 @endif
-            </a>
+            </a> --}}
         </div>
         
         @if(auth()->guard('admin')->user()->hasPermission('create_roles'))

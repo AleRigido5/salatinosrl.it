@@ -449,6 +449,14 @@
                                     <span>Settings</span>
                                 </a>
                                 @endif
+
+                                <!-- Servizi -->
+                                @if($currentAdmin && $currentAdmin->hasPermission('view_services'))
+                                <a href="{{ route('admin.services.index') }}" class="dropdown-item">
+                                    <i class="fas fa-concierge-bell"></i>
+                                    <span>Servizi</span>
+                                </a>
+                                @endif
                             </div>
                         </div>
                         

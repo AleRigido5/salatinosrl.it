@@ -5,37 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Admin Panel - @yield('title')</title>
-    <link rel="shortcut icon" href="{{ asset('images/logo.png') }}" type="image/x-icon">
+    <link rel="shortcut icon" href="{{ asset('../../../../public/images/logo.png') }}" type="image/x-icon">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Alpine.js CDN -->
+    <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
-    <!-- Livewire Styles -->
-    <style>
-        [wire\:loading], [wire\:loading\.delay], [wire\:loading\.inline-block], [wire\:loading\.inline], [wire\:loading\.block], [wire\:loading\.flex], [wire\:loading\.table], [wire\:loading\.grid], [wire\:loading\.inline-flex] {
-            display: none;
-        }
-        [wire\:loading\.delay\.short], [wire\:loading\.delay\.short\.inline-block], [wire\:loading\.delay\.short\.inline], [wire\:loading\.delay\.short\.block], [wire\:loading\.delay\.short\.flex], [wire\:loading\.delay\.short\.table], [wire\:loading\.delay\.short\.grid], [wire\:loading\.delay\.short\.inline-flex] {
-            display: none;
-        }
-        [wire\:loading\.delay\.long], [wire\:loading\.delay\.long\.inline-block], [wire\:loading\.delay\.long\.inline], [wire\:loading\.delay\.long\.block], [wire\:loading\.delay\.long\.flex], [wire\:loading\.delay\.long\.table], [wire\:loading\.delay\.long\.grid], [wire\:loading\.delay\.long\.inline-flex] {
-            display: none;
-        }
-        [wire\:offline] {
-            display: none;
-        }
-        [wire\:dirty] {
-            display: none;
-        }
-        .livewire-progress-bar {
-            display: none;
-        }
-    </style>
-    
+    <!-- Livewire Scripts -->
+    @livewireStyles
     <style>
         body { font-family: 'Inter', sans-serif; }
         
@@ -342,13 +321,14 @@
     @endphp
     
     <div class="flex h-screen overflow-hidden">
-        <!-- Sidebar -->
+        <!-- Sidebar - si apre al hover, si chiude quando il mouse esce -->
         <aside id="sidebar" class="sidebar sidebar-closed bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white flex flex-col shadow-xl transition-all duration-300" style="width: 80px;">
             <!-- Logo -->
             <div class="p-6 border-b border-gray-700/50">
                 <div class="logo-container flex items-center space-x-3">
+                    <!-- Logo Image -->
                     <div class="w-10 h-10 flex-shrink-0">
-                        <img src="{{ asset('images/logo.png') }}" alt="Logo" class="w-full h-full object-contain" onerror="this.onerror=null; this.src='https://placehold.co/40x40/84cc16/white?text=GS'">
+                        <img src="{{ asset('../../../../public/images/logo.png') }}" alt="Logo" class="w-full h-full object-contain" onerror="this.onerror=null; this.src='https://placehold.co/40x40/84cc16/white?text=GS'">
                     </div>
                     <div class="logo-text">
                         <h1 class="text-xl font-bold bg-gradient-to-r from-lime-400 to-lime-600 bg-clip-text text-transparent">Gruppo Salatino</h1>
@@ -358,6 +338,7 @@
             
             <!-- Navigation -->
             <nav class="flex-1 mt-6 overflow-y-auto px-3">
+                <!-- Dashboard -->
                 @if($currentAdmin && $currentAdmin->hasPermission('access_dashboard'))
                 <div class="mb-6">
                     <div class="nav-label px-4 py-2 text-xs font-semibold text-lime-400 uppercase tracking-wider flex items-center">
@@ -372,6 +353,7 @@
                 </div>
                 @endif
                 
+                <!-- Anagrafica -->
                 @if($currentAdmin && $currentAdmin->hasPermission('view_entities'))
                 <div class="mb-6">
                     <div class="nav-label px-4 py-2 text-xs font-semibold text-lime-400 uppercase tracking-wider flex items-center">
@@ -379,26 +361,31 @@
                         <span>Anagrafica</span>
                     </div>
                     
+                    <!-- Clienti / Fornitori -->
                     <a href="{{ route('admin.entities.index') }}" 
                        class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.entities.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
                         <i class="fas fa-building w-5 h-5 {{ request()->routeIs('admin.entities.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Clienti / Fornitori</span>
                     </a>
                     
+                    <!-- Personale -->
                     <a href="{{ route('admin.staff.index') }}" 
                        class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.staff.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
                         <i class="fas fa-users w-5 h-5 {{ request()->routeIs('admin.staff.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Personale</span>
                     </a>
                     
-                    <a href="#" class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 text-gray-300 mb-1">
-                        <i class="fas fa-truck w-5 h-5 text-gray-500"></i>
+                    <!-- Mezzi -->
+                    <a href="#" 
+                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.vehicles.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                        <i class="fas fa-truck w-5 h-5 {{ request()->routeIs('admin.vehicles.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Mezzi</span>
                     </a>
                 </div>
                 @endif
             </nav>
             
+            <!-- Footer Sidebar -->
             <div class="p-4 border-t border-gray-700/50 mt-auto">
                 <div class="footer-text text-center">
                     <p class="text-xs text-gray-500">Versione 1.0.0</p>
@@ -409,19 +396,24 @@
 
         <!-- Main Content -->
         <div class="flex-1 overflow-auto">
+            <!-- Header - Senza pulsante hamburger -->
             <header class="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10 border-b border-gray-100">
                 <div class="flex justify-between items-center px-8 py-3">
+                    <!-- Left side - solo page title (senza toggle button) -->
                     <div class="text-sm text-gray-500">
                         <i class="fas fa-home text-lime-500 mr-1"></i> 
                         @yield('title', 'Dashboard')
                     </div>
                     
+                    <!-- Right side - Avatar e Dropdown -->
                     <div class="flex items-center space-x-4">
+                        <!-- Settings Dropdown (Ingranaggio) -->
                         <div class="relative">
                             <button id="settingsMenuButton" class="settings-btn text-gray-500 hover:text-lime-600 focus:outline-none transition-all duration-200">
                                 <i class="fas fa-cog text-xl"></i>
                             </button>
                             
+                            <!-- Settings Dropdown Menu -->
                             <div id="settingsDropdown" class="dropdown-menu" style="min-width: 220px; right: 0; left: auto;">
                                 <div class="dropdown-header">
                                     <div class="flex items-center space-x-3">
@@ -434,6 +426,7 @@
                                 </div>
                                 <div class="dropdown-divider"></div>
                                 
+                                <!-- Gestione Utenti (Lista Admin) -->
                                 @if($currentAdmin && $currentAdmin->hasPermission('view_administrators'))
                                 <a href="{{ route('admin.administrators.index') }}" class="dropdown-item">
                                     <i class="fas fa-users"></i>
@@ -441,6 +434,7 @@
                                 </a>
                                 @endif
                                 
+                                <!-- Ruoli e Permessi -->
                                 @if($currentAdmin && $currentAdmin->hasPermission('view_roles'))
                                 <a href="{{ route('admin.roles.index') }}" class="dropdown-item">
                                     <i class="fas fa-shield-alt"></i>
@@ -448,6 +442,7 @@
                                 </a>
                                 @endif
                                 
+                                <!-- Settings -->
                                 @if($currentAdmin && $currentAdmin->hasPermission('access_settings'))
                                 <div class="dropdown-divider"></div>
                                 <a href="{{ route('admin.settings.categories.index') }}" class="dropdown-item">
@@ -456,6 +451,7 @@
                                 </a>
                                 @endif
 
+                                <!-- Servizi -->
                                 @if($currentAdmin && $currentAdmin->hasPermission('view_services'))
                                 <a href="{{ route('admin.services.index') }}" class="dropdown-item">
                                     <i class="fas fa-concierge-bell"></i>
@@ -465,6 +461,7 @@
                             </div>
                         </div>
                         
+                        <!-- Avatar e Dropdown Profilo -->
                         <div class="relative">
                             <button id="userMenuButton" class="flex items-center space-x-3 focus:outline-none hover:bg-gray-50 rounded-xl px-3 py-2 transition-all duration-200 group">
                                 <div class="w-10 h-10 bg-gradient-to-r from-lime-500 to-lime-600 rounded-full flex items-center justify-center text-white font-semibold shadow-md group-hover:shadow-lg transition">
@@ -480,6 +477,7 @@
                                 <i class="fas fa-chevron-down text-gray-400 text-xs transition-transform duration-200 group-hover:text-lime-500" id="userMenuChevron"></i>
                             </button>
                             
+                            <!-- Dropdown Menu Profilo -->
                             <div id="userDropdown" class="dropdown-menu">
                                 <div class="dropdown-header">
                                     <div class="flex items-center space-x-3">
@@ -511,9 +509,11 @@
                 </div>
             </header>
 
+            <!-- Main Content Area -->
             <main class="p-6">
+                <!-- Alert Messages -->
                 @if(session('success'))
-                    <div class="mb-6 p-4 bg-gradient-to-r from-green-50 to-lime-50 border-l-4 border-lime-500 text-green-700 rounded-lg shadow-sm">
+                    <div class="mb-6 p-4 bg-gradient-to-r from-green-50 to-lime-50 border-l-4 border-lime-500 text-green-700 rounded-lg shadow-sm animate-pulse">
                         <div class="flex items-center">
                             <i class="fas fa-check-circle text-lime-500 text-lg mr-3"></i>
                             <span class="font-medium">{{ session('success') }}</span>
@@ -530,32 +530,36 @@
                     </div>
                 @endif
 
+                @if(session('warning'))
+                    <div class="mb-6 p-4 bg-gradient-to-r from-amber-50 to-yellow-50 border-l-4 border-amber-500 text-amber-700 rounded-lg shadow-sm">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-triangle text-amber-500 text-lg mr-3"></i>
+                            <span class="font-medium">{{ session('warning') }}</span>
+                        </div>
+                    </div>
+                @endif
+
+                @if(session('info'))
+                    <div class="mb-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-l-4 border-blue-500 text-blue-700 rounded-lg shadow-sm">
+                        <div class="flex items-center">
+                            <i class="fas fa-info-circle text-blue-500 text-lg mr-3"></i>
+                            <span class="font-medium">{{ session('info') }}</span>
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Page Content -->
                 @yield('content')
             </main>
         </div>
     </div>
 
-    <!-- Livewire CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/livewire@3/dist/livewire.js"></script>
-    
+    <!-- Livewire Scripts -->
+    @livewireScripts
+
     <script>
-        // Configurazione manuale di Livewire
-        if (typeof Livewire !== 'undefined') {
-            window.livewireScriptConfig = {
-                csrf: '{{ csrf_token() }}',
-                uri: '/livewire/update',
-                progressBar: false,
-            };
-            Livewire.start();
-            console.log('✅ Livewire avviato correttamente');
-        } else {
-            console.error('❌ Livewire non caricato');
-        }
-        
         // Dropdown menu functionality
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('✅ DOM caricato');
-            
             // User dropdown
             const userMenuButton = document.getElementById('userMenuButton');
             const userDropdown = document.getElementById('userDropdown');
@@ -609,34 +613,8 @@
                 }, 5000);
             }
             
-            // Sidebar hover effect
-            const toggleButton = document.getElementById('toggleSidebar');
-            const sidebar = document.getElementById('sidebar');
-            let isSidebarCollapsed = false;
-            
-            if (toggleButton && sidebar) {
-                toggleButton.addEventListener('click', function() {
-                    isSidebarCollapsed = !isSidebarCollapsed;
-                    if (isSidebarCollapsed) {
-                        sidebar.classList.add('sidebar-collapsed');
-                        sidebar.classList.remove('sidebar-expanded');
-                        sidebar.style.width = '80px';
-                    } else {
-                        sidebar.classList.remove('sidebar-collapsed');
-                        sidebar.classList.add('sidebar-expanded');
-                        sidebar.style.width = '264px';
-                    }
-                    localStorage.setItem('sidebarCollapsed', isSidebarCollapsed);
-                });
-                
-                const savedState = localStorage.getItem('sidebarCollapsed');
-                if (savedState === 'true') {
-                    isSidebarCollapsed = true;
-                    sidebar.classList.add('sidebar-collapsed');
-                    sidebar.classList.remove('sidebar-expanded');
-                    sidebar.style.width = '80px';
-                }
-            }
+            // Sidebar hover effect è gestito completamente da CSS
+            // Non serve più JavaScript per il toggle
         });
         
         // Tooltip auto-initialization
@@ -657,8 +635,12 @@
             tabButtons.forEach(button => {
                 button.addEventListener('click', () => {
                     const tabId = button.getAttribute('data-tab');
+                    
+                    // Remove active class from all buttons and contents
                     tabButtons.forEach(btn => btn.classList.remove('active'));
                     tabContents.forEach(content => content.classList.remove('active'));
+                    
+                    // Add active class to current button and content
                     button.classList.add('active');
                     const activeContent = document.getElementById(tabId);
                     if (activeContent) activeContent.classList.add('active');
@@ -668,26 +650,32 @@
 
         // Livewire Event Handlers
         document.addEventListener('livewire:init', function () {
+            // Redirect to edit page
             Livewire.on('redirectToEdit', ({ id }) => {
                 window.location.href = '/admin/entities/' + id + '/edit';
             });
             
+            // Show success message as toast
             Livewire.on('showSuccess', ({ message }) => {
                 showToast(message, 'success');
             });
             
+            // Show error message as toast
             Livewire.on('showError', ({ message }) => {
                 showToast(message, 'error');
             });
             
+            // Show info message as toast
             Livewire.on('showInfo', ({ message }) => {
                 showToast(message, 'info');
             });
             
+            // Show warning message as toast
             Livewire.on('showWarning', ({ message }) => {
                 showToast(message, 'warning');
             });
             
+            // Refresh table event
             Livewire.on('tableRefreshed', () => {
                 console.log('Tabella aggiornata');
             });
@@ -711,18 +699,24 @@
             
             const toast = document.createElement('div');
             toast.className = `toast-notification fixed top-4 right-4 z-50 p-4 ${colors[type]} text-white rounded-lg shadow-lg`;
+            toast.style.animation = 'slideInRight 0.3s ease-out';
             toast.innerHTML = `
                 <div class="flex items-center">
                     <i class="fas ${icons[type]} mr-2"></i>
                     <span>${message}</span>
                 </div>
             `;
+            
             document.body.appendChild(toast);
             
             setTimeout(() => {
                 toast.style.opacity = '0';
                 toast.style.transition = 'opacity 0.5s ease';
-                setTimeout(() => toast.remove(), 500);
+                setTimeout(() => {
+                    if (toast && toast.remove) {
+                        toast.remove();
+                    }
+                }, 500);
             }, 5000);
         }
     </script>

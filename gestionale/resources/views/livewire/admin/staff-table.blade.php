@@ -122,18 +122,16 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200" wire:key="staff-table-body-{{ $staff->currentPage() }}">
+                <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($staff as $person)
-                    <tr class="hover:bg-gray-50 transition-colors duration-150" wire:key="staff-row-{{ $person->id_personale }}">
+                    <tr class="hover:bg-gray-50 transition-colors duration-150">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ $person->id_personale }}
                         </td>
                         <td class="px-6 py-4">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center bg-gray-100">
-                                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                    </svg>
+                                    <i class="fas fa-user text-gray-500 text-lg"></i>
                                 </div>
                                 <div class="ml-4">
                                     <div class="text-sm font-medium text-gray-900">
@@ -141,10 +139,7 @@
                                     </div>
                                     @if($person->Soprannome)
                                     <div class="text-xs text-gray-500">
-                                        <svg class="inline-block w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
-                                        </svg>
-                                        {{ $person->Soprannome }}
+                                        <i class="fas fa-tag mr-1"></i> {{ $person->Soprannome }}
                                     </div>
                                     @endif
                                 </div>
@@ -154,25 +149,19 @@
                             <div class="space-y-1">
                                 @if($person->CellPers)
                                 <div class="flex items-center">
-                                    <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                                    </svg>
+                                    <i class="fas fa-mobile-alt w-4 text-gray-400 mr-2"></i>
                                     <span>{{ $person->CellPers }}</span>
                                 </div>
                                 @endif
                                 @if($person->TelPers)
                                 <div class="flex items-center">
-                                    <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
-                                    </svg>
+                                    <i class="fas fa-phone w-4 text-gray-400 mr-2"></i>
                                     <span>{{ $person->TelPers }}</span>
                                 </div>
                                 @endif
                                 @if($person->EmailPers)
                                 <div class="flex items-center">
-                                    <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                                    </svg>
+                                    <i class="fas fa-envelope w-4 text-gray-400 mr-2"></i>
                                     <span class="truncate max-w-[200px]">{{ $person->EmailPers }}</span>
                                 </div>
                                 @endif
@@ -253,7 +242,7 @@
 
     <!-- Paginazione -->
     @if($staff->hasPages())
-    <div class="mt-6" wire:key="pagination-wrapper">
+    <div class="mt-6">
         <div class="text-sm text-gray-500 mb-2">
             Mostrando {{ $staff->firstItem() ?? 0 }} - {{ $staff->lastItem() ?? 0 }} di {{ $staff->total() }} risultati
         </div>
@@ -311,19 +300,12 @@
             <div class="flex justify-between items-center mb-4 border-b pb-3">
                 <div class="flex items-center space-x-3">
                     <div class="flex-shrink-0 h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                        </svg>
+                        <i class="fas fa-user text-blue-600 text-xl"></i>
                     </div>
                     <div>
                         <h2 class="text-xl font-bold text-gray-800">{{ $viewingStaff->NomePers ?: '-' }} {{ $viewingStaff->CognomePers ?: '-' }}</h2>
                         @if($viewingStaff->Soprannome)
-                        <p class="text-xs text-gray-500">
-                            <svg class="inline-block w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"></path>
-                            </svg>
-                            {{ $viewingStaff->Soprannome }}
-                        </p>
+                        <p class="text-xs text-gray-500"><i class="fas fa-tag mr-1"></i> {{ $viewingStaff->Soprannome }}</p>
                         @endif
                     </div>
                 </div>
@@ -337,10 +319,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div class="bg-gray-50 rounded-lg p-4">
                     <h3 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">
-                        <svg class="inline-block w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        Dati Anagrafici
+                        <i class="fas fa-info-circle mr-2 text-blue-500"></i> Dati Anagrafici
                     </h3>
                     <div class="space-y-2">
                         <div class="flex"><span class="w-32 text-gray-600">Codice Fiscale:</span><span class="text-gray-800 font-mono">{{ $viewingStaff->CodFiscPers ?: '-' }}</span></div>
@@ -351,10 +330,7 @@
                 
                 <div class="bg-gray-50 rounded-lg p-4">
                     <h3 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">
-                        <svg class="inline-block w-4 h-4 mr-2 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                        </svg>
-                        Contatti
+                        <i class="fas fa-address-card mr-2 text-orange-500"></i> Contatti
                     </h3>
                     <div class="space-y-2">
                         @if($viewingStaff->TelPers)
@@ -374,11 +350,7 @@
                 
                 <div class="bg-gray-50 rounded-lg p-4 md:col-span-2">
                     <h3 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">
-                        <svg class="inline-block w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        </svg>
-                        Indirizzo
+                        <i class="fas fa-map-marker-alt mr-2 text-red-500"></i> Indirizzo
                     </h3>
                     <div class="space-y-2">
                         <div class="flex"><span class="w-20 text-gray-600">Indirizzo:</span><span class="text-gray-800">{{ $viewingStaff->IndirPers ?: '-' }}</span></div>
@@ -390,10 +362,7 @@
                 
                 <div class="bg-gray-50 rounded-lg p-4">
                     <h3 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">
-                        <svg class="inline-block w-4 h-4 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        Stato
+                        <i class="fas fa-toggle-on mr-2 text-purple-500"></i> Stato
                     </h3>
                     <div>
                         <span class="px-2 py-1 text-xs rounded-full {{ $viewingStaff->valid ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
@@ -405,6 +374,105 @@
             
             <div class="flex justify-end mt-6 pt-4 border-t">
                 <button wire:click="closeViewModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Chiudi</button>
+                @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
+                <button wire:click="editStaff({{ $viewingStaff->id_personale }})" 
+                        class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
+                    <i class="fas fa-edit mr-2"></i> Modifica
+                </button>
+                @endif
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- MODAL MODIFICA -->
+    @if($showEditModal && $editingStaff)
+    <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
+         x-data="{ show: true }" 
+         x-show="show" 
+         x-transition.opacity.duration.200ms>
+        
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto" 
+             x-on:click.away="show = false; $wire.closeEditModal()"
+             x-transition.scale.origin.top>
+            
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h2 class="text-xl font-bold text-gray-800">
+                    <i class="fas fa-edit mr-2 text-yellow-600"></i> Modifica Personale
+                </h2>
+                <button wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                    <input type="text" wire:model="editNome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
+                    <input type="text" wire:model="editCognome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Soprannome</label>
+                    <input type="text" wire:model="editSoprannome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
+                    <input type="text" wire:model="editCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
+                    <input type="text" wire:model="editTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cellulare</label>
+                    <input type="text" wire:model="editCellulare" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" wire:model="editEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
+                    <input type="text" wire:model="editIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
+                    <input type="text" wire:model="editCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                    <input type="text" wire:model="editProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">CAP</label>
+                    <input type="text" wire:model="editCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Data Nascita</label>
+                    <input type="date" wire:model="editDataNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Luogo Nascita</label>
+                    <input type="text" wire:model="editLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" wire:model="editValid" class="rounded border-gray-300 text-lime-600">
+                        <span class="ml-2 text-sm text-gray-700">Account attivo</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <button wire:click="closeEditModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Annulla</button>
+                <button wire:click="updateStaff" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
+                    <i class="fas fa-save mr-2"></i> Aggiorna
+                </button>
             </div>
         </div>
     </div>

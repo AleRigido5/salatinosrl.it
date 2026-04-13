@@ -9,10 +9,10 @@
                 <input type="text" 
                        wire:model.live.debounce.300ms="search" 
                        placeholder="Cerca per: Nome, Cognome, Soprannome, Cellulare, Email, Codice Fiscale..." 
-                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
             </div>
             
-            <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 <option value="">Tutti gli stati</option>
                 <option value="active">Attivi</option>
                 <option value="inactive">Disattivi</option>
@@ -34,9 +34,9 @@
         <div class="mt-3 flex flex-wrap items-center gap-2">
             <span class="text-sm text-gray-500">Filtri attivi:</span>
             @if($search)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
                 Ricerca: "{{ $search }}"
-                <button wire:click="$set('search', '')" class="ml-1 hover:text-blue-900">
+                <button wire:click="$set('search', '')" class="ml-1 hover:text-lime-900">
                     <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -44,9 +44,9 @@
             </span>
             @endif
             @if($statusFilter)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
                 Stato: {{ $statusFilter === 'active' ? 'Attivi' : 'Disattivi' }}
-                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-blue-900">
+                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-lime-900">
                     <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -124,7 +124,7 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($staff as $person)
-                    <tr wire:key="staff-{{ $person->id_personale }}" class="hover:bg-gray-50 transition-colors duration-150">
+                    <tr class="hover:bg-gray-50 transition-colors duration-150">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ $person->id_personale }}
                         </td>
@@ -144,7 +144,6 @@
                                     @endif
                                 </div>
                             </div>
-                        </div>
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-500">
                             <div class="space-y-1">
@@ -170,24 +169,20 @@
                                 <span class="text-gray-400 italic text-xs">Nessun contatto</span>
                                 @endif
                             </div>
-                        </div>
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-500 font-mono">
                             {{ $person->CodFiscPers ?: '-' }}
-                        </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                                 {{ $person->valid ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
                                 {{ $person->valid ? 'Attivo' : 'Disattivo' }}
                             </span>
-                        </div>
                         </td>
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
                                 @if(auth()->guard('admin')->user()->hasPermission('view_staff'))
                                 <button wire:click="viewStaff({{ $person->id_personale }})" 
-                                        wire:key="view-{{ $person->id_personale }}"
                                         class="text-blue-600 hover:text-blue-900 transition-colors"
                                         title="Visualizza">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -199,7 +194,6 @@
                                 
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
                                 <button wire:click="editStaff({{ $person->id_personale }})" 
-                                        wire:key="edit-{{ $person->id_personale }}"
                                         class="text-yellow-600 hover:text-yellow-900 transition-colors"
                                         title="Modifica">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -210,7 +204,6 @@
                                 
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
                                 <button wire:click="toggleStatus({{ $person->id_personale }})" 
-                                        wire:key="toggle-{{ $person->id_personale }}"
                                         class="transition-colors {{ $person->valid ? 'text-lime-600 hover:text-lime-800' : 'text-gray-400 hover:text-gray-600' }}"
                                         title="{{ $person->valid ? 'Disattiva' : 'Attiva' }}">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -223,8 +216,8 @@
                                 </button>
                                 @endif
                             </div>
-                        </div>
-                    </div>
+                        </td>
+                    </tr>
                     @empty
                     <tr>
                         <td colspan="6" class="px-6 py-12 text-center">
@@ -234,23 +227,23 @@
                                 </svg>
                                 <p class="mt-2 text-sm">Nessun personale trovato</p>
                                 @if($search || $statusFilter)
-                                <button wire:click="resetFilters" class="mt-2 text-sm text-blue-600 hover:text-blue-800">
+                                <button wire:click="resetFilters" class="mt-2 text-sm text-lime-600 hover:text-lime-800">
                                     Resetta filtri
                                 </button>
                                 @endif
                             </div>
-                        </div>
-                    </div>
+                        </td>
+                    </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
     </div>
 
-   <!-- Paginazione -->
+    <!-- Paginazione -->
     @if($staff->hasPages())
     <div class="mt-6">
-        <div class="text-sm text-gray-500">
+        <div class="text-sm text-gray-500 mb-2">
             Mostrando {{ $staff->firstItem() ?? 0 }} - {{ $staff->lastItem() ?? 0 }} di {{ $staff->total() }} risultati
         </div>
         <div class="flex justify-center">
@@ -260,248 +253,39 @@
     @endif
 
     <style>
-        /* Stile paginazione bianco */
         nav[role="navigation"] div.flex-1 {
             display: none !important;
         }
-        
         nav[role="navigation"] .relative.z-0 {
             justify-content: center !important;
             display: flex !important;
         }
-        
-        /* Personalizzazione link paginazione */
         nav[role="navigation"] span[aria-current="page"] span,
         nav[role="navigation"] .relative.inline-flex.items-center {
             background-color: white !important;
             border-color: #e5e7eb !important;
             color: #374151 !important;
         }
-        
         nav[role="navigation"] span[aria-current="page"] span {
-            background-color: #10b981 !important;
-            border-color: #10b981 !important;
+            background-color: #84cc16 !important;
+            border-color: #84cc16 !important;
             color: white !important;
         }
-        
         nav[role="navigation"] .relative.inline-flex.items-center:hover {
             background-color: #f9fafb !important;
             border-color: #d1d5db !important;
         }
-        
-        /* Nasconde il testo "Showing" e "to" e "results" */
         nav[role="navigation"] p.text-sm {
             display: none !important;
         }
-        
-        /* Centra completamente la paginazione */
         nav[role="navigation"] > div:first-child {
             justify-content: center !important;
         }
-        
         nav[role="navigation"] > div:first-child > div:first-child {
             display: none !important;
         }
     </style>
     
-    <!-- MODAL CREAZIONE -->
-    @if($showCreateModal)
-    <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
-         x-data="{ show: true }" 
-         x-show="show" 
-         x-transition.opacity.duration.200ms>
-        
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto" 
-             x-on:click.away="show = false; $wire.closeCreateModal()"
-             x-transition.scale.origin.top>
-            
-            <div class="flex justify-between items-center mb-4 border-b pb-3">
-                <h2 class="text-xl font-bold text-gray-800">
-                    <svg class="inline-block w-6 h-6 mr-2 text-lime-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                    Nuovo Personale
-                </h2>
-                <button wire:click="closeCreateModal" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-                    <input type="text" wire:model="formNome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
-                    <input type="text" wire:model="formCognome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Soprannome</label>
-                    <input type="text" wire:model="formSoprannome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
-                    <input type="text" wire:model="formCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
-                    <input type="text" wire:model="formTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Cellulare</label>
-                    <input type="text" wire:model="formCellulare" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input type="email" wire:model="formEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
-                    <input type="text" wire:model="formIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
-                    <input type="text" wire:model="formCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
-                    <input type="text" wire:model="formProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">CAP</label>
-                    <input type="text" wire:model="formCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Data Nascita</label>
-                    <input type="date" wire:model="formDataNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Luogo Nascita</label>
-                    <input type="text" wire:model="formLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="inline-flex items-center">
-                        <input type="checkbox" wire:model="formValid" class="rounded border-gray-300 text-lime-600">
-                        <span class="ml-2 text-sm text-gray-700">Account attivo</span>
-                    </label>
-                </div>
-            </div>
-            
-            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
-                <button wire:click="closeCreateModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Annulla</button>
-                <button wire:click="save" class="px-4 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-md transition-colors">
-                    <svg class="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    Salva
-                </button>
-            </div>
-        </div>
-    </div>
-    @endif
-
-    <!-- MODAL MODIFICA -->
-    @if($showEditModal)
-    <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
-         x-data="{ show: true }" 
-         x-show="show" 
-         x-transition.opacity.duration.200ms>
-        
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto" 
-             x-on:click.away="show = false; $wire.closeEditModal()"
-             x-transition.scale.origin.top>
-            
-            <div class="flex justify-between items-center mb-4 border-b pb-3">
-                <h2 class="text-xl font-bold text-gray-800">
-                    <svg class="inline-block w-6 h-6 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                    </svg>
-                    Modifica Personale
-                </h2>
-                <button wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-                    <input type="text" wire:model="formNome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
-                    <input type="text" wire:model="formCognome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Soprannome</label>
-                    <input type="text" wire:model="formSoprannome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
-                    <input type="text" wire:model="formCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
-                    <input type="text" wire:model="formTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Cellulare</label>
-                    <input type="text" wire:model="formCellulare" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input type="email" wire:model="formEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
-                    <input type="text" wire:model="formIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
-                    <input type="text" wire:model="formCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
-                    <input type="text" wire:model="formProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">CAP</label>
-                    <input type="text" wire:model="formCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Data Nascita</label>
-                    <input type="date" wire:model="formDataNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Luogo Nascita</label>
-                    <input type="text" wire:model="formLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="inline-flex items-center">
-                        <input type="checkbox" wire:model="formValid" class="rounded border-gray-300 text-lime-600">
-                        <span class="ml-2 text-sm text-gray-700">Account attivo</span>
-                    </label>
-                </div>
-            </div>
-            
-            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
-                <button wire:click="closeEditModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Annulla</button>
-                <button wire:click="update" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
-                    <svg class="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                    </svg>
-                    Aggiorna
-                </button>
-            </div>
-        </div>
-    </div>
-    @endif
-
     <!-- MODAL VISUALIZZAZIONE -->
     @if($showViewModal && $viewingStaff)
     <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
@@ -590,6 +374,105 @@
             
             <div class="flex justify-end mt-6 pt-4 border-t">
                 <button wire:click="closeViewModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Chiudi</button>
+                @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
+                <button wire:click="editStaff({{ $viewingStaff->id_personale }})" 
+                        class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
+                    <i class="fas fa-edit mr-2"></i> Modifica
+                </button>
+                @endif
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- MODAL MODIFICA -->
+    @if($showEditModal && $editingStaff)
+    <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
+         x-data="{ show: true }" 
+         x-show="show" 
+         x-transition.opacity.duration.200ms>
+        
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto" 
+             x-on:click.away="show = false; $wire.closeEditModal()"
+             x-transition.scale.origin.top>
+            
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h2 class="text-xl font-bold text-gray-800">
+                    <i class="fas fa-edit mr-2 text-yellow-600"></i> Modifica Personale
+                </h2>
+                <button wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                    <input type="text" wire:model="editNome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
+                    <input type="text" wire:model="editCognome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Soprannome</label>
+                    <input type="text" wire:model="editSoprannome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
+                    <input type="text" wire:model="editCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
+                    <input type="text" wire:model="editTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cellulare</label>
+                    <input type="text" wire:model="editCellulare" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" wire:model="editEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
+                    <input type="text" wire:model="editIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
+                    <input type="text" wire:model="editCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                    <input type="text" wire:model="editProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">CAP</label>
+                    <input type="text" wire:model="editCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Data Nascita</label>
+                    <input type="date" wire:model="editDataNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Luogo Nascita</label>
+                    <input type="text" wire:model="editLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" wire:model="editValid" class="rounded border-gray-300 text-lime-600">
+                        <span class="ml-2 text-sm text-gray-700">Account attivo</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <button wire:click="closeEditModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Annulla</button>
+                <button wire:click="updateStaff" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
+                    <i class="fas fa-save mr-2"></i> Aggiorna
+                </button>
             </div>
         </div>
     </div>

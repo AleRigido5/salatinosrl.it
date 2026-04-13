@@ -40,14 +40,12 @@ class StaffTable extends Component
     public $formValid = true;
     public $editingId = null;
     
-    // Aggiungi renderKey per forzare il refresh come in ServicesTable
-    public $renderKey = 0;
-    
     protected $paginationTheme = 'tailwind';
+    
+    // RIMUOVI $renderKey
     
     public function mount()
     {
-        // Recupera i filtri dalla sessione se esistono (quando si torna dalla modifica)
         if (session()->has('staff_filters')) {
             $filters = session('staff_filters');
             $this->search = $filters['search'] ?? '';
@@ -78,17 +76,14 @@ class StaffTable extends Component
         }
     }
     
-    // IMPORTANTE: Usa updated invece di updating per evitare conflitti (come in ServicesTable)
-    public function updatedSearch()
+    public function updatingSearch()
     {
         $this->resetPage();
-        $this->renderKey++;
     }
     
-    public function updatedStatusFilter()
+    public function updatingStatusFilter()
     {
         $this->resetPage();
-        $this->renderKey++;
     }
     
     public function getStaffProperty()
@@ -120,15 +115,12 @@ class StaffTable extends Component
     {
         try {
             $staff = Staff::find($id);
-            
             if (!$staff) {
                 $this->dispatch('showError', message: 'Personale non trovato');
                 return;
             }
-            
             $this->viewingStaff = $staff;
             $this->showViewModal = true;
-            
         } catch (\Exception $e) {
             $this->dispatch('showError', message: 'Errore nel caricamento dei dettagli: ' . $e->getMessage());
         }
@@ -150,23 +142,15 @@ class StaffTable extends Component
     {
         try {
             $staff = Staff::find($id);
-            
             if (!$staff) {
                 $this->dispatch('showError', message: 'Personale non trovato');
                 return;
             }
-            
             $newStatus = !$staff->valid;
             $staff->update(['valid' => $newStatus]);
-            
             $statusText = $newStatus ? 'attivato' : 'disattivato';
-            
             $this->dispatch('showSuccess', message: "Personale '{$staff->NomePers} {$staff->CognomePers}' {$statusText} con successo!");
-            
-            // Forza il refresh incrementando il key come in ServicesTable
-            $this->renderKey++;
             $this->resetPage();
-            
         } catch (\Exception $e) {
             $this->dispatch('showError', message: 'Errore durante il cambio di stato: ' . $e->getMessage());
         }
@@ -180,7 +164,6 @@ class StaffTable extends Component
         $this->sortDirection = 'asc';
         $this->resetPage();
         session()->forget('staff_filters');
-        $this->renderKey++;
     }
     
     public function closeCreateModal()
@@ -242,9 +225,7 @@ class StaffTable extends Component
             
             $this->closeCreateModal();
             $this->dispatch('showSuccess', message: 'Personale creato con successo!');
-            $this->renderKey++;
             $this->resetPage();
-            
         } catch (\Exception $e) {
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
@@ -278,12 +259,9 @@ class StaffTable extends Component
                     'valid' => $this->formValid
                 ]);
             }
-            
             $this->closeEditModal();
             $this->dispatch('showSuccess', message: 'Personale aggiornato con successo!');
-            $this->renderKey++;
             $this->resetPage();
-            
         } catch (\Exception $e) {
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
@@ -293,7 +271,6 @@ class StaffTable extends Component
     {
         return view('livewire.admin.staff-table', [
             'staff' => $this->staff,
-            'renderKey' => $this->renderKey
         ]);
     }
 }

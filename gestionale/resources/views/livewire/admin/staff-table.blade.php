@@ -124,7 +124,7 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($staff as $person)
-                    <tr wire:key="staff-{{ $person->id_personale }}" class="hover:bg-gray-50 transition-colors duration-150">
+                    <tr class="hover:bg-gray-50 transition-colors duration-150">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ $person->id_personale }}
                         </td>
@@ -257,42 +257,34 @@
     @endif
 
     <style>
-        /* Stile paginazione bianco */
         nav[role="navigation"] div.flex-1 {
             display: none !important;
         }
-        
         nav[role="navigation"] .relative.z-0 {
             justify-content: center !important;
             display: flex !important;
         }
-        
         nav[role="navigation"] span[aria-current="page"] span,
         nav[role="navigation"] .relative.inline-flex.items-center {
             background-color: white !important;
             border-color: #e5e7eb !important;
             color: #374151 !important;
         }
-        
         nav[role="navigation"] span[aria-current="page"] span {
             background-color: #84cc16 !important;
             border-color: #84cc16 !important;
             color: white !important;
         }
-        
         nav[role="navigation"] .relative.inline-flex.items-center:hover {
             background-color: #f9fafb !important;
             border-color: #d1d5db !important;
         }
-        
         nav[role="navigation"] p.text-sm {
             display: none !important;
         }
-        
         nav[role="navigation"] > div:first-child {
             justify-content: center !important;
         }
-        
         nav[role="navigation"] > div:first-child > div:first-child {
             display: none !important;
         }

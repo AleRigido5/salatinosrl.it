@@ -10,7 +10,6 @@ class Setting extends Model
     use SoftDeletes;
 
     protected $table = 'settings';
-
     protected $primaryKey = 'id';
 
     protected $fillable = [
@@ -24,7 +23,10 @@ class Setting extends Model
 
     protected $casts = [
         'valid' => 'boolean',
-        'ordinamento' => 'integer'
+        'ordinamento' => 'integer',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'deleted_at' => 'datetime'
     ];
 
     // Relazione con la categoria
@@ -43,5 +45,17 @@ class Setting extends Model
     public function scopeByCategory($query, $categoryId)
     {
         return $query->where('category_id', $categoryId);
+    }
+
+    // Scope per elementi attivi
+    public function scopeActive($query)
+    {
+        return $query->where('valid', true);
+    }
+
+    // Scope per ordinamento
+    public function scopeOrdered($query)
+    {
+        return $query->orderBy('ordinamento')->orderBy('valore');
     }
 }

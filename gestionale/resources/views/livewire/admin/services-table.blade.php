@@ -138,9 +138,9 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody>
                     @forelse($services as $service)
-                    <tr wire:key="service-{{ $service->id }}" class="hover:bg-gray-50 transition-colors duration-150">
+                    <tr wire:key="service-{{ $service->id }}" class="hover:bg-gray-50 transition-colors duration-150 border-t border-gray-200">
                         <td class="px-6 py-4">
                             <div class="text-sm font-medium text-gray-900">
                                 {{ $service->Titolo }}
@@ -151,7 +151,7 @@
                             </div>
                             @endif
                         </div>
-                        <tr>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                                 {{ $service->category_name }}
@@ -178,7 +178,7 @@
                         </td>
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
-                                <button wire:click="viewService({{ $service->id }})" 
+                                <button type="button" wire:click="viewService({{ $service->id }})" 
                                         class="text-blue-600 hover:text-blue-900 transition-colors"
                                         title="Visualizza">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -188,7 +188,7 @@
                                 </button>
                                 
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_services'))
-                                <button wire:click="editService({{ $service->id }})" 
+                                <button type="button" wire:click="editService({{ $service->id }})" 
                                         class="text-yellow-600 hover:text-yellow-900 transition-colors"
                                         title="Modifica">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,7 +198,7 @@
                                 @endif
                                 
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_services'))
-                                <button wire:click="toggleStatus({{ $service->id }})" 
+                                <button type="button" wire:click="toggleStatus({{ $service->id }})" 
                                         class="transition-colors {{ $service->Stato ? 'text-lime-600 hover:text-lime-800' : 'text-gray-400 hover:text-gray-600' }}"
                                         title="{{ $service->Stato ? 'Disattiva' : 'Attiva' }}">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -283,21 +283,17 @@
 
     <!-- Modal Visualizzazione Dettagli -->
     @if($showViewModal && $viewingService)
-    <div id="viewServiceModal" 
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
          x-data="{ open: true }" 
-         x-init="$el.style.display = 'flex'; document.body.style.overflow = 'hidden'"
          x-show="open"
-         @keydown.escape.window="open = false; $wire.closeViewModal(); document.body.style.overflow = 'auto'"
-         class="fixed inset-0 z-50 items-center justify-center bg-black bg-opacity-50"
-         style="display: none;">
+         @keydown.escape.window="open = false; $wire.closeViewModal()">
         
         <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl m-4" 
-             @click.away="open = false; $wire.closeViewModal(); document.body.style.overflow = 'auto'">
+             @click.away="open = false; $wire.closeViewModal()">
             
             <div class="flex justify-between items-center p-6 border-b">
                 <h2 class="text-2xl font-bold text-gray-800">{{ $viewingService->Titolo }}</h2>
-                <button @click="open = false; $wire.closeViewModal(); document.body.style.overflow = 'auto'" 
-                        class="text-gray-400 hover:text-gray-600">
+                <button @click="open = false; $wire.closeViewModal()" class="text-gray-400 hover:text-gray-600">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -354,7 +350,7 @@
             </div>
             
             <div class="flex justify-end space-x-3 p-6 border-t">
-                <button @click="open = false; $wire.closeViewModal(); document.body.style.overflow = 'auto'" 
+                <button @click="open = false; $wire.closeViewModal()" 
                         class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md">
                     Chiudi
                 </button>

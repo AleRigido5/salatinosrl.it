@@ -23,35 +23,15 @@ class ServicesTable extends Component
     public $showViewModal = false;
     public $viewingService = null;
     
-    // IMPORTANTE: imposta il tema della paginazione
     protected $paginationTheme = 'tailwind';
     
-    // Mantieni i filtri nella query string
-    protected $queryString = ['search', 'categoryFilter', 'statusFilter', 'sortField', 'sortDirection'];
+    // SOLO search nella query string per mantenere la ricerca
+    protected $queryString = ['search'];
     
     public function mount()
     {
-        // Recupera i filtri dalla sessione se esistono (quando si torna dalla modifica)
-        if (session()->has('services_filters')) {
-            $filters = session('services_filters');
-            $this->search = $filters['search'] ?? '';
-            $this->categoryFilter = $filters['categoryFilter'] ?? '';
-            $this->statusFilter = $filters['statusFilter'] ?? '';
-            $this->sortField = $filters['sortField'] ?? 'Titolo';
-            $this->sortDirection = $filters['sortDirection'] ?? 'asc';
-            session()->forget('services_filters');
-        }
-    }
-    
-    public function saveFiltersToSession()
-    {
-        session(['services_filters' => [
-            'search' => $this->search,
-            'categoryFilter' => $this->categoryFilter,
-            'statusFilter' => $this->statusFilter,
-            'sortField' => $this->sortField,
-            'sortDirection' => $this->sortDirection
-        ]]);
+        // Reset della pagina quando si monta il componente
+        $this->resetPage();
     }
     
     public function sortBy($field)
@@ -62,20 +42,22 @@ class ServicesTable extends Component
             $this->sortField = $field;
             $this->sortDirection = 'asc';
         }
+        // Reset alla prima pagina quando si ordina
+        $this->resetPage();
     }
     
-    // IMPORTANTE: Usa updating invece di updated per resettare la pagina prima dell'aggiornamento
-    public function updatingSearch()
+    // Metodi per resettare la pagina quando cambiano i filtri
+    public function updatedSearch()
     {
         $this->resetPage();
     }
     
-    public function updatingCategoryFilter()
+    public function updatedCategoryFilter()
     {
         $this->resetPage();
     }
     
-    public function updatingStatusFilter()
+    public function updatedStatusFilter()
     {
         $this->resetPage();
     }
@@ -120,7 +102,7 @@ class ServicesTable extends Component
             $service = Service::with('category', 'unitaMisura')->find($id);
             
             if (!$service) {
-                $this->dispatch('showError', message: 'Servizio non trovato');
+                session()->flash('error', 'Servizio non trovato');
                 return;
             }
             
@@ -128,7 +110,7 @@ class ServicesTable extends Component
             $this->showViewModal = true;
             
         } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore nel caricamento: ' . $e->getMessage());
+            session()->flash('error', 'Errore nel caricamento: ' . $e->getMessage());
         }
     }
     
@@ -140,7 +122,7 @@ class ServicesTable extends Component
     
     public function editService($id)
     {
-        $this->saveFiltersToSession();
+        // Non salvare nulla in sessione, redirect semplice
         return redirect()->route('admin.services.edit', $id);
     }
     
@@ -150,7 +132,7 @@ class ServicesTable extends Component
             $service = Service::find($id);
             
             if (!$service) {
-                $this->dispatch('showError', message: 'Servizio non trovato');
+                session()->flash('error', 'Servizio non trovato');
                 return;
             }
             
@@ -158,12 +140,10 @@ class ServicesTable extends Component
             $service->update(['Stato' => $newStatus]);
             
             $statusText = $newStatus ? 'attivato' : 'disattivato';
-            $this->dispatch('showSuccess', message: "Servizio '{$service->Titolo}' {$statusText} con successo!");
-            
-            $this->resetPage();
+            session()->flash('success', "Servizio '{$service->Titolo}' {$statusText} con successo!");
             
         } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+            session()->flash('error', 'Errore: ' . $e->getMessage());
         }
     }
     
@@ -175,7 +155,6 @@ class ServicesTable extends Component
         $this->sortField = 'Titolo';
         $this->sortDirection = 'asc';
         $this->resetPage();
-        session()->forget('services_filters');
     }
 
     public function render()

@@ -55,14 +55,14 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {{ $setting->valid ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800' }}">
+                                {{ $setting->valid ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
                                 {{ $setting->valid ? 'Attivo' : 'Disattivo' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <button type="button" 
                                     onclick="openEditModal({{ $setting->id }}, '{{ addslashes($setting->valore) }}', '{{ addslashes($setting->descrizione) }}', {{ $setting->ordinamento }}, {{ $setting->valid ? 'true' : 'false' }})"
-                                    class="text-emerald-600 hover:text-emerald-900 transition-colors">
+                                    class="text-lime-600 hover:text-lime-900 transition-colors">
                                 <i class="fas fa-edit mr-1"></i> Modifica
                             </button>
                         </td>
@@ -75,7 +75,7 @@
                             @if(auth()->guard('admin')->user()->hasPermission('edit_settings'))
                             <div class="mt-4">
                                 <a href="{{ route('admin.settings.create') }}?category={{ $category->id }}" 
-                                   class="text-emerald-600 hover:text-emerald-700">
+                                   class="text-lime-600 hover:text-lime-700">
                                     <i class="fas fa-plus mr-1"></i> Aggiungi impostazione
                                 </a>
                             </div>
@@ -101,7 +101,7 @@
         
         <div class="flex justify-between items-center mb-4 border-b pb-3">
             <h2 class="text-xl font-bold text-gray-800">
-                <i class="fas fa-edit mr-2 text-emerald-600"></i> Modifica Impostazione
+                <i class="fas fa-edit mr-2 text-lime-600"></i> Modifica Impostazione
             </h2>
             <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -120,25 +120,25 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Valore <span class="text-red-500">*</span></label>
                     <input type="text" id="edit_valore" name="valore" required
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 </div>
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
                     <input type="text" id="edit_descrizione" name="descrizione"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 </div>
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Ordinamento</label>
                     <input type="number" id="edit_ordinamento" name="ordinamento"
-                           class="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                           class="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 </div>
                 
                 <div>
                     <label class="inline-flex items-center">
                         <input type="checkbox" id="edit_valid" name="valid" value="1"
-                               class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-500">
+                               class="rounded border-gray-300 text-lime-600 shadow-sm focus:ring-lime-500">
                         <span class="ml-2 text-sm text-gray-700">Impostazione attiva</span>
                     </label>
                 </div>
@@ -150,7 +150,7 @@
                     Annulla
                 </button>
                 <button type="submit" 
-                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors">
+                        class="px-4 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-md transition-colors">
                     <i class="fas fa-save mr-2"></i> Salva
                 </button>
             </div>
@@ -258,7 +258,7 @@
                 if (statusSpan) {
                     statusSpan.textContent = valid ? 'Attivo' : 'Disattivo';
                     statusSpan.className = valid 
-                        ? 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-100 text-emerald-800'
+                        ? 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-lime-100 text-lime-800'
                         : 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800';
                 }
             }
@@ -267,7 +267,7 @@
     
     function showToast(message, type = 'success') {
         const toast = document.createElement('div');
-        toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg text-white ${type === 'success' ? 'bg-emerald-500' : 'bg-red-500'} toast-notification`;
+        toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg text-white ${type === 'success' ? 'bg-lime-500' : 'bg-red-500'} toast-notification`;
         toast.innerHTML = `
             <div class="flex items-center">
                 <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} mr-2"></i>

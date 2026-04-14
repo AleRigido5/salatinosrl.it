@@ -12,7 +12,7 @@
         body { font-family: 'Inter', sans-serif; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-50">
+<body class="bg-gradient-to-br from-emerald-50 via-green-50 to-lime-50">
     <div class="min-h-screen flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
             <!-- Header con gradiente -->

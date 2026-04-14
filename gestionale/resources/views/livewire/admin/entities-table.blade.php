@@ -193,13 +193,13 @@
                         <td class="px-6 py-4">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center
-                                    @if($entity->entity_type == 'cliente') bg-emerald-100
+                                    @if($entity->entity_type == 'cliente') bg-lime-100
                                     @elseif($entity->entity_type == 'fornitore') bg-blue-100
                                     @else bg-purple-100
                                     @endif">
                                     
                                     @if($entity->entity_type == 'cliente')
-                                        <i class="fas fa-user text-emerald-600 text-lg"></i>
+                                        <i class="fas fa-user text-lime-600 text-lg"></i>
                                     @elseif($entity->entity_type == 'fornitore')
                                         <i class="fas fa-truck text-blue-600 text-lg"></i>
                                     @else
@@ -221,7 +221,7 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                @if($entity->entity_type == 'cliente') bg-emerald-100 text-emerald-800
+                                @if($entity->entity_type == 'cliente') bg-lime-100 text-lime-800
                                 @elseif($entity->entity_type == 'fornitore') bg-blue-100 text-blue-800
                                 @else bg-purple-100 text-purple-800
                                 @endif">
@@ -286,7 +286,7 @@
                             <button wire:click="toggleStatus({{ $entity->id_cliente }})" 
                                     wire:key="toggle-{{ $entity->id_cliente }}"
                                     class="px-2 py-1 text-xs font-medium rounded-md transition-colors duration-200
-                                        {{ $entity->valid ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-red-100 text-red-800 hover:bg-red-200' }}">
+                                        {{ $entity->valid ? 'bg-lime-100 text-lime-800 hover:bg-lime-200' : 'bg-red-100 text-red-800 hover:bg-red-200' }}">
                                 {{ $entity->valid ? 'Attivo' : 'Disattivo' }}
                             </button>
                         </td>
@@ -414,7 +414,7 @@
             
             <div class="flex justify-between items-center mb-6 border-b pb-3">
                 <h2 class="text-2xl font-bold text-gray-800">
-                    <svg class="inline-block w-6 h-6 mr-2 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="inline-block w-6 h-6 mr-2 text-lime-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                     </svg>
                     Nuovo Cliente / Fornitore
@@ -488,7 +488,7 @@
                     Annulla
                 </button>
                 <button wire:click="save" 
-                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors">
+                        class="px-4 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-md transition-colors">
                     Salva
                 </button>
             </div>
@@ -510,12 +510,12 @@
             <div class="flex justify-between items-center mb-6 border-b pb-3">
                 <div class="flex items-center space-x-3">
                     <div class="flex-shrink-0 h-12 w-12 rounded-full flex items-center justify-center
-                        @if($viewingEntity->entity_type == 'cliente') bg-emerald-100
+                        @if($viewingEntity->entity_type == 'cliente') bg-lime-100
                         @elseif($viewingEntity->entity_type == 'fornitore') bg-blue-100
                         @else bg-purple-100
                         @endif">
                         @if($viewingEntity->entity_type == 'cliente')
-                            <i class="fas fa-user text-emerald-600 text-xl"></i>
+                            <i class="fas fa-user text-lime-600 text-xl"></i>
                         @elseif($viewingEntity->entity_type == 'fornitore')
                             <i class="fas fa-truck text-blue-600 text-xl"></i>
                         @else
@@ -525,7 +525,7 @@
                     <div>
                         <h2 class="text-2xl font-bold text-gray-800">{{ $viewingEntity->full_name }}</h2>
                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            @if($viewingEntity->entity_type == 'cliente') bg-emerald-100 text-emerald-800
+                            @if($viewingEntity->entity_type == 'cliente') bg-lime-100 text-lime-800
                             @elseif($viewingEntity->entity_type == 'fornitore') bg-blue-100 text-blue-800
                             @else bg-purple-100 text-purple-800
                             @endif">
@@ -586,7 +586,7 @@
                     
                     <div class="bg-gray-50 rounded-lg p-4">
                         <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
-                            <i class="fas fa-file-invoice-dollar mr-2 text-emerald-500"></i> Dati Fattura Elettronica
+                            <i class="fas fa-file-invoice-dollar mr-2 text-lime-500"></i> Dati Fattura Elettronica
                         </h3>
                         <div class="space-y-2">
                             @if($viewingEntity->pec)
@@ -623,7 +623,7 @@
                             <div class="flex">
                                 <span class="w-32 text-gray-600 font-medium">Stato:</span>
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                    {{ $viewingEntity->valid ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800' }}">
+                                    {{ $viewingEntity->valid ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
                                     {{ $viewingEntity->valid ? 'Attivo' : 'Disattivo' }}
                                 </span>
                             </div>
@@ -683,7 +683,7 @@
                             
                             @if($mobileContact)
                             <div class="flex items-start">
-                                <i class="fab fa-whatsapp w-5 text-emerald-500 mt-1 mr-3"></i>
+                                <i class="fab fa-whatsapp w-5 text-lime-500 mt-1 mr-3"></i>
                                 <div>
                                     <span class="text-gray-600 font-medium block text-sm">Cellulare / WhatsApp</span>
                                     <a href="tel:{{ $mobileContact->valore }}" class="text-gray-800">

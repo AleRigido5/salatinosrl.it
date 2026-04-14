@@ -25,14 +25,8 @@ class ServicesTable extends Component
     
     protected $paginationTheme = 'tailwind';
     
-    // SOLO search nella query string per mantenere la ricerca
+    // Solo search nella query string
     protected $queryString = ['search'];
-    
-    public function mount()
-    {
-        // Reset della pagina quando si monta il componente
-        $this->resetPage();
-    }
     
     public function sortBy($field)
     {
@@ -42,11 +36,9 @@ class ServicesTable extends Component
             $this->sortField = $field;
             $this->sortDirection = 'asc';
         }
-        // Reset alla prima pagina quando si ordina
         $this->resetPage();
     }
     
-    // Metodi per resettare la pagina quando cambiano i filtri
     public function updatedSearch()
     {
         $this->resetPage();
@@ -122,7 +114,6 @@ class ServicesTable extends Component
     
     public function editService($id)
     {
-        // Non salvare nulla in sessione, redirect semplice
         return redirect()->route('admin.services.edit', $id);
     }
     

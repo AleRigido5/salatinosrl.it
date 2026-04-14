@@ -23,10 +23,15 @@ class ServicesTable extends Component
     public $showViewModal = false;
     public $viewingService = null;
     
+    // IMPORTANTE: imposta il tema della paginazione
     protected $paginationTheme = 'tailwind';
+    
+    // Mantieni i filtri nella query string
+    protected $queryString = ['search', 'categoryFilter', 'statusFilter', 'sortField', 'sortDirection'];
     
     public function mount()
     {
+        // Recupera i filtri dalla sessione se esistono (quando si torna dalla modifica)
         if (session()->has('services_filters')) {
             $filters = session('services_filters');
             $this->search = $filters['search'] ?? '';
@@ -59,17 +64,18 @@ class ServicesTable extends Component
         }
     }
     
-    public function updatedSearch()
+    // IMPORTANTE: Usa updating invece di updated per resettare la pagina prima dell'aggiornamento
+    public function updatingSearch()
     {
         $this->resetPage();
     }
     
-    public function updatedCategoryFilter()
+    public function updatingCategoryFilter()
     {
         $this->resetPage();
     }
     
-    public function updatedStatusFilter()
+    public function updatingStatusFilter()
     {
         $this->resetPage();
     }

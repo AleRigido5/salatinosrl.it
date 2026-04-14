@@ -25,7 +25,7 @@ class ServicesTable extends Component
     
     protected $paginationTheme = 'tailwind';
     
-    // Solo search nella query string
+    // Query string per mantenere la ricerca
     protected $queryString = ['search'];
     
     public function sortBy($field)

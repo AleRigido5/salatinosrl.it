@@ -24,7 +24,6 @@ class ServicesTable extends Component
     public $viewingService = null;
     
     protected $paginationTheme = 'tailwind';
-    public $renderKey = 0;
     
     public function mount()
     {
@@ -60,8 +59,20 @@ class ServicesTable extends Component
         }
     }
     
-    // Livewire automaticamente gestisce updated{PropertyName}
-    // Non devi chiamare manualmente questi metodi
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+    
+    public function updatedCategoryFilter()
+    {
+        $this->resetPage();
+    }
+    
+    public function updatedStatusFilter()
+    {
+        $this->resetPage();
+    }
     
     public function getCategoriesProperty()
     {
@@ -143,7 +154,6 @@ class ServicesTable extends Component
             $statusText = $newStatus ? 'attivato' : 'disattivato';
             $this->dispatch('showSuccess', message: "Servizio '{$service->Titolo}' {$statusText} con successo!");
             
-            $this->renderKey++;
             $this->resetPage();
             
         } catch (\Exception $e) {
@@ -160,15 +170,13 @@ class ServicesTable extends Component
         $this->sortDirection = 'asc';
         $this->resetPage();
         session()->forget('services_filters');
-        $this->renderKey++;
     }
 
     public function render()
     {
         return view('livewire.admin.services-table', [
             'services' => $this->services,
-            'categories' => $this->categories,
-            'renderKey' => $this->renderKey
+            'categories' => $this->categories
         ]);
     }
 }

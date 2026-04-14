@@ -1,7 +1,7 @@
-<div wire:key="services-table-{{ $renderKey }}">
+<div>
     <!-- Filtri e Ricerca -->
     <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="relative md:col-span-2">
                 <svg class="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -146,12 +146,12 @@
                                 {{ $service->Titolo }}
                             </div>
                             @if($service->Descrizione)
-                            <div class="text-xs text-gray-500 line-clamp-1">
+                            <div class="text-xs text-gray-500">
                                 {{ Str::limit($service->Descrizione, 60) }}
                             </div>
                             @endif
                         </div>
-                        </td>
+                        <tr>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                                 {{ $service->category_name }}
@@ -199,7 +199,6 @@
                                 
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_services'))
                                 <button wire:click="toggleStatus({{ $service->id }})" 
-                                        wire:key="toggle-{{ $service->id }}"
                                         class="transition-colors {{ $service->Stato ? 'text-lime-600 hover:text-lime-800' : 'text-gray-400 hover:text-gray-600' }}"
                                         title="{{ $service->Stato ? 'Disattiva' : 'Attiva' }}">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -222,9 +221,11 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                                 </svg>
                                 <p class="mt-2 text-sm">Nessun servizio trovato</p>
+                                @if($search || $categoryFilter || $statusFilter)
                                 <button wire:click="resetFilters" class="mt-2 text-sm text-lime-600 hover:text-lime-800">
                                     Resetta filtri
                                 </button>
+                                @endif
                             </div>
                         </div>
                     </div>

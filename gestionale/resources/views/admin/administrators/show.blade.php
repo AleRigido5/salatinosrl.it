@@ -73,7 +73,7 @@
                     </p>
                     <p class="font-medium text-gray-800 mt-1">{{ $administrator->role->level ?? '-' }}</p>
                 </div>
-                <div class="bg-gradient-to-r from-lime-50 to-transparent rounded-lg p-4 border-l-4 border-lime-500">
+                <div class="bg-gradient-to-r from-emerald-50 to-transparent rounded-lg p-4 border-l-4 border-emerald-500">
                     <p class="text-sm text-gray-500">
                         <i class="fas fa-calendar-alt mr-1"></i> Registrato il
                     </p>

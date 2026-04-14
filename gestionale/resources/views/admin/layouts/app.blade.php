@@ -331,7 +331,7 @@
                         <img src="{{ asset('../../../../public/images/logo.png') }}" alt="Logo" class="w-full h-full object-contain">
                     </div>
                     <div class="logo-text">
-                        <h1 class="text-xl font-bold bg-gradient-to-r from-lime-400 to-lime-600 bg-clip-text text-transparent">Gruppo Salatino</h1>
+                        <h1 class="text-xl font-bold bg-gradient-to-r from-emerald-400 to-emerald-600 bg-clip-text text-transparent">Gruppo Salatino</h1>
                     </div>
                 </div>
             </div>
@@ -341,13 +341,13 @@
                 <!-- Dashboard -->
                 @if($currentAdmin && $currentAdmin->hasPermission('access_dashboard'))
                 <div class="mb-6">
-                    <div class="nav-label px-4 py-2 text-xs font-semibold text-lime-400 uppercase tracking-wider flex items-center">
+                    <div class="nav-label px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center">
                         <i class="fas fa-circle mr-1 text-[8px]"></i>
                         <span>Navigazione</span>
                     </div>
                     <a href="{{ route('admin.dashboard') }}" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
-                        <i class="fas fa-tachometer-alt w-5 h-5 {{ request()->routeIs('admin.dashboard') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
+                        <i class="fas fa-tachometer-alt w-5 h-5 {{ request()->routeIs('admin.dashboard') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Dashboard</span>
                     </a>
                 </div>
@@ -356,29 +356,29 @@
                 <!-- Anagrafica -->
                 @if($currentAdmin && $currentAdmin->hasPermission('view_entities'))
                 <div class="mb-6">
-                    <div class="nav-label px-4 py-2 text-xs font-semibold text-lime-400 uppercase tracking-wider flex items-center">
+                    <div class="nav-label px-4 py-2 text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center">
                         <i class="fas fa-circle mr-1 text-[8px]"></i>
                         <span>Anagrafica</span>
                     </div>
                     
                     <!-- Clienti / Fornitori -->
                     <a href="{{ route('admin.entities.index') }}" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.entities.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
-                        <i class="fas fa-building w-5 h-5 {{ request()->routeIs('admin.entities.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.entities.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
+                        <i class="fas fa-building w-5 h-5 {{ request()->routeIs('admin.entities.*') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Clienti / Fornitori</span>
                     </a>
                     
                     <!-- Personale -->
                     <a href="{{ route('admin.staff.index') }}" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.staff.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
-                        <i class="fas fa-users w-5 h-5 {{ request()->routeIs('admin.staff.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.staff.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
+                        <i class="fas fa-users w-5 h-5 {{ request()->routeIs('admin.staff.*') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Personale</span>
                     </a>
                     
                     <!-- Mezzi -->
                     <a href="#" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.vehicles.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
-                        <i class="fas fa-truck w-5 h-5 {{ request()->routeIs('admin.vehicles.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.vehicles.*') ? 'bg-gray-700/70 text-emerald-400 border-r-2 border-emerald-500' : 'text-gray-300' }} mb-1">
+                        <i class="fas fa-truck w-5 h-5 {{ request()->routeIs('admin.vehicles.*') ? 'text-emerald-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Mezzi</span>
                     </a>
                 </div>
@@ -393,7 +393,7 @@
                 <div class="flex justify-between items-center px-8 py-3">
                     <!-- Left side - solo page title (senza toggle button) -->
                     <div class="text-sm text-gray-500">
-                        <i class="fas fa-home text-lime-500 mr-1"></i> 
+                        <i class="fas fa-home text-emerald-500 mr-1"></i> 
                         @yield('title', 'Dashboard')
                     </div>
                     
@@ -401,7 +401,7 @@
                     <div class="flex items-center space-x-4">
                         <!-- Settings Dropdown (Ingranaggio) -->
                         <div class="relative">
-                            <button id="settingsMenuButton" class="settings-btn text-gray-500 hover:text-lime-600 focus:outline-none transition-all duration-200">
+                            <button id="settingsMenuButton" class="settings-btn text-gray-500 hover:text-emerald-600 focus:outline-none transition-all duration-200">
                                 <i class="fas fa-cog text-xl"></i>
                             </button>
                             
@@ -409,7 +409,7 @@
                             <div id="settingsDropdown" class="dropdown-menu" style="min-width: 220px; right: 0; left: auto;">
                                 <div class="dropdown-header">
                                     <div class="flex items-center space-x-3">
-                                        <i class="fas fa-sliders-h text-lime-500 text-lg"></i>
+                                        <i class="fas fa-sliders-h text-emerald-500 text-lg"></i>
                                         <div>
                                             <p class="font-bold text-gray-900">Impostazioni</p>
                                             <p class="text-xs text-gray-500">Gestisci il sistema</p>
@@ -456,7 +456,7 @@
                         <!-- Avatar e Dropdown Profilo -->
                         <div class="relative">
                             <button id="userMenuButton" class="flex items-center space-x-3 focus:outline-none hover:bg-gray-50 rounded-xl px-3 py-2 transition-all duration-200 group">
-                                <div class="w-10 h-10 bg-gradient-to-r from-lime-500 to-lime-600 rounded-full flex items-center justify-center text-white font-semibold shadow-md group-hover:shadow-lg transition">
+                                <div class="w-10 h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-semibold shadow-md group-hover:shadow-lg transition">
                                     {{ strtoupper(substr($currentAdmin->name ?? 'A', 0, 1)) }}
                                 </div>
                                 <div class="text-left">
@@ -466,14 +466,14 @@
                                         {{ $currentAdmin->role->name ?? 'Nessun ruolo' }}
                                     </p>
                                 </div>
-                                <i class="fas fa-chevron-down text-gray-400 text-xs transition-transform duration-200 group-hover:text-lime-500" id="userMenuChevron"></i>
+                                <i class="fas fa-chevron-down text-gray-400 text-xs transition-transform duration-200 group-hover:text-emerald-500" id="userMenuChevron"></i>
                             </button>
                             
                             <!-- Dropdown Menu Profilo -->
                             <div id="userDropdown" class="dropdown-menu">
                                 <div class="dropdown-header">
                                     <div class="flex items-center space-x-3">
-                                        <div class="w-12 h-12 bg-gradient-to-r from-lime-500 to-lime-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">
+                                        <div class="w-12 h-12 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">
                                             {{ strtoupper(substr($currentAdmin->name ?? 'A', 0, 1)) }}
                                         </div>
                                         <div>
@@ -505,9 +505,9 @@
             <main class="p-6">
                 <!-- Alert Messages -->
                 @if(session('success'))
-                    <div class="mb-6 p-4 bg-gradient-to-r from-green-50 to-lime-50 border-l-4 border-lime-500 text-green-700 rounded-lg shadow-sm animate-pulse">
+                    <div class="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-emerald-500 text-green-700 rounded-lg shadow-sm animate-pulse">
                         <div class="flex items-center">
-                            <i class="fas fa-check-circle text-lime-500 text-lg mr-3"></i>
+                            <i class="fas fa-check-circle text-emerald-500 text-lg mr-3"></i>
                             <span class="font-medium">{{ session('success') }}</span>
                         </div>
                     </div>

@@ -126,7 +126,7 @@
                             <div class="flex space-x-2">
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_roles') && $role->slug != 'super_admin')
                                 <a href="{{ route('admin.roles.edit', $role) }}" 
-                                   class="text-lime-600 hover:text-lime-800 transition-colors p-1.5 rounded-lg hover:bg-lime-50"
+                                   class="text-emerald-600 hover:text-emerald-800 transition-colors p-1.5 rounded-lg hover:bg-emerald-50"
                                    title="Modifica">
                                     <i class="fas fa-edit"></i>
                                 </a>

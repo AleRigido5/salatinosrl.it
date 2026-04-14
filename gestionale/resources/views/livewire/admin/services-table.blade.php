@@ -9,17 +9,17 @@
                 <input type="text" 
                        wire:model.live.debounce.300ms="search" 
                        placeholder="Cerca per titolo o descrizione..." 
-                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
+                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
             </div>
             
-            <select wire:model.live="categoryFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+            <select wire:model.live="categoryFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
                 <option value="">Tutte le categorie</option>
                 @foreach($categories as $category)
                     <option value="{{ $category->id }}">{{ $category->valore }}</option>
                 @endforeach
             </select>
             
-            <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+            <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
                 <option value="">Tutti gli stati</option>
                 <option value="active">Attivi</option>
                 <option value="inactive">Disattivi</option>
@@ -41,9 +41,9 @@
         <div class="mt-3 flex flex-wrap items-center gap-2">
             <span class="text-sm text-gray-500">Filtri attivi:</span>
             @if($search)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-emerald-100 text-emerald-800">
                 Ricerca: "{{ $search }}"
-                <button wire:click="$set('search', '')" class="ml-1 hover:text-lime-900">
+                <button wire:click="$set('search', '')" class="ml-1 hover:text-emerald-900">
                     <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -51,9 +51,9 @@
             </span>
             @endif
             @if($categoryFilter)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-emerald-100 text-emerald-800">
                 Categoria: {{ $categories->firstWhere('id', $categoryFilter)->valore ?? $categoryFilter }}
-                <button wire:click="$set('categoryFilter', '')" class="ml-1 hover:text-lime-900">
+                <button wire:click="$set('categoryFilter', '')" class="ml-1 hover:text-emerald-900">
                     <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -61,9 +61,9 @@
             </span>
             @endif
             @if($statusFilter)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-emerald-100 text-emerald-800">
                 Stato: {{ $statusFilter === 'active' ? 'Attivi' : 'Disattivi' }}
-                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-lime-900">
+                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-emerald-900">
                     <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -168,7 +168,7 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {{ $service->Stato ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
+                                {{ $service->Stato ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800' }}">
                                 {{ $service->Stato ? 'Attivo' : 'Disattivo' }}
                             </span>
                         </td>
@@ -195,7 +195,7 @@
                                 
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_services'))
                                 <button type="button" wire:click="toggleStatus({{ $service->id }})" 
-                                        class="transition-colors {{ $service->Stato ? 'text-lime-600 hover:text-lime-800' : 'text-gray-400 hover:text-gray-600' }}"
+                                        class="transition-colors {{ $service->Stato ? 'text-emerald-600 hover:text-emerald-800' : 'text-gray-400 hover:text-gray-600' }}"
                                         title="{{ $service->Stato ? 'Disattiva' : 'Attiva' }}">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         @if($service->Stato)
@@ -218,7 +218,7 @@
                                 </svg>
                                 <p class="mt-2 text-sm">Nessun servizio trovato</p>
                                 @if($search || $categoryFilter || $statusFilter)
-                                <button wire:click="resetFilters" class="mt-2 text-sm text-lime-600 hover:text-lime-800">
+                                <button wire:click="resetFilters" class="mt-2 text-sm text-emerald-600 hover:text-emerald-800">
                                     Resetta filtri
                                 </button>
                                 @endif
@@ -307,7 +307,7 @@
                         <label class="text-sm font-medium text-gray-500">Stato</label>
                         <p>
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {{ $viewingService->Stato ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
+                                {{ $viewingService->Stato ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800' }}">
                                 {{ $viewingService->Stato ? 'Attivo' : 'Disattivo' }}
                             </span>
                         </p>

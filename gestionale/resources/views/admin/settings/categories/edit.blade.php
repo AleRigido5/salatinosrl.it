@@ -11,7 +11,7 @@
                 <i class="fas fa-arrow-left"></i>
             </a>
             <h1 class="text-2xl font-bold text-gray-800">
-                <i class="fas fa-edit mr-2 text-lime-600"></i> Modifica Categoria
+                <i class="fas fa-edit mr-2 text-emerald-600"></i> Modifica Categoria
             </h1>
         </div>
     </div>
@@ -25,14 +25,14 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Titolo <span class="text-red-500">*</span></label>
                     <input type="text" name="titolo" value="{{ old('titolo', $category->titolo) }}" required
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
                     @error('titolo') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                 </div>
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
                     <textarea name="descrizione" rows="3"
-                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">{{ old('descrizione', $category->descrizione) }}</textarea>
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">{{ old('descrizione', $category->descrizione) }}</textarea>
                     @error('descrizione') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                 </div>
                 
@@ -40,7 +40,7 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">Tabella di Riferimento</label>
                     <input type="text" name="tabella_riferimento" value="{{ old('tabella_riferimento', $category->tabella_riferimento) }}"
                            placeholder="es: contacts, staff_expiry, vehicle_documents"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
                     <p class="text-xs text-gray-500 mt-1">Nome della tabella associata a questa categoria</p>
                     @error('tabella_riferimento') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                 </div>
@@ -49,7 +49,7 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">Icona</label>
                     <input type="text" name="icona" value="{{ old('icona', $category->icona) }}"
                            placeholder="fas fa-cog"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
                     <p class="text-xs text-gray-500 mt-1">Classe FontAwesome (es: fas fa-address-book)</p>
                     @error('icona') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                 </div>
@@ -57,7 +57,7 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Ordinamento</label>
                     <input type="number" name="ordinamento" value="{{ old('ordinamento', $category->ordinamento) }}"
-                           class="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                           class="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
                     @error('ordinamento') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                 </div>
                 
@@ -65,7 +65,7 @@
                     <label class="inline-flex items-center">
                         <input type="checkbox" name="valid" value="1" 
                                {{ old('valid', $category->valid) ? 'checked' : '' }}
-                               class="rounded border-gray-300 text-lime-600 shadow-sm focus:ring-lime-500">
+                               class="rounded border-gray-300 text-emerald-600 shadow-sm focus:ring-emerald-500">
                         <span class="ml-2 text-sm text-gray-700">Categoria attiva</span>
                     </label>
                 </div>
@@ -77,7 +77,7 @@
                     Annulla
                 </a>
                 <button type="submit" 
-                        class="px-4 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-md transition-colors">
+                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors">
                     <i class="fas fa-save mr-2"></i> Aggiorna Categoria
                 </button>
             </div>

@@ -6,7 +6,7 @@
 <div class="p-6">
     <div class="mb-8">
         <h1 class="text-2xl font-bold text-gray-800">
-            Ciao, {{ $admin->name }}! 👋
+            Ciao, {{ $admin->name }}!
         </h1>
         <p class="text-gray-600 mt-1">Ecco cosa sta succedendo oggi nel tuo pannello di controllo.</p>
     </div>

@@ -93,6 +93,7 @@
                 </div>
             </div>
             
+            
             @if($administrator->role)
             <h3 class="text-lg font-semibold mt-6 mb-4 text-gray-800">
                 <i class="fas fa-key mr-2 text-emerald-500"></i> Permessi del Ruolo

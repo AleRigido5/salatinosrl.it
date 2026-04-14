@@ -1,4 +1,4 @@
-<div>
+<div wire:key="{{ $componentKey }}">
     <!-- Filtri e Ricerca -->
     <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -139,8 +139,8 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($services as $service)
-                    <tr wire:key="service-{{ $service->id }}" class="hover:bg-gray-50 transition-colors duration-150 border-t border-gray-200">
+                    @forelse($services as $index => $service)
+                    <tr wire:key="service-{{ $service->id }}-{{ $index }}-{{ $services->currentPage() }}" class="hover:bg-gray-50 transition-colors duration-150 border-t border-gray-200">
                         <td class="px-6 py-4">
                             <div class="text-sm font-medium text-gray-900">
                                 {{ $service->Titolo }}
@@ -150,13 +150,11 @@
                                 {{ Str::limit($service->Descrizione, 60) }}
                             </div>
                             @endif
-                        </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                                 {{ $service->category_name }}
                             </span>
-                        </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             @if($service->Prezzo_un)
@@ -167,14 +165,12 @@
                             @else
                                 -
                             @endif
-                        </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                                 {{ $service->Stato ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
                                 {{ $service->Stato ? 'Attivo' : 'Disattivo' }}
                             </span>
-                        </div>
                         </td>
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
@@ -211,8 +207,8 @@
                                 </button>
                                 @endif
                             </div>
-                        </div>
-                    </div>
+                        </td>
+                    </tr>
                     @empty
                     <tr>
                         <td colspan="5" class="px-6 py-12 text-center">
@@ -227,8 +223,8 @@
                                 </button>
                                 @endif
                             </div>
-                        </div>
-                    </div>
+                        </td>
+                    </tr>
                     @endforelse
                 </tbody>
             </table>
@@ -237,7 +233,7 @@
 
     <!-- Paginazione -->
     @if($services->hasPages())
-    <div class="mt-6">
+    <div class="mt-6" wire:key="pagination-{{ $services->currentPage() }}-{{ $services->lastPage() }}">
         <div class="text-sm text-gray-500 mb-2">
             Mostrando {{ $services->firstItem() ?? 0 }} - {{ $services->lastItem() ?? 0 }} di {{ $services->total() }} risultati
         </div>
@@ -286,14 +282,15 @@
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
          x-data="{ open: true }" 
          x-show="open"
-         @keydown.escape.window="open = false; $wire.closeViewModal()">
+         x-init="$watch('open', value => { if (!value) $wire.closeViewModal() })"
+         @keydown.escape.window="open = false">
         
         <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl m-4" 
-             @click.away="open = false; $wire.closeViewModal()">
+             @click.away="open = false">
             
             <div class="flex justify-between items-center p-6 border-b">
                 <h2 class="text-2xl font-bold text-gray-800">{{ $viewingService->Titolo }}</h2>
-                <button @click="open = false; $wire.closeViewModal()" class="text-gray-400 hover:text-gray-600">
+                <button @click="open = false" class="text-gray-400 hover:text-gray-600">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -350,7 +347,7 @@
             </div>
             
             <div class="flex justify-end space-x-3 p-6 border-t">
-                <button @click="open = false; $wire.closeViewModal()" 
+                <button @click="open = false" 
                         class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md">
                     Chiudi
                 </button>

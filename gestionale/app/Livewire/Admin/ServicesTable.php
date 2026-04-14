@@ -25,8 +25,13 @@ class ServicesTable extends Component
     
     protected $paginationTheme = 'tailwind';
     
-    // Query string per mantenere la ricerca
     protected $queryString = ['search'];
+    
+    // IMPORTANTE: Disabilita la paginazione standard di Livewire
+    protected function paginate($query)
+    {
+        return $query->paginate($this->perPage);
+    }
     
     public function sortBy($field)
     {
@@ -147,12 +152,19 @@ class ServicesTable extends Component
         $this->sortDirection = 'asc';
         $this->resetPage();
     }
+    
+    // Metodo per generare una chiave univoca per il componente
+    public function getComponentKey()
+    {
+        return 'services-table-' . $this->getPage() . '-' . md5($this->search . $this->categoryFilter . $this->statusFilter . $this->sortField . $this->sortDirection);
+    }
 
     public function render()
     {
         return view('livewire.admin.services-table', [
             'services' => $this->services,
-            'categories' => $this->categories
+            'categories' => $this->categories,
+            'componentKey' => $this->getComponentKey()
         ]);
     }
 }

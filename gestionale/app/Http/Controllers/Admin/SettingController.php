@@ -46,13 +46,15 @@ class SettingController extends Controller
     public function store(Request $request)
     {
         if (!Auth::guard('admin')->user()->hasPermission('edit_settings')) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Non hai i permessi necessari.'], 403);
+            }
             abort(403, 'Non hai i permessi necessari.');
         }
         
         $request->validate([
             'valore' => 'required|string|max:255',
             'category_id' => 'nullable|exists:settings_categories,id',
-            'tabella_riferimento' => 'nullable|string|max:50',
             'descrizione' => 'nullable|string',
             'ordinamento' => 'nullable|integer',
             'valid' => 'nullable|boolean'
@@ -61,11 +63,19 @@ class SettingController extends Controller
         $setting = Setting::create([
             'valore' => $request->valore,
             'category_id' => $request->category_id,
-            'tabella_riferimento' => $request->tabella_riferimento,
             'descrizione' => $request->descrizione,
             'ordinamento' => $request->ordinamento ?: 0,
             'valid' => $request->boolean('valid', true)
         ]);
+        
+        // Verifica se è una richiesta AJAX
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Impostazione creata con successo!',
+                'data' => $setting
+            ]);
+        }
         
         if ($setting->category) {
             return redirect()->route('admin.settings.categories.show', $setting->category->slug)
@@ -132,15 +142,25 @@ class SettingController extends Controller
             ->with('success', 'Impostazione aggiornata con successo!');
     }
     
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         if (!Auth::guard('admin')->user()->hasPermission('edit_settings')) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Non hai i permessi necessari.'], 403);
+            }
             abort(403, 'Non hai i permessi necessari.');
         }
         
         $setting = Setting::findOrFail($id);
         $category = $setting->category;
         $setting->delete();
+        
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Impostazione eliminata con successo!'
+            ]);
+        }
         
         if ($category) {
             return redirect()->route('admin.settings.categories.show', $category->slug)

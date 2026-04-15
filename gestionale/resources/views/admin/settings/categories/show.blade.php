@@ -70,12 +70,7 @@
                             <button type="button" 
                                     onclick="openEditModal({{ $setting->id }}, '{{ addslashes($setting->valore) }}', '{{ addslashes($setting->descrizione) }}', {{ $setting->ordinamento }}, {{ $setting->valid ? 'true' : 'false' }})"
                                     class="text-lime-600 hover:text-lime-900 transition-colors mr-3">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button type="button" 
-                                    onclick="confirmDelete({{ $setting->id }}, '{{ addslashes($setting->valore) }}')"
-                                    class="text-red-600 hover:text-red-900 transition-colors">
-                                <i class="fas fa-trash-alt"></i>
+                                <i class="fas fa-edit"></i> Modifica
                             </button>
                         </td>
                     </tr>

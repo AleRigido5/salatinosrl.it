@@ -7,7 +7,7 @@
     <div class="flex justify-between items-center mb-6">
         <div class="flex space-x-3">
             <h1 class="text-2xl font-bold text-gray-800">
-                <i class="fas fa-user-shield mr-2 text-emerald-600"></i> Gestione Amministratori
+                <i class="fas fa-user-shield mr-2 text-lime-600"></i> Gestione Amministratori
             </h1>
             
             <!-- Bottone Cestino con contatore -->
@@ -27,7 +27,7 @@
         
         @if(auth()->guard('admin')->user()->hasPermission('create_administrators'))
         <a href="{{ route('admin.administrators.create') }}" 
-           class="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg">
+           class="bg-gradient-to-r from-lime-500 to-lime-600 hover:from-lime-600 hover:to-lime-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg">
             <i class="fas fa-plus mr-2"></i> Nuovo Amministratore
         </a>
         @endif
@@ -35,7 +35,7 @@
 
     <!-- Messaggi flash -->
     @if(session('success'))
-        <div class="mb-4 p-4 bg-green-100 border-l-4 border-green-500 text-green-700 rounded-lg">
+        <div class="mb-4 p-4 bg-lime-100 border-l-4 border-lime-500 text-lime-700 rounded-lg">
             <i class="fas fa-check-circle mr-2"></i> {{ session('success') }}
         </div>
     @endif

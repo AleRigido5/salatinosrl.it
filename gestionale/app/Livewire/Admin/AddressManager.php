@@ -34,7 +34,10 @@ class AddressManager extends Component
     public $notificationMessage = '';
     public $notificationType = 'success';
     
-    protected $listeners = ['refreshAddresses' => 'loadAddresses'];
+    protected $listeners = [
+        'refreshAddresses' => 'loadAddresses',
+        'hideNotification' => 'hideNotification'
+    ];
     
     public function mount($entityId)
     {
@@ -182,8 +185,8 @@ class AddressManager extends Component
         $this->notificationType = $type;
         $this->showNotification = true;
         
-        // Auto-hide dopo 3 secondi
-        $this->dispatch('hide-notification');
+        // Dispatch event per nascondere la notifica dopo 3 secondi
+        $this->dispatch('hide-notification-after-3-seconds');
     }
     
     public function hideNotification()

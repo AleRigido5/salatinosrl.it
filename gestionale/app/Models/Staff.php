@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Staff extends Model
 {
@@ -28,7 +29,8 @@ class Staff extends Model
         'CodFiscPers',
         'DataNascPers',
         'LuogoNasc',
-        'valid'
+        'valid',
+        'id_gruppo'
     ];
     
     protected $casts = [
@@ -46,5 +48,11 @@ class Staff extends Model
     public function scopeActive($query)
     {
         return $query->where('valid', 1);
+    }
+    
+    // Relazione con il gruppo personale
+    public function gruppo()
+    {
+        return $this->belongsTo(Setting::class, 'id_gruppo');
     }
 }

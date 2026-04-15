@@ -42,7 +42,30 @@ class StaffTable extends Component
     public $editLuogoNascita = '';
     public $editValid = true;
     
+    // Modal creazione
+    public $showCreateModal = false;
+    
+    // Form fields per creazione
+    public $createNome = '';
+    public $createCognome = '';
+    public $createSoprannome = '';
+    public $createCodFiscale = '';
+    public $createTelefono = '';
+    public $createCellulare = '';
+    public $createEmail = '';
+    public $createIndirizzo = '';
+    public $createCitta = '';
+    public $createProvincia = '';
+    public $createCap = '';
+    public $createDataNascita = '';
+    public $createLuogoNascita = '';
+    public $createValid = true;
+    
     protected $paginationTheme = 'tailwind';
+    
+    protected $listeners = [
+        'openCreateModal' => 'openCreateModal'
+    ];
     
     public function mount()
     {
@@ -111,6 +134,75 @@ class StaffTable extends Component
         return $query->paginate($this->perPage);
     }
     
+    // ==================== METODI CREAZIONE ====================
+    
+    public function openCreateModal()
+    {
+        $this->resetCreateForm();
+        $this->showCreateModal = true;
+    }
+    
+    public function closeCreateModal()
+    {
+        $this->showCreateModal = false;
+        $this->resetCreateForm();
+    }
+    
+    public function resetCreateForm()
+    {
+        $this->createNome = '';
+        $this->createCognome = '';
+        $this->createSoprannome = '';
+        $this->createCodFiscale = '';
+        $this->createTelefono = '';
+        $this->createCellulare = '';
+        $this->createEmail = '';
+        $this->createIndirizzo = '';
+        $this->createCitta = '';
+        $this->createProvincia = '';
+        $this->createCap = '';
+        $this->createDataNascita = '';
+        $this->createLuogoNascita = '';
+        $this->createValid = true;
+    }
+    
+    public function saveStaff()
+    {
+        $this->validate([
+            'createNome' => 'nullable|string|max:255',
+            'createCognome' => 'nullable|string|max:255',
+            'createEmail' => 'nullable|email|max:255',
+        ]);
+        
+        try {
+            $staff = Staff::create([
+                'NomePers' => $this->createNome,
+                'CognomePers' => $this->createCognome,
+                'Soprannome' => $this->createSoprannome,
+                'CodFiscPers' => $this->createCodFiscale,
+                'TelPers' => $this->createTelefono,
+                'CellPers' => $this->createCellulare,
+                'EmailPers' => $this->createEmail,
+                'IndirPers' => $this->createIndirizzo,
+                'CittaPers' => $this->createCitta,
+                'ProvPers' => $this->createProvincia,
+                'CapPers' => $this->createCap,
+                'DataNascPers' => $this->createDataNascita,
+                'LuogoNasc' => $this->createLuogoNascita,
+                'valid' => $this->createValid
+            ]);
+            
+            $this->closeCreateModal();
+            $this->dispatch('showSuccess', message: 'Personale aggiunto con successo!');
+            $this->resetPage();
+            
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore durante il salvataggio: ' . $e->getMessage());
+        }
+    }
+    
+    // ==================== METODI VISUALIZZAZIONE ====================
+    
     public function viewStaff($id)
     {
         try {
@@ -132,7 +224,8 @@ class StaffTable extends Component
         $this->viewingStaff = null;
     }
     
-    // Apre il modal di modifica
+    // ==================== METODI MODIFICA ====================
+    
     public function editStaff($id)
     {
         try {
@@ -229,6 +322,8 @@ class StaffTable extends Component
         }
     }
     
+    // ==================== METODI STATO ====================
+    
     public function toggleStatus($id)
     {
         try {
@@ -246,6 +341,8 @@ class StaffTable extends Component
             $this->dispatch('showError', message: 'Errore durante il cambio di stato: ' . $e->getMessage());
         }
     }
+    
+    // ==================== METODI FILTRI ====================
     
     public function resetFilters()
     {

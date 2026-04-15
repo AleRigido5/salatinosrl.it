@@ -127,7 +127,7 @@
                     <tr class="hover:bg-gray-50 transition-colors duration-150">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ $person->id_personale }}
-                        </td>
+                        </div>
                         <td class="px-6 py-4">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center bg-gray-100">
@@ -144,7 +144,7 @@
                                     @endif
                                 </div>
                             </div>
-                        </td>
+                        </div>
                         <td class="px-6 py-4 text-sm text-gray-500">
                             <div class="space-y-1">
                                 @if($person->CellPers)
@@ -169,16 +169,16 @@
                                 <span class="text-gray-400 italic text-xs">Nessun contatto</span>
                                 @endif
                             </div>
-                        </td>
+                        </div>
                         <td class="px-6 py-4 text-sm text-gray-500 font-mono">
                             {{ $person->CodFiscPers ?: '-' }}
-                        </td>
+                        </div>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                                 {{ $person->valid ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
                                 {{ $person->valid ? 'Attivo' : 'Disattivo' }}
                             </span>
-                        </td>
+                        </div>
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
                                 @if(auth()->guard('admin')->user()->hasPermission('view_staff'))
@@ -216,7 +216,7 @@
                                 </button>
                                 @endif
                             </div>
-                        </td>
+                        </div>
                     </tr>
                     @empty
                     <tr>
@@ -232,11 +232,11 @@
                                 </button>
                                 @endif
                             </div>
-                        </td>
+                        </div>
                     </tr>
                     @endforelse
                 </tbody>
-            </table>
+             </table>
         </div>
     </div>
 
@@ -376,7 +376,7 @@
                 <button wire:click="closeViewModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Chiudi</button>
                 @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
                 <button wire:click="editStaff({{ $viewingStaff->id_personale }})" 
-                        class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
+                        class="ml-3 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
                     <i class="fas fa-edit mr-2"></i> Modifica
                 </button>
                 @endif
@@ -472,6 +472,102 @@
                 <button wire:click="closeEditModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Annulla</button>
                 <button wire:click="updateStaff" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
                     <i class="fas fa-save mr-2"></i> Aggiorna
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- MODAL CREAZIONE -->
+    @if($showCreateModal)
+    <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
+         x-data="{ show: true }" 
+         x-show="show" 
+         x-transition.opacity.duration.200ms>
+        
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto" 
+             x-on:click.away="show = false; $wire.closeCreateModal()"
+             x-transition.scale.origin.top>
+            
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h2 class="text-xl font-bold text-gray-800">
+                    <i class="fas fa-plus-circle mr-2 text-green-600"></i> Nuovo Personale
+                </h2>
+                <button wire:click="closeCreateModal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                    <input type="text" wire:model="createNome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                    @error('createNome') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
+                    <input type="text" wire:model="createCognome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                    @error('createCognome') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Soprannome</label>
+                    <input type="text" wire:model="createSoprannome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
+                    <input type="text" wire:model="createCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
+                    <input type="text" wire:model="createTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cellulare</label>
+                    <input type="text" wire:model="createCellulare" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" wire:model="createEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                    @error('createEmail') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
+                    <input type="text" wire:model="createIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
+                    <input type="text" wire:model="createCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                    <input type="text" wire:model="createProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">CAP</label>
+                    <input type="text" wire:model="createCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Data Nascita</label>
+                    <input type="date" wire:model="createDataNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Luogo Nascita</label>
+                    <input type="text" wire:model="createLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                </div>
+                <div>
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" wire:model="createValid" class="rounded border-gray-300 text-lime-600" checked>
+                        <span class="ml-2 text-sm text-gray-700">Account attivo</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <button wire:click="closeCreateModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Annulla</button>
+                <button wire:click="saveStaff" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+                    <i class="fas fa-save mr-2"></i> Salva
                 </button>
             </div>
         </div>

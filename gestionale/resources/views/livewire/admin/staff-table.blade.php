@@ -127,7 +127,7 @@
                     <tr class="hover:bg-gray-50 transition-colors duration-150">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ $person->id_personale }}
-                        </div>
+                        </td>
                         <td class="px-6 py-4">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center bg-gray-100">
@@ -144,7 +144,7 @@
                                     @endif
                                 </div>
                             </div>
-                        </div>
+                        </td>
                         <td class="px-6 py-4 text-sm text-gray-500">
                             <div class="space-y-1">
                                 @if($person->CellPers)
@@ -169,16 +169,16 @@
                                 <span class="text-gray-400 italic text-xs">Nessun contatto</span>
                                 @endif
                             </div>
-                        </div>
+                        </td>
                         <td class="px-6 py-4 text-sm text-gray-500 font-mono">
                             {{ $person->CodFiscPers ?: '-' }}
-                        </div>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                                 {{ $person->valid ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
                                 {{ $person->valid ? 'Attivo' : 'Disattivo' }}
                             </span>
-                        </div>
+                        </td>
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
                                 @if(auth()->guard('admin')->user()->hasPermission('view_staff'))
@@ -202,6 +202,20 @@
                                 </button>
                                 @endif
                                 
+                                <!-- Icona Scadenze - versione SVG puro -->
+                                @if(auth()->guard('admin')->user()->hasPermission('view_expiration'))
+                                <button wire:click="goToExpiration({{ $person->id_personale }})" 
+                                        class="text-purple-600 hover:text-purple-900 transition-colors"
+                                        title="Gestisci Scadenze">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 12.75h.008v.008H12v-.008Z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12.75h.008v.008H15v-.008Z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75h.008v.008H9v-.008Z" />
+                                    </svg>
+                                </button>
+                                @endif
+
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
                                 <button wire:click="toggleStatus({{ $person->id_personale }})" 
                                         class="transition-colors {{ $person->valid ? 'text-lime-600 hover:text-lime-800' : 'text-gray-400 hover:text-gray-600' }}"
@@ -216,7 +230,7 @@
                                 </button>
                                 @endif
                             </div>
-                        </div>
+                        </td>
                     </tr>
                     @empty
                     <tr>
@@ -232,11 +246,11 @@
                                 </button>
                                 @endif
                             </div>
-                        </div>
+                        </td>
                     </tr>
                     @endforelse
                 </tbody>
-             </table>
+            </table>
         </div>
     </div>
 
@@ -286,100 +300,195 @@
         }
     </style>
     
-    <!-- MODAL VISUALIZZAZIONE -->
+    <!-- MODAL VISUALIZZAZIONE CON TRACCIAMENTO (responsive con stato nell'header) -->
     @if($showViewModal && $viewingStaff)
-    <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
+    <div wire:ignore.self class="fixed inset-0 z-50 overflow-y-auto" 
          x-data="{ show: true }" 
          x-show="show" 
          x-transition.opacity.duration.200ms>
         
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6" 
-             x-on:click.away="show = false; $wire.closeViewModal()"
-             x-transition.scale.origin.top>
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Sfondo -->
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" x-on:click="show = false; $wire.closeViewModal()" aria-hidden="true"></div>
             
-            <div class="flex justify-between items-center mb-4 border-b pb-3">
-                <div class="flex items-center space-x-3">
-                    <div class="flex-shrink-0 h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                        <i class="fas fa-user text-blue-600 text-xl"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-bold text-gray-800">{{ $viewingStaff->NomePers ?: '-' }} {{ $viewingStaff->CognomePers ?: '-' }}</h2>
-                        @if($viewingStaff->Soprannome)
-                        <p class="text-xs text-gray-500"><i class="fas fa-tag mr-1"></i> {{ $viewingStaff->Soprannome }}</p>
-                        @endif
-                    </div>
-                </div>
-                <button wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
+            <!-- Spaziatore per centrare -->
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div class="bg-gray-50 rounded-lg p-4">
-                    <h3 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">
-                        <i class="fas fa-info-circle mr-2 text-blue-500"></i> Dati Anagrafici
-                    </h3>
-                    <div class="space-y-2">
-                        <div class="flex"><span class="w-32 text-gray-600">Codice Fiscale:</span><span class="text-gray-800 font-mono">{{ $viewingStaff->CodFiscPers ?: '-' }}</span></div>
-                        <div class="flex"><span class="w-32 text-gray-600">Data Nascita:</span><span class="text-gray-800">{{ $viewingStaff->DataNascPers ?: '-' }}</span></div>
-                        <div class="flex"><span class="w-32 text-gray-600">Luogo Nascita:</span><span class="text-gray-800">{{ $viewingStaff->LuogoNasc ?: '-' }}</span></div>
+            <!-- Modal -->
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full"
+                 x-transition.scale.origin.top>
+                
+                <!-- Header con nome, stato e pulsante chiusura -->
+                <div class="bg-white px-4 pt-4 pb-2 sm:px-6 border-b border-gray-200">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center space-x-3 flex-1 min-w-0">
+                            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <i class="fas fa-user text-blue-600 text-lg"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <h2 class="text-lg font-bold text-gray-800 truncate">
+                                    {{ $viewingStaff->NomePers ?: '-' }} {{ $viewingStaff->CognomePers ?: '-' }}
+                                </h2>
+                                @if($viewingStaff->Soprannome)
+                                <p class="text-xs text-gray-500 truncate">
+                                    <i class="fas fa-tag mr-1"></i> {{ $viewingStaff->Soprannome }}
+                                </p>
+                                @endif
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-3">
+                            <!-- Badge Stato -->
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap
+                                {{ $viewingStaff->valid ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
+                                {{ $viewingStaff->valid ? 'Attivo' : 'Disattivo' }}
+                            </span>
+                            
+                            <!-- Pulsante chiusura -->
+                            <button wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="bg-gray-50 rounded-lg p-4">
-                    <h3 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">
-                        <i class="fas fa-address-card mr-2 text-orange-500"></i> Contatti
-                    </h3>
-                    <div class="space-y-2">
-                        @if($viewingStaff->TelPers)
-                        <div class="flex"><span class="w-20 text-gray-600">Tel:</span><span class="text-gray-800">{{ $viewingStaff->TelPers }}</span></div>
-                        @endif
-                        @if($viewingStaff->CellPers)
-                        <div class="flex"><span class="w-20 text-gray-600">Cell:</span><span class="text-gray-800">{{ $viewingStaff->CellPers }}</span></div>
-                        @endif
-                        @if($viewingStaff->EmailPers)
-                        <div class="flex"><span class="w-20 text-gray-600">Email:</span><span class="text-gray-800">{{ $viewingStaff->EmailPers }}</span></div>
-                        @endif
-                        @if(!$viewingStaff->TelPers && !$viewingStaff->CellPers && !$viewingStaff->EmailPers)
-                        <p class="text-gray-400 italic">Nessun contatto disponibile</p>
-                        @endif
+                <!-- Contenuto scrollabile -->
+                <div class="px-4 pt-4 pb-2 sm:px-6 max-h-[70vh] overflow-y-auto">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h3 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">
+                                <i class="fas fa-info-circle mr-2 text-blue-500"></i> Dati Anagrafici
+                            </h3>
+                            <div class="space-y-2">
+                                <div class="flex"><span class="w-32 text-gray-600">Codice Fiscale:</span><span class="text-gray-800 font-mono">{{ $viewingStaff->CodFiscPers ?: '-' }}</span></div>
+                                <div class="flex"><span class="w-32 text-gray-600">Data Nascita:</span><span class="text-gray-800">{{ $viewingStaff->DataNascPers ?: '-' }}</span></div>
+                                <div class="flex"><span class="w-32 text-gray-600">Luogo Nascita:</span><span class="text-gray-800">{{ $viewingStaff->LuogoNasc ?: '-' }}</span></div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h3 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">
+                                <i class="fas fa-address-card mr-2 text-orange-500"></i> Contatti
+                            </h3>
+                            <div class="space-y-2">
+                                @if($viewingStaff->TelPers)
+                                <div class="flex"><span class="w-20 text-gray-600">Tel:</span><span class="text-gray-800">{{ $viewingStaff->TelPers }}</span></div>
+                                @endif
+                                @if($viewingStaff->CellPers)
+                                <div class="flex"><span class="w-20 text-gray-600">Cell:</span><span class="text-gray-800">{{ $viewingStaff->CellPers }}</span></div>
+                                @endif
+                                @if($viewingStaff->EmailPers)
+                                <div class="flex"><span class="w-20 text-gray-600">Email:</span><span class="text-gray-800 break-all">{{ $viewingStaff->EmailPers }}</span></div>
+                                @endif
+                                @if(!$viewingStaff->TelPers && !$viewingStaff->CellPers && !$viewingStaff->EmailPers)
+                                <p class="text-gray-400 italic">Nessun contatto disponibile</p>
+                                @endif
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-50 rounded-lg p-4 md:col-span-2">
+                            <h3 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">
+                                <i class="fas fa-map-marker-alt mr-2 text-red-500"></i> Indirizzo
+                            </h3>
+                            <div class="space-y-2">
+                                <div class="flex"><span class="w-20 text-gray-600">Indirizzo:</span><span class="text-gray-800">{{ $viewingStaff->IndirPers ?: '-' }}</span></div>
+                                <div class="flex"><span class="w-20 text-gray-600">Città:</span><span class="text-gray-800">{{ $viewingStaff->CittaPers ?: '-' }}</span></div>
+                                <div class="flex"><span class="w-20 text-gray-600">Provincia:</span><span class="text-gray-800">{{ $viewingStaff->ProvPers ?: '-' }}</span></div>
+                                <div class="flex"><span class="w-20 text-gray-600">CAP:</span><span class="text-gray-800">{{ $viewingStaff->CapPers ?: '-' }}</span></div>
+                            </div>
+                        </div>
+                        
+                        <!-- ========== TRACCIAMENTO ========== -->
+                        <div class="bg-gray-50 rounded-lg p-4 md:col-span-2">
+                            <h3 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">
+                                <i class="fas fa-history mr-2 text-indigo-500"></i> Tracciamento
+                            </h3>
+                            <div class="space-y-3">
+                                {{-- Creato da --}}
+                                <div class="flex items-start">
+                                    <div class="w-28 text-gray-600 text-sm pt-0.5">Inserito da:</div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                            </svg>
+                                            <span class="text-gray-800 font-medium">
+                                                {{ $viewingStaff->createdBy ? $viewingStaff->createdBy->name : 'Sistema' }}
+                                            </span>
+                                            <span class="text-gray-400">•</span>
+                                            <span class="text-gray-500 text-sm">
+                                                {{ $viewingStaff->created_at ? $viewingStaff->created_at->format('d/m/Y H:i') : '-' }}
+                                            </span>
+                                        </div>
+                                        @if($viewingStaff->createdBy && $viewingStaff->createdBy->email)
+                                        <div class="text-xs text-gray-400 mt-1 ml-6 break-all">
+                                            {{ $viewingStaff->createdBy->email }}
+                                        </div>
+                                        @endif
+                                    </div>
+                                </div>
+                                
+                                {{-- Modificato da --}}
+                                @if($viewingStaff->updated_at && $viewingStaff->created_at != $viewingStaff->updated_at)
+                                <div class="flex items-start">
+                                    <div class="w-28 text-gray-600 text-sm pt-0.5">Modificato da:</div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                            <span class="text-gray-800 font-medium">
+                                                {{ $viewingStaff->updatedBy ? $viewingStaff->updatedBy->name : 'Sistema' }}
+                                            </span>
+                                            <span class="text-gray-400">•</span>
+                                            <span class="text-gray-500 text-sm">
+                                                {{ $viewingStaff->updated_at ? $viewingStaff->updated_at->format('d/m/Y H:i') : '-' }}
+                                            </span>
+                                        </div>
+                                        @if($viewingStaff->updatedBy && $viewingStaff->updatedBy->email)
+                                        <div class="text-xs text-gray-400 mt-1 ml-6 break-all">
+                                            {{ $viewingStaff->updatedBy->email }}
+                                        </div>
+                                        @endif
+                                        <div class="text-xs text-gray-400 mt-1 ml-6">
+                                            ({{ $viewingStaff->updated_at->diffForHumans() }})
+                                        </div>
+                                    </div>
+                                </div>
+                                @else
+                                <div class="flex items-start">
+                                    <div class="w-28 text-gray-600 text-sm pt-0.5">Modificato da:</div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2">
+                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                            <span class="text-gray-400 italic">Mai modificato</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
+                        </div>
+                        <!-- ========== FINE TRACCIAMENTO ========== -->
                     </div>
                 </div>
                 
-                <div class="bg-gray-50 rounded-lg p-4 md:col-span-2">
-                    <h3 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">
-                        <i class="fas fa-map-marker-alt mr-2 text-red-500"></i> Indirizzo
-                    </h3>
-                    <div class="space-y-2">
-                        <div class="flex"><span class="w-20 text-gray-600">Indirizzo:</span><span class="text-gray-800">{{ $viewingStaff->IndirPers ?: '-' }}</span></div>
-                        <div class="flex"><span class="w-20 text-gray-600">Città:</span><span class="text-gray-800">{{ $viewingStaff->CittaPers ?: '-' }}</span></div>
-                        <div class="flex"><span class="w-20 text-gray-600">Provincia:</span><span class="text-gray-800">{{ $viewingStaff->ProvPers ?: '-' }}</span></div>
-                        <div class="flex"><span class="w-20 text-gray-600">CAP:</span><span class="text-gray-800">{{ $viewingStaff->CapPers ?: '-' }}</span></div>
-                    </div>
+                <!-- Footer con bottoni -->
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col sm:flex-row sm:justify-end gap-3">
+                    @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
+                    <button wire:click="editStaff({{ $viewingStaff->id_personale }})" 
+                            class="w-full sm:w-auto inline-flex justify-center items-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-yellow-600 text-base font-medium text-white hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 sm:text-sm">
+                        <i class="fas fa-edit mr-2"></i> Modifica
+                    </button>
+                    @endif
+                    <button wire:click="closeViewModal" 
+                            class="w-full sm:w-auto inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm">
+                        Chiudi
+                    </button>
                 </div>
-                
-                <div class="bg-gray-50 rounded-lg p-4">
-                    <h3 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">
-                        <i class="fas fa-toggle-on mr-2 text-purple-500"></i> Stato
-                    </h3>
-                    <div>
-                        <span class="px-2 py-1 text-xs rounded-full {{ $viewingStaff->valid ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
-                            {{ $viewingStaff->valid ? 'Attivo' : 'Disattivo' }}
-                        </span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="flex justify-end mt-6 pt-4 border-t">
-                <button wire:click="closeViewModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Chiudi</button>
-                @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
-                <button wire:click="editStaff({{ $viewingStaff->id_personale }})" 
-                        class="ml-3 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
-                    <i class="fas fa-edit mr-2"></i> Modifica
-                </button>
-                @endif
             </div>
         </div>
     </div>
@@ -387,92 +496,101 @@
 
     <!-- MODAL MODIFICA -->
     @if($showEditModal && $editingStaff)
-    <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
+    <div wire:ignore.self class="fixed inset-0 z-50 overflow-y-auto" 
          x-data="{ show: true }" 
          x-show="show" 
          x-transition.opacity.duration.200ms>
         
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto" 
-             x-on:click.away="show = false; $wire.closeEditModal()"
-             x-transition.scale.origin.top>
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" x-on:click="show = false; $wire.closeEditModal()" aria-hidden="true"></div>
             
-            <div class="flex justify-between items-center mb-4 border-b pb-3">
-                <h2 class="text-xl font-bold text-gray-800">
-                    <i class="fas fa-edit mr-2 text-yellow-600"></i> Modifica Personale
-                </h2>
-                <button wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-                    <input type="text" wire:model="editNome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="flex justify-between items-center mb-4 border-b pb-3">
+                        <h2 class="text-xl font-bold text-gray-800">
+                            <i class="fas fa-edit mr-2 text-yellow-600"></i> Modifica Personale
+                        </h2>
+                        <button wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                            <input type="text" wire:model="editNome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
+                            <input type="text" wire:model="editCognome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Soprannome</label>
+                            <input type="text" wire:model="editSoprannome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
+                            <input type="text" wire:model="editCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
+                            <input type="text" wire:model="editTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Cellulare</label>
+                            <input type="text" wire:model="editCellulare" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" wire:model="editEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
+                            <input type="text" wire:model="editIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
+                            <input type="text" wire:model="editCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                            <input type="text" wire:model="editProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">CAP</label>
+                            <input type="text" wire:model="editCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Data Nascita</label>
+                            <input type="date" wire:model="editDataNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Luogo Nascita</label>
+                            <input type="text" wire:model="editLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" wire:model="editValid" class="rounded border-gray-300 text-lime-600">
+                                <span class="ml-2 text-sm text-gray-700">Account attivo</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
-                    <input type="text" wire:model="editCognome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col sm:flex-row sm:justify-end gap-3">
+                    <button wire:click="updateStaff" 
+                            class="w-full sm:w-auto inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-yellow-600 text-base font-medium text-white hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 sm:text-sm">
+                        <i class="fas fa-save mr-2"></i> Aggiorna
+                    </button>
+                    <button wire:click="closeEditModal" 
+                            class="w-full sm:w-auto inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm">
+                        Annulla
+                    </button>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Soprannome</label>
-                    <input type="text" wire:model="editSoprannome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
-                    <input type="text" wire:model="editCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
-                    <input type="text" wire:model="editTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Cellulare</label>
-                    <input type="text" wire:model="editCellulare" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input type="email" wire:model="editEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
-                    <input type="text" wire:model="editIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
-                    <input type="text" wire:model="editCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
-                    <input type="text" wire:model="editProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">CAP</label>
-                    <input type="text" wire:model="editCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Data Nascita</label>
-                    <input type="date" wire:model="editDataNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Luogo Nascita</label>
-                    <input type="text" wire:model="editLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="inline-flex items-center">
-                        <input type="checkbox" wire:model="editValid" class="rounded border-gray-300 text-lime-600">
-                        <span class="ml-2 text-sm text-gray-700">Account attivo</span>
-                    </label>
-                </div>
-            </div>
-            
-            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
-                <button wire:click="closeEditModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Annulla</button>
-                <button wire:click="updateStaff" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
-                    <i class="fas fa-save mr-2"></i> Aggiorna
-                </button>
             </div>
         </div>
     </div>
@@ -480,95 +598,104 @@
 
     <!-- MODAL CREAZIONE -->
     @if($showCreateModal)
-    <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
+    <div wire:ignore.self class="fixed inset-0 z-50 overflow-y-auto" 
          x-data="{ show: true }" 
          x-show="show" 
          x-transition.opacity.duration.200ms>
         
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto" 
-             x-on:click.away="show = false; $wire.closeCreateModal()"
-             x-transition.scale.origin.top>
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" x-on:click="show = false; $wire.closeCreateModal()" aria-hidden="true"></div>
             
-            <div class="flex justify-between items-center mb-4 border-b pb-3">
-                <h2 class="text-xl font-bold text-gray-800">
-                    <i class="fas fa-plus-circle mr-2 text-green-600"></i> Nuovo Personale
-                </h2>
-                <button wire:click="closeCreateModal" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-                    <input type="text" wire:model="createNome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                    @error('createNome') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="flex justify-between items-center mb-4 border-b pb-3">
+                        <h2 class="text-xl font-bold text-gray-800">
+                            <i class="fas fa-plus-circle mr-2 text-green-600"></i> Nuovo Personale
+                        </h2>
+                        <button wire:click="closeCreateModal" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                            <input type="text" wire:model="createNome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            @error('createNome') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
+                            <input type="text" wire:model="createCognome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            @error('createCognome') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Soprannome</label>
+                            <input type="text" wire:model="createSoprannome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
+                            <input type="text" wire:model="createCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
+                            <input type="text" wire:model="createTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Cellulare</label>
+                            <input type="text" wire:model="createCellulare" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" wire:model="createEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            @error('createEmail') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
+                            <input type="text" wire:model="createIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
+                            <input type="text" wire:model="createCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                            <input type="text" wire:model="createProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">CAP</label>
+                            <input type="text" wire:model="createCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Data Nascita</label>
+                            <input type="date" wire:model="createDataNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Luogo Nascita</label>
+                            <input type="text" wire:model="createLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" wire:model="createValid" class="rounded border-gray-300 text-lime-600" checked>
+                                <span class="ml-2 text-sm text-gray-700">Account attivo</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
-                    <input type="text" wire:model="createCognome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                    @error('createCognome') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col sm:flex-row sm:justify-end gap-3">
+                    <button wire:click="saveStaff" 
+                            class="w-full sm:w-auto inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:text-sm">
+                        <i class="fas fa-save mr-2"></i> Salva
+                    </button>
+                    <button wire:click="closeCreateModal" 
+                            class="w-full sm:w-auto inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm">
+                        Annulla
+                    </button>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Soprannome</label>
-                    <input type="text" wire:model="createSoprannome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
-                    <input type="text" wire:model="createCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
-                    <input type="text" wire:model="createTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Cellulare</label>
-                    <input type="text" wire:model="createCellulare" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input type="email" wire:model="createEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                    @error('createEmail') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
-                    <input type="text" wire:model="createIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
-                    <input type="text" wire:model="createCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
-                    <input type="text" wire:model="createProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">CAP</label>
-                    <input type="text" wire:model="createCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Data Nascita</label>
-                    <input type="date" wire:model="createDataNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Luogo Nascita</label>
-                    <input type="text" wire:model="createLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                </div>
-                <div>
-                    <label class="inline-flex items-center">
-                        <input type="checkbox" wire:model="createValid" class="rounded border-gray-300 text-lime-600" checked>
-                        <span class="ml-2 text-sm text-gray-700">Account attivo</span>
-                    </label>
-                </div>
-            </div>
-            
-            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
-                <button wire:click="closeCreateModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Annulla</button>
-                <button wire:click="saveStaff" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
-                    <i class="fas fa-save mr-2"></i> Salva
-                </button>
             </div>
         </div>
     </div>

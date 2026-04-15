@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\ContactController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\MezziController;
 use App\Http\Controllers\Admin\SettingCategoryController;
+use App\Http\Controllers\Admin\ExpirationController;
 use Illuminate\Support\Facades\Route;
 
 // Rotte pubbliche
@@ -129,6 +130,20 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         // =============================================
+        // GESTIONE SCADENZE (EXPIRATION)
+        // =============================================
+        Route::prefix('expiration')->name('expiration.')->group(function () {
+            Route::get('/', [ExpirationController::class, 'index'])->name('index');
+            Route::get('/create', [ExpirationController::class, 'create'])->name('create');
+            Route::post('/', [ExpirationController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [ExpirationController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [ExpirationController::class, 'update'])->name('update');
+            Route::delete('/{id}', [ExpirationController::class, 'destroy'])->name('destroy');
+            Route::post('/{id}/restore', [ExpirationController::class, 'restore'])->name('restore');
+            Route::post('/{id}/toggle-status', [ExpirationController::class, 'toggleStatus'])->name('toggle-status');
+        });
+
+        // =============================================
         // GESTIONE SETTINGS (Impostazioni di Sistema)
         // =============================================
 
@@ -183,13 +198,18 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::put('/entities/{entityId}/addresses/{addressId}', [EntityController::class, 'updateAddress']);
             Route::delete('/entities/{entityId}/addresses/{addressId}', [EntityController::class, 'deleteAddress']);
             
-            // API per Personale (Staff) - da implementare quando crei StaffController
+            // API per Personale (Staff)
             Route::get('/search-staff', [StaffController::class, 'search'])->name('search-staff');
             Route::get('/staff/{staff}/contacts', [StaffController::class, 'getContacts'])->name('staff-contacts');
             
-            // API per Mezzi (Vehicles) - da implementare quando crei MezziController
+            // API per Mezzi (Vehicles)
             Route::get('/search-vehicles', [MezziController::class, 'search'])->name('search-vehicles');
             Route::get('/vehicles/{vehicle}/documents', [MezziController::class, 'getDocuments'])->name('vehicle-documents');
+            
+            // API per Scadenze (Expiration)
+            Route::get('/search-expiration', [ExpirationController::class, 'search'])->name('search-expiration');
+            Route::get('/expiration/staff/{staffId}', [ExpirationController::class, 'getByStaff'])->name('expiration.by-staff');
+            Route::get('/expiration/vehicle/{vehicleId}', [ExpirationController::class, 'getByVehicle'])->name('expiration.by-vehicle');
         });
     });
 });

@@ -142,12 +142,14 @@ class EntitiesTable extends Component
         // Ordina
         $query->orderBy($this->sortField, $this->sortDirection);
         
-        // Carica le relazioni e paginate
+        // Carica le relazioni e paginate (INCLUDE createdBy e updatedBy)
         return $query->with([
             'contacts' => function($q) {
                 $q->orderBy('id_settings')->with('setting');
             },
-            'addresses' // Rimuoviamo la relazione addressType che non esiste
+            'addresses',
+            'createdBy',   // <-- AGGIUNTO per il tracciamento
+            'updatedBy'    // <-- AGGIUNTO per il tracciamento
         ])->paginate($this->perPage);
     }
     
@@ -160,7 +162,9 @@ class EntitiesTable extends Component
                 'contacts' => function($q) {
                     $q->orderBy('id_settings')->with('setting');
                 },
-                'addresses' // Rimuoviamo la relazione addressType che non esiste
+                'addresses',
+                'createdBy',   // <-- AGGIUNTO per il tracciamento
+                'updatedBy'    // <-- AGGIUNTO per il tracciamento
             ])->find($id);
             
             if (!$entity) {
@@ -186,7 +190,6 @@ class EntitiesTable extends Component
     
     public function openEditPage($id)
     {
-        // Reindirizza alla pagina di modifica
         return redirect()->route('admin.entities.edit', $id);
     }
     
@@ -249,13 +252,17 @@ class EntitiesTable extends Component
         try {
             $entity = Entity::find($id);
             if ($entity) {
-                $entity->update(['valid' => !$entity->valid]);
+                $entity->update([
+                    'valid' => !$entity->valid,
+                    'updated_by' => auth()->guard('admin')->id(),  // <-- AGGIUNTO
+                    'updated_at' => now()                          // <-- AGGIUNTO
+                ]);
                 $status = $entity->valid ? 'attivato' : 'disattivato';
                 $this->dispatch('showSuccess', message: "Cliente/Fornitore {$status} con successo!");
                 $this->refreshTable();
             }
         } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore durante il cambio di stato');
+            $this->dispatch('showError', message: 'Errore durante il cambio di stato: ' . $e->getMessage());
         }
     }
     
@@ -305,6 +312,8 @@ class EntitiesTable extends Component
         ]);
         
         try {
+            $adminId = auth()->guard('admin')->id();
+            
             $entity = Entity::create([
                 'entity_type' => $this->formTipologia,
                 'ragione_sociale' => $this->formRagioneSociale ?: null,
@@ -317,6 +326,8 @@ class EntitiesTable extends Component
                 'data_inserimento' => now(),
                 'created_at' => now(),
                 'updated_at' => now(),
+                'created_by' => $adminId,  // <-- AGGIUNTO
+                'updated_by' => $adminId   // <-- AGGIUNTO
             ]);
             
             if ($entity) {

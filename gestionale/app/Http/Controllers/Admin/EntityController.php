@@ -69,6 +69,8 @@ class EntityController extends Controller
             'codice_fiscale' => 'nullable|string|max:20',
         ]);
 
+        $adminId = Auth::guard('admin')->id();
+
         $entity = Entity::create([
             'entity_type' => $request->entity_type,
             'ragione_sociale' => $request->ragione_sociale,
@@ -82,6 +84,10 @@ class EntityController extends Controller
             'id_gruppo' => $request->id_gruppo ?? 0,
             'valid' => $request->boolean('valid'),
             'data_inserimento' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+            'created_by' => $adminId,   // <-- AGGIUNTO
+            'updated_by' => $adminId    // <-- AGGIUNTO
         ]);
 
         // Salva i contatti
@@ -103,6 +109,8 @@ class EntityController extends Controller
 
     public function show(Entity $entity)
     {
+        $entity->load(['contacts.setting', 'createdBy', 'updatedBy']);
+        
         $contacts = $entity->contacts()->with('setting')->get();
         $contactsByType = $contacts->groupBy(function($contact) {
             return $contact->setting->valore;
@@ -158,6 +166,8 @@ class EntityController extends Controller
             'codice_sdi' => $request->codice_sdi,
             'id_gruppo' => $request->id_gruppo ?? 0,
             'valid' => $request->boolean('valid'),
+            'updated_by' => Auth::guard('admin')->id(),  // <-- AGGIUNTO
+            'updated_at' => now()                         // <-- AGGIUNTO
         ]);
 
         return redirect()->route('admin.entities.index')
@@ -172,7 +182,11 @@ class EntityController extends Controller
 
     public function toggleStatus(Entity $entity)
     {
-        $entity->update(['valid' => !$entity->valid]);
+        $entity->update([
+            'valid' => !$entity->valid,
+            'updated_by' => Auth::guard('admin')->id(),  // <-- AGGIUNTO
+            'updated_at' => now()                         // <-- AGGIUNTO
+        ]);
         $status = $entity->valid ? 'attivata' : 'disattivata';
         return back()->with('success', "Entità {$status} con successo!");
     }

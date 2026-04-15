@@ -97,6 +97,7 @@ class StaffTable extends Component
             $this->sortField = $field;
             $this->sortDirection = 'asc';
         }
+        $this->resetPage();
     }
     
     public function updatingSearch()
@@ -131,7 +132,8 @@ class StaffTable extends Component
         
         $query->orderBy($this->sortField, $this->sortDirection);
         
-        return $query->paginate($this->perPage);
+        // Carica le relazioni per il tracciamento
+        return $query->with(['createdBy', 'updatedBy'])->paginate($this->perPage);
     }
     
     // ==================== METODI CREAZIONE ====================
@@ -175,6 +177,8 @@ class StaffTable extends Component
         ]);
         
         try {
+            $adminId = auth()->guard('admin')->id();
+            
             $staff = Staff::create([
                 'NomePers' => $this->createNome,
                 'CognomePers' => $this->createCognome,
@@ -189,7 +193,11 @@ class StaffTable extends Component
                 'CapPers' => $this->createCap,
                 'DataNascPers' => $this->createDataNascita,
                 'LuogoNasc' => $this->createLuogoNascita,
-                'valid' => $this->createValid
+                'valid' => $this->createValid,
+                'created_by' => $adminId,
+                'updated_by' => $adminId,
+                'created_at' => now(),
+                'updated_at' => now()
             ]);
             
             $this->closeCreateModal();
@@ -206,7 +214,7 @@ class StaffTable extends Component
     public function viewStaff($id)
     {
         try {
-            $staff = Staff::find($id);
+            $staff = Staff::with(['createdBy', 'updatedBy'])->find($id);
             if (!$staff) {
                 $this->dispatch('showError', message: 'Personale non trovato');
                 return;
@@ -216,6 +224,17 @@ class StaffTable extends Component
         } catch (\Exception $e) {
             $this->dispatch('showError', message: 'Errore nel caricamento dei dettagli: ' . $e->getMessage());
         }
+    }
+
+    // ==================== METODO PER SCADENZE ====================
+
+    public function goToExpiration($staffId)
+    {
+        // Salva i filtri correnti in sessione prima di uscire
+        $this->saveFiltersToSession();
+        
+        // Reindirizza alla pagina delle scadenze con l'ID dello staff
+        return redirect()->route('admin.expiration.index', ['staff_id' => $staffId]);
     }
     
     public function closeViewModal()
@@ -310,7 +329,9 @@ class StaffTable extends Component
                     'CapPers' => $this->editCap,
                     'DataNascPers' => $this->editDataNascita,
                     'LuogoNasc' => $this->editLuogoNascita,
-                    'valid' => $this->editValid
+                    'valid' => $this->editValid,
+                    'updated_by' => auth()->guard('admin')->id(),
+                    'updated_at' => now()
                 ]);
                 
                 $this->closeEditModal();
@@ -333,7 +354,11 @@ class StaffTable extends Component
                 return;
             }
             $newStatus = !$staff->valid;
-            $staff->update(['valid' => $newStatus]);
+            $staff->update([
+                'valid' => $newStatus,
+                'updated_by' => auth()->guard('admin')->id(),
+                'updated_at' => now()
+            ]);
             $statusText = $newStatus ? 'attivato' : 'disattivato';
             $this->dispatch('showSuccess', message: "Personale '{$staff->NomePers} {$staff->CognomePers}' {$statusText} con successo!");
             $this->resetPage();

@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('titolo');
             $table->string('slug')->unique();
             $table->text('descrizione')->nullable();
-            $table->string('tabella_riferimento')->nullable(); // quale tabella usa (contacts, staff_expiry, etc)
+            $table->string('tabella_riferimento')->nullable(); // quale tabella usa (contacts, etc)
             $table->integer('ordinamento')->default(0);
             $table->boolean('valid')->default(1);
             $table->timestamps();

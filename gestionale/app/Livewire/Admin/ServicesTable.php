@@ -6,6 +6,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Service;
 use App\Models\Setting;
+use App\Models\UnitaMisura;
 use Illuminate\Support\Facades\Auth;
 
 class ServicesTable extends Component
@@ -23,11 +24,38 @@ class ServicesTable extends Component
     public $showViewModal = false;
     public $viewingService = null;
     
+    // MODAL MODIFICA - AGGIUNTO
+    public $showEditModal = false;
+    public $editingService = null;
+    public $editingId = null;
+    
+    // Form fields per modifica
+    public $editTitolo = '';
+    public $editCategoria = '';
+    public $editDescrizione = '';
+    public $editDescrFattura = '';
+    public $editPrezzo = '';
+    public $editUnitaMisura = '';
+    public $editStato = true;
+    
     protected $paginationTheme = 'tailwind';
     
     protected $queryString = ['search'];
     
-    // IMPORTANTE: Disabilita la paginazione standard di Livewire
+    // Aggiungi le regole di validazione
+    protected function rules()
+    {
+        return [
+            'editTitolo' => 'required|string|max:255',
+            'editCategoria' => 'nullable|exists:settings,id',
+            'editDescrizione' => 'nullable|string',
+            'editDescrFattura' => 'nullable|string',
+            'editPrezzo' => 'nullable|numeric|min:0',
+            'editUnitaMisura' => 'nullable|exists:unita_misura,id_um',
+            'editStato' => 'boolean'
+        ];
+    }
+    
     protected function paginate($query)
     {
         return $query->paginate($this->perPage);
@@ -67,6 +95,11 @@ class ServicesTable extends Component
             ->get();
     }
     
+    public function getUnitaMisuraProperty()
+    {
+        return UnitaMisura::where('valid', 1)->orderBy('nome')->get();
+    }
+    
     public function getServicesProperty()
     {
         $query = Service::query();
@@ -90,13 +123,13 @@ class ServicesTable extends Component
         
         $query->orderBy($this->sortField, $this->sortDirection);
         
-        return $query->with('category', 'unitaMisura')->paginate($this->perPage);
+        return $query->with(['category', 'unitaMisura', 'createdBy', 'updatedBy'])->paginate($this->perPage);
     }
     
     public function viewService($id)
     {
         try {
-            $service = Service::with('category', 'unitaMisura')->find($id);
+            $service = Service::with(['category', 'unitaMisura', 'createdBy', 'updatedBy'])->find($id);
             
             if (!$service) {
                 session()->flash('error', 'Servizio non trovato');
@@ -117,9 +150,80 @@ class ServicesTable extends Component
         $this->viewingService = null;
     }
     
+    // ==================== METODI MODIFICA ====================
+    
     public function editService($id)
     {
-        return redirect()->route('admin.services.edit', $id);
+        try {
+            $service = Service::with(['category', 'unitaMisura'])->find($id);
+            
+            if (!$service) {
+                $this->dispatch('showError', message: 'Servizio non trovato');
+                return;
+            }
+            
+            $this->editingId = $id;
+            $this->editingService = $service;
+            $this->editTitolo = $service->Titolo;
+            $this->editCategoria = $service->id_categories;
+            $this->editDescrizione = $service->Descrizione;
+            $this->editDescrFattura = $service->Descr_fattura;
+            $this->editPrezzo = $service->Prezzo_un;
+            $this->editUnitaMisura = $service->UnitaMisura_id_unita;
+            $this->editStato = (bool)$service->Stato;
+            
+            $this->showEditModal = true;
+            
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore nel caricamento dei dati: ' . $e->getMessage());
+        }
+    }
+    
+    public function closeEditModal()
+    {
+        $this->showEditModal = false;
+        $this->editingService = null;
+        $this->editingId = null;
+        $this->resetEditForm();
+    }
+    
+    public function resetEditForm()
+    {
+        $this->editTitolo = '';
+        $this->editCategoria = '';
+        $this->editDescrizione = '';
+        $this->editDescrFattura = '';
+        $this->editPrezzo = '';
+        $this->editUnitaMisura = '';
+        $this->editStato = true;
+    }
+    
+    public function updateService()
+    {
+        $this->validate();
+        
+        try {
+            $service = Service::find($this->editingId);
+            if ($service) {
+                $service->update([
+                    'Titolo' => $this->editTitolo,
+                    'id_categories' => $this->editCategoria,
+                    'Descrizione' => $this->editDescrizione,
+                    'Descr_fattura' => $this->editDescrFattura,
+                    'Prezzo_un' => $this->editPrezzo,
+                    'UnitaMisura_id_unita' => $this->editUnitaMisura,
+                    'Stato' => $this->editStato,
+                    'updated_by' => Auth::guard('admin')->id(),
+                    'updated_at' => now()
+                ]);
+                
+                $this->closeEditModal();
+                $this->dispatch('showSuccess', message: 'Servizio aggiornato con successo!');
+                $this->resetPage();
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore durante l\'aggiornamento: ' . $e->getMessage());
+        }
     }
     
     public function toggleStatus($id)
@@ -133,13 +237,17 @@ class ServicesTable extends Component
             }
             
             $newStatus = !$service->Stato;
-            $service->update(['Stato' => $newStatus]);
+            $service->update([
+                'Stato' => $newStatus,
+                'updated_by' => Auth::guard('admin')->id(),
+                'updated_at' => now()
+            ]);
             
             $statusText = $newStatus ? 'attivato' : 'disattivato';
-            session()->flash('success', "Servizio '{$service->Titolo}' {$statusText} con successo!");
+            $this->dispatch('showSuccess', message: "Servizio '{$service->Titolo}' {$statusText} con successo!");
             
         } catch (\Exception $e) {
-            session()->flash('error', 'Errore: ' . $e->getMessage());
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
     
@@ -153,7 +261,6 @@ class ServicesTable extends Component
         $this->resetPage();
     }
     
-    // Metodo per generare una chiave univoca per il componente
     public function getComponentKey()
     {
         return 'services-table-' . $this->getPage() . '-' . md5($this->search . $this->categoryFilter . $this->statusFilter . $this->sortField . $this->sortDirection);
@@ -164,6 +271,7 @@ class ServicesTable extends Component
         return view('livewire.admin.services-table', [
             'services' => $this->services,
             'categories' => $this->categories,
+            'unitaMisura' => $this->unitaMisura,
             'componentKey' => $this->getComponentKey()
         ]);
     }

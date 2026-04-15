@@ -93,21 +93,36 @@
                             <label class="flex items-center cursor-pointer">
                                 <input type="checkbox" class="group-selector mr-2" data-group="{{ $group }}">
                                 <span class="font-semibold text-emerald-800">
-                                    <i class="fas fa-folder-open mr-1"></i> {{ ucfirst($group) }}
+                                    <i class="fas {{ $group == 'expiration' ? 'fa-calendar-alt' : ($group == 'trash' ? 'fa-trash-alt' : 'fa-folder-open') }} mr-1"></i> 
+                                    {{ ucfirst($group) }}
                                 </span>
                             </label>
                         </div>
                         <div class="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                             @foreach($perms as $perm)
-                            <label class="flex items-center space-x-2 cursor-pointer hover:bg-emerald-50 p-1 rounded transition-colors">
-                                <input type="checkbox" name="permissions[]" value="{{ $perm->id }}"
-                                       class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 permission-checkbox"
-                                       data-group="{{ $group }}">
-                                <span class="text-sm text-gray-700">
-                                    <i class="{{ $perm->icon ? 'fas ' . $perm->icon : 'fas fa-check' }} text-emerald-500 mr-1"></i>
-                                    {{ $perm->name }}
-                                </span>
-                            </label>
+                                @php
+                                    $icon = 'fa-check';
+                                    if($group == 'expiration') {
+                                        if(str_contains($perm->slug, 'view')) $icon = 'fa-eye';
+                                        elseif(str_contains($perm->slug, 'create')) $icon = 'fa-plus-circle';
+                                        elseif(str_contains($perm->slug, 'edit')) $icon = 'fa-edit';
+                                        elseif(str_contains($perm->slug, 'delete')) $icon = 'fa-trash-alt';
+                                    } elseif($group == 'trash') {
+                                        if(str_contains($perm->slug, 'view')) $icon = 'fa-eye';
+                                        elseif(str_contains($perm->slug, 'restore')) $icon = 'fa-undo-alt';
+                                        elseif(str_contains($perm->slug, 'force_delete')) $icon = 'fa-skull-crossbones';
+                                        elseif(str_contains($perm->slug, 'empty')) $icon = 'fa-broom';
+                                    }
+                                @endphp
+                                <label class="flex items-center space-x-2 cursor-pointer hover:bg-emerald-50 p-1 rounded transition-colors">
+                                    <input type="checkbox" name="permissions[]" value="{{ $perm->id }}"
+                                           class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 permission-checkbox"
+                                           data-group="{{ $group }}">
+                                    <span class="text-sm text-gray-700">
+                                        <i class="fas {{ $icon }} text-emerald-500 mr-1"></i>
+                                        {{ $perm->name }}
+                                    </span>
+                                </label>
                             @endforeach
                         </div>
                     </div>

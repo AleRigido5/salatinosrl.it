@@ -37,7 +37,7 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Tabella di Riferimento</label>
                     <input type="text" name="tabella_riferimento" value="{{ old('tabella_riferimento') }}"
-                           placeholder="es: contacts, staff_expiry, vehicle_documents"
+                           placeholder="es: contacts, expiration, vehicle_documents"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                     <p class="text-xs text-gray-500 mt-1">Nome della tabella associata a questa categoria</p>
                     @error('tabella_riferimento') <span class="text-xs text-red-500">{{ $message }}</span> @enderror

@@ -23,6 +23,8 @@ class Administrator extends Authenticatable
         'phone',
         'last_login_at',
         'last_login_ip',
+        'created_by',      // <-- AGGIUNTO
+        'updated_by'       // <-- AGGIUNTO
     ];
 
     protected $hidden = [
@@ -33,8 +35,21 @@ class Administrator extends Authenticatable
     protected $casts = [
         'is_active' => 'boolean',
         'last_login_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
+
+    // RELAZIONI PER IL TRACCIAMENTO (self-referencing)
+    public function createdBy()
+    {
+        return $this->belongsTo(Administrator::class, 'created_by', 'id');
+    }
+    
+    public function updatedBy()
+    {
+        return $this->belongsTo(Administrator::class, 'updated_by', 'id');
+    }
 
     /**
      * Relazione con il ruolo

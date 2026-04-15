@@ -32,7 +32,6 @@
                         $currentAdmin = auth()->guard('admin')->user();
                         $isSuperAdmin = $currentAdmin->role_id == 1;
                     } else {
-                        // Fallback: usa auth()->user() se il guard admin non è configurato
                         $currentAdmin = auth()->user();
                         $isSuperAdmin = $currentAdmin && $currentAdmin->role_id == 1;
                     }
@@ -143,7 +142,8 @@
                                        {{ count($perms->whereIn('id', $rolePermissions)) == count($perms) ? 'checked' : '' }}
                                        {{ !$isSuperAdmin ? 'disabled' : '' }}>
                                 <span class="font-semibold text-emerald-800">
-                                    <i class="fas fa-folder-open mr-1"></i> {{ ucfirst($group) }}
+                                    <i class="fas {{ $group == 'expiration' ? 'fa-calendar-alt' : ($group == 'trash' ? 'fa-trash-alt' : 'fa-folder-open') }} mr-1"></i> 
+                                    {{ ucfirst($group) }}
                                 </span>
                             </label>
                         </div>
@@ -162,6 +162,20 @@
                                                        str_contains($perm->slug, 'force_delete_');
                                     
                                     $showPermission = $isSuperAdmin || !$isEditPermission;
+                                    
+                                    // Icone specifiche per gruppo
+                                    $icon = 'fa-check';
+                                    if($group == 'expiration') {
+                                        if(str_contains($perm->slug, 'view')) $icon = 'fa-eye';
+                                        elseif(str_contains($perm->slug, 'create')) $icon = 'fa-plus-circle';
+                                        elseif(str_contains($perm->slug, 'edit')) $icon = 'fa-edit';
+                                        elseif(str_contains($perm->slug, 'delete')) $icon = 'fa-trash-alt';
+                                    } elseif($group == 'trash') {
+                                        if(str_contains($perm->slug, 'view')) $icon = 'fa-eye';
+                                        elseif(str_contains($perm->slug, 'restore')) $icon = 'fa-undo-alt';
+                                        elseif(str_contains($perm->slug, 'force_delete')) $icon = 'fa-skull-crossbones';
+                                        elseif(str_contains($perm->slug, 'empty')) $icon = 'fa-broom';
+                                    }
                                 @endphp
                                 
                                 @if($showPermission)
@@ -172,7 +186,7 @@
                                            {{ in_array($perm->id, $rolePermissions) ? 'checked' : '' }}
                                            {{ !$isSuperAdmin ? 'disabled' : '' }}>
                                     <span class="text-sm text-gray-700">
-                                        <i class="{{ $perm->icon ?? 'fas fa-check' }} text-emerald-500 mr-1"></i>
+                                        <i class="fas {{ $icon }} text-emerald-500 mr-1"></i>
                                         {{ $perm->name }}
                                     </span>
                                 </label>

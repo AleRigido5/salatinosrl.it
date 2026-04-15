@@ -757,8 +757,106 @@
                 </div>
             </div>
             
+            <!-- ========== RIGA 5: TRACCIAMENTO (aggiunto) ========== -->
+            <div class="mb-6">
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
+                        <i class="fas fa-history mr-2 text-indigo-500"></i> Tracciamento
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        <!-- Creato da -->
+                        <div class="bg-white rounded-md p-3 shadow-sm border border-gray-100">
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0">
+                                    <svg class="w-5 h-5 text-green-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                    </svg>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <h4 class="text-sm font-medium text-gray-900">Inserito da</h4>
+                                    <div class="mt-1">
+                                        <p class="text-sm text-gray-700 font-semibold">
+                                            {{ $viewingEntity->createdBy ? $viewingEntity->createdBy->name : 'Sistema' }}
+                                        </p>
+                                        @if($viewingEntity->createdBy && $viewingEntity->createdBy->email)
+                                        <p class="text-xs text-gray-500">{{ $viewingEntity->createdBy->email }}</p>
+                                        @endif
+                                        <p class="text-xs text-gray-400 mt-1">
+                                            <i class="fas fa-calendar-alt mr-1"></i> 
+                                            {{ $viewingEntity->created_at ? $viewingEntity->created_at->format('d/m/Y H:i:s') : ($viewingEntity->data_inserimento ? date('d/m/Y H:i:s', strtotime($viewingEntity->data_inserimento)) : '-') }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Modificato da -->
+                        <div class="bg-white rounded-md p-3 shadow-sm border border-gray-100">
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0">
+                                    <svg class="w-5 h-5 text-blue-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </div>
+                                <div class="ml-3 flex-1">
+                                    <h4 class="text-sm font-medium text-gray-900">Modificato da</h4>
+                                    <div class="mt-1">
+                                        @if($viewingEntity->updated_at && $viewingEntity->created_at != $viewingEntity->updated_at)
+                                            <p class="text-sm text-gray-700 font-semibold">
+                                                {{ $viewingEntity->updatedBy ? $viewingEntity->updatedBy->name : 'Sistema' }}
+                                            </p>
+                                            @if($viewingEntity->updatedBy && $viewingEntity->updatedBy->email)
+                                            <p class="text-xs text-gray-500">{{ $viewingEntity->updatedBy->email }}</p>
+                                            @endif
+                                            <p class="text-xs text-gray-400 mt-1">
+                                                <i class="fas fa-calendar-alt mr-1"></i> 
+                                                {{ $viewingEntity->updated_at->format('d/m/Y H:i:s') }}
+                                            </p>
+                                            <p class="text-xs text-gray-400 mt-1">
+                                                <i class="fas fa-clock mr-1"></i> 
+                                                {{ $viewingEntity->updated_at->diffForHumans() }}
+                                            </p>
+                                        @else
+                                            <p class="text-sm text-gray-400 italic">Mai modificato</p>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Info aggiuntive sul tracciamento -->
+                    @if($viewingEntity->created_at && $viewingEntity->updated_at && $viewingEntity->created_at != $viewingEntity->updated_at)
+                    <div class="mt-3 pt-3 border-t border-gray-200">
+                        <div class="flex items-center justify-between text-xs text-gray-500">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <span>Ultima modifica: {{ $viewingEntity->updated_at->diffForHumans() }}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                </svg>
+                                <span>ID Record: {{ $viewingEntity->id_cliente }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+                </div>
+            </div>
+            <!-- ========== FINE TRACCIAMENTO ========== -->
+            
             <!-- Footer con bottoni -->
             <div class="flex justify-end space-x-3 pt-4 border-t">
+                @if(auth()->guard('admin')->user()->hasPermission('edit_entities'))
+                <button wire:click="redirectToEdit({{ $viewingEntity->id_cliente }})" 
+                        class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
+                    <i class="fas fa-edit mr-2"></i> Modifica
+                </button>
+                @endif
                 <button wire:click="closeViewModal" 
                         class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
                     Chiudi

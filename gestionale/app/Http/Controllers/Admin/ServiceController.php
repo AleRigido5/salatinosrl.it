@@ -53,6 +53,8 @@ class ServiceController extends Controller
             'Stato' => 'boolean'
         ]);
 
+        $adminId = Auth::guard('admin')->id();
+
         $service = Service::create([
             'Titolo' => $request->Titolo,
             'id_categories' => $request->id_categories,
@@ -60,7 +62,9 @@ class ServiceController extends Controller
             'Descr_fattura' => $request->Descr_fattura,
             'Prezzo_un' => $request->Prezzo_un,
             'UnitaMisura_id_unita' => $request->UnitaMisura_id_unita,
-            'Stato' => $request->boolean('Stato', true)
+            'Stato' => $request->boolean('Stato', true),
+            'created_by' => $adminId,   // <-- AGGIUNTO
+            'updated_by' => $adminId    // <-- AGGIUNTO
         ]);
 
         return redirect()->route('admin.services.index')
@@ -115,7 +119,9 @@ class ServiceController extends Controller
             'Descr_fattura' => $request->Descr_fattura,
             'Prezzo_un' => $request->Prezzo_un,
             'UnitaMisura_id_unita' => $request->UnitaMisura_id_unita,
-            'Stato' => $request->boolean('Stato', true)
+            'Stato' => $request->boolean('Stato', true),
+            'updated_by' => Auth::guard('admin')->id(),  // <-- AGGIUNTO
+            'updated_at' => now()                         // <-- AGGIUNTO
         ]);
 
         return redirect()->route('admin.services.index')
@@ -136,7 +142,11 @@ class ServiceController extends Controller
 
     public function toggleStatus(Service $service)
     {
-        $service->update(['Stato' => !$service->Stato]);
+        $service->update([
+            'Stato' => !$service->Stato,
+            'updated_by' => Auth::guard('admin')->id(),  // <-- AGGIUNTO
+            'updated_at' => now()                         // <-- AGGIUNTO
+        ]);
         $status = $service->Stato ? 'attivato' : 'disattivato';
         return back()->with('success', "Servizio {$status} con successo!");
     }

@@ -40,13 +40,14 @@ class EntitiesTable extends Component
     public $showViewModal = false;
     public $viewingEntity = null;
     
-    protected $queryString = ['search', 'typeFilter', 'statusFilter', 'sortField', 'sortDirection'];
+    protected $queryString = ['search', 'typeFilter', 'statusFilter'];
     
     protected $listeners = [
-        'refreshTable' => '$refresh',
+        'refreshTable' => 'refreshTable',
         'openCreateModal' => 'openCreateModal',
         'closeViewModal' => 'closeViewModal',
-        'closeCreateModal' => 'closeCreateModal'
+        'closeCreateModal' => 'closeCreateModal',
+        'redirectToEdit' => 'redirectToEdit'
     ];
     
     public function refreshTable()
@@ -92,95 +93,62 @@ class EntitiesTable extends Component
     
     public function getEntitiesProperty()
     {
-        // Prima query per ottenere gli ID delle entità filtrate
-        $idsQuery = Entity::query();
+        $query = Entity::query();
         
-        // Applica i filtri di ricerca
+        // Filtro di ricerca
         if ($this->search) {
             $searchTerm = '%' . $this->search . '%';
-            
-            $idsQuery->where(function($q) use ($searchTerm) {
+            $query->where(function($q) use ($searchTerm) {
                 $q->where('ragione_sociale', 'like', $searchTerm)
-                ->orWhere('nome', 'like', $searchTerm)
-                ->orWhere('cognome', 'like', $searchTerm)
-                ->orWhere('email', 'like', $searchTerm)
-                ->orWhere('pec', 'like', $searchTerm)
-                ->orWhere('partita_iva', 'like', $searchTerm)
-                ->orWhere('codice_fiscale', 'like', $searchTerm)
-                ->orWhere('persona_riferimento', 'like', $searchTerm)
-                // Ricerca su address
-                ->orWhereExists(function($subq) use ($searchTerm) {
-                    $subq->select(DB::raw(1))
-                        ->from('address')
-                        ->whereColumn('address.clienti_id_cliente', 'entities.id_cliente')
-                        ->where(function($add) use ($searchTerm) {
-                            $add->where('address.indirizzo', 'like', $searchTerm)
-                                ->orWhere('address.citta', 'like', $searchTerm)
-                                ->orWhere('address.provincia', 'like', $searchTerm)
-                                ->orWhere('address.cap', 'like', $searchTerm);
-                        });
-                })
-                // Ricerca su contacts
-                ->orWhereExists(function($subq) use ($searchTerm) {
-                    $subq->select(DB::raw(1))
-                        ->from('contacts')
-                        ->whereColumn('contacts.id_entities', 'entities.id_cliente')
-                        ->where('contacts.valore', 'like', $searchTerm);
-                });
+                  ->orWhere('nome', 'like', $searchTerm)
+                  ->orWhere('cognome', 'like', $searchTerm)
+                  ->orWhere('email', 'like', $searchTerm)
+                  ->orWhere('pec', 'like', $searchTerm)
+                  ->orWhere('partita_iva', 'like', $searchTerm)
+                  ->orWhere('codice_fiscale', 'like', $searchTerm)
+                  ->orWhere('persona_riferimento', 'like', $searchTerm)
+                  // Ricerca su address
+                  ->orWhereExists(function($subq) use ($searchTerm) {
+                      $subq->select(DB::raw(1))
+                          ->from('address')
+                          ->whereColumn('address.clienti_id_cliente', 'entities.id_cliente')
+                          ->where(function($add) use ($searchTerm) {
+                              $add->where('address.indirizzo', 'like', $searchTerm)
+                                  ->orWhere('address.citta', 'like', $searchTerm)
+                                  ->orWhere('address.provincia', 'like', $searchTerm)
+                                  ->orWhere('address.cap', 'like', $searchTerm);
+                          });
+                  })
+                  // Ricerca su contacts
+                  ->orWhereExists(function($subq) use ($searchTerm) {
+                      $subq->select(DB::raw(1))
+                          ->from('contacts')
+                          ->whereColumn('contacts.id_entities', 'entities.id_cliente')
+                          ->where('contacts.valore', 'like', $searchTerm);
+                  });
             });
         }
         
         // Filtro per tipo entità
         if ($this->typeFilter) {
-            $idsQuery->where('entity_type', $this->typeFilter);
+            $query->where('entity_type', $this->typeFilter);
         }
         
         // Filtro per stato
         if ($this->statusFilter !== '') {
-            $idsQuery->where('valid', $this->statusFilter === 'active');
-        }
-        
-        // Ottieni gli ID totali per il conteggio corretto
-        $totalIds = $idsQuery->count();
-        
-        // Ora esegui la query principale con paginazione usando gli ID
-        $query = Entity::query();
-        
-        // Applica gli stessi filtri
-        if ($this->search) {
-            $searchTerm = '%' . $this->search . '%';
-            $query->where(function($q) use ($searchTerm) {
-                $q->where('ragione_sociale', 'like', $searchTerm)
-                ->orWhere('nome', 'like', $searchTerm)
-                ->orWhere('cognome', 'like', $searchTerm)
-                ->orWhere('email', 'like', $searchTerm)
-                ->orWhere('pec', 'like', $searchTerm)
-                ->orWhere('partita_iva', 'like', $searchTerm)
-                ->orWhere('codice_fiscale', 'like', $searchTerm)
-                ->orWhere('persona_riferimento', 'like', $searchTerm);
-            });
-        }
-        
-        if ($this->typeFilter) {
-            $query->where('entity_type', $this->typeFilter);
-        }
-        
-        if ($this->statusFilter !== '') {
             $query->where('valid', $this->statusFilter === 'active');
         }
         
-        // Ordina e paginate
+        // Ordina
         $query->orderBy($this->sortField, $this->sortDirection);
         
-        // Carica le relazioni
-        $entities = $query->with(['contacts' => function($q) {
-            $q->orderBy('id_settings');
-        }])->paginate($this->perPage);
-        
-        // Forza il conteggio corretto
-        $entities->setCollection($entities->getCollection());
-        
-        return $entities;
+        // Carica le relazioni e paginate
+        return $query->with([
+            'contacts' => function($q) {
+                $q->orderBy('id_settings')->with('setting');
+            },
+            'addresses' // Rimuoviamo la relazione addressType che non esiste
+        ])->paginate($this->perPage);
     }
     
     // ==================== METODI VISUALIZZAZIONE ====================
@@ -188,9 +156,12 @@ class EntitiesTable extends Component
     public function viewEntity($id)
     {
         try {
-            $entity = Entity::with(['contacts' => function($q) {
-                $q->with('setting');
-            }, 'addresses'])->find($id);
+            $entity = Entity::with([
+                'contacts' => function($q) {
+                    $q->orderBy('id_settings')->with('setting');
+                },
+                'addresses' // Rimuoviamo la relazione addressType che non esiste
+            ])->find($id);
             
             if (!$entity) {
                 $this->dispatch('showError', message: 'Cliente/Fornitore non trovato');
@@ -215,8 +186,13 @@ class EntitiesTable extends Component
     
     public function openEditPage($id)
     {
-        // Dispatch evento per redirect via JavaScript
-        $this->dispatch('redirectToEdit', id: $id);
+        // Reindirizza alla pagina di modifica
+        return redirect()->route('admin.entities.edit', $id);
+    }
+    
+    public function redirectToEdit($id)
+    {
+        return redirect()->route('admin.entities.edit', $id);
     }
     
     // ==================== METODI ELIMINAZIONE ====================
@@ -325,10 +301,11 @@ class EntitiesTable extends Component
         $this->validate([
             'formTipologia' => 'required|in:cliente,fornitore,entrambi',
             'formEmail' => 'nullable|email',
+            'formPartitaIva' => 'nullable|string|max:20',
         ]);
         
         try {
-            $id = DB::table('entities')->insertGetId([
+            $entity = Entity::create([
                 'entity_type' => $this->formTipologia,
                 'ragione_sociale' => $this->formRagioneSociale ?: null,
                 'nome' => $this->formNome ?: null,
@@ -342,12 +319,12 @@ class EntitiesTable extends Component
                 'updated_at' => now(),
             ]);
             
-            if ($id) {
+            if ($entity) {
                 $this->closeCreateModal();
                 $this->dispatch('showSuccess', message: 'Cliente/Fornitore creato con successo!');
                 $this->refreshTable();
             } else {
-                throw new \Exception('Nessun ID restituito');
+                throw new \Exception('Errore durante la creazione');
             }
             
         } catch (\Exception $e) {

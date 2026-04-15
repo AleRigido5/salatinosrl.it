@@ -22,9 +22,9 @@
             @method('PUT')
             
             <div class="p-6">
-                <!-- PRIMA RIGA: Ragione Sociale e Tipologia -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div>
+                <!-- RIGA 1: Ragione Sociale (col 6), Tipologia (col 4), Stato account (col 2) -->
+                <div class="grid grid-cols-12 gap-4 mb-6">
+                    <div class="col-span-12 md:col-span-6">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Ragione Sociale</label>
                         <input type="text" 
                                name="ragione_sociale" 
@@ -34,7 +34,7 @@
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     
-                    <div>
+                    <div class="col-span-12 md:col-span-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1">
                             Tipologia <span class="text-red-500">*</span>
                         </label>
@@ -49,11 +49,27 @@
                         </select>
                         @error('entity_type') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
                     </div>
+                    
+                    <div class="col-span-12 md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Stato Account</label>
+                        <div class="mt-1">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" 
+                                       name="valid" 
+                                       id="valid"
+                                       value="1" 
+                                       onchange="enableUpdateButton()"
+                                       {{ old('valid', $entity->valid) ? 'checked' : '' }}
+                                       class="rounded border-gray-300 text-green-600 shadow-sm focus:border-green-300 focus:ring focus:ring-green-200">
+                                <span class="ml-2 text-sm text-gray-700">Account attivo</span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- SECONDA RIGA: Cognome e Nome -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    <div>
+                <!-- RIGA 2: Cognome (col 3), Nome (col 3), Persona di Riferimento (col 6) -->
+                <div class="grid grid-cols-12 gap-4 mb-6">
+                    <div class="col-span-12 md:col-span-3">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
                         <input type="text" 
                                name="cognome"
@@ -63,7 +79,7 @@
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     
-                    <div>
+                    <div class="col-span-12 md:col-span-3">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
                         <input type="text" 
                                name="nome"
@@ -72,11 +88,8 @@
                                oninput="enableUpdateButton()"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
-                </div>
-
-                <!-- TERZA RIGA: Persona Riferimento e P.IVA -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <div>
+                    
+                    <div class="col-span-12 md:col-span-6">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Persona di Riferimento</label>
                         <input type="text" 
                                name="persona_riferimento"
@@ -85,13 +98,26 @@
                                oninput="enableUpdateButton()"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
-                    
-                    <div>
+                </div>
+
+                <!-- RIGA 3: Partita IVA (col 6) e Codice Fiscale (col 6) -->
+                <div class="grid grid-cols-12 gap-4 mb-8">
+                    <div class="col-span-12 md:col-span-6">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Partita IVA</label>
                         <input type="text" 
                                name="partita_iva"
                                id="partita_iva"
                                value="{{ old('partita_iva', $entity->partita_iva) }}"
+                               oninput="enableUpdateButton()"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div class="col-span-12 md:col-span-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
+                        <input type="text" 
+                               name="codice_fiscale"
+                               id="codice_fiscale"
+                               value="{{ old('codice_fiscale', $entity->codice_fiscale) }}"
                                oninput="enableUpdateButton()"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
@@ -106,7 +132,7 @@
                         <i class="fas fa-file-invoice-dollar mr-2 text-green-500"></i> Dati Fattura Elettronica
                     </h3>
                     
-                    <div class="grid grid-cols-1 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">PEC (Posta Elettronica Certificata)</label>
                             <input type="email" 
@@ -132,45 +158,16 @@
                             <p class="text-xs text-gray-500 mt-1">Codice a 7 caratteri per la ricezione delle fatture elettroniche</p>
                         </div>
                     </div>
-                    
-                    <div class="mt-4 p-3 bg-blue-50 rounded-md border border-blue-200">
-                        <div class="flex items-start">
-                            <i class="fas fa-info-circle text-blue-500 mt-0.5 mr-2"></i>
-                            <div class="text-sm text-blue-700">
-                                <p class="font-medium mb-1">Informazione:</p>
-                                <p>Il codice SDI (codice destinatario) è obbligatorio per ricevere fatture elettroniche dalla Pubblica Amministrazione. Se non specificato, verrà utilizzata la PEC.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- STATO ACCOUNT -->
-                <div class="mb-6">
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h3 class="text-md font-semibold text-gray-800 mb-3">
-                            <i class="fas fa-toggle-on mr-2 text-purple-500"></i> Stato Account
-                        </h3>
-                        <label class="inline-flex items-center">
-                            <input type="checkbox" 
-                                   name="valid" 
-                                   id="valid"
-                                   value="1" 
-                                   onchange="enableUpdateButton()"
-                                   {{ old('valid', $entity->valid) ? 'checked' : '' }}
-                                   class="rounded border-gray-300 text-green-600 shadow-sm focus:border-green-300 focus:ring focus:ring-green-200">
-                            <span class="ml-2 text-sm text-gray-700">Account attivo</span>
-                        </label>
-                    </div>
                 </div>
             </div>
             
-            <!-- BOTTONE AGGIORNA -->
+            <!-- BOTTONE AGGIORNA al centro -->
             <div class="px-6 pb-4">
-                <div class="flex justify-end">
+                <div class="flex justify-center">
                     <button type="submit" 
                             id="updateButton"
                             disabled
-                            class="px-6 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            class="px-8 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         <i class="fas fa-save mr-2"></i> Aggiorna Anagrafica
                     </button>
                 </div>
@@ -201,6 +198,7 @@ const originalValues = {
     nome: document.getElementById('nome')?.value || '',
     persona_riferimento: document.getElementById('persona_riferimento')?.value || '',
     partita_iva: document.getElementById('partita_iva')?.value || '',
+    codice_fiscale: document.getElementById('codice_fiscale')?.value || '',
     pec: document.getElementById('pec')?.value || '',
     codice_sdi: document.getElementById('codice_sdi')?.value || '',
     valid: document.getElementById('valid')?.checked || false
@@ -216,6 +214,7 @@ function enableUpdateButton() {
         document.getElementById('nome')?.value !== originalValues.nome ||
         document.getElementById('persona_riferimento')?.value !== originalValues.persona_riferimento ||
         document.getElementById('partita_iva')?.value !== originalValues.partita_iva ||
+        document.getElementById('codice_fiscale')?.value !== originalValues.codice_fiscale ||
         document.getElementById('pec')?.value !== originalValues.pec ||
         document.getElementById('codice_sdi')?.value !== originalValues.codice_sdi ||
         document.getElementById('valid')?.checked !== originalValues.valid;

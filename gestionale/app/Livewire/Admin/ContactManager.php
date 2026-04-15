@@ -35,7 +35,10 @@ class ContactManager extends Component
     public $contactToDelete = null;
     public $contactToDeleteName = '';
     
-    protected $listeners = ['refreshContacts' => 'loadContacts'];
+    protected $listeners = [
+        'refreshContacts' => 'loadContacts',
+        'hideNotification' => 'hideNotification'
+    ];
     
     public function mount($entityId)
     {
@@ -208,8 +211,8 @@ class ContactManager extends Component
         $this->notificationType = $type;
         $this->showNotification = true;
         
-        // Auto-hide dopo 3 secondi
-        $this->dispatch('hide-notification');
+        // Dispatch event per nascondere la notifica dopo 3 secondi
+        $this->dispatch('hide-notification-after-3-seconds');
     }
     
     public function hideNotification()

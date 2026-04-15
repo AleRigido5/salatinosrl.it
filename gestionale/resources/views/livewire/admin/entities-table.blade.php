@@ -499,15 +499,16 @@
     <!-- Modal di visualizzazione dettagli -->
     @if($showViewModal && $viewingEntity)
     <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
-         x-data="{ show: true }" 
-         x-show="show" 
-         x-transition.opacity.duration.200ms>
+        x-data="{ show: true }" 
+        x-show="show" 
+        x-transition.opacity.duration.200ms>
         
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl p-6 max-h-[90vh] overflow-y-auto" 
-             x-on:click.away="show = false; $wire.closeViewModal()"
-             x-transition.scale.origin.top>
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-6xl p-6 max-h-[90vh] overflow-y-auto" 
+            x-on:click.away="show = false; $wire.closeViewModal()"
+            x-transition.scale.origin.top>
             
-            <div class="flex justify-between items-center mb-6 border-b pb-3">
+            <!-- Header con stato -->
+            <div class="flex justify-between items-start mb-6 border-b pb-3">
                 <div class="flex items-center space-x-3">
                     <div class="flex-shrink-0 h-12 w-12 rounded-full flex items-center justify-center
                         @if($viewingEntity->entity_type == 'cliente') bg-lime-100
@@ -533,212 +534,231 @@
                         </span>
                     </div>
                 </div>
-                <button wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
+                <div class="flex items-center space-x-3">
+                    <!-- Badge Stato -->
+                    <div class="px-3 py-1 rounded-full text-sm font-semibold
+                        {{ $viewingEntity->valid ? 'bg-lime-100 text-lime-800 border border-lime-200' : 'bg-red-100 text-red-800 border border-red-200' }}">
+                        <i class="fas {{ $viewingEntity->valid ? 'fa-check-circle' : 'fa-times-circle' }} mr-1"></i>
+                        {{ $viewingEntity->valid ? 'Attivo' : 'Disattivo' }}
+                    </div>
+                    <button wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="space-y-4">
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
-                            <i class="fas fa-info-circle mr-2 text-blue-500"></i> Informazioni Anagrafiche
-                        </h3>
-                        <div class="space-y-2">
-                            @if($viewingEntity->ragione_sociale)
-                            <div class="flex">
-                                <span class="w-32 text-gray-600 font-medium">Ragione Sociale:</span>
-                                <span class="text-gray-800">{{ $viewingEntity->ragione_sociale }}</span>
+            <!-- RIGA 1: Informazioni Anagrafiche (full width) -->
+            <div class="mb-6">
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
+                        <i class="fas fa-info-circle mr-2 text-blue-500"></i> Informazioni Anagrafiche
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Cognome e Nome -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <span class="text-gray-600 font-medium text-sm block">Cognome</span>
+                                <span class="text-gray-800">{{ $viewingEntity->cognome ?: '-' }}</span>
                             </div>
-                            @endif
-                            
-                            @if($viewingEntity->nome || $viewingEntity->cognome)
-                            <div class="flex">
-                                <span class="w-32 text-gray-600 font-medium">Nome/Cognome:</span>
-                                <span class="text-gray-800">{{ $viewingEntity->nome }} {{ $viewingEntity->cognome }}</span>
+                            <div>
+                                <span class="text-gray-600 font-medium text-sm block">Nome</span>
+                                <span class="text-gray-800">{{ $viewingEntity->nome ?: '-' }}</span>
                             </div>
-                            @endif
-                            
-                            @if($viewingEntity->persona_riferimento)
-                            <div class="flex">
-                                <span class="w-32 text-gray-600 font-medium">Riferimento:</span>
-                                <span class="text-gray-800">{{ $viewingEntity->persona_riferimento }}</span>
+                        </div>
+                        
+                        <!-- Persona di Riferimento -->
+                        <div>
+                            <span class="text-gray-600 font-medium text-sm block">Persona di Riferimento</span>
+                            <span class="text-gray-800">{{ $viewingEntity->persona_riferimento ?: '-' }}</span>
+                        </div>
+                        
+                        <!-- Partita IVA e Codice Fiscale -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <span class="text-gray-600 font-medium text-sm block">Partita IVA</span>
+                                <span class="text-gray-800 font-mono text-sm">{{ $viewingEntity->partita_iva ?: '-' }}</span>
                             </div>
-                            @endif
-                            
-                            @if($viewingEntity->partita_iva)
-                            <div class="flex">
-                                <span class="w-32 text-gray-600 font-medium">Partita IVA:</span>
-                                <span class="text-gray-800 font-mono">{{ $viewingEntity->partita_iva }}</span>
+                            <div>
+                                <span class="text-gray-600 font-medium text-sm block">Codice Fiscale</span>
+                                <span class="text-gray-800 font-mono text-sm">{{ $viewingEntity->codice_fiscale ?: '-' }}</span>
                             </div>
-                            @endif
-                            
-                            @if($viewingEntity->codice_fiscale)
-                            <div class="flex">
-                                <span class="w-32 text-gray-600 font-medium">Codice Fiscale:</span>
-                                <span class="text-gray-800 font-mono">{{ $viewingEntity->codice_fiscale }}</span>
-                            </div>
-                            @endif
                         </div>
                     </div>
-                    
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
-                            <i class="fas fa-file-invoice-dollar mr-2 text-lime-500"></i> Dati Fattura Elettronica
-                        </h3>
-                        <div class="space-y-2">
-                            @if($viewingEntity->pec)
-                            <div class="flex">
-                                <span class="w-32 text-gray-600 font-medium">PEC:</span>
-                                <span class="text-gray-800">{{ $viewingEntity->pec }}</span>
-                            </div>
-                            @else
-                            <div class="flex">
-                                <span class="w-32 text-gray-600 font-medium">PEC:</span>
-                                <span class="text-gray-400 italic">Non impostata</span>
-                            </div>
-                            @endif
-                            
-                            @if($viewingEntity->codice_sdi)
-                            <div class="flex">
-                                <span class="w-32 text-gray-600 font-medium">Codice SDI:</span>
-                                <span class="text-gray-800 font-mono">{{ $viewingEntity->codice_sdi }}</span>
-                            </div>
-                            @else
-                            <div class="flex">
-                                <span class="w-32 text-gray-600 font-medium">Codice SDI:</span>
-                                <span class="text-gray-400 italic">Non impostato</span>
-                            </div>
-                            @endif
+                </div>
+            </div>
+            
+            <!-- RIGA 2: Dati Fattura Elettronica e Date (affiancati) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- Dati Fattura Elettronica -->
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
+                        <i class="fas fa-file-invoice-dollar mr-2 text-lime-500"></i> Dati Fattura Elettronica
+                    </h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-gray-600 font-medium text-sm block">PEC</span>
+                            <span class="text-gray-800 text-sm break-all">{{ $viewingEntity->pec ?: '-' }}</span>
                         </div>
-                    </div>
-                    
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
-                            <i class="fas fa-calendar-alt mr-2 text-purple-500"></i> Stato e Date
-                        </h3>
-                        <div class="space-y-2">
-                            <div class="flex">
-                                <span class="w-32 text-gray-600 font-medium">Stato:</span>
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                    {{ $viewingEntity->valid ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
-                                    {{ $viewingEntity->valid ? 'Attivo' : 'Disattivo' }}
-                                </span>
-                            </div>
-                            <div class="flex">
-                                <span class="w-32 text-gray-600 font-medium">Data inserimento:</span>
-                                <span class="text-gray-800">{{ $viewingEntity->created_at ? $viewingEntity->created_at->format('d/m/Y H:i') : ($viewingEntity->data_inserimento ? date('d/m/Y H:i', strtotime($viewingEntity->data_inserimento)) : '-') }}</span>
-                            </div>
-                            @if($viewingEntity->updated_at && $viewingEntity->updated_at != $viewingEntity->created_at)
-                            <div class="flex">
-                                <span class="w-32 text-gray-600 font-medium">Ultima modifica:</span>
-                                <span class="text-gray-800">{{ $viewingEntity->updated_at->format('d/m/Y H:i') }}</span>
-                            </div>
-                            @endif
+                        <div>
+                            <span class="text-gray-600 font-medium text-sm block">Codice SDI</span>
+                            <span class="text-gray-800 font-mono text-sm">{{ $viewingEntity->codice_sdi ?: '-' }}</span>
                         </div>
                     </div>
                 </div>
                 
-                <div class="space-y-4">
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
-                            <i class="fas fa-address-card mr-2 text-orange-500"></i> Contatti
-                        </h3>
-                        <div class="space-y-3">
-                            @if($viewingEntity->email)
-                            <div class="flex items-start">
-                                <i class="fas fa-envelope w-5 text-gray-500 mt-1 mr-3"></i>
-                                <div>
-                                    <span class="text-gray-600 font-medium block text-sm">Email</span>
-                                    <a href="mailto:{{ $viewingEntity->email }}" class="text-blue-600 hover:text-blue-800">
-                                        {{ $viewingEntity->email }}
-                                    </a>
-                                </div>
-                            </div>
-                            @endif
-                            
-                            @php
-                                $phoneContact = $viewingEntity->contacts->firstWhere('id_settings', 1);
-                                $mobileContact = $viewingEntity->contacts->firstWhere('id_settings', 2);
-                                $faxContact = $viewingEntity->contacts->firstWhere('id_settings', 3);
-                                $emailContact = $viewingEntity->contacts->firstWhere('id_settings', 4);
-                                $otherContacts = $viewingEntity->contacts->filter(function($c) {
-                                    return !in_array($c->id_settings, [1, 2, 3, 4]);
-                                });
-                            @endphp
-                            
-                            @if($phoneContact)
-                            <div class="flex items-start">
-                                <i class="fas fa-phone w-5 text-gray-500 mt-1 mr-3"></i>
-                                <div>
-                                    <span class="text-gray-600 font-medium block text-sm">Telefono</span>
-                                    <a href="tel:{{ $phoneContact->valore }}" class="text-gray-800">
-                                        {{ $phoneContact->valore }}
-                                    </a>
-                                </div>
-                            </div>
-                            @endif
-                            
-                            @if($mobileContact)
-                            <div class="flex items-start">
-                                <i class="fab fa-whatsapp w-5 text-lime-500 mt-1 mr-3"></i>
-                                <div>
-                                    <span class="text-gray-600 font-medium block text-sm">Cellulare / WhatsApp</span>
-                                    <a href="tel:{{ $mobileContact->valore }}" class="text-gray-800">
-                                        {{ $mobileContact->valore }}
-                                    </a>
-                                </div>
-                            </div>
-                            @endif
-                            
-                            @if($faxContact)
-                            <div class="flex items-start">
-                                <i class="fas fa-fax w-5 text-gray-500 mt-1 mr-3"></i>
-                                <div>
-                                    <span class="text-gray-600 font-medium block text-sm">Fax</span>
-                                    <span class="text-gray-800">{{ $faxContact->valore }}</span>
-                                </div>
-                            </div>
-                            @endif
-                            
-                            @if($emailContact)
-                            <div class="flex items-start">
-                                <i class="fas fa-envelope w-5 text-gray-500 mt-1 mr-3"></i>
-                                <div>
-                                    <span class="text-gray-600 font-medium block text-sm">Email (contatto)</span>
-                                    <a href="mailto:{{ $emailContact->valore }}" class="text-blue-600 hover:text-blue-800">
-                                        {{ $emailContact->valore }}
-                                    </a>
-                                </div>
-                            </div>
-                            @endif
-                            
-                            @foreach($otherContacts as $contact)
-                            <div class="flex items-start">
-                                <i class="fas fa-address-card w-5 text-gray-500 mt-1 mr-3"></i>
-                                <div>
-                                    <span class="text-gray-600 font-medium block text-sm">
-                                        {{ $contact->setting->nome ?? 'Altro contatto' }}
-                                    </span>
-                                    <span class="text-gray-800">{{ $contact->valore }}</span>
-                                </div>
-                            </div>
-                            @endforeach
-                            
-                            @if(!$viewingEntity->email && !$phoneContact && !$mobileContact && !$faxContact && !$emailContact && $otherContacts->isEmpty())
-                            <div class="text-center py-4">
-                                <i class="fas fa-ban text-gray-400 text-3xl mb-2"></i>
-                                <p class="text-gray-500">Nessun contatto disponibile</p>
-                            </div>
-                            @endif
+                <!-- Date e Informazioni -->
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
+                        <i class="fas fa-calendar-alt mr-2 text-purple-500"></i> Date e Informazioni
+                    </h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-gray-600 font-medium text-sm block">Data inserimento</span>
+                            <span class="text-gray-800 text-sm">{{ $viewingEntity->created_at ? $viewingEntity->created_at->format('d/m/Y H:i') : ($viewingEntity->data_inserimento ? date('d/m/Y H:i', strtotime($viewingEntity->data_inserimento)) : '-') }}</span>
+                        </div>
+                        @if($viewingEntity->updated_at && $viewingEntity->updated_at != $viewingEntity->created_at)
+                        <div>
+                            <span class="text-gray-600 font-medium text-sm block">Ultima modifica</span>
+                            <span class="text-gray-800 text-sm">{{ $viewingEntity->updated_at->format('d/m/Y H:i') }}</span>
+                        </div>
+                        @endif
+                        <div>
+                            <span class="text-gray-600 font-medium text-sm block">ID</span>
+                            <span class="text-gray-800 text-sm font-mono">{{ $viewingEntity->id_cliente }}</span>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+            <!-- RIGA 3: Tabella Indirizzi (full width) -->
+            <div class="mb-6">
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
+                        <i class="fas fa-map-marker-alt mr-2 text-orange-500"></i> Indirizzi
+                    </h3>
+                    @if($viewingEntity->addresses && $viewingEntity->addresses->count() > 0)
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Sede</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Indirizzo</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Città</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Provincia</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">CAP</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Nazione</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                @foreach($viewingEntity->addresses as $address)
+                                <tr>
+                                    <td class="px-3 py-2 text-gray-700 font-medium">
+                                        @php
+                                            // Formatta il nome della sede in modo più leggibile
+                                            $nomeSede = $address->sede ?? '-';
+                                            if($nomeSede == 'principale') $nomeSede = 'Sede Principale';
+                                            elseif($nomeSede == 'legale') $nomeSede = 'Sede Legale';
+                                            elseif($nomeSede == 'operativa') $nomeSede = 'Sede Operativa';
+                                            elseif($nomeSede == 'amministrativa') $nomeSede = 'Sede Amministrativa';
+                                            elseif($nomeSede == 'fiscale') $nomeSede = 'Sede Fiscale';
+                                        @endphp
+                                        {{ $nomeSede }}
+                                    </div>
+                                    <td class="px-3 py-2 text-gray-700">{{ $address->indirizzo ?: '-' }}</div>
+                                    <td class="px-3 py-2 text-gray-700">{{ $address->citta ?: '-' }}</div>
+                                    <td class="px-3 py-2 text-gray-700">{{ $address->provincia ?: '-' }}</div>
+                                    <td class="px-3 py-2 text-gray-700">{{ $address->cap ?: '-' }}</div>
+                                    <td class="px-3 py-2 text-gray-700">{{ $address->nazione ?: 'Italia' }}</div>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    @else
+                    <p class="text-gray-500 text-sm text-center py-4">
+                        <i class="fas fa-map-marker-alt text-gray-400 mr-1"></i> Nessun indirizzo disponibile
+                    </p>
+                    @endif
+                </div>
+            </div>
+            
+            <!-- RIGA 4: Tabella Contatti (full width) -->
+            <div class="mb-6">
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
+                        <i class="fas fa-address-card mr-2 text-purple-500"></i> Contatti
+                    </h3>
+                    @if($viewingEntity->contacts && $viewingEntity->contacts->count() > 0)
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Tipo</th>
+                                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Valore</th>
+                                    <th class="px-3 py-2 text-center text-xs font-medium text-gray-500">Principale</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                @foreach($viewingEntity->contacts as $contact)
+                                <tr>
+                                    <td class="px-3 py-2 text-gray-700">
+                                        @php
+                                            $icona = 'fa-phone';
+                                            $tipoContatto = $contact->setting->valore ?? $contact->tipo ?? 'Contatto';
+                                            if(str_contains(strtolower($tipoContatto), 'cell') || str_contains(strtolower($tipoContatto), 'mobile') || str_contains(strtolower($tipoContatto), 'cellulare')) {
+                                                $icona = 'fa-mobile-alt';
+                                            } elseif(str_contains(strtolower($tipoContatto), 'fax')) {
+                                                $icona = 'fa-fax';
+                                            } elseif(str_contains(strtolower($tipoContatto), 'email')) {
+                                                $icona = 'fa-envelope';
+                                            } elseif(str_contains(strtolower($tipoContatto), 'whatsapp')) {
+                                                $icona = 'fa-whatsapp';
+                                            } elseif(str_contains(strtolower($tipoContatto), 'telefono')) {
+                                                $icona = 'fa-phone';
+                                            }
+                                        @endphp
+                                        <i class="fas {{ $icona }} text-gray-500 mr-2 w-4"></i>
+                                        {{ $tipoContatto }}
+                                    </div>
+                                    <td class="px-3 py-2">
+                                        @if(filter_var($contact->valore, FILTER_VALIDATE_EMAIL))
+                                            <a href="mailto:{{ $contact->valore }}" class="text-blue-600 hover:text-blue-800">
+                                                {{ $contact->valore }}
+                                            </a>
+                                        @elseif(preg_match('/^[0-9+\-\s\(\)]+$/', $contact->valore))
+                                            <a href="tel:{{ $contact->valore }}" class="text-gray-800 hover:text-blue-600">
+                                                {{ $contact->valore }}
+                                            </a>
+                                        @else
+                                            <span class="text-gray-800">{{ $contact->valore }}</span>
+                                        @endif
+                                    </div>
+                                    <td class="px-3 py-2 text-center">
+                                        @if($contact->principale)
+                                            <span class="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                <i class="fas fa-check-circle mr-1"></i> Principale
+                                            </span>
+                                        @else
+                                            <span class="text-gray-400 text-xs">-</span>
+                                        @endif
+                                    </div>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    @else
+                    <p class="text-gray-500 text-sm text-center py-4">
+                        <i class="fas fa-address-card text-gray-400 mr-1"></i> Nessun contatto disponibile
+                    </p>
+                    @endif
+                </div>
+            </div>
+            
+            <!-- Footer con bottoni -->
+            <div class="flex justify-end space-x-3 pt-4 border-t">
                 <button wire:click="closeViewModal" 
                         class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
                     Chiudi

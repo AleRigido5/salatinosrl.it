@@ -1,256 +1,201 @@
 <div>
-    <!-- Modal di notifica -->
-    @if($showNotification)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 transition-opacity duration-300"
-         x-data="{ show: true }"
-         x-show="show"
-         x-transition.opacity.duration.200ms
-         @hide-notification.window="setTimeout(() => show = false, 3000)">
-        
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6 transform transition-all duration-300"
-             x-show="show"
-             x-transition.scale.origin.top>
-            
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    @if($notificationType == 'success')
-                        <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                        </div>
-                    @elseif($notificationType == 'error')
-                        <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </div>
-                    @else
-                        <div class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center">
-                            <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                            </svg>
-                        </div>
-                    @endif
-                </div>
-                <div class="ml-4">
-                    <h3 class="text-lg font-medium text-gray-900">
-                        {{ $notificationType == 'success' ? 'Successo!' : ($notificationType == 'error' ? 'Errore!' : 'Attenzione!') }}
-                    </h3>
-                    <p class="text-sm text-gray-500 mt-1">{{ $notificationMessage }}</p>
-                </div>
-            </div>
-            
-            <div class="mt-4 flex justify-end">
-                <button type="button"
-                        wire:click="hideNotification"
-                        class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm transition-colors">
-                    Chiudi
-                </button>
-            </div>
-        </div>
+    <script>
+        document.addEventListener('livewire:init', function () {
+            // Ascolta l'evento per nascondere la notifica dopo 3 secondi
+            Livewire.on('hide-notification-after-3-seconds', () => {
+                setTimeout(() => {
+                    Livewire.dispatch('hideNotification');
+                }, 3000);
+            });
+        });
+    </script>
+    
+    <!-- Header con bottone -->
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-semibold text-gray-800">
+            <i class="fas fa-map-marker-alt mr-2 text-orange-500"></i> Indirizzi
+        </h3>
+        <button type="button" 
+                wire:click="showCreateForm"
+                class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-sm transition-colors">
+            <i class="fas fa-plus mr-1"></i> Nuovo Indirizzo
+        </button>
     </div>
+
+    <!-- Tabella Indirizzi -->
+    @if(count($addresses) > 0)
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Sede</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Indirizzo</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Città</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Provincia</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">CAP</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Nazione</th>
+                    <th class="px-3 py-2 text-center text-xs font-medium text-gray-500">Azioni</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                @foreach($addresses as $address)
+                <tr>
+                    <td class="px-3 py-2 text-gray-700">{{ $address['sede'] ?? '-' }}</td>
+                    <td class="px-3 py-2 text-gray-700">{{ $address['indirizzo'] ?? '-' }}</td>
+                    <td class="px-3 py-2 text-gray-700">{{ $address['citta'] ?? '-' }}</td>
+                    <td class="px-3 py-2 text-gray-700">{{ $address['provincia'] ?? '-' }}</td>
+                    <td class="px-3 py-2 text-gray-700">{{ $address['cap'] ?? '-' }}</td>
+                    <td class="px-3 py-2 text-gray-700">{{ $address['nazione'] ?? 'Italia' }}</td>
+                    <td class="px-3 py-2 text-center">
+                        <button type="button" wire:click="editAddress({{ $address['id_indirizzo'] }})" class="text-blue-600 hover:text-blue-800 mr-2">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button type="button" wire:click="confirmDelete({{ $address['id_indirizzo'] }})" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+    @else
+    <p class="text-gray-500 text-sm text-center py-4 bg-gray-50 rounded-lg">
+        <i class="fas fa-map-marker-alt text-gray-400 mr-1"></i> Nessun indirizzo disponibile
+    </p>
     @endif
 
-    <!-- Modal di conferma eliminazione indirizzo -->
-    @if($showDeleteModal)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 transition-opacity duration-300"
-         x-data="{ show: true }"
+    <!-- MODAL Indirizzo -->
+    @if($showForm)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
+         x-data="{ show: true }" 
          x-show="show"
          x-transition.opacity.duration.200ms>
         
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6 transform transition-all duration-300"
-             x-show="show"
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-3xl p-6" 
+             x-on:click.away="show = false; $wire.cancelEdit()"
              x-transition.scale.origin.top>
             
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                        </svg>
-                    </div>
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h3 class="text-xl font-bold text-gray-800">
+                    <i class="fas {{ $editingAddressId ? 'fa-edit' : 'fa-plus-circle' }} mr-2 text-green-600"></i>
+                    {{ $editingAddressId ? 'Modifica Indirizzo' : 'Nuovo Indirizzo' }}
+                </h3>
+                <button type="button" wire:click="cancelEdit" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- RIGA 1: Sede (col 4) + Indirizzo (col 8) -->
+            <div class="grid grid-cols-12 gap-4 mb-4">
+                <div class="col-span-12 md:col-span-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Sede</label>
+                    <select wire:model="sede" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="principale">Sede Principale</option>
+                        <option value="legale">Sede Legale</option>
+                        <option value="operativa">Sede Operativa</option>
+                        <option value="amministrativa">Sede Amministrativa</option>
+                        <option value="fiscale">Sede Fiscale</option>
+                    </select>
                 </div>
-                <div class="ml-4">
-                    <h3 class="text-lg font-medium text-gray-900">Conferma Eliminazione</h3>
-                    <p class="text-sm text-gray-500 mt-1">
-                        Sei sicuro di voler eliminare il seguente indirizzo?
-                    </p>
-                    <p class="text-sm font-semibold text-gray-700 mt-2 bg-gray-100 p-2 rounded">
-                        {{ $addressToDeleteName }}
-                    </p>
-                    <p class="text-xs text-gray-400 mt-2">
-                        Questa azione non può essere annullata.
-                    </p>
+                
+                <div class="col-span-12 md:col-span-8">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
+                    <input type="text" wire:model="indirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Via/Piazza, numero">
                 </div>
             </div>
             
-            <div class="mt-6 flex justify-end space-x-3">
-                <button type="button"
-                        wire:click="cancelDelete"
-                        class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
+            <!-- RIGA 2: Città (col 4) + Provincia (col 2) + CAP (col 3) + Nazione (col 3) -->
+            <div class="grid grid-cols-12 gap-4 mb-4">
+                <div class="col-span-12 md:col-span-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
+                    <input type="text" wire:model="citta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Città">
+                </div>
+                
+                <div class="col-span-12 md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                    <input type="text" wire:model="provincia" maxlength="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 uppercase" placeholder="Provincia">
+                </div>
+                
+                <div class="col-span-12 md:col-span-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">CAP</label>
+                    <input type="text" wire:model="cap" maxlength="10" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="CAP">
+                </div>
+                
+                <div class="col-span-12 md:col-span-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nazione</label>
+                    <input type="text" wire:model="nazione" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Nazione">
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <button type="button" wire:click="cancelEdit" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md">
                     Annulla
                 </button>
-                <button type="button"
-                        wire:click="deleteAddress"
-                        class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">
-                    Elimina
+                <button type="button" wire:click="saveAddress" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md">
+                    <i class="fas fa-save mr-2"></i> Salva
                 </button>
             </div>
         </div>
     </div>
     @endif
 
-    <div class="bg-gray-50 rounded-lg p-4">
-        <div class="flex justify-between items-center mb-3 border-b pb-2">
-            <h3 class="text-lg font-semibold text-gray-800">
-                <i class="fas fa-map-marker-alt mr-2 text-red-500"></i> Indirizzi
-            </h3>
-            @if(!$showForm)
-            <button type="button" 
-                    wire:click="showCreateForm"
-                    class="text-emerald-600 hover:text-emerald-700 transition-colors text-sm">
-                <i class="fas fa-plus mr-1"></i> Nuovo Indirizzo
-            </button>
-            @endif
-        </div>
-        
-        <!-- Form di inserimento/modifica indirizzo -->
-        @if($showForm)
-        <div class="mb-4 p-3 bg-white rounded-lg border border-gray-200">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Sede</label>
-                    <input type="text" 
-                           wire:model="sede" 
-                           placeholder="es: principale, secondaria, ecc."
-                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Indirizzo</label>
-                    <input type="text" 
-                           wire:model="indirizzo" 
-                           placeholder="Via/Piazza, numero civico"
-                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Città</label>
-                    <input type="text" 
-                           wire:model="citta" 
-                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Provincia</label>
-                    <input type="text" 
-                           wire:model="provincia" 
-                           maxlength="5"
-                           placeholder="es: BA, TA, ecc."
-                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">CAP</label>
-                    <input type="text" 
-                           wire:model="cap" 
-                           maxlength="10"
-                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Nazione</label>
-                    <input type="text" 
-                           wire:model="nazione" 
-                           placeholder="Italia"
-                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Telefono</label>
-                    <input type="text" 
-                           wire:model="telefono" 
-                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Cellulare</label>
-                    <input type="text" 
-                           wire:model="cellulare" 
-                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Fax</label>
-                    <input type="text" 
-                           wire:model="fax" 
-                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
+    <!-- MODAL Conferma Eliminazione -->
+    @if($showDeleteModal)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h3 class="text-xl font-bold text-gray-800">
+                    <i class="fas fa-exclamation-triangle mr-2 text-red-600"></i> Conferma Eliminazione
+                </h3>
+                <button type="button" wire:click="cancelDelete" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
             </div>
-            <div class="flex justify-end space-x-2 mt-3">
-                <button type="button" 
-                        wire:click="cancelEdit"
-                        class="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
+            <p class="text-gray-700">Sei sicuro di voler eliminare l'indirizzo:</p>
+            <p class="text-gray-900 font-semibold mt-2">{{ $addressToDeleteName }}</p>
+            <p class="text-red-600 text-sm mt-3">⚠️ Questa azione è irreversibile!</p>
+            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <button type="button" wire:click="cancelDelete" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md">
                     Annulla
                 </button>
-                <button type="button" 
-                        wire:click="saveAddress"
-                        class="px-3 py-1 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors">
-                    <i class="fas fa-save mr-1"></i> {{ $editingAddressId ? 'Aggiorna Indirizzo' : 'Salva Indirizzo' }}
+                <button type="button" wire:click="deleteAddress" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
+                    <i class="fas fa-trash-alt mr-2"></i> Elimina
                 </button>
             </div>
         </div>
-        @endif
-        
-        <!-- Tabella Indirizzi -->
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 text-sm">
-                <thead class="bg-gray-100">
-                    <tr>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sede</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Indirizzo</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Città</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">CAP</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Prov.</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nazione</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Azioni</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    @forelse($addresses as $address)
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-3 py-2 text-gray-500">{{ $address['id_indirizzo'] }}</td>
-                        <td class="px-3 py-2">
-                            <span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-700">
-                                {{ $address['sede'] ?: 'principale' }}
-                            </span>
-                        </td>
-                        <td class="px-3 py-2">{{ $address['indirizzo'] ?: '-' }}</td>
-                        <td class="px-3 py-2">{{ $address['citta'] ?: '-' }}</td>
-                        <td class="px-3 py-2">{{ $address['cap'] ?: '-' }}</td>
-                        <td class="px-3 py-2">{{ $address['provincia'] ?: '-' }}</td>
-                        <td class="px-3 py-2">{{ $address['nazione'] ?: '-' }}</td>
-                        <td class="px-3 py-2">
-                            <div class="flex space-x-2">
-                                <button type="button" 
-                                        wire:click="editAddress({{ $address['id_indirizzo'] }})"
-                                        class="text-yellow-600 hover:text-yellow-800 transition-colors"
-                                        title="Modifica Indirizzo">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button type="button" 
-                                        wire:click="confirmDelete({{ $address['id_indirizzo'] }})"
-                                        class="text-red-600 hover:text-red-800 transition-colors"
-                                        title="Elimina Indirizzo">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="8" class="px-3 py-6 text-center text-gray-400">
-                            <i class="fas fa-map-marker-alt text-2xl mb-2 block"></i>
-                            Nessun indirizzo associato
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
+    </div>
+    @endif
+
+    <!-- NOTIFICA -->
+    @if($showNotification)
+    <div class="fixed bottom-4 right-4 z-50 animate-slide-up">
+        <div class="rounded-lg shadow-lg p-4 {{ $notificationType == 'success' ? 'bg-green-500' : 'bg-red-500' }} text-white">
+            <div class="flex items-center">
+                <i class="fas {{ $notificationType == 'success' ? 'fa-check-circle' : 'fa-exclamation-circle' }} mr-2"></i>
+                <span>{{ $notificationMessage }}</span>
+            </div>
         </div>
     </div>
+    @endif
+
+    <style>
+    @keyframes slideUp {
+        from {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    .animate-slide-up {
+        animation: slideUp 0.3s ease-out;
+    }
+    </style>
 </div>

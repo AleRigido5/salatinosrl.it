@@ -3,9 +3,7 @@
     <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="relative md:col-span-2">
-                <svg class="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
+                <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
                 <input type="text" 
                        wire:model.live.debounce.300ms="search" 
                        placeholder="Cerca per: P.IVA, Ragione Sociale, Nome, Cognome, Persona Riferimento, Città, Telefono, Email..." 
@@ -29,9 +27,7 @@
         <div class="flex justify-between items-center mt-4">
             @if($search || $typeFilter || $statusFilter)
             <button wire:click="resetFilters" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                <svg class="inline-block w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                </svg>
+                <i class="fas fa-sync-alt mr-1"></i>
                 Resetta filtri
             </button>
             @endif
@@ -44,9 +40,7 @@
             <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
                 Ricerca: "{{ $search }}"
                 <button wire:click="$set('search', '')" class="ml-1 hover:text-blue-900">
-                    <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
+                    <i class="fas fa-times text-xs"></i>
                 </button>
             </span>
             @endif
@@ -54,9 +48,7 @@
             <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
                 Tipo: {{ $entityTypes[$typeFilter] ?? $typeFilter }}
                 <button wire:click="$set('typeFilter', '')" class="ml-1 hover:text-blue-900">
-                    <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
+                    <i class="fas fa-times text-xs"></i>
                 </button>
             </span>
             @endif
@@ -64,9 +56,7 @@
             <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
                 Stato: {{ $statusFilter === 'active' ? 'Attivi' : 'Disattivi' }}
                 <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-blue-900">
-                    <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
+                    <i class="fas fa-times text-xs"></i>
                 </button>
             </span>
             @endif
@@ -84,17 +74,9 @@
                             <div class="flex items-center space-x-1">
                                 <span>Cliente / Fornitore</span>
                                 @if($sortField === 'ragione_sociale')
-                                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if($sortDirection === 'asc')
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-                                        @else
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                        @endif
-                                    </svg>
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
                                 @else
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18"></path>
-                                    </svg>
+                                    <i class="fas fa-sort text-gray-400"></i>
                                 @endif
                             </div>
                         </th>
@@ -102,17 +84,9 @@
                             <div class="flex items-center space-x-1">
                                 <span>Tipo</span>
                                 @if($sortField === 'entity_type')
-                                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if($sortDirection === 'asc')
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-                                        @else
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                        @endif
-                                    </svg>
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
                                 @else
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18"></path>
-                                    </svg>
+                                    <i class="fas fa-sort text-gray-400"></i>
                                 @endif
                             </div>
                         </th>
@@ -121,17 +95,9 @@
                             <div class="flex items-center space-x-1">
                                 <span>P.IVA / CF</span>
                                 @if($sortField === 'partita_iva')
-                                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if($sortDirection === 'asc')
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-                                        @else
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                        @endif
-                                    </svg>
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
                                 @else
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18"></path>
-                                    </svg>
+                                    <i class="fas fa-sort text-gray-400"></i>
                                 @endif
                             </div>
                         </th>
@@ -139,17 +105,9 @@
                             <div class="flex items-center space-x-1">
                                 <span>Stato</span>
                                 @if($sortField === 'valid')
-                                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if($sortDirection === 'asc')
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-                                        @else
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                        @endif
-                                    </svg>
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
                                 @else
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18"></path>
-                                    </svg>
+                                    <i class="fas fa-sort text-gray-400"></i>
                                 @endif
                             </div>
                         </th>
@@ -157,17 +115,9 @@
                             <div class="flex items-center space-x-1">
                                 <span>Data inserimento</span>
                                 @if($sortField === 'created_at')
-                                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if($sortDirection === 'asc')
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-                                        @else
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                        @endif
-                                    </svg>
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
                                 @else
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18"></path>
-                                    </svg>
+                                    <i class="fas fa-sort text-gray-400"></i>
                                 @endif
                             </div>
                         </th>
@@ -233,27 +183,21 @@
                             <div class="flex flex-col space-y-1">
                                 @if($phone)
                                     <div class="flex items-center">
-                                        <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
-                                        </svg>
+                                        <i class="fas fa-phone text-gray-400 mr-2"></i>
                                         <span class="truncate">{{ $phone->valore }}</span>
                                     </div>
                                 @endif
                                 
                                 @if($mobile)
                                     <div class="flex items-center">
-                                        <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-                                        </svg>
+                                        <i class="fas fa-mobile-alt text-gray-400 mr-2"></i>
                                         <span class="truncate">{{ $mobile->valore }}</span>
                                     </div>
                                 @endif
                                 
                                 @if($emailValue)
                                     <div class="flex items-center">
-                                        <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                                        </svg>
+                                        <i class="fas fa-envelope text-gray-400 mr-2"></i>
                                         <span class="truncate">{{ Str::limit($emailValue, 30) }}</span>
                                     </div>
                                 @endif
@@ -302,10 +246,7 @@
                                         wire:key="view-{{ $entity->id_cliente }}"
                                         class="text-blue-600 hover:text-blue-900 transition-colors"
                                         title="Visualizza">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    </svg>
+                                    <i class="fa-regular fa-eye text-blue-600 hover:text-blue-900"></i>
                                 </button>
                                 @endif
                                 
@@ -314,9 +255,7 @@
                                         wire:key="edit-{{ $entity->id_cliente }}"
                                         class="text-yellow-600 hover:text-yellow-900 transition-colors"
                                         title="Modifica">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                    </svg>
+                                    <i class="fa-solid fa-pen-to-square text-yellow-600 hover:text-yellow-900"></i>
                                 </button>
                                 @endif
                             </div>
@@ -326,9 +265,7 @@
                     <tr>
                         <td colspan="7" class="px-6 py-12 text-center">
                             <div class="text-gray-500">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                                </svg>
+                                <i class="fas fa-building text-gray-400 text-5xl"></i>
                                 <p class="mt-2 text-sm">Nessun cliente/fornitore trovato</p>
                                 @if($search || $typeFilter || $statusFilter)
                                 <button wire:click="resetFilters" class="mt-2 text-sm text-blue-600 hover:text-blue-800">
@@ -414,15 +351,11 @@
             
             <div class="flex justify-between items-center mb-6 border-b pb-3">
                 <h2 class="text-2xl font-bold text-gray-800">
-                    <svg class="inline-block w-6 h-6 mr-2 text-lime-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
+                    <i class="fas fa-plus-circle mr-2 text-lime-600"></i>
                     Nuovo Cliente / Fornitore
                 </h2>
                 <button wire:click="closeCreateModal" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
+                    <i class="fas fa-times text-2xl"></i>
                 </button>
             </div>
             
@@ -485,11 +418,11 @@
             <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
                 <button wire:click="closeCreateModal" 
                         class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
-                    Annulla
+                    <i class="fas fa-times mr-2"></i> Annulla
                 </button>
                 <button wire:click="save" 
                         class="px-4 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-md transition-colors">
-                    Salva
+                    <i class="fas fa-save mr-2"></i> Salva
                 </button>
             </div>
         </div>
@@ -542,9 +475,7 @@
                         {{ $viewingEntity->valid ? 'Attivo' : 'Disattivo' }}
                     </div>
                     <button wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600 transition-colors">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
+                        <i class="fas fa-times text-2xl"></i>
                     </button>
                 </div>
             </div>
@@ -769,9 +700,7 @@
                         <div class="bg-white rounded-md p-3 shadow-sm border border-gray-100">
                             <div class="flex items-start">
                                 <div class="flex-shrink-0">
-                                    <svg class="w-5 h-5 text-green-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                    </svg>
+                                    <i class="fas fa-plus-circle text-green-500 mt-0.5"></i>
                                 </div>
                                 <div class="ml-3 flex-1">
                                     <h4 class="text-sm font-medium text-gray-900">Inserito da</h4>
@@ -795,9 +724,7 @@
                         <div class="bg-white rounded-md p-3 shadow-sm border border-gray-100">
                             <div class="flex items-start">
                                 <div class="flex-shrink-0">
-                                    <svg class="w-5 h-5 text-blue-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                    </svg>
+                                    <i class="fas fa-edit text-blue-500 mt-0.5"></i>
                                 </div>
                                 <div class="ml-3 flex-1">
                                     <h4 class="text-sm font-medium text-gray-900">Modificato da</h4>
@@ -831,15 +758,11 @@
                     <div class="mt-3 pt-3 border-t border-gray-200">
                         <div class="flex items-center justify-between text-xs text-gray-500">
                             <div class="flex items-center gap-2">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
+                                <i class="fas fa-clock"></i>
                                 <span>Ultima modifica: {{ $viewingEntity->updated_at->diffForHumans() }}</span>
                             </div>
                             <div class="flex items-center gap-2">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                                </svg>
+                                <i class="fas fa-database"></i>
                                 <span>ID Record: {{ $viewingEntity->id_cliente }}</span>
                             </div>
                         </div>
@@ -859,7 +782,7 @@
                 @endif
                 <button wire:click="closeViewModal" 
                         class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
-                    Chiudi
+                    <i class="fas fa-times mr-2"></i> Chiudi
                 </button>
             </div>
         </div>

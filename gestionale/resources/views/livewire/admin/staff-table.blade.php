@@ -3,9 +3,7 @@
     <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="relative md:col-span-2">
-                <svg class="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
+                <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
                 <input type="text" 
                        wire:model.live.debounce.300ms="search" 
                        placeholder="Cerca per: Nome, Cognome, Soprannome, Cellulare, Email, Codice Fiscale..." 
@@ -22,9 +20,7 @@
         <div class="flex justify-between items-center mt-4">
             @if($search || $statusFilter)
             <button wire:click="resetFilters" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                <svg class="inline-block w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                </svg>
+                <i class="fas fa-sync-alt mr-1"></i>
                 Resetta filtri
             </button>
             @endif
@@ -37,9 +33,7 @@
             <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
                 Ricerca: "{{ $search }}"
                 <button wire:click="$set('search', '')" class="ml-1 hover:text-lime-900">
-                    <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
+                    <i class="fas fa-times text-xs"></i>
                 </button>
             </span>
             @endif
@@ -47,9 +41,7 @@
             <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
                 Stato: {{ $statusFilter === 'active' ? 'Attivi' : 'Disattivi' }}
                 <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-lime-900">
-                    <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
+                    <i class="fas fa-times text-xs"></i>
                 </button>
             </span>
             @endif
@@ -67,17 +59,9 @@
                             <div class="flex items-center space-x-1">
                                 <span>ID</span>
                                 @if($sortField === 'id_personale')
-                                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if($sortDirection === 'asc')
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-                                        @else
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                        @endif
-                                    </svg>
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
                                 @else
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18"></path>
-                                    </svg>
+                                    <i class="fas fa-sort text-gray-400"></i>
                                 @endif
                             </div>
                         </th>
@@ -85,17 +69,9 @@
                             <div class="flex items-center space-x-1">
                                 <span>Nome e Cognome</span>
                                 @if($sortField === 'CognomePers')
-                                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if($sortDirection === 'asc')
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-                                        @else
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                        @endif
-                                    </svg>
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
                                 @else
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18"></path>
-                                    </svg>
+                                    <i class="fas fa-sort text-gray-400"></i>
                                 @endif
                             </div>
                         </th>
@@ -105,17 +81,9 @@
                             <div class="flex items-center space-x-1">
                                 <span>Stato</span>
                                 @if($sortField === 'valid')
-                                    <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if($sortDirection === 'asc')
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-                                        @else
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                        @endif
-                                    </svg>
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
                                 @else
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18"></path>
-                                    </svg>
+                                    <i class="fas fa-sort text-gray-400"></i>
                                 @endif
                             </div>
                         </th>
@@ -182,52 +150,36 @@
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
                                 @if(auth()->guard('admin')->user()->hasPermission('view_staff'))
-                                <button wire:click="viewStaff({{ $person->id_personale }})" 
-                                        class="text-blue-600 hover:text-blue-900 transition-colors"
-                                        title="Visualizza">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    </svg>
-                                </button>
-                                @endif
-                                
-                                @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
-                                <button wire:click="editStaff({{ $person->id_personale }})" 
-                                        class="text-yellow-600 hover:text-yellow-900 transition-colors"
-                                        title="Modifica">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                    </svg>
-                                </button>
-                                @endif
-                                
-                                <!-- Icona Scadenze - versione SVG puro -->
-                                @if(auth()->guard('admin')->user()->hasPermission('view_expiration'))
-                                <button wire:click="goToExpiration({{ $person->id_personale }})" 
-                                        class="text-purple-600 hover:text-purple-900 transition-colors"
-                                        title="Gestisci Scadenze">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 12.75h.008v.008H12v-.008Z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12.75h.008v.008H15v-.008Z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75h.008v.008H9v-.008Z" />
-                                    </svg>
-                                </button>
+                                    <button wire:click="viewStaff({{ $person->id_personale }})" 
+                                            class="text-blue-600 hover:text-blue-900 transition-colors text-base"
+                                            title="Visualizza">
+                                        <i class="fa-regular fa-eye text-blue-600 hover:text-blue-900"></i>
+                                    </button>
                                 @endif
 
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
-                                <button wire:click="toggleStatus({{ $person->id_personale }})" 
-                                        class="transition-colors {{ $person->valid ? 'text-lime-600 hover:text-lime-800' : 'text-gray-400 hover:text-gray-600' }}"
-                                        title="{{ $person->valid ? 'Disattiva' : 'Attiva' }}">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if($person->valid)
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        @else
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        @endif
-                                    </svg>
-                                </button>
+                                    <button wire:click="editStaff({{ $person->id_personale }})" 
+                                            class="text-yellow-600 hover:text-yellow-900 transition-colors text-base"
+                                            title="Modifica">
+                                        <i class="fa-solid fa-pen-to-square text-yellow-600 hover:text-yellow-900"></i>
+                                    </button>
+                                @endif
+
+                                <!-- Icona Scadenze -->
+                                @if(auth()->guard('admin')->user()->hasPermission('view_expiration'))
+                                    <button wire:click="goToExpiration({{ $person->id_personale }})" 
+                                            class="text-purple-600 hover:text-purple-900 transition-colors text-base"
+                                            title="Gestisci Scadenze">
+                                        <i class="fa-regular fa-calendar text-purple-600 hover:text-purple-900"></i>
+                                    </button>
+                                @endif
+
+                                @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
+                                    <button wire:click="toggleStatus({{ $person->id_personale }})" 
+                                            class="transition-colors text-base {{ $person->valid ? 'text-lime-600 hover:text-lime-800' : 'text-gray-400 hover:text-gray-600' }}"
+                                            title="{{ $person->valid ? 'Disattiva' : 'Attiva' }}">
+                                        <i class="{{ $person->valid ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark' }}"></i>
+                                    </button>
                                 @endif
                             </div>
                         </td>
@@ -236,9 +188,7 @@
                     <tr>
                         <td colspan="6" class="px-6 py-12 text-center">
                             <div class="text-gray-500">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                                </svg>
+                                <i class="fas fa-users-slash mx-auto h-12 w-12 text-gray-400 text-5xl"></i>
                                 <p class="mt-2 text-sm">Nessun personale trovato</p>
                                 @if($search || $statusFilter)
                                 <button wire:click="resetFilters" class="mt-2 text-sm text-lime-600 hover:text-lime-800">
@@ -346,9 +296,7 @@
                             
                             <!-- Pulsante chiusura -->
                             <button wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                </svg>
+                                <i class="fa-solid fa-xmark text-2xl"></i>
                             </button>
                         </div>
                     </div>
@@ -411,9 +359,7 @@
                                     <div class="w-28 text-gray-600 text-sm pt-0.5">Inserito da:</div>
                                     <div class="flex-1">
                                         <div class="flex items-center gap-2 flex-wrap">
-                                            <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                            </svg>
+                                            <i class="fas fa-plus text-green-500"></i>
                                             <span class="text-gray-800 font-medium">
                                                 {{ $viewingStaff->createdBy ? $viewingStaff->createdBy->name : 'Sistema' }}
                                             </span>
@@ -436,9 +382,7 @@
                                     <div class="w-28 text-gray-600 text-sm pt-0.5">Modificato da:</div>
                                     <div class="flex-1">
                                         <div class="flex items-center gap-2 flex-wrap">
-                                            <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                            </svg>
+                                            <i class="fas fa-edit text-blue-500"></i>
                                             <span class="text-gray-800 font-medium">
                                                 {{ $viewingStaff->updatedBy ? $viewingStaff->updatedBy->name : 'Sistema' }}
                                             </span>
@@ -462,9 +406,7 @@
                                     <div class="w-28 text-gray-600 text-sm pt-0.5">Modificato da:</div>
                                     <div class="flex-1">
                                         <div class="flex items-center gap-2">
-                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                            </svg>
+                                            <i class="fas fa-minus-circle text-gray-400"></i>
                                             <span class="text-gray-400 italic">Mai modificato</span>
                                         </div>
                                     </div>
@@ -486,7 +428,7 @@
                     @endif
                     <button wire:click="closeViewModal" 
                             class="w-full sm:w-auto inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm">
-                        Chiudi
+                        <i class="fas fa-times mr-2"></i> Chiudi
                     </button>
                 </div>
             </div>
@@ -513,9 +455,7 @@
                             <i class="fas fa-edit mr-2 text-yellow-600"></i> Modifica Personale
                         </h2>
                         <button wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
+                            <i class="fas fa-times text-2xl"></i>
                         </button>
                     </div>
                     
@@ -588,7 +528,7 @@
                     </button>
                     <button wire:click="closeEditModal" 
                             class="w-full sm:w-auto inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm">
-                        Annulla
+                        <i class="fas fa-times mr-2"></i> Annulla
                     </button>
                 </div>
             </div>
@@ -615,9 +555,7 @@
                             <i class="fas fa-plus-circle mr-2 text-green-600"></i> Nuovo Personale
                         </h2>
                         <button wire:click="closeCreateModal" class="text-gray-400 hover:text-gray-600">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
+                            <i class="fas fa-times text-2xl"></i>
                         </button>
                     </div>
                     
@@ -693,7 +631,7 @@
                     </button>
                     <button wire:click="closeCreateModal" 
                             class="w-full sm:w-auto inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm">
-                        Annulla
+                        <i class="fas fa-times mr-2"></i> Annulla
                     </button>
                 </div>
             </div>

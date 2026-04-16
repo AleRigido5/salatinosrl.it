@@ -69,7 +69,7 @@ class Staff extends Model
     {
         return $this->belongsTo(Setting::class, 'id_gruppo');
     }
-    
+
     // ==================== ACCESSOR ====================
     
     // Accessor per nome completo

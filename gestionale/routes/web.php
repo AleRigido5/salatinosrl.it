@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\MezziController;
 use App\Http\Controllers\Admin\SettingCategoryController;
 use App\Http\Controllers\Admin\ExpirationController;
+use App\Http\Controllers\Admin\DocumentController;
 use Illuminate\Support\Facades\Route;
 
 // Rotte pubbliche
@@ -141,6 +142,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::delete('/{id}', [ExpirationController::class, 'destroy'])->name('destroy');
             Route::post('/{id}/restore', [ExpirationController::class, 'restore'])->name('restore');
             Route::post('/{id}/toggle-status', [ExpirationController::class, 'toggleStatus'])->name('toggle-status');
+        });
+
+        // =============================================
+        // GESTIONE DOCUMENTI
+        // =============================================
+        Route::prefix('documents')->name('documents.')->group(function () {
+            Route::get('{tableRef}/{idRef}', [DocumentController::class, 'index'])->name('index');
+            Route::post('{tableRef}/{idRef}', [DocumentController::class, 'store'])->name('store');
+            Route::delete('{tableRef}/{idRef}/{documentId}', [DocumentController::class, 'destroy'])->name('destroy');
+            Route::get('{tableRef}/{idRef}/{documentId}/download', [DocumentController::class, 'download'])->name('download');
         });
 
         // =============================================

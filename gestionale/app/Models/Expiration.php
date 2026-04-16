@@ -47,7 +47,7 @@ class Expiration extends Model
     const TABLE_ENTITY = 'entities';
     const TABLE_OWNERSHIP = 'ownership';
     
-    // ==================== RELAZIONI (SOLO QUELLE SEMPLICI) ====================
+    // ==================== RELAZIONI ====================
     
     public function setting()
     {
@@ -66,7 +66,25 @@ class Expiration extends Model
         return $this->belongsTo(Administrator::class, 'updated_by', 'id');
     }
 
-    // ==================== RELAZIONI RETROCOMPATIBILITÀ ====================
+    // ==================== RELAZIONI PER LE ENTITÀ ASSOCIATE ====================
+    
+    /**
+     * Relazione per Staff (personale)
+     */
+    public function staff()
+    {
+        return $this->belongsTo(Staff::class, 'id_references', 'id_personale')
+            ->where('expiration.table_references', self::TABLE_STAFF);
+    }
+    
+    /**
+     * Relazione per Clienti/Fornitori (entities)
+     */
+    public function entity()
+    {
+        return $this->belongsTo(Entity::class, 'id_references', 'id_cliente')
+            ->where('expiration.table_references', self::TABLE_ENTITY);
+    }
     
     /**
      * RETROCOMPATIBILITÀ: Per i record vecchi che usano ancora id_entities
@@ -87,37 +105,6 @@ class Expiration extends Model
     // ==================== HELPER PER OTTENERE L'ENTITÀ ASSOCIATA ====================
     
     /**
-     * Ottiene l'entità associata (personale) - usa eager loading
-     */
-    public function getStaffAttribute()
-    {
-        if ($this->table_references === self::TABLE_STAFF && $this->id_references) {
-            // Usa una cache statica per evitare query multiple nella stessa richiesta
-            static $staffCache = [];
-            if (!isset($staffCache[$this->id_references])) {
-                $staffCache[$this->id_references] = Staff::find($this->id_references);
-            }
-            return $staffCache[$this->id_references];
-        }
-        return null;
-    }
-    
-    /**
-     * Ottiene l'entità associata (cliente/fornitore)
-     */
-    public function getEntityAttribute()
-    {
-        if ($this->table_references === self::TABLE_ENTITY && $this->id_references) {
-            static $entityCache = [];
-            if (!isset($entityCache[$this->id_references])) {
-                $entityCache[$this->id_references] = Entity::find($this->id_references);
-            }
-            return $entityCache[$this->id_references];
-        }
-        return null;
-    }
-    
-    /**
      * Ottiene l'entità associata in modo unificato
      */
     public function getLinkedEntityAttribute()
@@ -125,10 +112,10 @@ class Expiration extends Model
         // Nuovo sistema polimorfico
         if ($this->table_references && $this->id_references) {
             if ($this->table_references === self::TABLE_STAFF) {
-                return $this->staff;
+                return Staff::find($this->id_references);
             }
             if ($this->table_references === self::TABLE_ENTITY) {
-                return $this->entity;
+                return Entity::find($this->id_references);
             }
             if ($this->table_references === self::TABLE_OWNERSHIP) {
                 return Ownership::find($this->id_references);
@@ -180,7 +167,7 @@ class Expiration extends Model
         }
         
         if ($this->table_references === self::TABLE_ENTITY) {
-            $entity = $this->entity;
+            $entity = $this->getLinkedEntityAttribute();
             if ($entity && isset($entity->entity_type)) {
                 return $entity->entity_type === 'fornitore' ? 'Fornitore' : 'Cliente';
             }
@@ -241,7 +228,6 @@ class Expiration extends Model
         return $query->where(function($q) use ($staffId) {
             $q->where('table_references', self::TABLE_STAFF)
               ->where('id_references', $staffId)
-              // Retrocompatibilità: id_entities che punta a staff
               ->orWhere(function($q2) use ($staffId) {
                   $q2->whereNull('table_references')
                      ->where('id_entities', $staffId);
@@ -297,4 +283,16 @@ class Expiration extends Model
         }
         return '€ ' . number_format($this->importo, 2, ',', '.');
     }
+
+    // ==================== RELAZIONE CON DOCUMENTI ====================
+    public function documents()
+    {
+        return $this->hasMany(Document::class, 'id_ref', 'id')
+            ->where('table_ref', 'expiration-staff');
+    }
+
+    public function getDocumentsCountAttribute()
+    {
+        return $this->documents()->count();
+}
 }

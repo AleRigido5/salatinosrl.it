@@ -51,7 +51,6 @@ class ExpirationTable extends Component
         $this->staffId = $staffId;
         $this->staffName = $staffName;
         $this->createDataInizio = date('Y-m-d');
-        // Imposta data scadenza di default tra 1 anno
         $this->createDataFine = date('Y-m-d', strtotime('+1 year'));
         
         if ($this->staffId) {
@@ -124,13 +123,12 @@ class ExpirationTable extends Component
         $this->createNote = '';
         $this->createQualifica = '';
         $this->createOwnershipId = '';
-        
-        // Reset dei campi di associazione
         $this->createEntityId = '';
         $this->createEntityNome = '';
         $this->createEntitySearch = '';
         $this->createEntityResults = [];
     }
+
 
     public function saveExpiration()
     {
@@ -153,19 +151,18 @@ class ExpirationTable extends Component
                 'note' => $this->createNote,
                 'created_by' => $adminId,
                 'updated_by' => $adminId,
+                'table_references' => null,  // Aggiungi default null
+                'id_references' => null,      // Aggiungi default null
             ];
             
-            // 1. Se c'è un ownership selezionato
             if ($this->createOwnershipId) {
                 $data['id_ownership'] = $this->createOwnershipId;
             }
             
-            // 2. Se c'è un cliente/fornitore selezionato, compila id_entities
             if ($this->createEntityId) {
                 $data['id_entities'] = $this->createEntityId;
             }
             
-            // 3. Se siamo in modalità staff, compila id_references e table_references
             if ($this->staffId) {
                 $data['id_references'] = $this->staffId;
                 $data['table_references'] = Expiration::TABLE_STAFF;
@@ -181,6 +178,8 @@ class ExpirationTable extends Component
             $this->dispatch('showError', message: 'Errore durante il salvataggio: ' . $e->getMessage());
         }
     }
+    
+    // ==================== METODI UTILITY ====================
     
     public function getTipologieProperty()
     {
@@ -202,11 +201,11 @@ class ExpirationTable extends Component
         if ($this->staffId) {
             $query->where(function($q) {
                 $q->where('table_references', Expiration::TABLE_STAFF)
-                  ->where('id_references', $this->staffId)
-                  ->orWhere(function($q2) {
-                      $q2->whereNull('table_references')
-                         ->where('id_entities', $this->staffId);
-                  });
+                ->where('id_references', $this->staffId)
+                ->orWhere(function($q2) {
+                    $q2->whereNull('table_references')
+                        ->where('id_entities', $this->staffId);
+                });
             });
         }
         
@@ -214,8 +213,8 @@ class ExpirationTable extends Component
             $searchTerm = '%' . $this->search . '%';
             $query->where(function($q) use ($searchTerm) {
                 $q->where('titolo', 'like', $searchTerm)
-                  ->orWhere('subtitolo', 'like', $searchTerm)
-                  ->orWhere('note', 'like', $searchTerm);
+                ->orWhere('subtitolo', 'like', $searchTerm)
+                ->orWhere('note', 'like', $searchTerm);
             });
         }
         
@@ -232,21 +231,28 @@ class ExpirationTable extends Component
                 $query->where('data_fine', '<', now())->whereNull('deleted_at');
             } elseif ($this->statusFilter === 'expiring') {
                 $query->where('data_fine', '<=', now()->addDays(30))
-                      ->where('data_fine', '>=', now())
-                      ->whereNull('deleted_at');
+                    ->where('data_fine', '>=', now())
+                    ->whereNull('deleted_at');
             }
         }
         
         $query->orderBy($this->sortField, $this->sortDirection);
         
-        return $query->with(['setting', 'entityLegacy', 'ownershipLegacy', 'createdBy', 'updatedBy'])->paginate($this->perPage);
+        // IMPORTANTE: Aggiungi 'documents' alla with()
+        return $query->with([
+            'setting', 
+            'entityLegacy', 
+            'ownershipLegacy', 
+            'createdBy', 
+            'updatedBy',
+            'documents'  // <--- AGGIUNGI QUESTA RIGA
+        ])->paginate($this->perPage);
     }
     
     public function viewExpiration($id)
     {
         try {
-            $expiration = Expiration::with(['setting', 'entityLegacy', 'ownershipLegacy', 'createdBy', 'updatedBy'])->find($id);
-            
+            $expiration = Expiration::with(['setting', 'entityLegacy', 'ownershipLegacy', 'createdBy', 'updatedBy'])->find($id);            
             if (!$expiration) {
                 $this->dispatch('showError', message: 'Scadenza non trovata');
                 return;

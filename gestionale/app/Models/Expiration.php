@@ -97,7 +97,7 @@ class Expiration extends Model
     /**
      * RETROCOMPATIBILITÀ: Per i record vecchi che usano ancora id_ownership
      */
-    public function ownershipLegacy()
+    public function ownership()
     {
         return $this->belongsTo(Ownership::class, 'id_ownership', 'id_proprieta');
     }

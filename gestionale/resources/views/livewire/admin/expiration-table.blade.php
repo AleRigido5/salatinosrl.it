@@ -1,3 +1,5 @@
+{{-- resources/views/livewire/admin/expiration-table.blade.php --}}
+
 <div>
     <!-- Header con breadcrumb -->
     <div class="mb-6">
@@ -11,24 +13,30 @@
                 @endif
             </div>
             <div class="flex gap-3">
-                @if($staffId)
-                <button wire:click="openCreateModal" 
-                        class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                    </svg>
-                    Nuova Scadenza
-                </button>
-                @endif
+                <!-- Tooltip per il bottone Nuova Scadenza -->
+                <div class="relative group">
+                    <button wire:click="openCreateModal" 
+                            class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                        Nuova scadenza
+                        <div class="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
+                    </div>
+                </div>
                 
                 @if($staffId)
-                <button wire:click="backToStaff" 
-                        class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-                    </svg>
-                    Torna allo Staff
-                </button>
+                <!-- Tooltip per il bottone Torna allo Staff -->
+                <div class="relative group">
+                    <button wire:click="backToStaff" 
+                            class="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg transition-colors flex items-center">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </button>
+                    <div class="absolute bottom-full transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                        Torna alla gestione personale
+                        <div class="absolute top-full transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
+                    </div>
+                </div>
                 @endif
             </div>
         </div>
@@ -100,6 +108,7 @@
                             </div>
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipologia</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Associato a</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('data_inizio')">
                             <div class="flex items-center space-x-1">
                                 <span>Data Inizio</span>
@@ -158,6 +167,20 @@
                                 {{ $expiration->tipologiaName }}
                             </span>
                         </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            @php
+                                $entityName = $expiration->getLinkedEntityNameAttribute();
+                                $entityType = $expiration->getLinkedEntityTypeAttribute();
+                            @endphp
+                            @if($entityName && $entityName != '-')
+                            <div class="flex flex-col">
+                                <span class="text-sm text-gray-900">{{ $entityName }}</span>
+                                <span class="text-xs text-gray-500">{{ $entityType }}</span>
+                            </div>
+                            @else
+                            <span class="text-sm text-gray-400">-</span>
+                            @endif
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ $expiration->data_inizio ? $expiration->data_inizio->format('d/m/Y') : '-' }}
                         </td>
@@ -179,9 +202,9 @@
                                 </button>
                                 
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_expiration'))
-                                <a href="{{ route('admin.expiration.edit', $expiration->id) }}" 
-                                        class="text-yellow-600 hover:text-yellow-900 transition-colors"
-                                        title="Modifica">
+                                <a href="{{ route('admin.expiration.edit', ['expiration' => $expiration->id, 'staff_id' => $staffId]) }}" 
+                                   class="text-yellow-600 hover:text-yellow-900 transition-colors"
+                                   title="Modifica">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                     </svg>
@@ -206,7 +229,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center">
+                        <td colspan="7" class="px-6 py-12 text-center">
                             <div class="text-gray-500">
                                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
@@ -253,15 +276,15 @@
             <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
                 <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <div class="flex justify-between items-center mb-4 border-b pb-3">
-                        <div>
-                            <h2 class="text-xl font-bold text-gray-800">
-                                <svg class="inline-block w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                </svg>
-                                Nuova Scadenza
-                            </h2>
-                            <p class="text-xs text-gray-500 mt-1">Compila i campi per creare una nuova scadenza</p>
-                        </div>
+                        <h2 class="text-xl font-bold text-gray-800">
+                            <svg class="inline-block w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Nuova Scadenza
+                            @if($staffName)
+                            <span class="text-sm font-normal text-gray-500 ml-2">{{ $staffName }}</span>
+                            @endif
+                        </h2>
                         <button @click="open = false" class="text-gray-400 hover:text-gray-600">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -270,19 +293,7 @@
                     </div>
                     
                     <div class="space-y-4">
-                        <!-- RIGA 1: Titolo (full width) -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Titolo <span class="text-red-500">*</span>
-                            </label>
-                            <input type="text" 
-                                wire:model="createTitolo" 
-                                placeholder="es. Visita medica, Corso formazione, Scadenza contratto..."
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                            @error('createTitolo') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
-                        </div>
-                        
-                        <!-- RIGA 2: Tipologia + Qualifica (2 colonne) -->
+                        <!-- RIGA 1: Tipologia + Ownership (2 colonne) -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -298,12 +309,26 @@
                             </div>
                             
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Qualifica / Sottotitolo</label>
-                                <input type="text" 
-                                    wire:model="createQualifica" 
-                                    placeholder="es. Operaio agricolo, Addetto vendemmia, ..."
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Ownership / Azienda</label>
+                                <select wire:model="createOwnershipId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    <option value="">Seleziona ownership...</option>
+                                    @foreach($ownerships as $ownership)
+                                        <option value="{{ $ownership->id_proprieta }}">{{ $ownership->RagSocialePr }}</option>
+                                    @endforeach
+                                </select>
                             </div>
+                        </div>
+                        
+                        <!-- RIGA 2: Titolo (col 12) -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Titolo <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" 
+                                wire:model="createTitolo" 
+                                placeholder="es. Visita medica, Corso formazione, Scadenza contratto..."
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            @error('createTitolo') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                         </div>
                         
                         <!-- RIGA 3: Data Inizio + Data Scadenza (2 colonne) -->
@@ -328,83 +353,89 @@
                             </div>
                         </div>
                         
-                        <!-- RIGA 4: Fornitore (full width con autocomplete) -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Fornitore / Cliente</label>
-                            <div class="relative">
+                        <!-- RIGA 4: Fornitore + Sottotitolo (2 colonne) -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Fornitore / Cliente</label>
                                 <div class="relative">
-                                    <input type="text" 
-                                        wire:model.live.debounce.300ms="createFornitoreSearch" 
-                                        placeholder="Cerca fornitore o cliente (ragione sociale, nome, cognome)..."
-                                        class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                                    <svg class="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                    </svg>
-                                    
-                                    @if($createFornitoreNome)
-                                    <button type="button" 
-                                            wire:click="clearFornitore" 
-                                            class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    <div class="relative">
+                                        <input type="text" 
+                                            wire:model.live.debounce.300ms="createEntitySearch" 
+                                            placeholder="Cerca cliente o fornitore..."
+                                            class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                        <svg class="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                                         </svg>
-                                    </button>
+                                        
+                                        @if($createEntityNome)
+                                        <button type="button" 
+                                                wire:click="clearEntity" 
+                                                class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                        </button>
+                                        @endif
+                                    </div>
+                                    
+                                    @if(count($createEntityResults) > 0)
+                                    <div class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                        @foreach($createEntityResults as $result)
+                                        <div class="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-gray-100 last:border-0"
+                                            wire:click="selectEntity({{ $result->id_cliente }}, '{{ addslashes($result->ragione_sociale ?: $result->nome . ' ' . $result->cognome) }}')">
+                                            <div class="font-medium text-gray-900">
+                                                {{ $result->ragione_sociale ?: $result->nome . ' ' . $result->cognome }}
+                                            </div>
+                                            <div class="text-xs text-gray-500 flex flex-wrap gap-2 mt-0.5">
+                                                @if($result->partita_iva)
+                                                <span class="inline-flex items-center">
+                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                                                    </svg>
+                                                    P.IVA: {{ $result->partita_iva }}
+                                                </span>
+                                                @endif
+                                                @if($result->codice_fiscale)
+                                                <span>CF: {{ $result->codice_fiscale }}</span>
+                                                @endif
+                                                <span>Tipo: {{ $result->entity_type }}</span>
+                                            </div>
+                                        </div>
+                                        @endforeach
+                                    </div>
                                     @endif
                                 </div>
                                 
-                                @if(count($createFornitoreResults) > 0)
-                                <div class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                                    @foreach($createFornitoreResults as $result)
-                                    <div class="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-gray-100 last:border-0"
-                                        wire:click="selectFornitore({{ $result->id_cliente }}, '{{ addslashes($result->ragione_sociale ?: $result->nome . ' ' . $result->cognome) }}')">
-                                        <div class="font-medium text-gray-900">
-                                            {{ $result->ragione_sociale ?: $result->nome . ' ' . $result->cognome }}
+                                @if($createEntityNome)
+                                <div class="mt-2 p-2 bg-green-50 rounded-md border border-green-200">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center text-sm text-green-700">
+                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                            </svg>
+                                            <span class="font-medium">Associato a:</span>
+                                            <span class="ml-1">{{ $createEntityNome }}</span>
                                         </div>
-                                        <div class="text-xs text-gray-500 flex flex-wrap gap-2 mt-0.5">
-                                            @if($result->partita_iva)
-                                            <span class="inline-flex items-center">
-                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
-                                                </svg>
-                                                P.IVA: {{ $result->partita_iva }}
-                                            </span>
-                                            @endif
-                                            @if($result->codice_fiscale)
-                                            <span>CF: {{ $result->codice_fiscale }}</span>
-                                            @endif
-                                            @if($result->email)
-                                            <span class="truncate max-w-xs">Email: {{ $result->email }}</span>
-                                            @endif
-                                        </div>
+                                        <button type="button" wire:click="clearEntity" class="text-green-600 hover:text-green-800">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                        </button>
                                     </div>
-                                    @endforeach
                                 </div>
                                 @endif
                             </div>
                             
-                            @if($createFornitoreNome)
-                            <div class="mt-2 p-2 bg-green-50 rounded-md border border-green-200">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center text-sm text-green-700">
-                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                        </svg>
-                                        <span class="font-medium">Fornitore selezionato:</span>
-                                        <span class="ml-1">{{ $createFornitoreNome }}</span>
-                                    </div>
-                                    <button type="button" wire:click="clearFornitore" class="text-green-600 hover:text-green-800">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                        </svg>
-                                    </button>
-                                </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Qualifica / Sottotitolo</label>
+                                <input type="text" 
+                                    wire:model="createQualifica" 
+                                    placeholder="es. Operaio agricolo, Addetto vendemmia, ..."
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
                             </div>
-                            @endif
-                            
-                            <p class="text-xs text-gray-400 mt-1">Opzionale: associa la scadenza a un fornitore o cliente</p>
                         </div>
                         
-                        <!-- RIGA 5: Note (full width) -->
+                        <!-- RIGA 5: Note (col 12) -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Note</label>
                             <textarea wire:model="createNote" 
@@ -412,20 +443,6 @@
                                     placeholder="Note aggiuntive..."
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
                         </div>
-                        
-                        <!-- RIGA 6: Info personale associato (solo se in modalità staff) -->
-                        @if($staffName)
-                        <div class="bg-purple-50 p-3 rounded-lg border border-purple-200">
-                            <div class="flex items-center">
-                                <svg class="w-5 h-5 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                </svg>
-                                <p class="text-sm text-purple-700">
-                                    Personale associato: <strong>{{ $staffName }}</strong>
-                                </p>
-                            </div>
-                        </div>
-                        @endif
                     </div>
                 </div>
                 
@@ -475,12 +492,27 @@
                     </div>
                     
                     <div class="space-y-4">
-                        <!-- Mostra il personale associato -->
+                        <!-- Mostra il personale o entità associata -->
                         @if($viewingExpiration->staff)
                         <div class="bg-purple-50 p-3 rounded-lg">
                             <p class="text-sm text-purple-700">
                                 <i class="fas fa-user mr-1"></i> 
                                 Personale Associato: <strong>{{ $viewingExpiration->staff->full_name }}</strong>
+                            </p>
+                        </div>
+                        @elseif($viewingExpiration->entity)
+                        <div class="bg-blue-50 p-3 rounded-lg">
+                            <p class="text-sm text-blue-700">
+                                <i class="fas fa-building mr-1"></i> 
+                                Associato a: <strong>{{ $viewingExpiration->entity->full_name }}</strong>
+                                <span class="ml-2 text-xs">({{ $viewingExpiration->entity->entity_type === 'fornitore' ? 'Fornitore' : 'Cliente' }})</span>
+                            </p>
+                        </div>
+                        @elseif($viewingExpiration->entityLegacy)
+                        <div class="bg-blue-50 p-3 rounded-lg">
+                            <p class="text-sm text-blue-700">
+                                <i class="fas fa-building mr-1"></i> 
+                                Associato a: <strong>{{ $viewingExpiration->entityLegacy->full_name }}</strong>
                             </p>
                         </div>
                         @endif
@@ -503,7 +535,7 @@
                                 <p class="text-gray-900">{{ $viewingExpiration->data_fine ? $viewingExpiration->data_fine->format('d/m/Y') : '-' }}</p>
                             </div>
                             @if($viewingExpiration->subtitolo)
-                            <div>
+                            <div class="col-span-2">
                                 <label class="text-sm font-medium text-gray-500">Qualifica</label>
                                 <p class="text-gray-900">{{ $viewingExpiration->subtitolo }}</p>
                             </div>
@@ -549,7 +581,8 @@
                 <div class="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col sm:flex-row sm:justify-end gap-3">
                     <button @click="open = false" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md">Chiudi</button>
                     @if(auth()->guard('admin')->user()->hasPermission('edit_expiration'))
-                    <a href="{{ route('admin.expiration.edit', $viewingExpiration->id) }}" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md">
+                    <a href="{{ route('admin.expiration.edit', ['expiration' => $viewingExpiration->id, 'staff_id' => $staffId]) }}" 
+                       class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md">
                         <i class="fas fa-edit mr-2"></i> Modifica
                     </a>
                     @endif

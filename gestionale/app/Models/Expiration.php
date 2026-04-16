@@ -1,4 +1,5 @@
 <?php
+// app/Models/Expiration.php
 
 namespace App\Models;
 
@@ -17,6 +18,8 @@ class Expiration extends Model
         'id_ownership',
         'id_entities',
         'id_settings',
+        'id_references',
+        'table_references',
         'data_inizio',
         'data_fine',
         'titolo',
@@ -37,25 +40,15 @@ class Expiration extends Model
         'deleted_at' => 'datetime'
     ];
 
-    // ==================== RELAZIONI ====================
+    // ==================== COSTANTI PER I TIPI DI TABELLA ====================
     
-    public function ownership()
-    {
-        return $this->belongsTo(Ownership::class, 'id_ownership', 'id_proprieta');
-    }
-
-    // Per clienti/fornitori (tabella entities)
-    public function entity()
-    {
-        return $this->belongsTo(Entity::class, 'id_entities', 'id_cliente');
-    }
-
-    // PER PERSONALE (STAFF) - stessa colonna id_entities
-    public function staff()
-    {
-        return $this->belongsTo(Staff::class, 'id_entities', 'id_personale');
-    }
-
+    const TABLE_STAFF = 'staff';
+    const TABLE_VEHICLE = 'vehicles';
+    const TABLE_ENTITY = 'entities';
+    const TABLE_OWNERSHIP = 'ownership';
+    
+    // ==================== RELAZIONI (SOLO QUELLE SEMPLICI) ====================
+    
     public function setting()
     {
         return $this->belongsTo(Setting::class, 'id_settings', 'id');
@@ -73,21 +66,108 @@ class Expiration extends Model
         return $this->belongsTo(Administrator::class, 'updated_by', 'id');
     }
 
-    // ==================== HELPER ====================
+    // ==================== RELAZIONI RETROCOMPATIBILITÀ ====================
     
-    public function getTipologiaNameAttribute()
+    /**
+     * RETROCOMPATIBILITÀ: Per i record vecchi che usano ancora id_entities
+     */
+    public function entityLegacy()
     {
-        return $this->setting ? $this->setting->valore : 'N/D';
+        return $this->belongsTo(Entity::class, 'id_entities', 'id_cliente');
+    }
+    
+    /**
+     * RETROCOMPATIBILITÀ: Per i record vecchi che usano ancora id_ownership
+     */
+    public function ownershipLegacy()
+    {
+        return $this->belongsTo(Ownership::class, 'id_ownership', 'id_proprieta');
     }
 
-    public function getLinkedEntityNameAttribute()
+    // ==================== HELPER PER OTTENERE L'ENTITÀ ASSOCIATA ====================
+    
+    /**
+     * Ottiene l'entità associata (personale) - usa eager loading
+     */
+    public function getStaffAttribute()
     {
-        if ($this->staff) {
-            return $this->staff->full_name;
+        if ($this->table_references === self::TABLE_STAFF && $this->id_references) {
+            // Usa una cache statica per evitare query multiple nella stessa richiesta
+            static $staffCache = [];
+            if (!isset($staffCache[$this->id_references])) {
+                $staffCache[$this->id_references] = Staff::find($this->id_references);
+            }
+            return $staffCache[$this->id_references];
+        }
+        return null;
+    }
+    
+    /**
+     * Ottiene l'entità associata (cliente/fornitore)
+     */
+    public function getEntityAttribute()
+    {
+        if ($this->table_references === self::TABLE_ENTITY && $this->id_references) {
+            static $entityCache = [];
+            if (!isset($entityCache[$this->id_references])) {
+                $entityCache[$this->id_references] = Entity::find($this->id_references);
+            }
+            return $entityCache[$this->id_references];
+        }
+        return null;
+    }
+    
+    /**
+     * Ottiene l'entità associata in modo unificato
+     */
+    public function getLinkedEntityAttribute()
+    {
+        // Nuovo sistema polimorfico
+        if ($this->table_references && $this->id_references) {
+            if ($this->table_references === self::TABLE_STAFF) {
+                return $this->staff;
+            }
+            if ($this->table_references === self::TABLE_ENTITY) {
+                return $this->entity;
+            }
+            if ($this->table_references === self::TABLE_OWNERSHIP) {
+                return Ownership::find($this->id_references);
+            }
         }
         
-        if ($this->entity) {
-            return $this->entity->full_name;
+        // Retrocompatibilità: vecchio sistema
+        if ($this->id_entities) {
+            return $this->entityLegacy;
+        }
+        
+        if ($this->id_ownership) {
+            return $this->ownershipLegacy;
+        }
+        
+        return null;
+    }
+    
+    public function getLinkedEntityNameAttribute()
+    {
+        $entity = $this->getLinkedEntityAttribute();
+        
+        if (!$entity) {
+            return '-';
+        }
+        
+        // Staff
+        if (isset($entity->full_name)) {
+            return $entity->full_name;
+        }
+        
+        // Entity (cliente/fornitore)
+        if (isset($entity->ragione_sociale)) {
+            return $entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome);
+        }
+        
+        // Ownership
+        if (isset($entity->RagSocialePr)) {
+            return $entity->RagSocialePr;
         }
         
         return '-';
@@ -95,12 +175,34 @@ class Expiration extends Model
     
     public function getLinkedEntityTypeAttribute()
     {
-        if ($this->staff) {
+        if ($this->table_references === self::TABLE_STAFF) {
             return 'Personale';
         }
         
-        if ($this->entity) {
-            return $this->entity->entity_type === 'fornitore' ? 'Fornitore' : 'Cliente';
+        if ($this->table_references === self::TABLE_ENTITY) {
+            $entity = $this->entity;
+            if ($entity && isset($entity->entity_type)) {
+                return $entity->entity_type === 'fornitore' ? 'Fornitore' : 'Cliente';
+            }
+            return 'Cliente/Fornitore';
+        }
+        
+        if ($this->table_references === self::TABLE_OWNERSHIP) {
+            return 'Proprietà';
+        }
+        
+        if ($this->table_references === self::TABLE_VEHICLE) {
+            return 'Mezzo';
+        }
+        
+        // Retrocompatibilità
+        if ($this->id_entities && $this->entityLegacy) {
+            $entity = $this->entityLegacy;
+            return $entity->entity_type === 'fornitore' ? 'Fornitore' : 'Cliente';
+        }
+        
+        if ($this->id_ownership) {
+            return 'Proprietà';
         }
         
         return 'N/D';
@@ -130,8 +232,29 @@ class Expiration extends Model
     {
         return $query->where('id_settings', $settingId);
     }
+    
+    /**
+     * Scope per filtrare per staff specifico
+     */
+    public function scopeForStaff($query, $staffId)
+    {
+        return $query->where(function($q) use ($staffId) {
+            $q->where('table_references', self::TABLE_STAFF)
+              ->where('id_references', $staffId)
+              // Retrocompatibilità: id_entities che punta a staff
+              ->orWhere(function($q2) use ($staffId) {
+                  $q2->whereNull('table_references')
+                     ->where('id_entities', $staffId);
+              });
+        });
+    }
 
     // ==================== ACCESSOR ====================
+    
+    public function getTipologiaNameAttribute()
+    {
+        return $this->setting ? $this->setting->valore : 'N/D';
+    }
     
     public function getStatusLabelAttribute()
     {
@@ -173,50 +296,5 @@ class Expiration extends Model
             return '-';
         }
         return '€ ' . number_format($this->importo, 2, ',', '.');
-    }
-
-    public function getTrackingInfoAttribute()
-    {
-        $info = [];
-        
-        if ($this->created_at && $this->createdBy) {
-            $info['created'] = [
-                'by' => $this->createdBy->name,
-                'by_id' => $this->createdBy->id,
-                'by_email' => $this->createdBy->email,
-                'at' => $this->created_at->format('d/m/Y H:i:s'),
-                'full' => "{$this->createdBy->name} - {$this->created_at->format('d/m/Y H:i:s')}"
-            ];
-        } elseif ($this->created_at) {
-            $info['created'] = [
-                'by' => 'Sistema',
-                'by_id' => null,
-                'by_email' => null,
-                'at' => $this->created_at->format('d/m/Y H:i:s'),
-                'full' => "Sistema - {$this->created_at->format('d/m/Y H:i:s')}"
-            ];
-        }
-        
-        if ($this->updated_at && $this->updatedBy && $this->created_at != $this->updated_at) {
-            $info['updated'] = [
-                'by' => $this->updatedBy->name,
-                'by_id' => $this->updatedBy->id,
-                'by_email' => $this->updatedBy->email,
-                'at' => $this->updated_at->format('d/m/Y H:i:s'),
-                'full' => "{$this->updatedBy->name} - {$this->updated_at->format('d/m/Y H:i:s')}",
-                'relative' => $this->updated_at->diffForHumans()
-            ];
-        } elseif ($this->updated_at && $this->created_at != $this->updated_at) {
-            $info['updated'] = [
-                'by' => 'Sistema',
-                'by_id' => null,
-                'by_email' => null,
-                'at' => $this->updated_at->format('d/m/Y H:i:s'),
-                'full' => "Sistema - {$this->updated_at->format('d/m/Y H:i:s')}",
-                'relative' => $this->updated_at->diffForHumans()
-            ];
-        }
-        
-        return $info;
     }
 }

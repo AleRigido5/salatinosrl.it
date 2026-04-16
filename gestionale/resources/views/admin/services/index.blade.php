@@ -12,9 +12,16 @@
             <p class="text-gray-600 mt-1">Gestisci il catalogo dei servizi offerti</p>
         </div>
         @if(auth()->guard('admin')->user()->hasPermission('create_services'))
-        <a href="{{ route('admin.services.create') }}" class="bg-lime-600 hover:bg-lime-700 text-white px-4 py-2 rounded-lg transition-colors">
-            <i class="fas fa-plus mr-2"></i> Nuovo Servizio
-        </a>
+        <div class="relative group">
+            <a href="{{ route('admin.services.create') }}" 
+               class="bg-lime-600 hover:bg-lime-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+                <i class="fas fa-plus"></i>
+            </a>
+            <div class="absolute bottom-full transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                Nuovo Servizio
+                <div class="absolute top-full transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
+            </div>
+        </div>
         @endif
     </div>
 

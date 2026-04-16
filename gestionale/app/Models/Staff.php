@@ -13,6 +13,8 @@ class Staff extends Model
     
     // ATTIVA i timestamp (IMPORTANTE!)
     public $timestamps = true;
+
+    const TABLE_NAME = 'staff';
     
     protected $fillable = [
         'NomePers',

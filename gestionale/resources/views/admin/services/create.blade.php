@@ -11,9 +11,16 @@
             </h1>
             <p class="text-gray-600 mt-1">Inserisci un nuovo servizio nel catalogo</p>
         </div>
-        <a href="{{ route('admin.services.index') }}" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
-            <i class="fas fa-arrow-left mr-2"></i> Torna alla lista
-        </a>
+        <div class="relative group">
+            <a href="{{ route('admin.services.index') }}" 
+            class="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg transition-colors flex items-center">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div class="absolute bottom-full transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                Torna alla lista servizi
+                <div class="absolute top-full transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
+            </div>
+        </div>
     </div>
 
     <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">

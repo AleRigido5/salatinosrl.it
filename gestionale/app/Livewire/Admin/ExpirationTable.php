@@ -1,4 +1,5 @@
 <?php
+// app/Livewire/Admin/ExpirationTable.php
 
 namespace App\Livewire\Admin;
 
@@ -8,6 +9,7 @@ use App\Models\Expiration;
 use App\Models\Setting;
 use App\Models\Staff;
 use App\Models\Entity;
+use App\Models\Ownership;
 use Illuminate\Support\Facades\Auth;
 
 class ExpirationTable extends Component
@@ -33,11 +35,13 @@ class ExpirationTable extends Component
     public $createDataFine = '';
     public $createNote = '';
     public $createQualifica = '';
+    public $createOwnershipId = '';
     
-    public $createFornitoreId = '';
-    public $createFornitoreSearch = '';
-    public $createFornitoreResults = [];
-    public $createFornitoreNome = '';
+    // Autocomplete per entità (clienti/fornitori)
+    public $createEntitySearch = '';
+    public $createEntityResults = [];
+    public $createEntityId = '';
+    public $createEntityNome = '';
     
     protected $paginationTheme = 'tailwind';
     protected $queryString = ['search', 'tipologiaFilter', 'statusFilter', 'staffId'];
@@ -47,6 +51,8 @@ class ExpirationTable extends Component
         $this->staffId = $staffId;
         $this->staffName = $staffName;
         $this->createDataInizio = date('Y-m-d');
+        // Imposta data scadenza di default tra 1 anno
+        $this->createDataFine = date('Y-m-d', strtotime('+1 year'));
         
         if ($this->staffId) {
             $staff = Staff::find($this->staffId);
@@ -56,43 +62,43 @@ class ExpirationTable extends Component
         }
     }
     
-    // ==================== AUTOCOMPLETE FORNITORE ====================
+    // ==================== AUTOCOMPLETE ENTITÀ ====================
     
-    public function updatedCreateFornitoreSearch()
+    public function updatedCreateEntitySearch()
     {
-        if (strlen($this->createFornitoreSearch) >= 2) {
-            $this->createFornitoreResults = Entity::where(function($q) {
+        if (strlen($this->createEntitySearch) >= 2) {
+            $this->createEntityResults = Entity::where(function($q) {
                     $q->where('entity_type', 'fornitore')
                       ->orWhere('entity_type', 'entrambi');
                 })
                 ->where(function($q) {
-                    $q->where('ragione_sociale', 'like', '%' . $this->createFornitoreSearch . '%')
-                      ->orWhere('nome', 'like', '%' . $this->createFornitoreSearch . '%')
-                      ->orWhere('cognome', 'like', '%' . $this->createFornitoreSearch . '%');
+                    $q->where('ragione_sociale', 'like', '%' . $this->createEntitySearch . '%')
+                      ->orWhere('nome', 'like', '%' . $this->createEntitySearch . '%')
+                      ->orWhere('cognome', 'like', '%' . $this->createEntitySearch . '%');
                 })
                 ->where('valid', 1)
                 ->orderBy('ragione_sociale')
                 ->limit(10)
                 ->get();
         } else {
-            $this->createFornitoreResults = [];
+            $this->createEntityResults = [];
         }
     }
     
-    public function selectFornitore($id, $nome)
+    public function selectEntity($id, $nome)
     {
-        $this->createFornitoreId = $id;
-        $this->createFornitoreNome = $nome;
-        $this->createFornitoreSearch = $nome;
-        $this->createFornitoreResults = [];
+        $this->createEntityId = $id;
+        $this->createEntityNome = $nome;
+        $this->createEntitySearch = $nome;
+        $this->createEntityResults = [];
     }
     
-    public function clearFornitore()
+    public function clearEntity()
     {
-        $this->createFornitoreId = '';
-        $this->createFornitoreNome = '';
-        $this->createFornitoreSearch = '';
-        $this->createFornitoreResults = [];
+        $this->createEntityId = '';
+        $this->createEntityNome = '';
+        $this->createEntitySearch = '';
+        $this->createEntityResults = [];
     }
     
     // ==================== METODI CREAZIONE ====================
@@ -114,15 +120,18 @@ class ExpirationTable extends Component
         $this->createTitolo = '';
         $this->createTipologiaId = '';
         $this->createDataInizio = date('Y-m-d');
-        $this->createDataFine = '';
+        $this->createDataFine = date('Y-m-d', strtotime('+1 year'));
         $this->createNote = '';
         $this->createQualifica = '';
-        $this->createFornitoreId = '';
-        $this->createFornitoreNome = '';
-        $this->createFornitoreSearch = '';
-        $this->createFornitoreResults = [];
+        $this->createOwnershipId = '';
+        
+        // Reset dei campi di associazione
+        $this->createEntityId = '';
+        $this->createEntityNome = '';
+        $this->createEntitySearch = '';
+        $this->createEntityResults = [];
     }
-    
+
     public function saveExpiration()
     {
         $this->validate([
@@ -135,22 +144,34 @@ class ExpirationTable extends Component
         try {
             $adminId = Auth::guard('admin')->id();
             
-            // Determina l'ID dell'entità:
-            // - Se c'è un fornitore selezionato, usa quello
-            // - Altrimenti usa l'ID dello staff
-            $idEntities = $this->createFornitoreId ?: $this->staffId;
-            
-            $expiration = Expiration::create([
+            $data = [
                 'titolo' => $this->createTitolo,
                 'id_settings' => $this->createTipologiaId,
                 'data_inizio' => $this->createDataInizio,
                 'data_fine' => $this->createDataFine,
-                'id_entities' => $idEntities,
                 'subtitolo' => $this->createQualifica,
                 'note' => $this->createNote,
                 'created_by' => $adminId,
-                'updated_by' => $adminId
-            ]);
+                'updated_by' => $adminId,
+            ];
+            
+            // 1. Se c'è un ownership selezionato
+            if ($this->createOwnershipId) {
+                $data['id_ownership'] = $this->createOwnershipId;
+            }
+            
+            // 2. Se c'è un cliente/fornitore selezionato, compila id_entities
+            if ($this->createEntityId) {
+                $data['id_entities'] = $this->createEntityId;
+            }
+            
+            // 3. Se siamo in modalità staff, compila id_references e table_references
+            if ($this->staffId) {
+                $data['id_references'] = $this->staffId;
+                $data['table_references'] = Expiration::TABLE_STAFF;
+            }
+            
+            Expiration::create($data);
             
             $this->closeCreateModal();
             $this->dispatch('showSuccess', message: 'Scadenza creata con successo!');
@@ -169,12 +190,24 @@ class ExpirationTable extends Component
             ->get();
     }
     
+    public function getOwnershipsProperty()
+    {
+        return Ownership::orderBy('RagSocialePr')->get();
+    }
+    
     public function getExpirationsProperty()
     {
         $query = Expiration::query();
         
         if ($this->staffId) {
-            $query->where('id_entities', $this->staffId);
+            $query->where(function($q) {
+                $q->where('table_references', Expiration::TABLE_STAFF)
+                  ->where('id_references', $this->staffId)
+                  ->orWhere(function($q2) {
+                      $q2->whereNull('table_references')
+                         ->where('id_entities', $this->staffId);
+                  });
+            });
         }
         
         if ($this->search) {
@@ -206,13 +239,13 @@ class ExpirationTable extends Component
         
         $query->orderBy($this->sortField, $this->sortDirection);
         
-        return $query->with(['setting', 'staff', 'entity', 'createdBy', 'updatedBy'])->paginate($this->perPage);
+        return $query->with(['setting', 'entityLegacy', 'ownershipLegacy', 'createdBy', 'updatedBy'])->paginate($this->perPage);
     }
     
     public function viewExpiration($id)
     {
         try {
-            $expiration = Expiration::with(['setting', 'staff', 'entity', 'createdBy', 'updatedBy'])->find($id);
+            $expiration = Expiration::with(['setting', 'entityLegacy', 'ownershipLegacy', 'createdBy', 'updatedBy'])->find($id);
             
             if (!$expiration) {
                 $this->dispatch('showError', message: 'Scadenza non trovata');
@@ -259,6 +292,17 @@ class ExpirationTable extends Component
         }
     }
     
+    public function sortBy($field)
+    {
+        if ($this->sortField === $field) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortField = $field;
+            $this->sortDirection = 'asc';
+        }
+        $this->resetPage();
+    }
+    
     public function resetFilters()
     {
         $this->search = '';
@@ -279,6 +323,7 @@ class ExpirationTable extends Component
         return view('livewire.admin.expiration-table', [
             'expirations' => $this->expirations,
             'tipologie' => $this->tipologie,
+            'ownerships' => $this->ownerships,
         ]);
     }
 }

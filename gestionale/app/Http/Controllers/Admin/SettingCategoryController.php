@@ -8,6 +8,7 @@ use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Validator;
 
 class SettingCategoryController extends Controller
 {
@@ -44,30 +45,72 @@ class SettingCategoryController extends Controller
             abort(403, 'Non hai i permessi necessari.');
         }
         
+        // Se è una richiesta AJAX, ritorna solo il form del modal
+        if (request()->ajax()) {
+            return view('admin.settings.categories.modal-form')->render();
+        }
+        
         return view('admin.settings.categories.create');
     }
     
     public function store(Request $request)
     {
         if (!Auth::guard('admin')->user()->hasPermission('edit_settings')) {
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Non hai i permessi necessari.'
+                ], 403);
+            }
             abort(403, 'Non hai i permessi necessari.');
         }
         
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'titolo' => 'required|string|max:255',
             'descrizione' => 'nullable|string',
             'tabella_riferimento' => 'nullable|string|max:100',
             'ordinamento' => 'nullable|integer'
         ]);
         
+        if ($validator->fails()) {
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+            return redirect()->back()->withErrors($validator)->withInput();
+        }
+        
+        // Genera slug dal titolo
+        $slug = Str::slug($request->titolo);
+        
+        // Verifica slug univoco
+        $originalSlug = $slug;
+        $counter = 1;
+        while (SettingCategory::where('slug', $slug)->exists()) {
+            $slug = $originalSlug . '-' . $counter;
+            $counter++;
+        }
+        
         $category = SettingCategory::create([
             'titolo' => $request->titolo,
-            'slug' => Str::slug($request->titolo),
+            'slug' => $slug,
             'descrizione' => $request->descrizione,
             'tabella_riferimento' => $request->tabella_riferimento,
             'ordinamento' => $request->ordinamento ?: 0,
-            'valid' => true
+            'valid' => true,
+            'created_by' => Auth::guard('admin')->id()
         ]);
+        
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Categoria creata con successo!',
+                'category' => $category,
+                'redirect_url' => route('admin.settings.categories.show', $category->slug)
+            ]);
+        }
         
         return redirect()->route('admin.settings.categories.show', $category->slug)
             ->with('success', 'Categoria creata con successo!');
@@ -106,7 +149,8 @@ class SettingCategoryController extends Controller
             'descrizione' => $request->descrizione,
             'tabella_riferimento' => $request->tabella_riferimento,
             'ordinamento' => $request->ordinamento ?: 0,
-            'valid' => $request->boolean('valid')
+            'valid' => $request->boolean('valid'),
+            'updated_by' => Auth::guard('admin')->id()
         ]);
         
         // Redirect alla pagina show della categoria (dettaglio con tabella)

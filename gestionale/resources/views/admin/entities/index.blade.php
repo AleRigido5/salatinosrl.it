@@ -25,10 +25,16 @@
         </div>
         
         @if(auth()->guard('admin')->user()->hasPermission('create_entities'))
+        <div class="relative group">
             <button onclick="Livewire.dispatch('openCreateModal')"
-                class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg">
-                <i class="fas fa-plus mr-2"></i> Nuovo Cliente/Fornitore
+                    class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                <i class="fas fa-plus"></i>
             </button>
+            <div class="absolute bottom-full transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                Nuovo Cliente / Fornitore
+                <div class="absolute top-full transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
+            </div>
+        </div>
         @endif
     </div>
 

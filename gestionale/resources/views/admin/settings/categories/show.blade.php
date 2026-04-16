@@ -19,11 +19,17 @@
             </div>
         </div>
         @if(auth()->guard('admin')->user()->hasPermission('edit_settings'))
-        <button type="button" 
-                onclick="openCreateModal()"
-                class="bg-lime-600 hover:bg-lime-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
-            <i class="fas fa-plus mr-2"></i> Nuova Impostazione
-        </button>
+        <div class="relative group">
+            <button type="button" 
+                    onclick="openCreateModal()"
+                    class="bg-lime-600 hover:bg-lime-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+                <i class="fas fa-plus"></i>
+            </button>
+            <div class="absolute bottom-full transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                Aggiungi nuova impostazione
+                <div class="absolute top-full transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
+            </div>
+        </div>
         @endif
     </div>
 
@@ -123,7 +129,7 @@
             <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div class="flex justify-between items-center mb-4 border-b pb-3">
                     <h2 class="text-xl font-bold text-gray-800">
-                        <i class="fas fa-plus-circle mr-2 text-lime-600"></i> Nuova Impostazione
+                        <i class="fas fa-plus mr-2 text-lime-600"></i> Nuova Impostazione
                     </h2>
                     <button onclick="closeCreateModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

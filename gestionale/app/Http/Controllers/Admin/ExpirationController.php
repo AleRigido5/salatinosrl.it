@@ -64,16 +64,10 @@ class ExpirationController extends Controller
             'id_settings' => 'required|exists:settings,id',
             'data_inizio' => 'required|date',
             'data_fine' => 'nullable|date|after_or_equal:data_inizio',
-            'table_references' => 'nullable|string|in:' . implode(',', [
-                Expiration::TABLE_STAFF, 
-                Expiration::TABLE_ENTITY, 
-                Expiration::TABLE_OWNERSHIP
-            ]),
-            'id_references' => 'nullable|integer',
-            'id_entities' => 'nullable|exists:entities,id_cliente',
-            'id_ownership' => 'nullable|exists:ownership,id_proprieta',
             'subtitolo' => 'nullable|string|max:255',
             'note' => 'nullable|string',
+            'id_entities' => 'nullable|exists:entities,id_cliente',
+            'id_ownership' => 'nullable|exists:ownership,id_proprieta',
         ]);
 
         $adminId = Auth::guard('admin')->id();
@@ -89,23 +83,15 @@ class ExpirationController extends Controller
             'updated_by' => $adminId
         ];
         
-        // Gestione polimorfica
-        if ($request->table_references && $request->id_references) {
-            $data['table_references'] = $request->table_references;
-            $data['id_references'] = $request->id_references;
-        } elseif ($request->id_entities) {
+        if ($request->id_entities) {
             $data['id_entities'] = $request->id_entities;
-        } elseif ($request->id_ownership) {
+        }
+        
+        if ($request->id_ownership) {
             $data['id_ownership'] = $request->id_ownership;
         }
 
         $expiration = Expiration::create($data);
-
-        // Redirect appropriato in base al contesto
-        if ($request->table_references === Expiration::TABLE_STAFF && $request->id_references) {
-            return redirect()->route('admin.expiration.index', ['staff_id' => $request->id_references])
-                ->with('success', 'Scadenza creata con successo!');
-        }
 
         return redirect()->route('admin.expiration.index')
             ->with('success', 'Scadenza creata con successo!');
@@ -117,7 +103,9 @@ class ExpirationController extends Controller
             abort(403, 'Non hai i permessi necessari.');
         }
 
-        $expiration = Expiration::with(['ownership', 'entity', 'setting', 'createdBy', 'updatedBy'])->findOrFail($id);
+        // Usa solo le relazioni esistenti e sicure
+        $expiration = Expiration::with(['setting', 'createdBy', 'updatedBy'])->findOrFail($id);
+        
         $ownerships = Ownership::orderBy('RagSocialePr')->get();
         $entities = Entity::orderBy('ragione_sociale')->get();
         $tipologie = Setting::where('tabella_riferimento', 'expiration')
@@ -143,16 +131,10 @@ class ExpirationController extends Controller
             'id_settings' => 'required|exists:settings,id',
             'data_inizio' => 'required|date',
             'data_fine' => 'nullable|date|after_or_equal:data_inizio',
-            'table_references' => 'nullable|string|in:' . implode(',', [
-                Expiration::TABLE_STAFF, 
-                Expiration::TABLE_ENTITY, 
-                Expiration::TABLE_OWNERSHIP
-            ]),
-            'id_references' => 'nullable|integer',
-            'id_entities' => 'nullable|exists:entities,id_cliente',
-            'id_ownership' => 'nullable|exists:ownership,id_proprieta',
             'subtitolo' => 'nullable|string|max:255',
             'note' => 'nullable|string',
+            'id_entities' => 'nullable|exists:entities,id_cliente',
+            'id_ownership' => 'nullable|exists:ownership,id_proprieta',
         ]);
 
         $data = [
@@ -166,32 +148,18 @@ class ExpirationController extends Controller
             'updated_at' => now()
         ];
         
-        // Gestione polimorfica
-        if ($request->table_references && $request->id_references) {
-            $data['table_references'] = $request->table_references;
-            $data['id_references'] = $request->id_references;
-            $data['id_entities'] = null;
-            $data['id_ownership'] = null;
-        } elseif ($request->id_entities) {
+        if ($request->id_entities) {
             $data['id_entities'] = $request->id_entities;
-            $data['table_references'] = null;
-            $data['id_references'] = null;
-        } elseif ($request->id_ownership) {
+        }
+        
+        if ($request->id_ownership) {
             $data['id_ownership'] = $request->id_ownership;
-            $data['table_references'] = null;
-            $data['id_references'] = null;
         }
 
         $expiration->update($data);
 
-        $redirectUrl = route('admin.expiration.index');
-        if ($request->staff_id) {
-            $redirectUrl = route('admin.expiration.index', ['staff_id' => $request->staff_id]);
-        } elseif ($expiration->table_references === Expiration::TABLE_STAFF && $expiration->id_references) {
-            $redirectUrl = route('admin.expiration.index', ['staff_id' => $expiration->id_references]);
-        }
-
-        return redirect($redirectUrl)->with('success', 'Scadenza aggiornata con successo!');
+        return redirect()->route('admin.expiration.index')
+            ->with('success', 'Scadenza aggiornata con successo!');
     }
 
     public function destroy($id, Request $request)
@@ -203,14 +171,8 @@ class ExpirationController extends Controller
         $expiration = Expiration::findOrFail($id);
         $expiration->delete();
 
-        $redirectUrl = route('admin.expiration.index');
-        if ($request->staff_id) {
-            $redirectUrl = route('admin.expiration.index', ['staff_id' => $request->staff_id]);
-        } elseif ($expiration->table_references === Expiration::TABLE_STAFF && $expiration->id_references) {
-            $redirectUrl = route('admin.expiration.index', ['staff_id' => $expiration->id_references]);
-        }
-
-        return redirect($redirectUrl)->with('success', 'Scadenza eliminata con successo!');
+        return redirect()->route('admin.expiration.index')
+            ->with('success', 'Scadenza eliminata con successo!');
     }
 
     public function restore($id, Request $request)
@@ -222,14 +184,8 @@ class ExpirationController extends Controller
         $expiration = Expiration::withTrashed()->findOrFail($id);
         $expiration->restore();
 
-        $redirectUrl = route('admin.expiration.index');
-        if ($request->staff_id) {
-            $redirectUrl = route('admin.expiration.index', ['staff_id' => $request->staff_id]);
-        } elseif ($expiration->table_references === Expiration::TABLE_STAFF && $expiration->id_references) {
-            $redirectUrl = route('admin.expiration.index', ['staff_id' => $expiration->id_references]);
-        }
-
-        return redirect($redirectUrl)->with('success', 'Scadenza ripristinata con successo!');
+        return redirect()->route('admin.expiration.index')
+            ->with('success', 'Scadenza ripristinata con successo!');
     }
 
     public function toggleStatus($id, Request $request)
@@ -244,13 +200,7 @@ class ExpirationController extends Controller
             $status = 'disattivata';
         }
         
-        $redirectUrl = route('admin.expiration.index');
-        if ($request->staff_id) {
-            $redirectUrl = route('admin.expiration.index', ['staff_id' => $request->staff_id]);
-        } elseif ($expiration->table_references === Expiration::TABLE_STAFF && $expiration->id_references) {
-            $redirectUrl = route('admin.expiration.index', ['staff_id' => $expiration->id_references]);
-        }
-        
-        return redirect($redirectUrl)->with('success', "Scadenza {$status} con successo!");
+        return redirect()->route('admin.expiration.index')
+            ->with('success', "Scadenza {$status} con successo!");
     }
 }

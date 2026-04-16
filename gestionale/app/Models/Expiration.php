@@ -69,7 +69,7 @@ class Expiration extends Model
     // ==================== RELAZIONI PER LE ENTITÀ ASSOCIATE ====================
     
     /**
-     * Relazione per Staff (personale)
+     * Relazione per Staff (personale) - usa il nuovo sistema polimorfico
      */
     public function staff()
     {
@@ -78,7 +78,7 @@ class Expiration extends Model
     }
     
     /**
-     * Relazione per Clienti/Fornitori (entities)
+     * Relazione per Clienti/Fornitori (entities) - usa il nuovo sistema polimorfico
      */
     public function entity()
     {
@@ -97,7 +97,7 @@ class Expiration extends Model
     /**
      * RETROCOMPATIBILITÀ: Per i record vecchi che usano ancora id_ownership
      */
-    public function ownership()
+    public function ownershipLegacy()
     {
         return $this->belongsTo(Ownership::class, 'id_ownership', 'id_proprieta');
     }
@@ -285,6 +285,7 @@ class Expiration extends Model
     }
 
     // ==================== RELAZIONE CON DOCUMENTI ====================
+    
     public function documents()
     {
         return $this->hasMany(Document::class, 'id_ref', 'id')
@@ -294,5 +295,5 @@ class Expiration extends Model
     public function getDocumentsCountAttribute()
     {
         return $this->documents()->count();
-}
+    }
 }

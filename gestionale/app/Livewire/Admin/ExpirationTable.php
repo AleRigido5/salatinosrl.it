@@ -129,7 +129,6 @@ class ExpirationTable extends Component
         $this->createEntityResults = [];
     }
 
-
     public function saveExpiration()
     {
         $this->validate([
@@ -151,8 +150,6 @@ class ExpirationTable extends Component
                 'note' => $this->createNote,
                 'created_by' => $adminId,
                 'updated_by' => $adminId,
-                'table_references' => null,  // Aggiungi default null
-                'id_references' => null,      // Aggiungi default null
             ];
             
             if ($this->createOwnershipId) {
@@ -238,14 +235,12 @@ class ExpirationTable extends Component
         
         $query->orderBy($this->sortField, $this->sortDirection);
         
-        // IMPORTANTE: Aggiungi 'documents' alla with()
         return $query->with([
             'setting', 
             'entityLegacy', 
             'ownershipLegacy', 
             'createdBy', 
-            'updatedBy',
-            'documents'  // <--- AGGIUNGI QUESTA RIGA
+            'updatedBy'
         ])->paginate($this->perPage);
     }
     

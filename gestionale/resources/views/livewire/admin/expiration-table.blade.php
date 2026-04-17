@@ -319,7 +319,7 @@
                                     <div class="relative">
                                         <input type="text" 
                                             wire:model.live.debounce.300ms="createEntitySearch" 
-                                            placeholder="Cerca cliente o fornitore..."
+                                            placeholder="Cerca fornitore..."
                                             class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                                         <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
                                         

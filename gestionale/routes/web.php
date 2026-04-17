@@ -150,6 +150,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::prefix('documents')->name('documents.')->group(function () {
             Route::get('{tableRef}/{idRef}', [DocumentController::class, 'index'])->name('index');
             Route::post('{tableRef}/{idRef}', [DocumentController::class, 'store'])->name('store');
+            Route::delete('{tableRef}/{idRef}/all', [DocumentController::class, 'destroyAll'])->name('destroy.all');  // <-- AGGIUNGI QUESTA RIGA
             Route::delete('{tableRef}/{idRef}/{documentId}', [DocumentController::class, 'destroy'])->name('destroy');
             Route::get('{tableRef}/{idRef}/{documentId}/download', [DocumentController::class, 'download'])->name('download');
         });

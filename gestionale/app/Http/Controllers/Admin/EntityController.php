@@ -174,6 +174,44 @@ class EntityController extends Controller
             ->with('success', 'Entità aggiornata con successo!');
     }
 
+    /**
+     * API per la ricerca di entità (clienti/fornitori) via AJAX
+     */
+    public function search(Request $request)
+    {
+        $query = $request->get('q');
+        
+        if (strlen($query) < 2) {
+            return response()->json([]);
+        }
+        
+        $entities = Entity::where(function($q) use ($query) {
+                $q->where('ragione_sociale', 'like', '%' . $query . '%')
+                  ->orWhere('nome', 'like', '%' . $query . '%')
+                  ->orWhere('cognome', 'like', '%' . $query . '%')
+                  ->orWhere('partita_iva', 'like', '%' . $query . '%')
+                  ->orWhere('codice_fiscale', 'like', '%' . $query . '%');
+            })
+            ->where('valid', 1)
+            ->orderBy('ragione_sociale')
+            ->limit(10)
+            ->get()
+            ->map(function($entity) {
+                return [
+                    'id_cliente' => $entity->id_cliente,
+                    'ragione_sociale' => $entity->ragione_sociale,
+                    'nome' => $entity->nome,
+                    'cognome' => $entity->cognome,
+                    'full_name' => $entity->full_name,
+                    'partita_iva' => $entity->partita_iva,
+                    'codice_fiscale' => $entity->codice_fiscale,
+                    'entity_type' => $entity->entity_type,
+                ];
+            });
+        
+        return response()->json($entities);
+    }
+    
     public function destroy(Entity $entity)
     {
         $entity->delete();

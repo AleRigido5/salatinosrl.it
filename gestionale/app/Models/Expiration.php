@@ -69,16 +69,18 @@ class Expiration extends Model
     // ==================== RELAZIONI PER LE ENTITÀ ASSOCIATE ====================
     
     /**
-     * Relazione per Staff (personale) - usa il nuovo sistema polimorfico
+     * Relazione per Staff (personale) - CORRETTA (senza where sulla colonna inesistente)
+     * Usa id_references solo quando table_references è 'staff'
      */
     public function staff()
     {
+        // La condizione deve essere sulla tabella expiration, non sulla tabella staff
         return $this->belongsTo(Staff::class, 'id_references', 'id_personale')
             ->where('expiration.table_references', self::TABLE_STAFF);
     }
     
     /**
-     * Relazione per Clienti/Fornitori (entities) - usa il nuovo sistema polimorfico
+     * Relazione per Clienti/Fornitori (entities) - CORRETTA
      */
     public function entity()
     {
@@ -105,7 +107,7 @@ class Expiration extends Model
     // ==================== HELPER PER OTTENERE L'ENTITÀ ASSOCIATA ====================
     
     /**
-     * Ottiene l'entità associata in modo unificato
+     * Ottiene l'entità associata in modo unificato (senza usare relazioni eager problematiche)
      */
     public function getLinkedEntityAttribute()
     {

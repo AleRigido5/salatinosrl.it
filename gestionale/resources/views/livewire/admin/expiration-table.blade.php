@@ -410,7 +410,7 @@
     </div>
     @endif
     
-    <!-- Modal Visualizzazione Dettaglio Scadenza -->
+    <!-- Modal Visualizzazione Dettaglio Scadenza (CORRETTA - senza relazioni problematiche) -->
     @if($showViewModal && $viewingExpiration)
     <div class="fixed inset-0 z-50 overflow-y-auto" 
          x-data="{ open: true }" 
@@ -434,27 +434,21 @@
                     </div>
                     
                     <div class="space-y-4">
-                        <!-- Mostra il personale o entità associata -->
-                        @if($viewingExpiration->staff)
-                        <div class="bg-purple-50 p-3 rounded-lg">
-                            <p class="text-sm text-purple-700">
-                                <i class="fas fa-user mr-1"></i> 
-                                Personale Associato: <strong>{{ $viewingExpiration->staff->full_name }}</strong>
-                            </p>
-                        </div>
-                        @elseif($viewingExpiration->entity)
-                        <div class="bg-blue-50 p-3 rounded-lg">
-                            <p class="text-sm text-blue-700">
-                                <i class="fas fa-building mr-1"></i> 
-                                Associato a: <strong>{{ $viewingExpiration->entity->full_name }}</strong>
-                                <span class="ml-2 text-xs">({{ $viewingExpiration->entity->entity_type === 'fornitore' ? 'Fornitore' : 'Cliente' }})</span>
-                            </p>
-                        </div>
-                        @elseif($viewingExpiration->entityLegacy)
-                        <div class="bg-blue-50 p-3 rounded-lg">
-                            <p class="text-sm text-blue-700">
-                                <i class="fas fa-building mr-1"></i> 
-                                Associato a: <strong>{{ $viewingExpiration->entityLegacy->full_name }}</strong>
+                        <!-- Mostra l'entità associata usando getLinkedEntityAttribute (SICURA) -->
+                        @php
+                            $linkedEntity = $viewingExpiration->getLinkedEntityAttribute();
+                            $linkedEntityName = $viewingExpiration->getLinkedEntityNameAttribute();
+                            $linkedEntityType = $viewingExpiration->getLinkedEntityTypeAttribute();
+                        @endphp
+                        
+                        @if($linkedEntity && $linkedEntityName != '-')
+                        <div class="{{ $linkedEntityType === 'Personale' ? 'bg-purple-50' : 'bg-blue-50' }} p-3 rounded-lg">
+                            <p class="text-sm {{ $linkedEntityType === 'Personale' ? 'text-purple-700' : 'text-blue-700' }}">
+                                <i class="fas {{ $linkedEntityType === 'Personale' ? 'fa-user' : 'fa-building' }} mr-1"></i> 
+                                {{ $linkedEntityType }} Associato: <strong>{{ $linkedEntityName }}</strong>
+                                @if($linkedEntityType === 'Cliente' || $linkedEntityType === 'Fornitore')
+                                <span class="ml-2 text-xs">({{ $linkedEntityType }})</span>
+                                @endif
                             </p>
                         </div>
                         @endif

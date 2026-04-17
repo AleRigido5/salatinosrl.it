@@ -313,6 +313,24 @@
                 opacity: 1;
             }
         }
+        
+        /* Breadcrumb styling */
+        .breadcrumb-item {
+            display: inline-flex;
+            align-items: center;
+        }
+        .breadcrumb-item:not(:last-child):after {
+            content: '›';
+            margin: 0 0.5rem;
+            color: #9ca3af;
+            font-size: 1.1rem;
+        }
+        .breadcrumb-link {
+            transition: color 0.2s ease;
+        }
+        .breadcrumb-link:hover {
+            color: #84cc16;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-gray-100">
@@ -388,13 +406,186 @@
 
         <!-- Main Content -->
         <div class="flex-1 overflow-auto">
-            <!-- Header - Senza pulsante hamburger -->
+            <!-- Header - Con breadcrumb -->
             <header class="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-10 border-b border-gray-100">
                 <div class="flex justify-between items-center px-8 py-3">
-                    <!-- Left side - solo page title (senza toggle button) -->
-                    <div class="text-sm text-gray-500">
-                        <i class="fas fa-home text-lime-500 mr-1"></i> 
-                        @yield('title', 'Dashboard')
+                    <!-- Breadcrumb -->
+                    <div class="text-sm">
+                        <div class="flex items-center text-gray-500">
+                            <i class="fas fa-home text-lime-500 mr-2"></i>
+                            @php
+                                $breadcrumbs = [];
+                                $currentRoute = request()->route()->getName();
+                                $currentParams = request()->route()->parameters();
+                                
+                                // Dashboard
+                                if ($currentRoute === 'admin.dashboard') {
+                                    $breadcrumbs[] = ['name' => 'Dashboard', 'url' => null];
+                                }
+                                // Clienti / Fornitori
+                                elseif (str_starts_with($currentRoute, 'admin.entities.')) {
+                                    $breadcrumbs[] = ['name' => 'Anagrafica', 'url' => null];
+                                    $breadcrumbs[] = ['name' => 'Clienti / Fornitori', 'url' => route('admin.entities.index')];
+                                    
+                                    if ($currentRoute === 'admin.entities.show' || $currentRoute === 'admin.entities.edit') {
+                                        $entity = $currentParams['entity'] ?? null;
+                                        if ($entity) {
+                                            $entityName = $entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome);
+                                            $breadcrumbs[] = ['name' => $entityName, 'url' => null];
+                                        }
+                                        if ($currentRoute === 'admin.entities.edit') {
+                                            $breadcrumbs[] = ['name' => 'Modifica', 'url' => null];
+                                        } elseif ($currentRoute === 'admin.entities.show') {
+                                            $breadcrumbs[] = ['name' => 'Dettaglio', 'url' => null];
+                                        }
+                                    } elseif ($currentRoute === 'admin.entities.create') {
+                                        $breadcrumbs[] = ['name' => 'Nuovo', 'url' => null];
+                                    }
+                                }
+                                // Personale (Staff)
+                                elseif (str_starts_with($currentRoute, 'admin.staff.')) {
+                                    $breadcrumbs[] = ['name' => 'Anagrafica', 'url' => null];
+                                    $breadcrumbs[] = ['name' => 'Personale', 'url' => route('admin.staff.index')];
+                                    
+                                    if ($currentRoute === 'admin.staff.show' || $currentRoute === 'admin.staff.edit') {
+                                        $staff = $currentParams['staff'] ?? null;
+                                        if ($staff) {
+                                            $breadcrumbs[] = ['name' => $staff->full_name, 'url' => null];
+                                        }
+                                        if ($currentRoute === 'admin.staff.edit') {
+                                            $breadcrumbs[] = ['name' => 'Modifica', 'url' => null];
+                                        } elseif ($currentRoute === 'admin.staff.show') {
+                                            $breadcrumbs[] = ['name' => 'Dettaglio', 'url' => null];
+                                        }
+                                    } elseif ($currentRoute === 'admin.staff.create') {
+                                        $breadcrumbs[] = ['name' => 'Nuovo', 'url' => null];
+                                    }
+                                }
+                                // Scadenze
+                                elseif (str_starts_with($currentRoute, 'admin.expiration.')) {
+                                    $breadcrumbs[] = ['name' => 'Scadenze', 'url' => route('admin.expiration.index')];
+                                    
+                                    if ($currentRoute === 'admin.expiration.edit') {
+                                        $expiration = $currentParams['id'] ?? null;
+                                        if ($expiration && is_object($expiration)) {
+                                            $breadcrumbs[] = ['name' => 'Modifica: ' . $expiration->titolo, 'url' => null];
+                                        } else {
+                                            $breadcrumbs[] = ['name' => 'Modifica', 'url' => null];
+                                        }
+                                    } elseif ($currentRoute === 'admin.expiration.create') {
+                                        $breadcrumbs[] = ['name' => 'Nuova Scadenza', 'url' => null];
+                                    }
+                                    
+                                    // Se c'è staff_id nei parametri, aggiungi il personale
+                                    if (request()->has('staff_id') && request()->get('staff_id')) {
+                                        $staffId = request()->get('staff_id');
+                                        $staff = \App\Models\Staff::find($staffId);
+                                        if ($staff) {
+                                            array_splice($breadcrumbs, -1, 0, [['name' => 'Personale', 'url' => route('admin.staff.index')]]);
+                                            array_splice($breadcrumbs, -1, 0, [['name' => $staff->full_name, 'url' => route('admin.staff.show', $staffId)]]);
+                                        }
+                                    }
+                                }
+                                // Documenti
+                                elseif (str_starts_with($currentRoute, 'admin.documents.')) {
+                                    $tableRef = $currentParams['tableRef'] ?? null;
+                                    $idRef = $currentParams['idRef'] ?? null;
+                                    
+                                    if ($tableRef === 'staff') {
+                                        $staff = \App\Models\Staff::find($idRef);
+                                        if ($staff) {
+                                            $breadcrumbs[] = ['name' => 'Anagrafica', 'url' => null];
+                                            $breadcrumbs[] = ['name' => 'Personale', 'url' => route('admin.staff.index')];
+                                            $breadcrumbs[] = ['name' => $staff->full_name, 'url' => route('admin.staff.show', $idRef)];
+                                            $breadcrumbs[] = ['name' => 'Documenti', 'url' => null];
+                                        }
+                                    } elseif ($tableRef === 'expiration-staff') {
+                                        $expiration = \App\Models\Expiration::find($idRef);
+                                        if ($expiration && $expiration->id_references) {
+                                            $staff = \App\Models\Staff::find($expiration->id_references);
+                                            if ($staff) {
+                                                $breadcrumbs[] = ['name' => 'Anagrafica', 'url' => null];
+                                                $breadcrumbs[] = ['name' => 'Personale', 'url' => route('admin.staff.index')];
+                                                $breadcrumbs[] = ['name' => $staff->full_name, 'url' => route('admin.staff.show', $staff->id_personale)];
+                                                $breadcrumbs[] = ['name' => 'Scadenze', 'url' => route('admin.expiration.index', ['staff_id' => $staff->id_personale])];
+                                                $breadcrumbs[] = ['name' => 'Documenti', 'url' => null];
+                                            }
+                                        }
+                                    }
+                                }
+                                // Impostazioni
+                                elseif (str_starts_with($currentRoute, 'admin.settings.')) {
+                                    $breadcrumbs[] = ['name' => 'Impostazioni', 'url' => null];
+                                    $breadcrumbs[] = ['name' => 'Settings', 'url' => route('admin.settings.index')];
+                                    
+                                    if ($currentRoute === 'admin.settings.categories.index') {
+                                        $breadcrumbs[] = ['name' => 'Categorie', 'url' => null];
+                                    } elseif ($currentRoute === 'admin.settings.categories.create') {
+                                        $breadcrumbs[] = ['name' => 'Categorie', 'url' => route('admin.settings.categories.index')];
+                                        $breadcrumbs[] = ['name' => 'Nuova Categoria', 'url' => null];
+                                    } elseif ($currentRoute === 'admin.settings.categories.edit') {
+                                        $breadcrumbs[] = ['name' => 'Categorie', 'url' => route('admin.settings.categories.index')];
+                                        $breadcrumbs[] = ['name' => 'Modifica Categoria', 'url' => null];
+                                    }
+                                }
+                                // Servizi
+                                elseif (str_starts_with($currentRoute, 'admin.services.')) {
+                                    $breadcrumbs[] = ['name' => 'Servizi', 'url' => route('admin.services.index')];
+                                    
+                                    if ($currentRoute === 'admin.services.create') {
+                                        $breadcrumbs[] = ['name' => 'Nuovo Servizio', 'url' => null];
+                                    } elseif ($currentRoute === 'admin.services.edit') {
+                                        $breadcrumbs[] = ['name' => 'Modifica Servizio', 'url' => null];
+                                    } elseif ($currentRoute === 'admin.services.show') {
+                                        $breadcrumbs[] = ['name' => 'Dettaglio Servizio', 'url' => null];
+                                    }
+                                }
+                                // Amministratori
+                                elseif (str_starts_with($currentRoute, 'admin.administrators.')) {
+                                    $breadcrumbs[] = ['name' => 'Impostazioni', 'url' => null];
+                                    $breadcrumbs[] = ['name' => 'Amministratori', 'url' => route('admin.administrators.index')];
+                                    
+                                    if ($currentRoute === 'admin.administrators.create') {
+                                        $breadcrumbs[] = ['name' => 'Nuovo Amministratore', 'url' => null];
+                                    } elseif ($currentRoute === 'admin.administrators.edit') {
+                                        $breadcrumbs[] = ['name' => 'Modifica Amministratore', 'url' => null];
+                                    }
+                                }
+                                // Ruoli
+                                elseif (str_starts_with($currentRoute, 'admin.roles.')) {
+                                    $breadcrumbs[] = ['name' => 'Impostazioni', 'url' => null];
+                                    $breadcrumbs[] = ['name' => 'Ruoli', 'url' => route('admin.roles.index')];
+                                    
+                                    if ($currentRoute === 'admin.roles.create') {
+                                        $breadcrumbs[] = ['name' => 'Nuovo Ruolo', 'url' => null];
+                                    } elseif ($currentRoute === 'admin.roles.edit') {
+                                        $breadcrumbs[] = ['name' => 'Modifica Ruolo', 'url' => null];
+                                    } elseif ($currentRoute === 'admin.roles.show') {
+                                        $breadcrumbs[] = ['name' => 'Permessi', 'url' => null];
+                                    }
+                                }
+                                // Profilo
+                                elseif ($currentRoute === 'admin.profile.edit') {
+                                    $breadcrumbs[] = ['name' => 'Profilo', 'url' => null];
+                                }
+                                // Default
+                                else {
+                                    $breadcrumbs[] = ['name' => 'Dashboard', 'url' => route('admin.dashboard')];
+                                }
+                            @endphp
+                            
+                            @foreach($breadcrumbs as $index => $crumb)
+                                <span class="breadcrumb-item">
+                                    @if($crumb['url'] && $index < count($breadcrumbs) - 1)
+                                        <a href="{{ $crumb['url'] }}" class="breadcrumb-link text-gray-500 hover:text-lime-600 transition">
+                                            {{ $crumb['name'] }}
+                                        </a>
+                                    @else
+                                        <span class="text-gray-800 font-medium">{{ $crumb['name'] }}</span>
+                                    @endif
+                                </span>
+                            @endforeach
+                        </div>
                     </div>
                     
                     <!-- Right side - Avatar e Dropdown -->

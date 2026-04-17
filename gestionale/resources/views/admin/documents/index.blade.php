@@ -26,9 +26,8 @@
             </div>
             <div class="flex gap-3">
                 <a href="{{ $backUrl }}" 
-                   class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+                   class="text-gray-500 hover:text-gray-600 px-4 py-2 rounded-lg transition-colors flex items-center">
                     <i class="fas fa-arrow-left mr-2"></i>
-                    Torna indietro
                 </a>
             </div>
         </div>

@@ -10,9 +10,8 @@
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold text-gray-800">Modifica Scadenza</h1>
             <a href="{{ route('admin.expiration.index', $staffId ? ['staff_id' => $staffId] : []) }}" 
-               class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
-                <i class="fas fa-arrow-left mr-2"></i>
-                Torna indietro
+               class="text-gray-500 hover:text-gray-600 px-4 py-2 rounded-lg transition-colors flex items-center">
+                <i class="fas fa-arrow-left"></i>
             </a>
         </div>
 

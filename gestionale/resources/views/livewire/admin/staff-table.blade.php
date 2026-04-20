@@ -92,7 +92,7 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($staff as $person)
-                    <tr class="hover:bg-gray-50 transition-colors duration-150">
+                    <tr wire:key="staff-{{ $person->id_personale }}" class="hover:bg-gray-50 transition-colors duration-150">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ $person->id_personale }}
                         </td>
@@ -151,6 +151,7 @@
                             <div class="flex space-x-3">
                                 @if(auth()->guard('admin')->user()->hasPermission('view_staff'))
                                     <button wire:click="viewStaff({{ $person->id_personale }})" 
+                                            wire:key="view-{{ $person->id_personale }}"
                                             class="text-blue-600 hover:text-blue-900 transition-colors text-base"
                                             title="Visualizza">
                                         <i class="fa-regular fa-eye text-blue-600 hover:text-blue-900"></i>
@@ -159,6 +160,7 @@
 
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
                                     <button wire:click="editStaff({{ $person->id_personale }})" 
+                                            wire:key="edit-{{ $person->id_personale }}"
                                             class="text-yellow-600 hover:text-yellow-900 transition-colors text-base"
                                             title="Modifica">
                                         <i class="fa-solid fa-pen-to-square text-yellow-600 hover:text-yellow-900"></i>
@@ -168,6 +170,7 @@
                                 <!-- Icona Scadenze -->
                                 @if(auth()->guard('admin')->user()->hasPermission('view_expiration'))
                                     <button wire:click="goToExpiration({{ $person->id_personale }})" 
+                                            wire:key="expiration-{{ $person->id_personale }}"
                                             class="text-purple-600 hover:text-purple-900 transition-colors text-base"
                                             title="Gestisci Scadenze">
                                         <i class="fa-regular fa-calendar text-purple-600 hover:text-purple-900"></i>
@@ -176,6 +179,7 @@
 
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
                                     <button wire:click="toggleStatus({{ $person->id_personale }})" 
+                                            wire:key="status-{{ $person->id_personale }}"
                                             class="transition-colors text-base {{ $person->valid ? 'text-lime-600 hover:text-lime-800' : 'text-gray-400 hover:text-gray-600' }}"
                                             title="{{ $person->valid ? 'Disattiva' : 'Attiva' }}">
                                         <i class="{{ $person->valid ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark' }}"></i>

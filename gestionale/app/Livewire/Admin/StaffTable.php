@@ -5,6 +5,7 @@ namespace App\Livewire\Admin;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Staff;
+use App\Models\Setting;
 use Illuminate\Support\Facades\Auth;
 
 class StaffTable extends Component
@@ -41,6 +42,8 @@ class StaffTable extends Component
     public $editDataNascita = '';
     public $editLuogoNascita = '';
     public $editValid = true;
+    public $editIban = '';
+    public $editGruppo = '';
     
     // Modal creazione
     public $showCreateModal = false;
@@ -60,6 +63,8 @@ class StaffTable extends Component
     public $createDataNascita = '';
     public $createLuogoNascita = '';
     public $createValid = true;
+    public $createIban = '';
+    public $createGruppo = '';
     
     protected $paginationTheme = 'tailwind';
     
@@ -132,81 +137,15 @@ class StaffTable extends Component
         
         $query->orderBy($this->sortField, $this->sortDirection);
         
-        // Carica le relazioni per il tracciamento
-        return $query->with(['createdBy', 'updatedBy'])->paginate($this->perPage);
+        return $query->with(['createdBy', 'updatedBy', 'gruppo'])->paginate($this->perPage);
     }
     
-    // ==================== METODI CREAZIONE ====================
-    
-    public function openCreateModal()
+    public function getStaffGroupsProperty()
     {
-        $this->resetCreateForm();
-        $this->showCreateModal = true;
-    }
-    
-    public function closeCreateModal()
-    {
-        $this->showCreateModal = false;
-        $this->resetCreateForm();
-    }
-    
-    public function resetCreateForm()
-    {
-        $this->createNome = '';
-        $this->createCognome = '';
-        $this->createSoprannome = '';
-        $this->createCodFiscale = '';
-        $this->createTelefono = '';
-        $this->createCellulare = '';
-        $this->createEmail = '';
-        $this->createIndirizzo = '';
-        $this->createCitta = '';
-        $this->createProvincia = '';
-        $this->createCap = '';
-        $this->createDataNascita = '';
-        $this->createLuogoNascita = '';
-        $this->createValid = true;
-    }
-    
-    public function saveStaff()
-    {
-        $this->validate([
-            'createNome' => 'nullable|string|max:255',
-            'createCognome' => 'nullable|string|max:255',
-            'createEmail' => 'nullable|email|max:255',
-        ]);
-        
-        try {
-            $adminId = auth()->guard('admin')->id();
-            
-            $staff = Staff::create([
-                'NomePers' => $this->createNome,
-                'CognomePers' => $this->createCognome,
-                'Soprannome' => $this->createSoprannome,
-                'CodFiscPers' => $this->createCodFiscale,
-                'TelPers' => $this->createTelefono,
-                'CellPers' => $this->createCellulare,
-                'EmailPers' => $this->createEmail,
-                'IndirPers' => $this->createIndirizzo,
-                'CittaPers' => $this->createCitta,
-                'ProvPers' => $this->createProvincia,
-                'CapPers' => $this->createCap,
-                'DataNascPers' => $this->createDataNascita,
-                'LuogoNasc' => $this->createLuogoNascita,
-                'valid' => $this->createValid,
-                'created_by' => $adminId,
-                'updated_by' => $adminId,
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
-            
-            $this->closeCreateModal();
-            $this->dispatch('showSuccess', message: 'Personale aggiunto con successo!');
-            $this->resetPage();
-            
-        } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore durante il salvataggio: ' . $e->getMessage());
-        }
+        return Setting::where('tabella_riferimento', 'staff')
+            ->where('valid', 1)
+            ->orderBy('ordinamento')
+            ->get();
     }
     
     // ==================== METODI VISUALIZZAZIONE ====================
@@ -214,7 +153,7 @@ class StaffTable extends Component
     public function viewStaff($id)
     {
         try {
-            $staff = Staff::with(['createdBy', 'updatedBy'])->find($id);
+            $staff = Staff::with(['createdBy', 'updatedBy', 'gruppo'])->find($id);
             if (!$staff) {
                 $this->dispatch('showError', message: 'Personale non trovato');
                 return;
@@ -224,17 +163,6 @@ class StaffTable extends Component
         } catch (\Exception $e) {
             $this->dispatch('showError', message: 'Errore nel caricamento dei dettagli: ' . $e->getMessage());
         }
-    }
-
-    // ==================== METODO PER SCADENZE ====================
-
-    public function goToExpiration($staffId)
-    {
-        // Salva i filtri correnti in sessione prima di uscire
-        $this->saveFiltersToSession();
-        
-        // Reindirizza alla pagina delle scadenze con l'ID dello staff
-        return redirect()->route('admin.expiration.index', ['staff_id' => $staffId]);
     }
     
     public function closeViewModal()
@@ -270,6 +198,8 @@ class StaffTable extends Component
             $this->editDataNascita = $staff->DataNascPers;
             $this->editLuogoNascita = $staff->LuogoNasc;
             $this->editValid = (bool)$staff->valid;
+            $this->editIban = $staff->IbanPers;
+            $this->editGruppo = $staff->id_gruppo;
             
             $this->showEditModal = true;
             
@@ -302,6 +232,8 @@ class StaffTable extends Component
         $this->editDataNascita = '';
         $this->editLuogoNascita = '';
         $this->editValid = true;
+        $this->editIban = '';
+        $this->editGruppo = '';
     }
     
     public function updateStaff()
@@ -310,6 +242,8 @@ class StaffTable extends Component
             'editNome' => 'nullable|string|max:255',
             'editCognome' => 'nullable|string|max:255',
             'editEmail' => 'nullable|email|max:255',
+            'editIban' => 'nullable|string|max:255',
+            'editGruppo' => 'nullable|integer',
         ]);
         
         try {
@@ -329,6 +263,8 @@ class StaffTable extends Component
                     'CapPers' => $this->editCap,
                     'DataNascPers' => $this->editDataNascita,
                     'LuogoNasc' => $this->editLuogoNascita,
+                    'IbanPers' => $this->editIban,
+                    'id_gruppo' => $this->editGruppo,
                     'valid' => $this->editValid,
                     'updated_by' => auth()->guard('admin')->id(),
                     'updated_at' => now()
@@ -340,6 +276,92 @@ class StaffTable extends Component
             }
         } catch (\Exception $e) {
             $this->dispatch('showError', message: 'Errore durante l\'aggiornamento: ' . $e->getMessage());
+        }
+    }
+    
+    // ==================== METODI CREAZIONE ====================
+    
+    public function openCreateModal()
+    {
+        $this->resetCreateForm();
+        $this->showCreateModal = true;
+    }
+    
+    public function closeCreateModal()
+    {
+        $this->showCreateModal = false;
+        $this->resetCreateForm();
+    }
+    
+    public function resetCreateForm()
+    {
+        $this->createNome = '';
+        $this->createCognome = '';
+        $this->createSoprannome = '';
+        $this->createCodFiscale = '';
+        $this->createTelefono = '';
+        $this->createCellulare = '';
+        $this->createEmail = '';
+        $this->createIndirizzo = '';
+        $this->createCitta = '';
+        $this->createProvincia = '';
+        $this->createCap = '';
+        $this->createDataNascita = '';
+        $this->createLuogoNascita = '';
+        $this->createValid = true;
+        $this->createIban = '';
+        $this->createGruppo = '';
+    }
+    
+    public function saveStaff()
+    {
+        // CONTROLLO DUPLICATI CODICE FISCALE
+        if (!empty($this->createCodFiscale)) {
+            $existingStaff = Staff::where('CodFiscPers', $this->createCodFiscale)->first();
+            if ($existingStaff) {
+                $this->dispatch('showError', message: "Codice Fiscale {$this->createCodFiscale} già presente in archivio per: " . $existingStaff->full_name);
+                return;
+            }
+        }
+        
+        $this->validate([
+            'createNome' => 'nullable|string|max:255',
+            'createCognome' => 'nullable|string|max:255',
+            'createEmail' => 'nullable|email|max:255',
+        ]);
+        
+        try {
+            $adminId = auth()->guard('admin')->id();
+            
+            $staff = Staff::create([
+                'NomePers' => $this->createNome,
+                'CognomePers' => $this->createCognome,
+                'Soprannome' => $this->createSoprannome,
+                'CodFiscPers' => $this->createCodFiscale,
+                'TelPers' => $this->createTelefono,
+                'CellPers' => $this->createCellulare,
+                'EmailPers' => $this->createEmail,
+                'IndirPers' => $this->createIndirizzo,
+                'CittaPers' => $this->createCitta,
+                'ProvPers' => $this->createProvincia,
+                'CapPers' => $this->createCap,
+                'DataNascPers' => $this->createDataNascita,
+                'LuogoNasc' => $this->createLuogoNascita,
+                'IbanPers' => $this->createIban,
+                'id_gruppo' => $this->createGruppo,
+                'valid' => $this->createValid,
+                'created_by' => $adminId,
+                'updated_by' => $adminId,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+            
+            $this->closeCreateModal();
+            $this->dispatch('showSuccess', message: 'Personale aggiunto con successo!');
+            $this->resetPage();
+            
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore durante il salvataggio: ' . $e->getMessage());
         }
     }
     
@@ -367,6 +389,14 @@ class StaffTable extends Component
         }
     }
     
+    // ==================== METODO PER SCADENZE ====================
+    
+    public function goToExpiration($staffId)
+    {
+        $this->saveFiltersToSession();
+        return redirect()->route('admin.expiration.index', ['staff_id' => $staffId]);
+    }
+    
     // ==================== METODI FILTRI ====================
     
     public function resetFilters()
@@ -383,6 +413,7 @@ class StaffTable extends Component
     {
         return view('livewire.admin.staff-table', [
             'staff' => $this->staff,
+            'staffGroups' => $this->staffGroups,
         ]);
     }
 }

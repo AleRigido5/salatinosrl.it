@@ -4,11 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Ownership extends Model
 {
-    use HasFactory;
-
     protected $table = 'ownership';
     protected $primaryKey = 'id_proprieta';
     public $timestamps = false;
@@ -43,15 +42,35 @@ class Ownership extends Model
         'DataIns' => 'datetime'
     ];
 
-    // Relazione con le scadenze del personale
-    public function staffExpiries()
+    // Accessor per il nome visualizzabile nel select
+    public function getNomeAttribute()
     {
-        return $this->hasMany(StaffExpiry::class, 'id_proprieta', 'id_proprieta');
+        // Priorità: RagAbbrev > Rag_Soc_intest > RagSocialePr
+        if (!empty($this->RagAbbrev)) {
+            return $this->RagAbbrev;
+        }
+        if (!empty($this->Rag_Soc_intest)) {
+            return $this->Rag_Soc_intest;
+        }
+        if (!empty($this->RagSocialePr)) {
+            $nome = $this->RagSocialePr;
+            if (strlen($nome) > 50) {
+                $nome = substr($nome, 0, 47) . '...';
+            }
+            return $nome;
+        }
+        return 'Proprietà ' . $this->id_proprieta;
     }
-
+    
     // Accessor per il nome abbreviato
     public function getAbbrevNameAttribute()
     {
-        return $this->RagAbbrev ?: $this->RagSocialePr;
+        return $this->RagAbbrev ?: ($this->Rag_Soc_intest ?: $this->RagSocialePr);
+    }
+
+    // Relazione con i vehicles
+    public function vehicles()
+    {
+        return $this->hasMany(Vehicles::class, 'id_ownership', 'id_proprieta');
     }
 }

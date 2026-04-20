@@ -81,6 +81,19 @@ class Entity extends Model
         return $this->hasMany(Address::class, 'clienti_id_cliente', 'id_cliente');
     }
 
+    /**
+     * Verifica se l'entità può essere eliminata (non ha relazioni)
+     * Per ora permette sempre l'eliminazione - TODO: aggiungere controlli sulle relazioni esistenti
+     */
+    public function canBeDeleted()
+    {
+        // TODO: Aggiungere controlli per verificare se esistono fatture, ordini, ecc. collegati
+        // Per ora restituisce sempre true per permettere l'eliminazione
+        // Quando avrai le tabelle di fatture, ordini, ecc., aggiungi i controlli qui
+        
+        return true;
+    }
+
     // ==================== ACCESSOR PER IL TRACCIAMENTO ====================
     
     /**

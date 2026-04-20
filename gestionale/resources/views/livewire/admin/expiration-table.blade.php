@@ -10,13 +10,21 @@
                 <p class="text-gray-500 mt-1">
                     <i class="fas fa-user mr-1"></i> Scadenze per: <strong>{{ $staffName }}</strong>
                 </p>
+                @elseif($entityName && $entityType === 'vehicle')
+                <p class="text-gray-500 mt-1">
+                    <i class="fas fa-truck mr-1"></i> Scadenze per mezzo: <strong>{{ $entityName }}</strong>
+                </p>
+                @elseif($entityName)
+                <p class="text-gray-500 mt-1">
+                    <i class="fas fa-building mr-1"></i> Scadenze per: <strong>{{ $entityName }}</strong>
+                </p>
                 @endif
             </div>
             <div class="flex gap-3">
                 <!-- Tooltip per il bottone Nuova Scadenza -->
                 <div class="relative group">
                     <button wire:click="openCreateModal" 
-                            class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+                            class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
                         <i class="fas fa-plus"></i>
                     </button>
                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
@@ -25,15 +33,15 @@
                     </div>
                 </div>
                 
-                @if($staffId)
-                <!-- Tooltip per il bottone Torna allo Staff -->
+                <!-- Bottone per tornare indietro -->
+                @if($staffId || ($entityId && $entityType === 'vehicle'))
                 <div class="relative group">
-                    <button wire:click="backToStaff" 
-                            class="text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <button wire:click="backToParent" 
+                            class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
                         <i class="fa-solid fa-arrow-left"></i>
                     </button>
                     <div class="absolute bottom-full transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                        Torna alla gestione personale
+                        Torna alla gestione
                         <div class="absolute top-full transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
                     </div>
                 </div>
@@ -50,17 +58,17 @@
                 <input type="text" 
                        wire:model.live.debounce.300ms="search" 
                        placeholder="Cerca per titolo, qualifica o note..." 
-                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
             </div>
             
-            <select wire:model.live="tipologiaFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+            <select wire:model.live="tipologiaFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 <option value="">Tutte le tipologie</option>
                 @foreach($tipologie as $tipologia)
                     <option value="{{ $tipologia->id }}">{{ $tipologia->valore }}</option>
                 @endforeach
             </select>
             
-            <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+            <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 <option value="">Tutti gli stati</option>
                 <option value="active">Attive</option>
                 <option value="expiring">In scadenza</option>
@@ -198,7 +206,7 @@
                                 <i class="fas fa-calendar-times text-gray-400 text-5xl"></i>
                                 <p class="mt-2 text-sm">Nessuna scadenza trovata</p>
                                 @if($search || $tipologiaFilter || $statusFilter)
-                                <button wire:click="resetFilters" class="mt-2 text-sm text-purple-600 hover:text-purple-800">
+                                <button wire:click="resetFilters" class="mt-2 text-sm text-lime-600 hover:text-lime-800">
                                     Resetta filtri
                                 </button>
                                 @endif
@@ -239,7 +247,7 @@
                 <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <div class="flex justify-between items-center mb-4 border-b pb-3">
                         <h2 class="text-xl font-bold text-gray-800">
-                            <i class="fas fa-plus-circle mr-2 text-purple-600"></i>
+                            <i class="fas fa-plus-circle mr-2 text-lime-600"></i>
                             Nuova Scadenza
                             @if($staffName)
                             <span class="text-sm font-normal text-gray-500 ml-2">{{ $staffName }}</span>
@@ -257,7 +265,7 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     Tipologia Scadenza <span class="text-red-500">*</span>
                                 </label>
-                                <select wire:model="createTipologiaId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                <select wire:model="createTipologiaId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                                     <option value="">Seleziona tipologia...</option>
                                     @foreach($tipologie as $tipologia)
                                         <option value="{{ $tipologia->id }}">{{ $tipologia->valore }}</option>
@@ -268,7 +276,7 @@
                             
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Ownership / Azienda</label>
-                                <select wire:model="createOwnershipId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                <select wire:model="createOwnershipId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                                     <option value="">Seleziona ownership...</option>
                                     @foreach($ownerships as $ownership)
                                         <option value="{{ $ownership->id_proprieta }}">{{ $ownership->RagSocialePr }}</option>
@@ -285,7 +293,7 @@
                             <input type="text" 
                                 wire:model="createTitolo" 
                                 placeholder="es. Visita medica, Corso formazione, Scadenza contratto..."
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
                             @error('createTitolo') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                         </div>
                         
@@ -297,7 +305,7 @@
                                 </label>
                                 <input type="date" 
                                     wire:model="createDataInizio" 
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                                 @error('createDataInizio') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                             </div>
                             
@@ -305,7 +313,7 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Data Scadenza</label>
                                 <input type="date" 
                                     wire:model="createDataFine" 
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                                 <p class="text-xs text-gray-400 mt-1">Opzionale: lascia vuoto se non ha scadenza</p>
                                 @error('createDataFine') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                             </div>
@@ -320,7 +328,7 @@
                                         <input type="text" 
                                             wire:model.live.debounce.300ms="createEntitySearch" 
                                             placeholder="Cerca fornitore..."
-                                            class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                            class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
                                         <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
                                         
                                         @if($createEntityNome)
@@ -335,7 +343,7 @@
                                     @if(count($createEntityResults) > 0)
                                     <div class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
                                         @foreach($createEntityResults as $result)
-                                        <div class="px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-gray-100 last:border-0"
+                                        <div class="px-4 py-2 hover:bg-lime-50 cursor-pointer border-b border-gray-100 last:border-0"
                                             wire:click="selectEntity({{ $result->id_cliente }}, '{{ addslashes($result->ragione_sociale ?: $result->nome . ' ' . $result->cognome) }}')">
                                             <div class="font-medium text-gray-900">
                                                 {{ $result->ragione_sociale ?: $result->nome . ' ' . $result->cognome }}
@@ -379,7 +387,7 @@
                                 <input type="text" 
                                     wire:model="createQualifica" 
                                     placeholder="es. Operaio agricolo, Addetto vendemmia, ..."
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                             </div>
                         </div>
                         
@@ -389,7 +397,7 @@
                             <textarea wire:model="createNote" 
                                     rows="3"
                                     placeholder="Note aggiuntive..."
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"></textarea>
                         </div>
                     </div>
                 </div>
@@ -400,7 +408,7 @@
                         Annulla
                     </button>
                     <button wire:click="saveExpiration" 
-                            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors flex items-center justify-center">
+                            class="px-4 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-md transition-colors flex items-center justify-center">
                         <i class="fas fa-save mr-2"></i>
                         Crea Scadenza
                     </button>
@@ -426,7 +434,7 @@
                 <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <div class="flex justify-between items-center mb-4 border-b pb-3">
                         <h2 class="text-xl font-bold text-gray-800">
-                            <i class="fas fa-calendar-alt mr-2 text-purple-600"></i> Dettaglio Scadenza
+                            <i class="fas fa-calendar-alt mr-2 text-lime-600"></i> Dettaglio Scadenza
                         </h2>
                         <button @click="open = false" class="text-gray-400 hover:text-gray-600">
                             <i class="fas fa-times text-2xl"></i>
@@ -442,8 +450,8 @@
                         @endphp
                         
                         @if($linkedEntity && $linkedEntityName != '-')
-                        <div class="{{ $linkedEntityType === 'Personale' ? 'bg-purple-50' : 'bg-blue-50' }} p-3 rounded-lg">
-                            <p class="text-sm {{ $linkedEntityType === 'Personale' ? 'text-purple-700' : 'text-blue-700' }}">
+                        <div class="{{ $linkedEntityType === 'Personale' ? 'bg-lime-50' : 'bg-blue-50' }} p-3 rounded-lg">
+                            <p class="text-sm {{ $linkedEntityType === 'Personale' ? 'text-lime-700' : 'text-blue-700' }}">
                                 <i class="fas {{ $linkedEntityType === 'Personale' ? 'fa-user' : 'fa-building' }} mr-1"></i> 
                                 {{ $linkedEntityType }} Associato: <strong>{{ $linkedEntityName }}</strong>
                                 @if($linkedEntityType === 'Cliente' || $linkedEntityType === 'Fornitore')

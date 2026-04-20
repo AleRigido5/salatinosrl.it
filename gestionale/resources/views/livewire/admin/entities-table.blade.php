@@ -227,12 +227,18 @@
                         </td>
                         
                         <td class="px-6 py-4 whitespace-nowrap">
+                            @if(!$entity->trashed())
                             <button wire:click="toggleStatus({{ $entity->id_cliente }})" 
                                     wire:key="toggle-{{ $entity->id_cliente }}"
                                     class="px-2 py-1 text-xs font-medium rounded-md transition-colors duration-200
                                         {{ $entity->valid ? 'bg-lime-100 text-lime-800 hover:bg-lime-200' : 'bg-red-100 text-red-800 hover:bg-red-200' }}">
                                 {{ $entity->valid ? 'Attivo' : 'Disattivo' }}
                             </button>
+                            @else
+                            <span class="px-2 py-1 text-xs font-medium rounded-md bg-gray-100 text-gray-500">
+                                <i class="fas fa-trash-alt mr-1"></i> Cancellato
+                            </span>
+                            @endif
                         </td>
                         
                         <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
@@ -241,22 +247,45 @@
                         
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
-                                @if(auth()->guard('admin')->user()->hasPermission('view_entities'))
-                                <button wire:click="viewEntity({{ $entity->id_cliente }})" 
-                                        wire:key="view-{{ $entity->id_cliente }}"
-                                        class="text-blue-600 hover:text-blue-900 transition-colors"
-                                        title="Visualizza">
-                                    <i class="fa-regular fa-eye text-blue-600 hover:text-blue-900"></i>
-                                </button>
-                                @endif
-                                
-                                @if(auth()->guard('admin')->user()->hasPermission('edit_entities'))
-                                <button wire:click="openEditPage({{ $entity->id_cliente }})" 
-                                        wire:key="edit-{{ $entity->id_cliente }}"
-                                        class="text-yellow-600 hover:text-yellow-900 transition-colors"
-                                        title="Modifica">
-                                    <i class="fa-solid fa-pen-to-square text-yellow-600 hover:text-yellow-900"></i>
-                                </button>
+                                @if(!$entity->trashed())
+                                    @if(auth()->guard('admin')->user()->hasPermission('view_entities'))
+                                    <button wire:click="viewEntity({{ $entity->id_cliente }})" 
+                                            wire:key="view-{{ $entity->id_cliente }}"
+                                            class="text-blue-600 hover:text-blue-900 transition-colors"
+                                            title="Visualizza">
+                                        <i class="fa-regular fa-eye text-blue-600 hover:text-blue-900"></i>
+                                    </button>
+                                    @endif
+                                    
+                                    @if(auth()->guard('admin')->user()->hasPermission('edit_entities'))
+                                    <button wire:click="openEditPage({{ $entity->id_cliente }})" 
+                                            wire:key="edit-{{ $entity->id_cliente }}"
+                                            class="text-yellow-600 hover:text-yellow-900 transition-colors"
+                                            title="Modifica">
+                                        <i class="fa-solid fa-pen-to-square text-yellow-600 hover:text-yellow-900"></i>
+                                    </button>
+                                    @endif
+                                    
+                                    @if(auth()->guard('admin')->user()->hasPermission('delete_entities'))
+                                    <button wire:click="confirmDelete({{ $entity->id_cliente }})" 
+                                            wire:key="delete-{{ $entity->id_cliente }}"
+                                            class="text-red-600 hover:text-red-900 transition-colors"
+                                            title="Elimina">
+                                        <i class="fa-solid fa-trash-can text-red-600 hover:text-red-900"></i>
+                                    </button>
+                                    @endif
+                                @else
+                                    <button wire:click="restoreEntity({{ $entity->id_cliente }})" 
+                                            class="text-green-600 hover:text-green-900 transition-colors"
+                                            title="Ripristina">
+                                        <i class="fas fa-trash-restore"></i>
+                                    </button>
+                                    <button wire:click="forceDeleteEntity({{ $entity->id_cliente }})" 
+                                            onclick="return confirm('Eliminazione definitiva? Questa operazione non può essere annullata.')"
+                                            class="text-red-600 hover:text-red-900 transition-colors"
+                                            title="Elimina definitivamente">
+                                        <i class="fas fa-skull-crosswalk"></i>
+                                    </button>
                                 @endif
                             </div>
                         </td>
@@ -267,7 +296,7 @@
                             <div class="text-gray-500">
                                 <i class="fas fa-building text-gray-400 text-5xl"></i>
                                 <p class="mt-2 text-sm">Nessun cliente/fornitore trovato</p>
-                                @if($search || $typeFilter || $statusFilter)
+                                @if($search || $typeFilter || $statusFilter || $showDeleted)
                                 <button wire:click="resetFilters" class="mt-2 text-sm text-blue-600 hover:text-blue-800">
                                     Resetta filtri
                                 </button>
@@ -411,6 +440,14 @@
                     <input type="text" 
                            wire:model="formPartitaIva" 
                            placeholder="Partita IVA" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
+                    <input type="text" 
+                           wire:model="formCodiceFiscale" 
+                           placeholder="Codice Fiscale" 
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
             </div>
@@ -587,7 +624,6 @@
                                 <tr>
                                     <td class="px-3 py-2 text-gray-700 font-medium">
                                         @php
-                                            // Formatta il nome della sede in modo più leggibile
                                             $nomeSede = $address->sede ?? '-';
                                             if($nomeSede == 'principale') $nomeSede = 'Sede Principale';
                                             elseif($nomeSede == 'legale') $nomeSede = 'Sede Legale';
@@ -688,7 +724,7 @@
                 </div>
             </div>
             
-            <!-- ========== RIGA 5: TRACCIAMENTO (aggiunto) ========== -->
+            <!-- RIGA 5: TRACCIAMENTO -->
             <div class="mb-6">
                 <div class="bg-gray-50 rounded-lg p-4">
                     <h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
@@ -770,7 +806,6 @@
                     @endif
                 </div>
             </div>
-            <!-- ========== FINE TRACCIAMENTO ========== -->
             
             <!-- Footer con bottoni -->
             <div class="flex justify-end space-x-3 pt-4 border-t">
@@ -781,6 +816,234 @@
                 </button>
                 @endif
                 <button wire:click="closeViewModal" 
+                        class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
+                    <i class="fas fa-times mr-2"></i> Chiudi
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Modal di conferma eliminazione -->
+    @if($showDeleteModal)
+    <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
+         x-data="{ show: true }" 
+         x-show="show" 
+         x-transition.opacity.duration.200ms>
+        
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6" 
+             x-on:click.away="show = false; $wire.cancelDelete()"
+             x-transition.scale.origin.top>
+            
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Conferma eliminazione</h3>
+                <p class="text-sm text-gray-500 mb-4">
+                    Sei sicuro di voler eliminare <strong>{{ $entityNameToDelete }}</strong>?
+                    <br>
+                    <span class="text-xs text-gray-400">L'elemento verrà spostato nel cestino e potrà essere ripristinato.</span>
+                </p>
+                <div class="flex justify-center space-x-3">
+                    <button wire:click="cancelDelete" 
+                            class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
+                        Annulla
+                    </button>
+                    <button wire:click="deleteEntity" 
+                            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">
+                        Elimina
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- Modal di conferma eliminazione -->
+    @if($showTrashModal)
+    <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
+         x-data="{ show: true }" 
+         x-show="show" 
+         x-transition.opacity.duration.200ms>
+        
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-6xl p-6 max-h-[90vh] overflow-y-auto" 
+             x-on:click.away="show = false; $wire.closeTrashModal()"
+             x-transition.scale.origin.top>
+            
+            <div class="flex justify-between items-center mb-6 border-b pb-3">
+                <h2 class="text-2xl font-bold text-gray-800">
+                    <i class="fas fa-trash-alt mr-2 text-red-600"></i>
+                    Cestino - Elementi Eliminati
+                </h2>
+                <button wire:click="closeTrashModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            
+            <!-- Filtri Cestino -->
+            <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="relative md:col-span-2">
+                        <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
+                        <input type="text" 
+                               wire:model.live="trashSearch" 
+                               placeholder="Cerca nel cestino..." 
+                               class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <select wire:model.live="trashTypeFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Tutti i tipi</option>
+                        @foreach($entityTypes as $key => $label)
+                            <option value="{{ $key }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                
+                @if($trashSearch || $trashTypeFilter)
+                <div class="mt-3">
+                    <button wire:click="resetTrashFilters" class="text-sm text-blue-600 hover:text-blue-800">
+                        <i class="fas fa-sync-alt mr-1"></i> Resetta filtri
+                    </button>
+                </div>
+                @endif
+            </div>
+            
+            <!-- Tabella Elementi Cancellati -->
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" wire:click="trashSortBy('ragione_sociale')">
+                                <div class="flex items-center space-x-1">
+                                    <span>Cliente / Fornitore</span>
+                                    @if($trashSortField === 'ragione_sociale')
+                                        <i class="fas fa-arrow-{{ $trashSortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
+                                    @endif
+                                </div>
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" wire:click="trashSortBy('entity_type')">
+                                <div class="flex items-center space-x-1">
+                                    <span>Tipo</span>
+                                    @if($trashSortField === 'entity_type')
+                                        <i class="fas fa-arrow-{{ $trashSortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
+                                    @endif
+                                </div>
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P.IVA / CF</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" wire:click="trashSortBy('deleted_at')">
+                                <div class="flex items-center space-x-1">
+                                    <span>Data eliminazione</span>
+                                    @if($trashSortField === 'deleted_at')
+                                        <i class="fas fa-arrow-{{ $trashSortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
+                                    @endif
+                                </div>
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eliminato da</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        @forelse($trashedEntities as $entity)
+                        <tr wire:key="trash-{{ $entity->id_cliente }}" class="hover:bg-gray-50">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center
+                                        @if($entity->entity_type == 'cliente') bg-lime-100
+                                        @elseif($entity->entity_type == 'fornitore') bg-blue-100
+                                        @else bg-purple-100
+                                        @endif">
+                                        @if($entity->entity_type == 'cliente')
+                                            <i class="fas fa-user text-lime-600 text-lg"></i>
+                                        @elseif($entity->entity_type == 'fornitore')
+                                            <i class="fas fa-truck text-blue-600 text-lg"></i>
+                                        @else
+                                            <i class="fas fa-handshake text-purple-600 text-lg"></i>
+                                        @endif
+                                    </div>
+                                    <div class="ml-4">
+                                        <div class="text-sm font-medium text-gray-900">
+                                            {{ $entity->full_name }}
+                                        </div>
+                                        @if($entity->persona_riferimento)
+                                        <div class="text-xs text-gray-500">
+                                            {{ $entity->persona_riferimento }}
+                                        </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                    @if($entity->entity_type == 'cliente') bg-lime-100 text-lime-800
+                                    @elseif($entity->entity_type == 'fornitore') bg-blue-100 text-blue-800
+                                    @else bg-purple-100 text-purple-800
+                                    @endif">
+                                    {{ $entityTypes[$entity->entity_type] ?? $entity->entity_type }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-500">
+                                <div class="flex flex-col">
+                                    @if($entity->partita_iva)
+                                        <span class="font-mono text-xs">{{ $entity->partita_iva }}</span>
+                                    @endif
+                                    @if($entity->codice_fiscale && $entity->codice_fiscale != $entity->partita_iva)
+                                        <span class="font-mono text-xs">{{ $entity->codice_fiscale }}</span>
+                                    @endif
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                                {{ $entity->deleted_at ? $entity->deleted_at->format('d/m/Y H:i') : '-' }}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-500">
+                                {{ $entity->deletedBy ? $entity->deletedBy->name : 'Sistema' }}
+                            </td>
+                            <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
+                                <div class="flex space-x-3">
+                                    <button wire:click="restoreFromTrash({{ $entity->id_cliente }})" 
+                                            class="text-green-600 hover:text-green-900 transition-colors"
+                                            title="Ripristina">
+                                        <i class="fas fa-trash-restore text-lg"></i>
+                                    </button>
+                                    <button wire:click="forceDeleteFromTrash({{ $entity->id_cliente }})" 
+                                            onclick="return confirm('Eliminazione definitiva? Questa operazione non può essere annullata.')"
+                                            class="text-red-600 hover:text-red-900 transition-colors"
+                                            title="Elimina definitivamente">
+                                        <i class="fas fa-skull-crosswalk text-lg"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center">
+                                <div class="text-gray-500">
+                                    <i class="fas fa-trash-alt text-gray-400 text-5xl mb-2"></i>
+                                    <p class="text-sm">Il cestino è vuoto</p>
+                                    <p class="text-xs text-gray-400 mt-1">Nessun elemento eliminato</p>
+                                </div>
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Paginazione Cestino -->
+            @if($trashedEntities->hasPages())
+            <div class="mt-6">
+                <div class="text-sm text-gray-500 mb-2">
+                    Mostrando {{ $trashedEntities->firstItem() ?? 0 }} - {{ $trashedEntities->lastItem() ?? 0 }} di {{ $trashedEntities->total() }} elementi nel cestino
+                </div>
+                <div class="flex justify-center">
+                    {{ $trashedEntities->links() }}
+                </div>
+            </div>
+            @endif
+            
+            <!-- Footer -->
+            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <button wire:click="closeTrashModal" 
                         class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
                     <i class="fas fa-times mr-2"></i> Chiudi
                 </button>

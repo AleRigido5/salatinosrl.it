@@ -29,6 +29,7 @@ class EntitiesTable extends Component
     public $formTipologia = '';
     public $formRagioneSociale = '';
     public $formPartitaIva = '';
+    public $formCodiceFiscale = '';
     public $formRiferimento = '';
     
     // Modal eliminazione
@@ -40,6 +41,16 @@ class EntitiesTable extends Component
     public $showViewModal = false;
     public $viewingEntity = null;
     
+    // MODAL CESTINO
+    public $showTrashModal = false;
+    public $trashSearch = '';
+    public $trashTypeFilter = '';
+    public $trashSortField = 'deleted_at';
+    public $trashSortDirection = 'desc';
+    
+    // Contatore cestino
+    public $trashCount = 0;
+    
     protected $queryString = ['search', 'typeFilter', 'statusFilter'];
     
     protected $listeners = [
@@ -47,13 +58,22 @@ class EntitiesTable extends Component
         'openCreateModal' => 'openCreateModal',
         'closeViewModal' => 'closeViewModal',
         'closeCreateModal' => 'closeCreateModal',
-        'redirectToEdit' => 'redirectToEdit'
+        'redirectToEdit' => 'redirectToEdit',
+        'openTrashModal' => 'openTrashModal',
+        'closeTrashModal' => 'closeTrashModal',
+        'updateTrashCount' => 'updateTrashCount'
     ];
+    
+    public function mount()
+    {
+        $this->updateTrashCount();
+    }
     
     public function refreshTable()
     {
         $this->resetPage();
         $this->dispatch('tableRefreshed');
+        $this->updateTrashCount();
     }
     
     public function sortBy($field)
@@ -107,7 +127,6 @@ class EntitiesTable extends Component
                   ->orWhere('partita_iva', 'like', $searchTerm)
                   ->orWhere('codice_fiscale', 'like', $searchTerm)
                   ->orWhere('persona_riferimento', 'like', $searchTerm)
-                  // Ricerca su address
                   ->orWhereExists(function($subq) use ($searchTerm) {
                       $subq->select(DB::raw(1))
                           ->from('address')
@@ -119,7 +138,6 @@ class EntitiesTable extends Component
                                   ->orWhere('address.cap', 'like', $searchTerm);
                           });
                   })
-                  // Ricerca su contacts
                   ->orWhereExists(function($subq) use ($searchTerm) {
                       $subq->select(DB::raw(1))
                           ->from('contacts')
@@ -142,15 +160,123 @@ class EntitiesTable extends Component
         // Ordina
         $query->orderBy($this->sortField, $this->sortDirection);
         
-        // Carica le relazioni e paginate (INCLUDE createdBy e updatedBy)
+        // Carica le relazioni e paginate
         return $query->with([
             'contacts' => function($q) {
                 $q->orderBy('id_settings')->with('setting');
             },
             'addresses',
-            'createdBy',   // <-- AGGIUNTO per il tracciamento
-            'updatedBy'    // <-- AGGIUNTO per il tracciamento
+            'createdBy',
+            'updatedBy'
         ])->paginate($this->perPage);
+    }
+    
+    // ==================== METODI PER IL CESTINO ====================
+    
+    public function updateTrashCount()
+    {
+        $this->trashCount = Entity::onlyTrashed()->count();
+        $this->dispatch('trashCountUpdated', count: $this->trashCount);
+    }
+    
+    public function openTrashModal()
+    {
+        $this->resetTrashFilters();
+        $this->showTrashModal = true;
+        $this->updateTrashCount();
+    }
+    
+    public function closeTrashModal()
+    {
+        $this->showTrashModal = false;
+        $this->resetTrashFilters();
+        $this->updateTrashCount();
+    }
+    
+    public function resetTrashFilters()
+    {
+        $this->trashSearch = '';
+        $this->trashTypeFilter = '';
+        $this->trashSortField = 'deleted_at';
+        $this->trashSortDirection = 'desc';
+    }
+    
+    public function trashSortBy($field)
+    {
+        if ($this->trashSortField === $field) {
+            $this->trashSortDirection = $this->trashSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->trashSortField = $field;
+            $this->trashSortDirection = 'asc';
+        }
+    }
+    
+    public function getTrashedEntitiesProperty()
+    {
+        $query = Entity::onlyTrashed();
+        
+        // Filtro di ricerca
+        if ($this->trashSearch) {
+            $searchTerm = '%' . $this->trashSearch . '%';
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('ragione_sociale', 'like', $searchTerm)
+                  ->orWhere('nome', 'like', $searchTerm)
+                  ->orWhere('cognome', 'like', $searchTerm)
+                  ->orWhere('email', 'like', $searchTerm)
+                  ->orWhere('partita_iva', 'like', $searchTerm)
+                  ->orWhere('codice_fiscale', 'like', $searchTerm)
+                  ->orWhere('persona_riferimento', 'like', $searchTerm);
+            });
+        }
+        
+        // Filtro per tipo entità
+        if ($this->trashTypeFilter) {
+            $query->where('entity_type', $this->trashTypeFilter);
+        }
+        
+        // Ordina
+        $query->orderBy($this->trashSortField, $this->trashSortDirection);
+        
+        return $query->with([
+            'contacts',
+            'addresses',
+            'createdBy',
+            'updatedBy'
+        ])->paginate(10);
+    }
+    
+    public function restoreFromTrash($id)
+    {
+        try {
+            $entity = Entity::onlyTrashed()->find($id);
+            if ($entity) {
+                $entityName = $entity->full_name;
+                $entity->restore();
+                $this->dispatch('showSuccess', message: "Cliente/Fornitore '{$entityName}' è stato ripristinato!");
+                $this->refreshTable();
+                $this->updateTrashCount();
+                $this->dispatch('refreshTrashTable');
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore durante il ripristino: ' . $e->getMessage());
+        }
+    }
+    
+    public function forceDeleteFromTrash($id)
+    {
+        try {
+            $entity = Entity::onlyTrashed()->find($id);
+            if ($entity) {
+                $entityName = $entity->full_name;
+                $entity->forceDelete();
+                $this->dispatch('showSuccess', message: "Cliente/Fornitore '{$entityName}' è stato eliminato definitivamente!");
+                $this->refreshTable();
+                $this->updateTrashCount();
+                $this->dispatch('refreshTrashTable');
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore durante l\'eliminazione definitiva: ' . $e->getMessage());
+        }
     }
     
     // ==================== METODI VISUALIZZAZIONE ====================
@@ -163,8 +289,8 @@ class EntitiesTable extends Component
                     $q->orderBy('id_settings')->with('setting');
                 },
                 'addresses',
-                'createdBy',   // <-- AGGIUNTO per il tracciamento
-                'updatedBy'    // <-- AGGIUNTO per il tracciamento
+                'createdBy',
+                'updatedBy'
             ])->find($id);
             
             if (!$entity) {
@@ -225,13 +351,14 @@ class EntitiesTable extends Component
             $entityName = $this->entityToDelete->full_name;
             $this->entityToDelete->delete();
             
-            $this->dispatch('showSuccess', message: "Cliente/Fornitore '{$entityName}' eliminato con successo!");
+            $this->dispatch('showSuccess', message: "Cliente/Fornitore '{$entityName}' è stato spostato nel cestino!");
             
             $this->showDeleteModal = false;
             $this->entityToDelete = null;
             $this->entityNameToDelete = '';
             
             $this->refreshTable();
+            $this->updateTrashCount();
         } catch (\Exception $e) {
             $this->dispatch('showError', message: 'Errore durante l\'eliminazione: ' . $e->getMessage());
             $this->showDeleteModal = false;
@@ -254,8 +381,8 @@ class EntitiesTable extends Component
             if ($entity) {
                 $entity->update([
                     'valid' => !$entity->valid,
-                    'updated_by' => auth()->guard('admin')->id(),  // <-- AGGIUNTO
-                    'updated_at' => now()                          // <-- AGGIUNTO
+                    'updated_by' => auth()->guard('admin')->id(),
+                    'updated_at' => now()
                 ]);
                 $status = $entity->valid ? 'attivato' : 'disattivato';
                 $this->dispatch('showSuccess', message: "Cliente/Fornitore {$status} con successo!");
@@ -300,6 +427,7 @@ class EntitiesTable extends Component
         $this->formTipologia = '';
         $this->formRagioneSociale = '';
         $this->formPartitaIva = '';
+        $this->formCodiceFiscale = '';
         $this->formRiferimento = '';
     }
     
@@ -309,9 +437,28 @@ class EntitiesTable extends Component
             'formTipologia' => 'required|in:cliente,fornitore,entrambi',
             'formEmail' => 'nullable|email',
             'formPartitaIva' => 'nullable|string|max:20',
+            'formCodiceFiscale' => 'nullable|string|max:20',
         ]);
-        
+
         try {
+            // CONTROLLO DUPLICATI PARTITA IVA
+            if (!empty($this->formPartitaIva)) {
+                $existingEntity = Entity::where('partita_iva', $this->formPartitaIva)->first();
+                if ($existingEntity) {
+                    $this->dispatch('showError', message: "Partita IVA {$this->formPartitaIva} già presente in archivio per: " . $existingEntity->full_name);
+                    return;
+                }
+            }
+            
+            // Controllo anche codice fiscale se presente
+            if (!empty($this->formCodiceFiscale)) {
+                $existingByCF = Entity::where('codice_fiscale', $this->formCodiceFiscale)->first();
+                if ($existingByCF) {
+                    $this->dispatch('showError', message: "Codice Fiscale {$this->formCodiceFiscale} già presente in archivio per: " . $existingByCF->full_name);
+                    return;
+                }
+            }
+
             $adminId = auth()->guard('admin')->id();
             
             $entity = Entity::create([
@@ -322,12 +469,13 @@ class EntitiesTable extends Component
                 'persona_riferimento' => $this->formRiferimento ?: null,
                 'email' => $this->formEmail ?: null,
                 'partita_iva' => $this->formPartitaIva ?: null,
+                'codice_fiscale' => $this->formCodiceFiscale ?: null,
                 'valid' => 1,
                 'data_inserimento' => now(),
                 'created_at' => now(),
                 'updated_at' => now(),
-                'created_by' => $adminId,  // <-- AGGIUNTO
-                'updated_by' => $adminId   // <-- AGGIUNTO
+                'created_by' => $adminId,
+                'updated_by' => $adminId
             ]);
             
             if ($entity) {
@@ -347,7 +495,9 @@ class EntitiesTable extends Component
     {
         return view('livewire.admin.entities-table', [
             'entities' => $this->entities,
-            'entityTypes' => $this->entityTypes
+            'entityTypes' => $this->entityTypes,
+            'trashedEntities' => $this->trashedEntities,
+            'trashCount' => $this->trashCount
         ]);
     }
 }

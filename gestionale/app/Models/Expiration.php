@@ -1,5 +1,4 @@
 <?php
-// app/Models/Expiration.php
 
 namespace App\Models;
 
@@ -69,18 +68,29 @@ class Expiration extends Model
     // ==================== RELAZIONI PER LE ENTITÀ ASSOCIATE ====================
     
     /**
-     * Relazione per Staff (personale) - CORRETTA (senza where sulla colonna inesistente)
-     * Usa id_references solo quando table_references è 'staff'
+     * Relazione per Staff (personale)
      */
     public function staff()
     {
-        // La condizione deve essere sulla tabella expiration, non sulla tabella staff
         return $this->belongsTo(Staff::class, 'id_references', 'id_personale')
             ->where('expiration.table_references', self::TABLE_STAFF);
     }
     
     /**
-     * Relazione per Clienti/Fornitori (entities) - CORRETTA
+     * Relazione per Veicoli (mezzi) - MANY-TO-MANY tramite tabella pivot
+     */
+    public function vehicles()
+    {
+        return $this->belongsToMany(
+            Vehicles::class,
+            'vehicles_expiry_lnk',
+            'id_expiration',
+            'id_vehicles'
+        );
+    }
+    
+    /**
+     * Relazione per Clienti/Fornitori (entities)
      */
     public function entity()
     {
@@ -107,24 +117,26 @@ class Expiration extends Model
     // ==================== HELPER PER OTTENERE L'ENTITÀ ASSOCIATA ====================
     
     /**
-     * Ottiene l'entità associata in modo unificato (senza usare relazioni eager problematiche)
+     * Ottiene l'entità associata in modo unificato
      */
     public function getLinkedEntityAttribute()
     {
-        // Nuovo sistema polimorfico
-        if ($this->table_references && $this->id_references) {
-            if ($this->table_references === self::TABLE_STAFF) {
-                return Staff::find($this->id_references);
-            }
-            if ($this->table_references === self::TABLE_ENTITY) {
-                return Entity::find($this->id_references);
-            }
-            if ($this->table_references === self::TABLE_OWNERSHIP) {
-                return Ownership::find($this->id_references);
-            }
+        // Nuovo sistema polimorfico per STAFF
+        if ($this->table_references === self::TABLE_STAFF && $this->id_references) {
+            return Staff::find($this->id_references);
         }
         
-        // Retrocompatibilità: vecchio sistema
+        // Nuovo sistema polimorfico per ENTITY
+        if ($this->table_references === self::TABLE_ENTITY && $this->id_references) {
+            return Entity::find($this->id_references);
+        }
+        
+        // Per i VEHICOLI (many-to-many) - restituisce la collezione
+        if ($this->table_references === self::TABLE_VEHICLE) {
+            return $this->vehicles;
+        }
+        
+        // Retrocompatibilità
         if ($this->id_entities) {
             return $this->entityLegacy;
         }
@@ -138,6 +150,19 @@ class Expiration extends Model
     
     public function getLinkedEntityNameAttribute()
     {
+        // Per i VEHICOLI (many-to-many)
+        if ($this->table_references === self::TABLE_VEHICLE) {
+            $vehicles = $this->vehicles;
+            if ($vehicles && $vehicles->count() > 0) {
+                $names = [];
+                foreach ($vehicles as $vehicle) {
+                    $names[] = $vehicle->targa ?: ($vehicle->marca . ' ' . $vehicle->modello);
+                }
+                return implode(', ', $names);
+            }
+            return '-';
+        }
+        
         $entity = $this->getLinkedEntityAttribute();
         
         if (!$entity) {
@@ -168,6 +193,10 @@ class Expiration extends Model
             return 'Personale';
         }
         
+        if ($this->table_references === self::TABLE_VEHICLE) {
+            return 'Mezzo';
+        }
+        
         if ($this->table_references === self::TABLE_ENTITY) {
             $entity = $this->getLinkedEntityAttribute();
             if ($entity && isset($entity->entity_type)) {
@@ -178,10 +207,6 @@ class Expiration extends Model
         
         if ($this->table_references === self::TABLE_OWNERSHIP) {
             return 'Proprietà';
-        }
-        
-        if ($this->table_references === self::TABLE_VEHICLE) {
-            return 'Mezzo';
         }
         
         // Retrocompatibilità
@@ -233,6 +258,23 @@ class Expiration extends Model
               ->orWhere(function($q2) use ($staffId) {
                   $q2->whereNull('table_references')
                      ->where('id_entities', $staffId);
+              });
+        });
+    }
+    
+    /**
+     * Scope per filtrare per veicolo specifico
+     */
+    public function scopeForVehicle($query, $vehicleId)
+    {
+        return $query->where(function($q) use ($vehicleId) {
+            $q->where('table_references', self::TABLE_VEHICLE)
+              ->whereHas('vehicles', function($q2) use ($vehicleId) {
+                  $q2->where('vehicles.id', $vehicleId);
+              })
+              ->orWhere(function($q3) use ($vehicleId) {
+                  $q3->whereNull('table_references')
+                     ->where('id_entities', $vehicleId);
               });
         });
     }

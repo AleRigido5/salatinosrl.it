@@ -10,7 +10,7 @@
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold text-gray-800">Modifica Scadenza</h1>
             <a href="{{ route('admin.expiration.index', $staffId ? ['staff_id' => $staffId] : []) }}" 
-               class="text-gray-500 hover:text-gray-600 px-4 py-2 rounded-lg transition-colors flex items-center">
+               class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
                 <i class="fas fa-arrow-left"></i>
             </a>
         </div>
@@ -32,7 +32,7 @@
                            name="titolo" 
                            value="{{ old('titolo', $expiration->titolo) }}" 
                            required
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                     @error('titolo') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
 
@@ -40,7 +40,7 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         Tipologia Scadenza <span class="text-red-500">*</span>
                     </label>
-                    <select name="id_settings" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <select name="id_settings" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                         <option value="">Seleziona tipologia...</option>
                         @foreach($tipologie as $tipologia)
                             <option value="{{ $tipologia->id }}" {{ old('id_settings', $expiration->id_settings) == $tipologia->id ? 'selected' : '' }}>
@@ -56,7 +56,7 @@
                     <input type="text" 
                            name="subtitolo" 
                            value="{{ old('subtitolo', $expiration->subtitolo) }}"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 </div>
 
                 <div>
@@ -67,7 +67,7 @@
                            name="data_inizio" 
                            value="{{ old('data_inizio', $expiration->data_inizio ? $expiration->data_inizio->format('Y-m-d') : '') }}" 
                            required
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                     @error('data_inizio') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                 </div>
 
@@ -76,7 +76,7 @@
                     <input type="date" 
                            name="data_fine" 
                            value="{{ old('data_fine', $expiration->data_fine ? $expiration->data_fine->format('Y-m-d') : '') }}"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                     <p class="text-xs text-gray-400 mt-1">Opzionale: lascia vuoto se non ha scadenza</p>
                 </div>
 
@@ -89,7 +89,7 @@
                                    id="entity_search"
                                    placeholder="Cerca cliente o fornitore..."
                                    value="{{ $expiration->entityLegacy ? ($expiration->entityLegacy->ragione_sociale ?: $expiration->entityLegacy->nome . ' ' . $expiration->entityLegacy->cognome) : '' }}"
-                                   class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                   class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                             <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
                         </div>
                         <div id="entity_results" class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto hidden"></div>
@@ -100,7 +100,7 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Ownership / Azienda</label>
-                    <select name="id_ownership" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <select name="id_ownership" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                         <option value="">Seleziona...</option>
                         @foreach($ownerships as $ownership)
                             <option value="{{ $ownership->id_proprieta }}" {{ old('id_ownership', $expiration->id_ownership) == $ownership->id_proprieta ? 'selected' : '' }}>
@@ -114,7 +114,7 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">Note</label>
                     <textarea name="note" 
                               rows="4" 
-                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">{{ old('note', $expiration->note) }}</textarea>
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">{{ old('note', $expiration->note) }}</textarea>
                 </div>
             </div>
 
@@ -139,7 +139,7 @@
                     Annulla
                 </a>
                 <button type="submit" 
-                        class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
+                        class="px-4 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-md transition-colors">
                     <i class="fas fa-save mr-2"></i>
                     Aggiorna Scadenza
                 </button>
@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         resultsDiv.innerHTML = '';
                         data.forEach(entity => {
                             const div = document.createElement('div');
-                            div.className = 'px-4 py-2 hover:bg-purple-50 cursor-pointer border-b border-gray-100 last:border-0';
+                            div.className = 'px-4 py-2 hover:bg-lime-50 cursor-pointer border-b border-gray-100 last:border-0';
                             div.innerHTML = `
                                 <div class="font-medium text-gray-900">${entity.ragione_sociale || entity.nome + ' ' + entity.cognome}</div>
                                 <div class="text-xs text-gray-500 flex flex-wrap gap-2 mt-0.5">

@@ -95,8 +95,48 @@ class AddressManager extends Component
         $this->resetForm();
     }
     
+    /**
+     * Verifica se esiste già un indirizzo duplicato
+     */
+    private function checkDuplicateAddress($excludeId = null)
+    {
+        $query = Address::where('clienti_id_cliente', $this->entityId)
+            ->where('indirizzo', $this->indirizzo)
+            ->where('citta', $this->citta)
+            ->where('provincia', $this->provincia);
+        
+        // Se è in modifica, escludi l'indirizzo corrente
+        if ($excludeId) {
+            $query->where('id_indirizzo', '!=', $excludeId);
+        }
+        
+        return $query->exists();
+    }
+    
     public function saveAddress()
     {
+        // Validazione base
+        $this->validate([
+            'indirizzo' => 'nullable|string|max:255',
+            'citta' => 'nullable|string|max:100',
+            'provincia' => 'nullable|string|max:5',
+            'cap' => 'nullable|string|max:10',
+        ]);
+        
+        // Controllo duplicati per nuovo indirizzo
+        if (!$this->editingAddressId) {
+            if ($this->checkDuplicateAddress()) {
+                $this->showNotificationMessage('Esiste già un indirizzo identico per questo cliente/fornitore!', 'error');
+                return;
+            }
+        } else {
+            // Controllo duplicati per modifica (escludendo se stesso)
+            if ($this->checkDuplicateAddress($this->editingAddressId)) {
+                $this->showNotificationMessage('Esiste già un indirizzo identico per questo cliente/fornitore!', 'error');
+                return;
+            }
+        }
+        
         $data = [
             'clienti_id_cliente' => $this->entityId,
             'sede' => $this->sede ?: 'principale',

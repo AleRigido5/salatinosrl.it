@@ -2,14 +2,21 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Address extends Model
 {
+    use HasFactory;
+
     protected $table = 'address';
     protected $primaryKey = 'id_indirizzo';
-    public $timestamps = false;
+    public $incrementing = true;
+    protected $keyType = 'int';
     
+    // Disabilita i timestamps se non esistono nella tabella
+    public $timestamps = false;
+
     protected $fillable = [
         'clienti_id_cliente',
         'sede',
@@ -20,11 +27,11 @@ class Address extends Model
         'cap',
         'telefono',
         'cellulare',
-        'fax',
+        'fax'
     ];
-    
+
     /**
-     * Relazione inversa con Entity
+     * Relazione con l'entità (cliente/fornitore)
      */
     public function entity()
     {

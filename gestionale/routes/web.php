@@ -11,7 +11,7 @@ use App\Http\Controllers\Admin\EntityController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\ContactController;
 use App\Http\Controllers\Admin\StaffController;
-use App\Http\Controllers\Admin\MezziController;
+use App\Http\Controllers\Admin\VehiclesController;
 use App\Http\Controllers\Admin\SettingCategoryController;
 use App\Http\Controllers\Admin\ExpirationController;
 use App\Http\Controllers\Admin\DocumentController;
@@ -116,18 +116,18 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // GESTIONE MEZZI (VEHICLES)
         // =============================================
         Route::prefix('vehicles')->name('vehicles.')->group(function () {
-            Route::get('/', [MezziController::class, 'index'])->name('index');
-            Route::get('/create', [MezziController::class, 'create'])->name('create');
-            Route::post('/', [MezziController::class, 'store'])->name('store');
-            Route::get('/{vehicle}', [MezziController::class, 'show'])->name('show');
-            Route::get('/{vehicle}/edit', [MezziController::class, 'edit'])->name('edit');
-            Route::put('/{vehicle}', [MezziController::class, 'update'])->name('update');
-            Route::delete('/{vehicle}', [MezziController::class, 'destroy'])->name('destroy');
-            Route::post('/{vehicle}/toggle-status', [MezziController::class, 'toggleStatus'])->name('toggle-status');
+            Route::get('/', [VehiclesController::class, 'index'])->name('index');
+            Route::get('/create', [VehiclesController::class, 'create'])->name('create');
+            Route::post('/', [VehiclesController::class, 'store'])->name('store');
+            Route::get('/{vehicle}', [VehiclesController::class, 'show'])->name('show');
+            Route::get('/{vehicle}/edit', [VehiclesController::class, 'edit'])->name('edit');
+            Route::put('/{vehicle}', [VehiclesController::class, 'update'])->name('update');
+            Route::delete('/{vehicle}', [VehiclesController::class, 'destroy'])->name('destroy');
+            Route::post('/{vehicle}/toggle-status', [VehiclesController::class, 'toggleStatus'])->name('toggle-status');
             
             // Export vehicles
-            Route::get('/export/csv', [MezziController::class, 'export'])->name('export');
-            Route::get('/export/pdf', [MezziController::class, 'exportPdf'])->name('export.pdf');
+            Route::get('/export/csv', [VehiclesController::class, 'export'])->name('export');
+            Route::get('/export/pdf', [VehiclesController::class, 'exportPdf'])->name('export.pdf');
         });
 
         // =============================================
@@ -150,7 +150,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::prefix('documents')->name('documents.')->group(function () {
             Route::get('{tableRef}/{idRef}', [DocumentController::class, 'index'])->name('index');
             Route::post('{tableRef}/{idRef}', [DocumentController::class, 'store'])->name('store');
-            Route::delete('{tableRef}/{idRef}/all', [DocumentController::class, 'destroyAll'])->name('destroy.all');  // <-- AGGIUNGI QUESTA RIGA
+            Route::delete('{tableRef}/{idRef}/all', [DocumentController::class, 'destroyAll'])->name('destroy.all');
             Route::delete('{tableRef}/{idRef}/{documentId}', [DocumentController::class, 'destroy'])->name('destroy');
             Route::get('{tableRef}/{idRef}/{documentId}/download', [DocumentController::class, 'download'])->name('download');
         });
@@ -215,8 +215,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/staff/{staff}/contacts', [StaffController::class, 'getContacts'])->name('staff-contacts');
             
             // API per Mezzi (Vehicles)
-            Route::get('/search-vehicles', [MezziController::class, 'search'])->name('search-vehicles');
-            Route::get('/vehicles/{vehicle}/documents', [MezziController::class, 'getDocuments'])->name('vehicle-documents');
+            Route::get('/search-vehicles', [VehiclesController::class, 'search'])->name('search-vehicles');
+            Route::get('/vehicles/{vehicle}', [VehiclesController::class, 'getVehicle'])->name('vehicles.get');
+            Route::get('/vehicles/{vehicle}/documents', [VehiclesController::class, 'getDocuments'])->name('vehicle-documents');
             
             // API per Scadenze (Expiration)
             Route::get('/search-expiration', [ExpirationController::class, 'search'])->name('search-expiration');

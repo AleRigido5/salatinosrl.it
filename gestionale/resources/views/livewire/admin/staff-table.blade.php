@@ -250,7 +250,7 @@
         }
     </style>
     
-    <!-- MODAL VISUALIZZAZIONE CON TRACCIAMENTO (responsive con stato nell'header) -->
+    <!-- MODAL VISUALIZZAZIONE -->
     @if($showViewModal && $viewingStaff)
     <div wire:ignore.self class="fixed inset-0 z-50 overflow-y-auto" 
          x-data="{ show: true }" 
@@ -258,17 +258,10 @@
          x-transition.opacity.duration.200ms>
         
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-            <!-- Sfondo -->
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" x-on:click="show = false; $wire.closeViewModal()" aria-hidden="true"></div>
-            
-            <!-- Spaziatore per centrare -->
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
-            <!-- Modal -->
-            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full"
-                 x-transition.scale.origin.top>
-                
-                <!-- Header con nome, stato e pulsante chiusura -->
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
                 <div class="bg-white px-4 pt-4 pb-2 sm:px-6 border-b border-gray-200">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div class="flex items-center space-x-3 flex-1 min-w-0">
@@ -286,15 +279,11 @@
                                 @endif
                             </div>
                         </div>
-                        
                         <div class="flex items-center gap-3">
-                            <!-- Badge Stato -->
                             <span class="px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap
                                 {{ $viewingStaff->valid ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
                                 {{ $viewingStaff->valid ? 'Attivo' : 'Disattivo' }}
                             </span>
-                            
-                            <!-- Pulsante chiusura -->
                             <button wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600">
                                 <i class="fa-solid fa-xmark text-2xl"></i>
                             </button>
@@ -302,7 +291,6 @@
                     </div>
                 </div>
                 
-                <!-- Contenuto scrollabile -->
                 <div class="px-4 pt-4 pb-2 sm:px-6 max-h-[70vh] overflow-y-auto">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-gray-50 rounded-lg p-4">
@@ -348,13 +336,11 @@
                             </div>
                         </div>
                         
-                        <!-- ========== TRACCIAMENTO ========== -->
                         <div class="bg-gray-50 rounded-lg p-4 md:col-span-2">
                             <h3 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">
                                 <i class="fas fa-history mr-2 text-indigo-500"></i> Tracciamento
                             </h3>
                             <div class="space-y-3">
-                                {{-- Creato da --}}
                                 <div class="flex items-start">
                                     <div class="w-28 text-gray-600 text-sm pt-0.5">Inserito da:</div>
                                     <div class="flex-1">
@@ -368,15 +354,9 @@
                                                 {{ $viewingStaff->created_at ? $viewingStaff->created_at->format('d/m/Y H:i') : '-' }}
                                             </span>
                                         </div>
-                                        @if($viewingStaff->createdBy && $viewingStaff->createdBy->email)
-                                        <div class="text-xs text-gray-400 mt-1 ml-6 break-all">
-                                            {{ $viewingStaff->createdBy->email }}
-                                        </div>
-                                        @endif
                                     </div>
                                 </div>
                                 
-                                {{-- Modificato da --}}
                                 @if($viewingStaff->updated_at && $viewingStaff->created_at != $viewingStaff->updated_at)
                                 <div class="flex items-start">
                                     <div class="w-28 text-gray-600 text-sm pt-0.5">Modificato da:</div>
@@ -391,11 +371,6 @@
                                                 {{ $viewingStaff->updated_at ? $viewingStaff->updated_at->format('d/m/Y H:i') : '-' }}
                                             </span>
                                         </div>
-                                        @if($viewingStaff->updatedBy && $viewingStaff->updatedBy->email)
-                                        <div class="text-xs text-gray-400 mt-1 ml-6 break-all">
-                                            {{ $viewingStaff->updatedBy->email }}
-                                        </div>
-                                        @endif
                                         <div class="text-xs text-gray-400 mt-1 ml-6">
                                             ({{ $viewingStaff->updated_at->diffForHumans() }})
                                         </div>
@@ -414,11 +389,9 @@
                                 @endif
                             </div>
                         </div>
-                        <!-- ========== FINE TRACCIAMENTO ========== -->
                     </div>
                 </div>
                 
-                <!-- Footer con bottoni -->
                 <div class="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col sm:flex-row sm:justify-end gap-3">
                     @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
                     <button wire:click="editStaff({{ $viewingStaff->id_personale }})" 
@@ -439,16 +412,16 @@
     <!-- MODAL MODIFICA -->
     @if($showEditModal && $editingStaff)
     <div wire:ignore.self class="fixed inset-0 z-50 overflow-y-auto" 
-         x-data="{ show: true }" 
-         x-show="show" 
-         x-transition.opacity.duration.200ms>
+        x-data="{ show: true }" 
+        x-show="show" 
+        x-transition.opacity.duration.200ms>
         
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" x-on:click="show = false; $wire.closeEditModal()" aria-hidden="true"></div>
             
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
-            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full">
                 <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <div class="flex justify-between items-center mb-4 border-b pb-3">
                         <h2 class="text-xl font-bold text-gray-800">
@@ -459,64 +432,80 @@
                         </button>
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
-                        <div>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 max-h-[70vh] overflow-y-auto p-2">
+                        <div class="md:col-span-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
                             <input type="text" wire:model="editNome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        <div>
+                        <div class="md:col-span-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
                             <input type="text" wire:model="editCognome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Soprannome</label>
-                            <input type="text" wire:model="editSoprannome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
-                            <input type="text" wire:model="editCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
-                            <input type="text" wire:model="editTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Cellulare</label>
-                            <input type="text" wire:model="editCellulare" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                            <input type="email" wire:model="editEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                        </div>
-                        <div class="md:col-span-2">
+                        
+                        <div class="md:col-span-12">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
                             <input type="text" wire:model="editIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        <div>
+                        
+                        <div class="md:col-span-7">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
                             <input type="text" wire:model="editCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
-                            <input type="text" wire:model="editProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Prov.</label>
+                            <input type="text" wire:model="editProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" maxlength="2">
                         </div>
-                        <div>
+                        <div class="md:col-span-3">
                             <label class="block text-sm font-medium text-gray-700 mb-1">CAP</label>
-                            <input type="text" wire:model="editCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            <input type="text" wire:model="editCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" maxlength="5">
                         </div>
-                        <div>
+                        
+                        <div class="md:col-span-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
+                            <input type="text" wire:model="editTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div class="md:col-span-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Cellulare</label>
+                            <input type="text" wire:model="editCellulare" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        
+                        <div class="md:col-span-8">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" wire:model="editEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div class="md:col-span-4 flex items-center">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" wire:model="editValid" class="rounded border-gray-300 text-lime-600 focus:ring-lime-500">
+                                <span class="ml-2 text-sm text-gray-700">Account attivo</span>
+                            </label>
+                        </div>
+                        
+                        <div class="md:col-span-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Data Nascita</label>
                             <input type="date" wire:model="editDataNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        <div>
+                        <div class="md:col-span-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Luogo Nascita</label>
                             <input type="text" wire:model="editLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        <div>
-                            <label class="inline-flex items-center">
-                                <input type="checkbox" wire:model="editValid" class="rounded border-gray-300 text-lime-600">
-                                <span class="ml-2 text-sm text-gray-700">Account attivo</span>
-                            </label>
+                        
+                        <div class="md:col-span-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
+                            <input type="text" wire:model="editIban" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div class="md:col-span-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
+                            <input type="text" wire:model="editCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" maxlength="16">
+                        </div>
+                        
+                        <div class="md:col-span-12">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Gruppo</label>
+                            <select wire:model="editGruppo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                <option value="">Seleziona gruppo...</option>
+                                @foreach($staffGroups as $group)
+                                    <option value="{{ $group->id }}">{{ $group->valore }}</option>
+                                @endforeach
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -615,6 +604,15 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">Luogo Nascita</label>
                             <input type="text" wire:model="createLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
+                        {{-- <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Gruppo</label>
+                            <select wire:model="createGruppo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                <option value="">Seleziona gruppo...</option>
+                                @foreach($staffGroups as $group)
+                                    <option value="{{ $group->id }}">{{ $group->valore }}</option>
+                                @endforeach
+                            </select>
+                        </div> --}}
                         <div>
                             <label class="inline-flex items-center">
                                 <input type="checkbox" wire:model="createValid" class="rounded border-gray-300 text-lime-600" checked>

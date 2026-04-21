@@ -78,6 +78,16 @@
             <table class="min-w-full w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('id')">
+                            <div class="flex items-center space-x-1">
+                                <span>ID</span>
+                                @if($sortField === 'id')
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
+                                @else
+                                    <i class="fas fa-sort text-gray-400"></i>
+                                @endif
+                            </div>
+                        </th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('id_ownership')">
                             <div class="flex items-center space-x-1">
                                 <span>Proprietà</span>
@@ -177,6 +187,13 @@
                         }
                     @endphp
                     <tr wire:key="vehicle-{{ $vehicle->id }}" class="hover:bg-gray-50 transition-colors duration-150 border-t border-gray-200">
+                        <!-- ID -->
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-sm font-mono font-medium text-gray-900">
+                                #{{ $vehicle->id }}
+                            </span>
+                        </td>
+
                         <!-- Proprietà -->
                         <td class="px-4 py-4 whitespace-nowrap">
                             <span class="text-sm text-gray-900">

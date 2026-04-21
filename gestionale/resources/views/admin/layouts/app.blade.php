@@ -392,6 +392,13 @@
                         <i class="fas fa-truck w-5 h-5 {{ request()->routeIs('admin.vehicles.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Mezzi</span>
                     </a>
+
+                    <!-- Centri di Costo -->
+                    <a href="#" 
+                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.cost_centers.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                        <i class="fa-solid fa-scale-unbalanced w-5 h-5 {{ request()->routeIs('admin.cost_centers.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                        <span class="sidebar-link-text text-sm font-medium ml-3">Centri di Costo</span>
+                    </a>
                 </div>
                 @endif
             </nav>
@@ -523,23 +530,48 @@
                                     $tableRef = $currentParams['tableRef'] ?? null;
                                     $idRef = $currentParams['idRef'] ?? null;
                                     
-                                    $breadcrumbs[] = ['name' => 'Personale', 'url' => route('admin.staff.index'), 'clickable' => true];
-                                    
                                     if ($tableRef === 'staff') {
                                         $staff = \App\Models\Staff::find($idRef);
                                         if ($staff) {
+                                            $breadcrumbs[] = ['name' => 'Anagrafica', 'url' => null, 'clickable' => false];
+                                            $breadcrumbs[] = ['name' => 'Personale', 'url' => route('admin.staff.index'), 'clickable' => true];
                                             $breadcrumbs[] = ['name' => $staff->full_name, 'url' => route('admin.staff.show', $idRef), 'clickable' => true];
                                             $breadcrumbs[] = ['name' => 'Documenti', 'url' => null, 'clickable' => false];
                                         }
-                                    } elseif ($tableRef === 'expiration-staff') {
+                                    } 
+                                    elseif ($tableRef === 'expiration-staff') {
                                         $expiration = \App\Models\Expiration::find($idRef);
                                         if ($expiration && $expiration->id_references) {
                                             $staff = \App\Models\Staff::find($expiration->id_references);
                                             if ($staff) {
+                                                $breadcrumbs[] = ['name' => 'Anagrafica', 'url' => null, 'clickable' => false];
+                                                $breadcrumbs[] = ['name' => 'Personale', 'url' => route('admin.staff.index'), 'clickable' => true];
                                                 $breadcrumbs[] = ['name' => $staff->full_name, 'url' => route('admin.staff.show', $staff->id_personale), 'clickable' => true];
-                                                $breadcrumbs[] = ['name' => 'Scadenze', 'url' => route('admin.expiration.index', ['staff_id' => $staff->id_personale]), 'clickable' => true];
+                                                $breadcrumbs[] = ['name' => 'Scadenze', 'url' => route('admin.expiration-staff.index', ['staffId' => $staff->id_personale]), 'clickable' => true];
                                                 $breadcrumbs[] = ['name' => 'Documenti', 'url' => null, 'clickable' => false];
                                             }
+                                        }
+                                    }
+                                    elseif ($tableRef === 'expiration-vehicles') {
+                                        $expiration = \App\Models\Expiration::find($idRef);
+                                        if ($expiration && $expiration->vehicles()->count() > 0) {
+                                            $firstVehicle = $expiration->vehicles->first();
+                                            if ($firstVehicle) {
+                                                $breadcrumbs[] = ['name' => 'Anagrafica', 'url' => null, 'clickable' => false];
+                                                $breadcrumbs[] = ['name' => 'Mezzi', 'url' => route('admin.vehicles.index'), 'clickable' => true];
+                                                $breadcrumbs[] = ['name' => $firstVehicle->full_name ?? $firstVehicle->targa, 'url' => route('admin.vehicles.show', $firstVehicle->id), 'clickable' => true];
+                                                $breadcrumbs[] = ['name' => 'Scadenze', 'url' => route('admin.expiration-vehicle.index', ['vehicleId' => $firstVehicle->id]), 'clickable' => true];
+                                                $breadcrumbs[] = ['name' => 'Documenti', 'url' => null, 'clickable' => false];
+                                            }
+                                        }
+                                    }
+                                    elseif ($tableRef === 'vehicles') {
+                                        $vehicle = \App\Models\Vehicles::find($idRef);
+                                        if ($vehicle) {
+                                            $breadcrumbs[] = ['name' => 'Anagrafica', 'url' => null, 'clickable' => false];
+                                            $breadcrumbs[] = ['name' => 'Mezzi', 'url' => route('admin.vehicles.index'), 'clickable' => true];
+                                            $breadcrumbs[] = ['name' => $vehicle->full_name ?? $vehicle->targa, 'url' => route('admin.vehicles.show', $idRef), 'clickable' => true];
+                                            $breadcrumbs[] = ['name' => 'Documenti', 'url' => null, 'clickable' => false];
                                         }
                                     }
                                 }

@@ -393,20 +393,25 @@ class StaffTable extends Component
     
     public function goToExpiration($staffId)
     {
-        $this->saveFiltersToSession();
-        return redirect()->route('admin.expiration.index', ['staff_id' => $staffId]);
+        return redirect()->route('admin.expiration-staff.index', ['staffId' => $staffId]);
     }
     
     // ==================== METODI FILTRI ====================
     
+    // public function resetFilters()
+    // {
+    //     $this->search = '';
+    //     $this->statusFilter = '';
+    //     $this->sortField = 'id_personale';
+    //     $this->sortDirection = 'asc';
+    //     $this->resetPage();
+    //     session()->forget('staff_filters');
+    // }
+
     public function resetFilters()
     {
-        $this->search = '';
-        $this->statusFilter = '';
-        $this->sortField = 'id_personale';
-        $this->sortDirection = 'asc';
-        $this->resetPage();
-        session()->forget('staff_filters');
+        $this->reset(['search', 'statusFilter']);
+        $this->resetPage(); // Resetta la paginazione alla prima pagina
     }
 
     public function render()

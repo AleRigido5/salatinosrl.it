@@ -1,23 +1,23 @@
 <div>
     <!-- Filtri e Ricerca -->
-    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
+    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200" wire:key="filters-{{ $search }}-{{ $typeFilter }}-{{ $statusFilter }}">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="relative md:col-span-2">
                 <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
                 <input type="text" 
-                       wire:model.live.debounce.300ms="search" 
-                       placeholder="Cerca per: P.IVA, Ragione Sociale, Nome, Cognome, Persona Riferimento, Città, Telefono, Email..." 
-                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    wire:model.live.debounce.300ms="search" 
+                    placeholder="Cerca per: P.IVA, Ragione Sociale, Nome, Cognome, Persona Riferimento, Città, Telefono, Email..." 
+                    class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
             </div>
             
-            <select wire:model.live="typeFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select wire:model.live="typeFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 <option value="">Tutti i tipi</option>
                 @foreach($entityTypes as $key => $label)
                     <option value="{{ $key }}">{{ $label }}</option>
                 @endforeach
             </select>
             
-            <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 <option value="">Tutti gli stati</option>
                 <option value="active">Attivi</option>
                 <option value="inactive">Disattivi</option>
@@ -37,25 +37,25 @@
         <div class="mt-3 flex flex-wrap items-center gap-2">
             <span class="text-sm text-gray-500">Filtri attivi:</span>
             @if($search)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
                 Ricerca: "{{ $search }}"
-                <button wire:click="$set('search', '')" class="ml-1 hover:text-blue-900">
+                <button wire:click="$set('search', '')" class="ml-1 hover:text-lime-900">
                     <i class="fas fa-times text-xs"></i>
                 </button>
             </span>
             @endif
             @if($typeFilter)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
                 Tipo: {{ $entityTypes[$typeFilter] ?? $typeFilter }}
-                <button wire:click="$set('typeFilter', '')" class="ml-1 hover:text-blue-900">
+                <button wire:click="$set('typeFilter', '')" class="ml-1 hover:text-lime-900">
                     <i class="fas fa-times text-xs"></i>
                 </button>
             </span>
             @endif
             @if($statusFilter)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
                 Stato: {{ $statusFilter === 'active' ? 'Attivi' : 'Disattivi' }}
-                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-blue-900">
+                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-lime-900">
                     <i class="fas fa-times text-xs"></i>
                 </button>
             </span>

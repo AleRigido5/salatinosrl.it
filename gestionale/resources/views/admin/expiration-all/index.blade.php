@@ -1,9 +1,9 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Gestione Mezzi')
+@section('title', 'Tutte le Scadenze')
 
 @section('content')
 <div class="p-6">
-    @livewire('admin.vehicles-table')
+    @livewire('admin.expiration-all-table')
 </div>
 @endsection

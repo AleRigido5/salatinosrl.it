@@ -7,6 +7,8 @@ use Livewire\WithPagination;
 use App\Models\Vehicles;
 use App\Models\Ownership;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class VehiclesTable extends Component
 {
@@ -15,6 +17,7 @@ class VehiclesTable extends Component
     public $search = '';
     public $tipoFilter = '';
     public $statoFilter = '';
+    public $ownershipFilter = '';
     public $perPage = 15;
     public $sortField = 'targa';
     public $sortDirection = 'asc';
@@ -23,7 +26,7 @@ class VehiclesTable extends Component
     public $showViewModal = false;
     public $viewingVehicle = null;
     
-    // Modal creazione - CAMPI CORRETTI PER IL DB
+    // Modal creazione
     public $showCreateModal = false;
     public $createTarga = '';
     public $createMarca = '';
@@ -34,7 +37,7 @@ class VehiclesTable extends Component
     public $createIdOwnership = '';
     public $createNote = '';
     
-    // Modal modifica - CAMPI CORRETTI PER IL DB
+    // Modal modifica
     public $showEditModal = false;
     public $editId = null;
     public $editTarga = '';
@@ -52,13 +55,16 @@ class VehiclesTable extends Component
     public $deleteName = '';
     
     protected $paginationTheme = 'tailwind';
-    protected $queryString = ['search', 'tipoFilter', 'statoFilter'];
+    protected $queryString = ['search', 'tipoFilter', 'statoFilter', 'ownershipFilter'];
+    
+    protected $listeners = [
+        'filters-reset' => 'resetFilters'
+    ];
     
     // ==================== TIPI E STATI ====================
     
     public function getTipiListProperty()
     {
-        // Estrai i tipi unici dal database
         $tipi = Vehicles::select('tipologia')
             ->whereNotNull('tipologia')
             ->distinct()
@@ -86,24 +92,19 @@ class VehiclesTable extends Component
     
     public function getProprietaListProperty()
     {
-        // IMPORTANTE: Recupera tutte le proprietà dalla tabella ownership
         $ownerships = Ownership::all();
         $list = [];
         
         foreach ($ownerships as $ownership) {
-            // Usa RagAbbrev come nome visualizzato (es. "Salatino s.r.l.")
             if (!empty($ownership->RagAbbrev)) {
                 $nome = $ownership->RagAbbrev;
             } 
-            // Altrimenti usa Rag_Soc_intest (es. "SALATINO s.r.l.")
             elseif (!empty($ownership->Rag_Soc_intest)) {
                 $nome = $ownership->Rag_Soc_intest;
             }
-            // Altrimenti usa RagSocialePr
             elseif (!empty($ownership->RagSocialePr)) {
                 $nome = $ownership->RagSocialePr;
             }
-            // Altrimenti usa un nome generico
             else {
                 $nome = 'Proprietà ' . $ownership->id_proprieta;
             }
@@ -126,7 +127,14 @@ class VehiclesTable extends Component
     
     public function getVehiclesProperty()
     {
-        $query = Vehicles::with('ownership');
+        Log::info('VehiclesTable: getVehiclesProperty chiamato', [
+            'search' => $this->search,
+            'tipoFilter' => $this->tipoFilter,
+            'statoFilter' => $this->statoFilter,
+            'ownershipFilter' => $this->ownershipFilter
+        ]);
+        
+        $query = Vehicles::with('ownership', 'expirations');
         
         if ($this->search) {
             $query->where(function($q) {
@@ -144,6 +152,10 @@ class VehiclesTable extends Component
             $query->where('valid', $this->statoFilter);
         }
         
+        if ($this->ownershipFilter) {
+            $query->where('id_ownership', $this->ownershipFilter);
+        }
+        
         $query->orderBy($this->sortField, $this->sortDirection);
         
         return $query->paginate($this->perPage);
@@ -153,6 +165,8 @@ class VehiclesTable extends Component
     
     public function sortBy($field)
     {
+        Log::info('VehiclesTable: sortBy chiamato', ['field' => $field]);
+        
         if ($this->sortField === $field) {
             $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
         } else {
@@ -166,12 +180,17 @@ class VehiclesTable extends Component
     
     public function resetFilters()
     {
+        Log::info('VehiclesTable: resetFilters chiamato');
+        
         $this->search = '';
         $this->tipoFilter = '';
         $this->statoFilter = '';
+        $this->ownershipFilter = '';
         $this->sortField = 'targa';
         $this->sortDirection = 'asc';
         $this->resetPage();
+        $this->dispatch('filters-reset');
+        $this->dispatch('table-refreshed');
     }
     
     public function updatingSearch()
@@ -189,23 +208,17 @@ class VehiclesTable extends Component
         $this->resetPage();
     }
     
-    // ==================== SALVA FILTRI IN SESSIONE ====================
-    
-    public function saveFiltersToSession()
+    public function updatingOwnershipFilter()
     {
-        session(['vehicles_filters' => [
-            'search' => $this->search,
-            'tipoFilter' => $this->tipoFilter,
-            'statoFilter' => $this->statoFilter,
-            'sortField' => $this->sortField,
-            'sortDirection' => $this->sortDirection
-        ]]);
+        $this->resetPage();
     }
     
     // ==================== VISUALIZZAZIONE ====================
     
     public function viewVehicle($id)
     {
+        Log::info('VehiclesTable: viewVehicle chiamato', ['id' => $id]);
+        
         try {
             $vehicle = Vehicles::with(['createdBy', 'updatedBy', 'ownership'])->find($id);
             
@@ -218,6 +231,7 @@ class VehiclesTable extends Component
             $this->showViewModal = true;
             
         } catch (\Exception $e) {
+            Log::error('VehiclesTable: viewVehicle errore', ['error' => $e->getMessage()]);
             $this->dispatch('showError', message: 'Errore nel caricamento: ' . $e->getMessage());
         }
     }
@@ -232,6 +246,7 @@ class VehiclesTable extends Component
     
     public function openCreateModal()
     {
+        Log::info('VehiclesTable: openCreateModal chiamato');
         $this->resetCreateForm();
         $this->showCreateModal = true;
     }
@@ -256,6 +271,8 @@ class VehiclesTable extends Component
     
     public function saveVehicle()
     {
+        Log::info('VehiclesTable: saveVehicle chiamato', ['targa' => $this->createTarga]);
+        
         $this->validate([
             'createTarga' => 'required|string|max:20|unique:vehicles,targa',
             'createMarca' => 'nullable|string|max:255',
@@ -281,11 +298,15 @@ class VehiclesTable extends Component
                 'updated_by' => $adminId
             ]);
             
+            Log::info('VehiclesTable: saveVehicle successo', ['id' => $vehicle->id]);
+            
             $this->closeCreateModal();
             $this->dispatch('showSuccess', message: "Mezzo '{$vehicle->targa}' creato con successo!");
             $this->resetPage();
+            $this->dispatch('table-refreshed');
             
         } catch (\Exception $e) {
+            Log::error('VehiclesTable: saveVehicle errore', ['error' => $e->getMessage()]);
             $this->dispatch('showError', message: 'Errore durante il salvataggio: ' . $e->getMessage());
         }
     }
@@ -294,13 +315,24 @@ class VehiclesTable extends Component
     
     public function openEditModal($id)
     {
+        Log::info('VehiclesTable: openEditModal chiamato', ['id' => $id]);
+        
         try {
             $vehicle = Vehicles::with('ownership')->find($id);
             
             if (!$vehicle) {
+                Log::error('VehiclesTable: openEditModal - mezzo non trovato', ['id' => $id]);
                 $this->dispatch('showError', message: 'Mezzo non trovato');
                 return;
             }
+            
+            Log::info('VehiclesTable: openEditModal - vehicle trovato', [
+                'id' => $vehicle->id,
+                'targa' => $vehicle->targa,
+                'tipologia' => $vehicle->tipologia,
+                'valid' => $vehicle->valid,
+                'id_ownership' => $vehicle->id_ownership
+            ]);
             
             $this->editId = $vehicle->id;
             $this->editTarga = $vehicle->targa;
@@ -312,15 +344,24 @@ class VehiclesTable extends Component
             $this->editIdOwnership = $vehicle->id_ownership;
             $this->editNote = $vehicle->note;
             
+            Log::info('VehiclesTable: openEditModal successo - dati caricati', [
+                'editId' => $this->editId,
+                'editTarga' => $this->editTarga,
+                'editTipologia' => $this->editTipologia,
+                'editIdOwnership' => $this->editIdOwnership
+            ]);
+            
             $this->showEditModal = true;
             
         } catch (\Exception $e) {
+            Log::error('VehiclesTable: openEditModal errore', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             $this->dispatch('showError', message: 'Errore nel caricamento: ' . $e->getMessage());
         }
     }
     
     public function closeEditModal()
     {
+        Log::info('VehiclesTable: closeEditModal chiamato');
         $this->showEditModal = false;
         $this->resetEditForm();
     }
@@ -340,24 +381,64 @@ class VehiclesTable extends Component
     
     public function updateVehicle()
     {
-        $this->validate([
-            'editTarga' => 'required|string|max:20|unique:vehicles,targa,' . $this->editId,
-            'editMarca' => 'nullable|string|max:255',
-            'editModello' => 'nullable|string|max:255',
-            'editTipologia' => 'required|string|max:50',
-            'editImmatricolazione' => 'nullable|date',
-            'editIdOwnership' => 'required|exists:ownership,id_proprieta',
+        Log::info('VehiclesTable: updateVehicle chiamato', [
+            'editId' => $this->editId,
+            'editTarga' => $this->editTarga,
+            'editTipologia' => $this->editTipologia,
+            'editIdOwnership' => $this->editIdOwnership,
+            'editValid' => $this->editValid
         ]);
+        
+        // Validazione con messaggi di errore dettagliati
+        try {
+            $validator = validator([
+                'editTarga' => $this->editTarga,
+                'editMarca' => $this->editMarca,
+                'editModello' => $this->editModello,
+                'editTipologia' => $this->editTipologia,
+                'editImmatricolazione' => $this->editImmatricolazione,
+                'editIdOwnership' => $this->editIdOwnership,
+            ], [
+                'editTarga' => 'required|string|max:20|unique:vehicles,targa,' . $this->editId,
+                'editMarca' => 'nullable|string|max:255',
+                'editModello' => 'nullable|string|max:255',
+                'editTipologia' => 'required|string|max:50',
+                'editImmatricolazione' => 'nullable|date',
+                'editIdOwnership' => 'required|exists:ownership,id_proprieta',
+            ]);
+            
+            if ($validator->fails()) {
+                Log::error('VehiclesTable: updateVehicle - validazione fallita', [
+                    'errors' => $validator->errors()->toArray()
+                ]);
+                $this->dispatch('showError', message: 'Errore di validazione: ' . json_encode($validator->errors()->toArray()));
+                return;
+            }
+            
+        } catch (\Exception $e) {
+            Log::error('VehiclesTable: updateVehicle - eccezione validazione', ['error' => $e->getMessage()]);
+            $this->dispatch('showError', message: 'Errore di validazione: ' . $e->getMessage());
+            return;
+        }
         
         try {
             $vehicle = Vehicles::find($this->editId);
             
             if (!$vehicle) {
+                Log::error('VehiclesTable: updateVehicle - mezzo non trovato', ['editId' => $this->editId]);
                 $this->dispatch('showError', message: 'Mezzo non trovato');
                 return;
             }
             
-            $vehicle->update([
+            Log::info('VehiclesTable: updateVehicle - vehicle trovato prima dell\'update', [
+                'id' => $vehicle->id,
+                'old_targa' => $vehicle->targa,
+                'new_targa' => strtoupper($this->editTarga),
+                'old_valid' => $vehicle->valid,
+                'new_valid' => $this->editValid
+            ]);
+            
+            $updateData = [
                 'targa' => strtoupper($this->editTarga),
                 'marca' => $this->editMarca,
                 'modello' => $this->editModello,
@@ -367,13 +448,45 @@ class VehiclesTable extends Component
                 'id_ownership' => $this->editIdOwnership,
                 'note' => $this->editNote,
                 'updated_by' => Auth::guard('admin')->id(),
+                'updated_at' => now()
+            ];
+            
+            Log::info('VehiclesTable: updateVehicle - dati da aggiornare', $updateData);
+            
+            $result = $vehicle->update($updateData);
+            
+            Log::info('VehiclesTable: updateVehicle - risultato update', [
+                'result' => $result,
+                'affected_rows' => $vehicle->wasChanged() ? 'si' : 'no',
+                'changes' => $vehicle->getChanges()
+            ]);
+            
+            // Verifica se l'update ha avuto successo
+            $updatedVehicle = Vehicles::find($this->editId);
+            
+            Log::info('VehiclesTable: updateVehicle - verifica post update', [
+                'targa_nel_db' => $updatedVehicle->targa,
+                'targa_inserita' => strtoupper($this->editTarga)
             ]);
             
             $this->closeEditModal();
-            $this->dispatch('showSuccess', message: "Mezzo '{$vehicle->targa}' aggiornato con successo!");
+            $this->dispatch('showSuccess', message: "Mezzo '{$updatedVehicle->targa}' aggiornato con successo!");
             $this->resetPage();
+            $this->dispatch('table-refreshed');
+            
+        } catch (\Illuminate\Database\QueryException $e) {
+            Log::error('VehiclesTable: updateVehicle - errore database', [
+                'error' => $e->getMessage(),
+                'sql' => $e->getSql() ?? 'N/A',
+                'bindings' => $e->getBindings() ?? []
+            ]);
+            $this->dispatch('showError', message: 'Errore database: ' . $e->getMessage());
             
         } catch (\Exception $e) {
+            Log::error('VehiclesTable: updateVehicle - errore generico', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             $this->dispatch('showError', message: 'Errore durante l\'aggiornamento: ' . $e->getMessage());
         }
     }
@@ -382,6 +495,8 @@ class VehiclesTable extends Component
     
     public function confirmDelete($id)
     {
+        Log::info('VehiclesTable: confirmDelete chiamato', ['id' => $id]);
+        
         $vehicle = Vehicles::find($id);
         
         if (!$vehicle) {
@@ -396,6 +511,8 @@ class VehiclesTable extends Component
     
     public function deleteVehicle()
     {
+        Log::info('VehiclesTable: deleteVehicle chiamato', ['deleteId' => $this->deleteId]);
+        
         try {
             $vehicle = Vehicles::find($this->deleteId);
             
@@ -407,6 +524,8 @@ class VehiclesTable extends Component
             $vehicleName = $vehicle->full_name ?? $vehicle->targa;
             $vehicle->delete();
             
+            Log::info('VehiclesTable: deleteVehicle successo', ['deleted' => $vehicleName]);
+            
             $this->dispatch('showSuccess', message: "Mezzo '{$vehicleName}' eliminato con successo!");
             
             $this->showDeleteModal = false;
@@ -414,8 +533,10 @@ class VehiclesTable extends Component
             $this->deleteName = '';
             
             $this->resetPage();
+            $this->dispatch('table-refreshed');
             
         } catch (\Exception $e) {
+            Log::error('VehiclesTable: deleteVehicle errore', ['error' => $e->getMessage()]);
             $this->dispatch('showError', message: 'Errore durante l\'eliminazione: ' . $e->getMessage());
             $this->showDeleteModal = false;
         }
@@ -432,6 +553,8 @@ class VehiclesTable extends Component
     
     public function toggleStatus($id)
     {
+        Log::info('VehiclesTable: toggleStatus chiamato', ['id' => $id]);
+        
         try {
             $vehicle = Vehicles::find($id);
             
@@ -444,35 +567,28 @@ class VehiclesTable extends Component
             $vehicle->update([
                 'valid' => $newStatus,
                 'updated_by' => Auth::guard('admin')->id(),
+                'updated_at' => now()
             ]);
             
             $statusText = $newStatus == 1 ? 'attivato' : 'disattivato';
+            Log::info('VehiclesTable: toggleStatus successo', ['id' => $id, 'newStatus' => $newStatus]);
+            
             $this->dispatch('showSuccess', message: "Mezzo '{$vehicle->targa}' {$statusText} con successo!");
             $this->resetPage();
+            $this->dispatch('table-refreshed');
             
         } catch (\Exception $e) {
+            Log::error('VehiclesTable: toggleStatus errore', ['error' => $e->getMessage()]);
             $this->dispatch('showError', message: 'Errore durante il cambio di stato: ' . $e->getMessage());
         }
-
-
     }
     
     // ==================== METODO PER SCADENZE ====================
     
     public function goToExpiration($vehicleId)
     {
-        $this->saveFiltersToSession();
-        return redirect()->route('admin.expiration.index', [
-            'entityId' => $vehicleId,
-            'entityType' => 'vehicle',
-            'entityName' => $this->getVehicleName($vehicleId)
-        ]);
-    }
-    
-    private function getVehicleName($vehicleId)
-    {
-        $vehicle = Vehicles::find($vehicleId);
-        return $vehicle ? ($vehicle->full_name ?? $vehicle->targa) : null;
+        Log::info('VehiclesTable: goToExpiration chiamato', ['vehicleId' => $vehicleId]);
+        return redirect()->route('admin.expiration-vehicle.index', ['vehicleId' => $vehicleId]);
     }
     
     // ==================== RENDER ====================

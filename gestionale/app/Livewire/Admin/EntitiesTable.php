@@ -395,16 +395,24 @@ class EntitiesTable extends Component
     
     // ==================== METODI FILTRI ====================
     
+    // public function resetFilters()
+    // {
+    //     $this->search = '';
+    //     $this->typeFilter = '';
+    //     $this->statusFilter = '';
+    //     $this->sortField = 'ragione_sociale';
+    //     $this->sortDirection = 'asc';
+    //     $this->resetPage();
+    // }
+    
     public function resetFilters()
     {
-        $this->search = '';
-        $this->typeFilter = '';
-        $this->statusFilter = '';
-        $this->sortField = 'ragione_sociale';
-        $this->sortDirection = 'asc';
-        $this->resetPage();
+        $this->reset(['search', 'typeFilter', 'statusFilter']);
+        $this->resetPage(); // Resetta anche la paginazione
+        
+        // Opzionale: dispatch dell'evento come nel primo codice
+        $this->dispatch('filters-reset');
     }
-    
     // ==================== METODI INSERIMENTO ====================
     
     public function openCreateModal()

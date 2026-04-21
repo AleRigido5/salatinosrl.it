@@ -20,33 +20,50 @@
     </div>
 
     <!-- Filtri e Ricerca -->
-    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div class="relative md:col-span-2">
-                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200" wire:key="filters-{{ $search }}-{{ $tipoFilter }}-{{ $statoFilter }}-{{ $ownershipFilter }}">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <!-- Proprietà (col 2) -->
+            <div class="md:col-span-2">
+                <select wire:model.live="ownershipFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                    <option value="">Tutte le proprietà</option>
+                    @foreach($proprietaList as $value => $label)
+                        <option value="{{ $value }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+            
+            <!-- Tipo (col 3) -->
+            <div class="md:col-span-3">
+                <select wire:model.live="tipoFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                    <option value="">Tutti i tipi</option>
+                    @foreach($tipiList as $value => $label)
+                        <option value="{{ $value }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+            
+            <!-- Ricerca (col 5) -->
+            <div class="relative md:col-span-5">
+                <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
                 <input type="text" 
                        wire:model.live.debounce.300ms="search" 
                        placeholder="Cerca per targa, marca, modello..." 
                        class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
             </div>
             
-            <select wire:model.live="tipoFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
-                <option value="">Tutti i tipi</option>
-                @foreach($tipiList as $value => $label)
-                    <option value="{{ $value }}">{{ $label }}</option>
-                @endforeach
-            </select>
-            
-            <select wire:model.live="statoFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
-                <option value="">Tutti gli stati</option>
-                @foreach($statiList as $value => $label)
-                    <option value="{{ $value }}">{{ $label }}</option>
-                @endforeach
-            </select>
+            <!-- Stato (col 2) -->
+            <div class="md:col-span-2">
+                <select wire:model.live="statoFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                    <option value="">Tutti gli stati</option>
+                    @foreach($statiList as $value => $label)
+                        <option value="{{ $value }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
         
         <div class="flex justify-between items-center mt-4">
-            @if($search || $tipoFilter || $statoFilter)
+            @if($search || $tipoFilter || $statoFilter || $ownershipFilter)
             <button wire:click="resetFilters" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
                 <i class="fas fa-sync-alt mr-1"></i>
                 Resetta filtri
@@ -58,54 +75,125 @@
     <!-- Tabella Mezzi -->
     <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+            <table class="min-w-full w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('targa')">
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('id_ownership')">
                             <div class="flex items-center space-x-1">
-                                <span>Targa</span>
-                                @if($sortField === 'targa')
-                                    <i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
+                                <span>Proprietà</span>
+                                @if($sortField === 'id_ownership')
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
                                 @else
                                     <i class="fas fa-sort text-gray-400"></i>
                                 @endif
                             </div>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('marca')">
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('tipologia')">
+                            <div class="flex items-center space-x-1">
+                                <span>Tipo</span>
+                                @if($sortField === 'tipologia')
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
+                                @else
+                                    <i class="fas fa-sort text-gray-400"></i>
+                                @endif
+                            </div>
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('marca')">
                             <div class="flex items-center space-x-1">
                                 <span>Marca / Modello</span>
                                 @if($sortField === 'marca')
-                                    <i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
                                 @else
                                     <i class="fas fa-sort text-gray-400"></i>
                                 @endif
                             </div>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('immatricolazione')">
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('targa')">
                             <div class="flex items-center space-x-1">
-                                <span>Anno</span>
-                                @if($sortField === 'immatricolazione')
-                                    <i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
+                                <span>Targa</span>
+                                @if($sortField === 'targa')
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
                                 @else
                                     <i class="fas fa-sort text-gray-400"></i>
                                 @endif
                             </div>
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('immatricolazione')">
+                            <div class="flex items-center space-x-1">
+                                <span>Immatricolazione</span>
+                                @if($sortField === 'immatricolazione')
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
+                                @else
+                                    <i class="fas fa-sort text-gray-400"></i>
+                                @endif
+                            </div>
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scadenze</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($vehicles as $vehicle)
+                    @php
+                        // Ottieni la prossima scadenza più vicina
+                        $nextExpiration = null;
+                        $expirationStatus = '';
+                        $expirationColor = '';
+                        $expirationDate = '';
+                        $expirationTitle = '';
+                        
+                        if($vehicle->expirations && $vehicle->expirations->count() > 0) {
+                            // Trova la scadenza più vicina (data_fine più piccola e >= oggi)
+                            $today = now();
+                            $closestExpiration = null;
+                            $closestDiff = null;
+                            
+                            foreach($vehicle->expirations as $exp) {
+                                if($exp->data_fine) {
+                                    $diff = $today->diffInDays($exp->data_fine, false);
+                                    if($closestExpiration === null || ($diff >= 0 && $diff < $closestDiff)) {
+                                        $closestExpiration = $exp;
+                                        $closestDiff = $diff;
+                                    }
+                                }
+                            }
+                            
+                            if($closestExpiration) {
+                                $nextExpiration = $closestExpiration;
+                                $expirationTitle = $nextExpiration->titolo;
+                                $expirationDate = $nextExpiration->data_fine->format('d/m/Y');
+                                
+                                if($nextExpiration->data_fine < $today) {
+                                    $expirationStatus = 'Scaduta';
+                                    $expirationColor = 'text-red-600 bg-red-50';
+                                } elseif($nextExpiration->data_fine <= $today->copy()->addDays(30)) {
+                                    $expirationStatus = 'In scadenza';
+                                    $expirationColor = 'text-yellow-600 bg-yellow-50';
+                                } else {
+                                    $expirationStatus = 'Valida';
+                                    $expirationColor = 'text-green-600 bg-green-50';
+                                }
+                            }
+                        }
+                    @endphp
                     <tr wire:key="vehicle-{{ $vehicle->id }}" class="hover:bg-gray-50 transition-colors duration-150 border-t border-gray-200">
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm font-medium text-gray-900">
-                                {{ $vehicle->targa ?: '-' }}
-                            </div>
+                        <!-- Proprietà -->
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-sm text-gray-900">
+                                {{ $vehicle->proprieta_nome ?? '-' }}
+                            </span>
                         </td>
-                        <td class="px-6 py-4">
-                            <div class="text-sm text-gray-900">
+                        
+                        <!-- Tipo -->
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                                {{ $vehicle->tipologia ?: '-' }}
+                            </span>
+                        </td>
+                        
+                        <!-- Marca / Modello -->
+                        <td class="px-4 py-4">
+                            <div class="text-sm font-medium text-gray-900">
                                 {{ $vehicle->marca ?: '-' }}
                             </div>
                             @if($vehicle->modello)
@@ -114,19 +202,23 @@
                             </div>
                             @endif
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
-                                {{ $vehicle->tipologia ?: '-' }}
-                            </span>
+                        
+                        <!-- Targa -->
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <div class="text-sm font-mono font-medium text-gray-900">
+                                {{ $vehicle->targa ?: '-' }}
+                            </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        
+                        <!-- Immatricolazione -->
+                        <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                             @php
                                 $anno = '-';
                                 if($vehicle->immatricolazione && $vehicle->immatricolazione != '0000-00-00') {
                                     try {
                                         $date = date_create($vehicle->immatricolazione);
                                         if($date && $date->format('Y') > 1900 && $date->format('Y') <= date('Y') + 1) {
-                                            $anno = $date->format('Y');
+                                            $anno = $date->format('d/m/Y');
                                         }
                                     } catch(Exception $e) {
                                         $anno = '-';
@@ -135,20 +227,28 @@
                             @endphp
                             {{ $anno }}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            @if($vehicle->valid == 1)
-                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                                    <i class="fas fa-check-circle mr-1"></i> Attivo
-                                </span>
+                        
+                        <!-- Scadenze -->
+                        <td class="px-4 py-4">
+                            @if($nextExpiration)
+                            <div class="flex flex-col space-y-1">
+                                <div class="text-xs text-gray-500">
+                                    <span class="font-medium">{{ $expirationTitle }}</span>
+                                </div>
+                                <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium {{ $expirationColor }}">
+                                    <i class="fas fa-calendar-alt mr-1"></i>
+                                    {{ $expirationDate }}
+                                    <span class="ml-1">({{ $expirationStatus }})</span>
+                                </div>
+                            </div>
                             @else
-                                <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
-                                    <i class="fas fa-times-circle mr-1"></i> Disattivo
-                                </span>
+                            <span class="text-sm text-gray-400 italic">Nessuna scadenza</span>
                             @endif
                         </td>
-                        <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
+                        
+                        <!-- Azioni -->
+                        <td class="px-4 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
-                                <!-- Visualizza dettagli -->
                                 @if(auth()->guard('admin')->user()->hasPermission('view_vehicles'))
                                 <button wire:click="viewVehicle({{ $vehicle->id }})" 
                                         wire:key="view-{{ $vehicle->id }}"
@@ -158,7 +258,6 @@
                                 </button>
                                 @endif
 
-                                <!-- Modifica -->
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_vehicles'))
                                 <button wire:click="openEditModal({{ $vehicle->id }})" 
                                         wire:key="edit-{{ $vehicle->id }}"
@@ -168,7 +267,6 @@
                                 </button>
                                 @endif
 
-                                <!-- Icona Scadenze -->
                                 @if(auth()->guard('admin')->user()->hasPermission('view_expiration'))
                                 <button wire:click="goToExpiration({{ $vehicle->id }})" 
                                         wire:key="expiration-{{ $vehicle->id }}"
@@ -178,13 +276,12 @@
                                 </button>
                                 @endif
 
-                                <!-- Attiva/Disattiva -->
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_vehicles'))
                                 <button wire:click="toggleStatus({{ $vehicle->id }})" 
                                         wire:key="status-{{ $vehicle->id }}"
                                         class="transition-colors text-base {{ $vehicle->valid == 1 ? 'text-lime-600 hover:text-lime-800' : 'text-gray-400 hover:text-gray-600' }}"
                                         title="{{ $vehicle->valid == 1 ? 'Disattiva' : 'Attiva' }}">
-                                    <i class="{{ $vehicle->valid == 1 ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark' }}"></i>
+                                    <i class="{{ $vehicle->valid == 1 ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark text-red-400' }}"></i>
                                 </button>
                                 @endif
                             </div>
@@ -192,11 +289,11 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center">
+                        <td colspan="7" class="px-4 py-12 text-center">
                             <div class="text-gray-500">
                                 <i class="fas fa-truck fa-3x text-gray-400 mb-3"></i>
                                 <p class="mt-2 text-sm">Nessun mezzo trovato</p>
-                                @if($search || $tipoFilter || $statoFilter)
+                                @if($search || $tipoFilter || $statoFilter || $ownershipFilter)
                                 <button wire:click="resetFilters" class="mt-2 text-sm text-lime-600 hover:text-lime-800">
                                     Resetta filtri
                                 </button>
@@ -469,10 +566,10 @@
                 
                 <div class="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col sm:flex-row sm:justify-end gap-3">
                     <button @click="open = false" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md">
-                        <i class="fas fa-times mr-2"></i>Annulla
+                        <i class="fas fa-times mr-2"></i> Annulla
                     </button>
                     <button wire:click="updateVehicle" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md">
-                        <i class="fas fa-save mr-2"></i>Aggiorna Mezzo
+                        <i class="fas fa-save mr-2"></i> Aggiorna Mezzo
                     </button>
                 </div>
             </div>
@@ -605,4 +702,16 @@
         </div>
     </div>
     @endif
+
+    <script>
+        document.addEventListener('livewire:init', function () {
+            Livewire.on('filters-reset', () => {
+                // Forza il refresh dei select
+                const selects = document.querySelectorAll('select');
+                selects.forEach(select => {
+                    select.dispatchEvent(new Event('change'));
+                });
+            });
+        });
+    </script> 
 </div>

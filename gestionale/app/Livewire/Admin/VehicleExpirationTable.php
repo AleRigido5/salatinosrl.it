@@ -1,5 +1,5 @@
 <?php
-// app/Livewire/Admin/ExpirationTable.php
+// app/Livewire/Admin/VehicleExpirationTable.php
 
 namespace App\Livewire\Admin;
 
@@ -7,24 +7,20 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Expiration;
 use App\Models\Setting;
-use App\Models\Staff;
 use App\Models\Vehicles;
 use App\Models\Entity;
 use App\Models\Ownership;
 use Illuminate\Support\Facades\Auth;
 
-class ExpirationTable extends Component
+class VehicleExpirationTable extends Component
 {
     use WithPagination;
 
     public $search = '';
     public $tipologiaFilter = '';
     public $statusFilter = '';
-    public $staffId = null;
-    public $staffName = null;
-    public $entityId = null;
-    public $entityType = null;
-    public $entityName = null;
+    public $vehicleId = null;
+    public $vehicleName = null;
     public $perPage = 15;
     public $sortField = 'data_fine';
     public $sortDirection = 'desc';
@@ -40,6 +36,28 @@ class ExpirationTable extends Component
     public $createNote = '';
     public $createQualifica = '';
     public $createOwnershipId = '';
+    public $createCodice = '';
+    public $createImporto = '';
+    
+    // MODAL MODIFICA
+    public $showEditModal = false;
+    public $editingExpiration = null;
+    public $editId = null;
+    
+    // Form fields per modifica
+    public $editTitolo = '';
+    public $editTipologiaId = '';
+    public $editDataInizio = '';
+    public $editDataFine = '';
+    public $editNote = '';
+    public $editQualifica = '';
+    public $editOwnershipId = '';
+    public $editCodice = '';
+    public $editImporto = '';
+    public $editEntityId = '';
+    public $editEntityNome = '';
+    public $editEntitySearch = '';
+    public $editEntityResults = [];
     
     // Autocomplete per entità (clienti/fornitori)
     public $createEntitySearch = '';
@@ -47,94 +65,25 @@ class ExpirationTable extends Component
     public $createEntityId = '';
     public $createEntityNome = '';
     
-    // Autocomplete per veicoli
-    public $createVehicleSearch = '';
-    public $createVehicleResults = [];
-    public $createVehicleIds = [];
-    public $createVehicleNames = [];
-    
     protected $paginationTheme = 'tailwind';
-    protected $queryString = ['search', 'tipologiaFilter', 'statusFilter', 'staffId', 'entityId', 'entityType'];
+    protected $queryString = ['search', 'tipologiaFilter', 'statusFilter', 'vehicleId'];
     
-    public function mount($staffId = null, $staffName = null, $entityId = null, $entityType = null, $entityName = null)
+    public function mount($vehicleId = null, $vehicleName = null)
     {
-        $this->staffId = $staffId;
-        $this->staffName = $staffName;
-        $this->entityId = $entityId;
-        $this->entityType = $entityType;
-        $this->entityName = $entityName;
+        $this->vehicleId = $vehicleId;
+        $this->vehicleName = $vehicleName;
         $this->createDataInizio = date('Y-m-d');
         $this->createDataFine = date('Y-m-d', strtotime('+1 year'));
         
-        // Se c'è staffId ma non staffName, cerca il nome
-        if ($this->staffId && !$this->staffName) {
-            $staff = Staff::find($this->staffId);
-            if ($staff) {
-                $this->staffName = $staff->full_name;
-                $this->entityName = $this->staffName;
-                $this->entityType = 'staff';
-                $this->entityId = $this->staffId;
+        if ($this->vehicleId && !$this->vehicleName) {
+            $vehicle = Vehicles::find($this->vehicleId);
+            if ($vehicle) {
+                $this->vehicleName = $vehicle->full_name ?? $vehicle->targa;
             }
         }
-        
-        // Se c'è entityId ma non entityName, cerca il nome
-        if ($this->entityId && !$this->entityName) {
-            if ($this->entityType === 'staff') {
-                $staff = Staff::find($this->entityId);
-                $this->entityName = $staff ? $staff->full_name : null;
-                $this->staffName = $this->entityName;
-                $this->staffId = $this->entityId;
-            } elseif ($this->entityType === 'vehicle') {
-                $vehicle = Vehicles::find($this->entityId);
-                $this->entityName = $vehicle ? ($vehicle->full_name ?? $vehicle->targa) : null;
-            }
-        }
-        
-        // Se c'è entityName ma non staffName, sincronizza
-        if ($this->entityName && !$this->staffName && $this->entityType === 'staff') {
-            $this->staffName = $this->entityName;
-            $this->staffId = $this->entityId;
-        }
     }
     
-    // ==================== AUTOCOMPLETE VEICOLI ====================
-    
-    public function updatedCreateVehicleSearch()
-    {
-        if (strlen($this->createVehicleSearch) >= 2) {
-            $this->createVehicleResults = Vehicles::where(function($q) {
-                    $q->where('targa', 'like', '%' . $this->createVehicleSearch . '%')
-                      ->orWhere('marca', 'like', '%' . $this->createVehicleSearch . '%')
-                      ->orWhere('modello', 'like', '%' . $this->createVehicleSearch . '%');
-                })
-                ->where('valid', 1)
-                ->orderBy('targa')
-                ->limit(10)
-                ->get();
-        } else {
-            $this->createVehicleResults = [];
-        }
-    }
-    
-    public function selectVehicle($id, $nome)
-    {
-        if (!in_array($id, $this->createVehicleIds)) {
-            $this->createVehicleIds[] = $id;
-            $this->createVehicleNames[] = $nome;
-        }
-        $this->createVehicleSearch = '';
-        $this->createVehicleResults = [];
-    }
-    
-    public function removeVehicle($index)
-    {
-        unset($this->createVehicleIds[$index]);
-        unset($this->createVehicleNames[$index]);
-        $this->createVehicleIds = array_values($this->createVehicleIds);
-        $this->createVehicleNames = array_values($this->createVehicleNames);
-    }
-    
-    // ==================== AUTOCOMPLETE ENTITÀ ====================
+    // ==================== AUTOCOMPLETE CREAZIONE ====================
     
     public function updatedCreateEntitySearch()
     {
@@ -173,6 +122,45 @@ class ExpirationTable extends Component
         $this->createEntityResults = [];
     }
     
+    // ==================== AUTOCOMPLETE MODIFICA ====================
+    
+    public function updatedEditEntitySearch()
+    {
+        if (strlen($this->editEntitySearch) >= 2) {
+            $this->editEntityResults = Entity::where(function($q) {
+                    $q->where('entity_type', 'fornitore')
+                      ->orWhere('entity_type', 'entrambi');
+                })
+                ->where(function($q) {
+                    $q->where('ragione_sociale', 'like', '%' . $this->editEntitySearch . '%')
+                      ->orWhere('nome', 'like', '%' . $this->editEntitySearch . '%')
+                      ->orWhere('cognome', 'like', '%' . $this->editEntitySearch . '%');
+                })
+                ->where('valid', 1)
+                ->orderBy('ragione_sociale')
+                ->limit(10)
+                ->get();
+        } else {
+            $this->editEntityResults = [];
+        }
+    }
+    
+    public function selectEditEntity($id, $nome)
+    {
+        $this->editEntityId = $id;
+        $this->editEntityNome = $nome;
+        $this->editEntitySearch = $nome;
+        $this->editEntityResults = [];
+    }
+    
+    public function clearEditEntity()
+    {
+        $this->editEntityId = '';
+        $this->editEntityNome = '';
+        $this->editEntitySearch = '';
+        $this->editEntityResults = [];
+    }
+    
     // ==================== METODI CREAZIONE ====================
     
     public function openCreateModal()
@@ -200,10 +188,8 @@ class ExpirationTable extends Component
         $this->createEntityNome = '';
         $this->createEntitySearch = '';
         $this->createEntityResults = [];
-        $this->createVehicleIds = [];
-        $this->createVehicleNames = [];
-        $this->createVehicleSearch = '';
-        $this->createVehicleResults = [];
+        $this->createCodice = '';
+        $this->createImporto = '';
     }
 
     public function saveExpiration()
@@ -225,8 +211,11 @@ class ExpirationTable extends Component
                 'data_fine' => $this->createDataFine,
                 'subtitolo' => $this->createQualifica,
                 'note' => $this->createNote,
+                'codice' => $this->createCodice,
+                'importo' => $this->createImporto ? floatval($this->createImporto) : null,
                 'created_by' => $adminId,
                 'updated_by' => $adminId,
+                'table_references' => Expiration::TABLE_VEHICLE,
             ];
             
             if ($this->createOwnershipId) {
@@ -237,37 +226,8 @@ class ExpirationTable extends Component
                 $data['id_entities'] = $this->createEntityId;
             }
             
-            // Gestione per STAFF
-            if ($this->staffId || ($this->entityType === 'staff' && $this->entityId)) {
-                $staffIdToUse = $this->staffId ?? $this->entityId;
-                $data['id_references'] = $staffIdToUse;
-                $data['table_references'] = Expiration::TABLE_STAFF;
-                $expiration = Expiration::create($data);
-                $this->closeCreateModal();
-                $this->dispatch('showSuccess', message: 'Scadenza creata con successo!');
-                $this->resetPage();
-                return;
-            }
-            
-            // Gestione per VEHICLE (singolo dalla tabella mezzi)
-            if ($this->entityType === 'vehicle' && $this->entityId) {
-                $data['table_references'] = Expiration::TABLE_VEHICLE;
-                $expiration = Expiration::create($data);
-                $expiration->vehicles()->attach($this->entityId);
-                $this->closeCreateModal();
-                $this->dispatch('showSuccess', message: 'Scadenza creata con successo!');
-                $this->resetPage();
-                return;
-            }
-            
-            // Gestione per VEICOLI MULTIPLI (creazione da zero)
-            if (count($this->createVehicleIds) > 0) {
-                $data['table_references'] = Expiration::TABLE_VEHICLE;
-                $expiration = Expiration::create($data);
-                $expiration->vehicles()->attach($this->createVehicleIds);
-            } else {
-                Expiration::create($data);
-            }
+            $expiration = Expiration::create($data);
+            $expiration->vehicles()->attach($this->vehicleId);
             
             $this->closeCreateModal();
             $this->dispatch('showSuccess', message: 'Scadenza creata con successo!');
@@ -275,6 +235,121 @@ class ExpirationTable extends Component
             
         } catch (\Exception $e) {
             $this->dispatch('showError', message: 'Errore durante il salvataggio: ' . $e->getMessage());
+        }
+    }
+    
+    // ==================== METODI MODIFICA ====================
+    
+    public function openEditModal($id)
+    {
+        try {
+            $expiration = Expiration::with(['setting', 'entityLegacy', 'vehicles'])->find($id);
+            
+            if (!$expiration) {
+                $this->dispatch('showError', message: 'Scadenza non trovata');
+                return;
+            }
+            
+            $this->editId = $id;
+            $this->editingExpiration = $expiration;
+            $this->editTitolo = $expiration->titolo;
+            $this->editTipologiaId = $expiration->id_settings;
+            $this->editDataInizio = $expiration->data_inizio ? $expiration->data_inizio->format('Y-m-d') : '';
+            $this->editDataFine = $expiration->data_fine ? $expiration->data_fine->format('Y-m-d') : '';
+            $this->editNote = $expiration->note;
+            $this->editQualifica = $expiration->subtitolo;
+            $this->editOwnershipId = $expiration->id_ownership;
+            $this->editCodice = $expiration->codice;
+            $this->editImporto = $expiration->importo;
+            
+            // Carica entità associata
+            if ($expiration->id_entities) {
+                $entity = Entity::find($expiration->id_entities);
+                if ($entity) {
+                    $this->editEntityId = $entity->id_cliente;
+                    $this->editEntityNome = $entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome);
+                    $this->editEntitySearch = $this->editEntityNome;
+                }
+            }
+            
+            $this->showEditModal = true;
+            
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore nel caricamento: ' . $e->getMessage());
+        }
+    }
+    
+    public function closeEditModal()
+    {
+        $this->showEditModal = false;
+        $this->resetEditForm();
+    }
+    
+    public function resetEditForm()
+    {
+        $this->editId = null;
+        $this->editingExpiration = null;
+        $this->editTitolo = '';
+        $this->editTipologiaId = '';
+        $this->editDataInizio = '';
+        $this->editDataFine = '';
+        $this->editNote = '';
+        $this->editQualifica = '';
+        $this->editOwnershipId = '';
+        $this->editCodice = '';
+        $this->editImporto = '';
+        $this->editEntityId = '';
+        $this->editEntityNome = '';
+        $this->editEntitySearch = '';
+        $this->editEntityResults = [];
+    }
+    
+    public function updateExpiration()
+    {
+        $this->validate([
+            'editTitolo' => 'required|string|max:255',
+            'editTipologiaId' => 'required|exists:settings,id',
+            'editDataInizio' => 'required|date',
+            'editDataFine' => 'nullable|date|after_or_equal:editDataInizio',
+        ]);
+        
+        try {
+            $expiration = Expiration::find($this->editId);
+            
+            if (!$expiration) {
+                $this->dispatch('showError', message: 'Scadenza non trovata');
+                return;
+            }
+            
+            $data = [
+                'titolo' => $this->editTitolo,
+                'id_settings' => $this->editTipologiaId,
+                'data_inizio' => $this->editDataInizio,
+                'data_fine' => $this->editDataFine,
+                'subtitolo' => $this->editQualifica,
+                'note' => $this->editNote,
+                'codice' => $this->editCodice,
+                'importo' => $this->editImporto ? floatval($this->editImporto) : null,
+                'updated_by' => Auth::guard('admin')->id(),
+                'updated_at' => now()
+            ];
+            
+            if ($this->editOwnershipId) {
+                $data['id_ownership'] = $this->editOwnershipId;
+            }
+            
+            if ($this->editEntityId) {
+                $data['id_entities'] = $this->editEntityId;
+            }
+            
+            $expiration->update($data);
+            
+            $this->closeEditModal();
+            $this->dispatch('showSuccess', message: 'Scadenza aggiornata con successo!');
+            $this->resetPage();
+            
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore durante l\'aggiornamento: ' . $e->getMessage());
         }
     }
     
@@ -297,28 +372,16 @@ class ExpirationTable extends Component
     {
         $query = Expiration::query();
         
-        // Filtro per STAFF
-        if ($this->staffId) {
-            $query->where(function($q) {
-                $q->where('table_references', Expiration::TABLE_STAFF)
-                  ->where('id_references', $this->staffId)
-                  ->orWhere(function($q2) {
-                      $q2->whereNull('table_references')
-                         ->where('id_entities', $this->staffId);
-                  });
-            });
-        }
-        
-        // Filtro per VEHICLE (tramite entityId/entityType)
-        if ($this->entityType === 'vehicle' && $this->entityId) {
+        // Filtro per VEHICLE
+        if ($this->vehicleId) {
             $query->where(function($q) {
                 $q->where('table_references', Expiration::TABLE_VEHICLE)
                   ->whereHas('vehicles', function($q2) {
-                      $q2->where('vehicles.id', $this->entityId);
+                      $q2->where('vehicles.id', $this->vehicleId);
                   })
                   ->orWhere(function($q3) {
                       $q3->whereNull('table_references')
-                         ->where('id_entities', $this->entityId);
+                         ->where('id_entities', $this->vehicleId);
                   });
             });
         }
@@ -339,8 +402,6 @@ class ExpirationTable extends Component
         if ($this->statusFilter !== '') {
             if ($this->statusFilter === 'active') {
                 $query->whereNull('deleted_at');
-            } elseif ($this->statusFilter === 'inactive') {
-                $query->whereNotNull('deleted_at');
             } elseif ($this->statusFilter === 'expired') {
                 $query->where('data_fine', '<', now())->whereNull('deleted_at');
             } elseif ($this->statusFilter === 'expiring') {
@@ -355,7 +416,7 @@ class ExpirationTable extends Component
         return $query->with([
             'setting', 
             'entityLegacy', 
-            'ownershipLegacy', 
+            'ownershipLegacy',
             'vehicles',
             'createdBy', 
             'updatedBy'
@@ -368,7 +429,7 @@ class ExpirationTable extends Component
             $expiration = Expiration::with([
                 'setting', 
                 'entityLegacy', 
-                'ownershipLegacy', 
+                'ownershipLegacy',
                 'vehicles',
                 'createdBy', 
                 'updatedBy'
@@ -395,10 +456,10 @@ class ExpirationTable extends Component
     public function sortBy($field)
     {
         if ($this->sortField === $field) {
-            $this->sortDirection = $this->sortDirection === 'desc' ? 'asc' : 'desc';
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
         } else {
             $this->sortField = $field;
-            $this->sortDirection = 'desc';
+            $this->sortDirection = 'asc';
         }
         $this->resetPage();
     }
@@ -413,27 +474,19 @@ class ExpirationTable extends Component
         $this->resetPage();
     }
     
-    public function backToParent()
+    public function backToVehicles()
     {
-        if ($this->staffId) {
-            return redirect()->route('admin.staff.index');
-        }
-        if ($this->entityType === 'vehicle') {
-            return redirect()->route('admin.vehicles.index');
-        }
-        return redirect()->route('admin.expiration.index');
+        return redirect()->route('admin.vehicles.index');
     }
 
     public function render()
     {
-        return view('livewire.admin.expiration-table', [
+        return view('livewire.admin.vehicle-expiration-table', [
             'expirations' => $this->expirations,
             'tipologie' => $this->tipologie,
             'ownerships' => $this->ownerships,
-            'staffName' => $this->staffName,
-            'entityName' => $this->entityName,
-            'entityType' => $this->entityType,
-            'entityId' => $this->entityId
+            'vehicleName' => $this->vehicleName,
+            'vehicleId' => $this->vehicleId
         ]);
     }
 }

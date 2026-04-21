@@ -1,11 +1,9 @@
-{{-- resources/views/admin/documents/index.blade.php --}}
-
 @extends('admin.layouts.app')
 
 @section('title', 'Gestione Documenti - ' . ($title ?? 'Documenti'))
 
 @section('content')
-<div class="container mx-auto px-4 py-6">
+<div class="p-6">
     <!-- Header -->
     <div class="mb-6">
         <div class="flex justify-between items-center">
@@ -16,7 +14,11 @@
                 </h1>
                 @if(!empty($title) && $title != 'Documenti Personale' && $title != 'Documenti Scadenza')
                 <p class="text-gray-500 mt-1">
-                    <i class="fas fa-user mr-1"></i> Personale: <strong>{{ $title }}</strong>
+                    @if(str_contains($title, 'Documenti Scadenza Mezzo') || str_contains($title, 'Documenti Scadenza Personale'))
+                        <i class="fas fa-folder mr-1"></i> {{ $title }}
+                    @else
+                        <i class="fas fa-user mr-1"></i> Personale: <strong>{{ $title }}</strong>
+                    @endif
                 </p>
                 @elseif(!empty($title))
                 <p class="text-gray-500 mt-1">
@@ -26,14 +28,13 @@
             </div>
             <div class="flex gap-3">
                 <a href="{{ $backUrl }}" 
-                   class="text-gray-500 hover:text-gray-600 px-4 py-2 rounded-lg transition-colors flex items-center">
-                    <i class="fas fa-arrow-left mr-2"></i>
+                   class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <i class="fas fa-arrow-left"></i>
                 </a>
             </div>
         </div>
     </div>
     
-
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Form di upload multiplo -->
         <div class="lg:col-span-1">
@@ -49,8 +50,13 @@
                       id="upload-form">
                     @csrf
                     
-                    <!-- Passa staff_id come campo hidden -->
-                    <input type="hidden" name="staff_id" value="{{ $staffId ?? request()->get('staff_id') }}">
+                    <!-- Passa i parametri corretti in base al tipo -->
+                    @if(isset($staffId) && $staffId)
+                        <input type="hidden" name="staff_id" value="{{ $staffId }}">
+                    @endif
+                    @if(isset($vehicleId) && $vehicleId)
+                        <input type="hidden" name="vehicle_id" value="{{ $vehicleId }}">
+                    @endif
                     
                     <div class="space-y-4">
                         <div>
@@ -142,7 +148,7 @@
                                 </div>
                             </div>
                             <div class="flex space-x-2">
-                                <a href="{{ route('admin.documents.download', [$tableRef, $idRef, $doc->id]) . '?staff_id=' . ($staffId ?? request()->get('staff_id')) }}" 
+                                <a href="{{ route('admin.documents.download', [$tableRef, $idRef, $doc->id]) . (isset($staffId) && $staffId ? '?staff_id=' . $staffId : (isset($vehicleId) && $vehicleId ? '?vehicle_id=' . $vehicleId : '')) }}" 
                                    class="text-blue-600 hover:text-blue-800 transition-colors p-2"
                                    title="Scarica">
                                     <i class="fas fa-download"></i>
@@ -191,7 +197,12 @@
                 <form id="deleteForm" method="POST" class="inline">
                     @csrf
                     @method('DELETE')
-                    <input type="hidden" name="staff_id" value="{{ $staffId ?? request()->get('staff_id') }}">
+                    @if(isset($staffId) && $staffId)
+                        <input type="hidden" name="staff_id" value="{{ $staffId }}">
+                    @endif
+                    @if(isset($vehicleId) && $vehicleId)
+                        <input type="hidden" name="vehicle_id" value="{{ $vehicleId }}">
+                    @endif
                     <button type="submit" 
                             class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
                         Elimina
@@ -234,7 +245,12 @@
                 <form id="deleteAllForm" method="POST" class="inline">
                     @csrf
                     @method('DELETE')
-                    <input type="hidden" name="staff_id" value="{{ $staffId ?? request()->get('staff_id') }}">
+                    @if(isset($staffId) && $staffId)
+                        <input type="hidden" name="staff_id" value="{{ $staffId }}">
+                    @endif
+                    @if(isset($vehicleId) && $vehicleId)
+                        <input type="hidden" name="vehicle_id" value="{{ $vehicleId }}">
+                    @endif
                     <button type="submit" 
                             class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
                         Elimina tutti

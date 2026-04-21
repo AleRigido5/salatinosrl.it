@@ -1,4 +1,5 @@
 <?php
+// app/Models/Expiration.php
 
 namespace App\Models;
 
@@ -67,18 +68,12 @@ class Expiration extends Model
 
     // ==================== RELAZIONI PER LE ENTITÀ ASSOCIATE ====================
     
-    /**
-     * Relazione per Staff (personale)
-     */
     public function staff()
     {
         return $this->belongsTo(Staff::class, 'id_references', 'id_personale')
             ->where('expiration.table_references', self::TABLE_STAFF);
     }
     
-    /**
-     * Relazione per Veicoli (mezzi) - MANY-TO-MANY tramite tabella pivot
-     */
     public function vehicles()
     {
         return $this->belongsToMany(
@@ -89,54 +84,66 @@ class Expiration extends Model
         );
     }
     
-    /**
-     * Relazione per Clienti/Fornitori (entities)
-     */
     public function entity()
     {
         return $this->belongsTo(Entity::class, 'id_references', 'id_cliente')
             ->where('expiration.table_references', self::TABLE_ENTITY);
     }
     
-    /**
-     * RETROCOMPATIBILITÀ: Per i record vecchi che usano ancora id_entities
-     */
     public function entityLegacy()
     {
         return $this->belongsTo(Entity::class, 'id_entities', 'id_cliente');
     }
     
-    /**
-     * RETROCOMPATIBILITÀ: Per i record vecchi che usano ancora id_ownership
-     */
     public function ownershipLegacy()
     {
         return $this->belongsTo(Ownership::class, 'id_ownership', 'id_proprieta');
     }
 
-    // ==================== HELPER PER OTTENERE L'ENTITÀ ASSOCIATA ====================
+    // ==================== DOCUMENTI ====================
     
     /**
-     * Ottiene l'entità associata in modo unificato
+     * Relazione con i documenti per STAFF
      */
+    public function staffDocuments()
+    {
+        return $this->hasMany(Document::class, 'id_ref', 'id')
+            ->where('table_ref', 'expiration-staff');
+    }
+    
+    /**
+     * Relazione con i documenti per VEHICLES
+     */
+    public function vehicleDocuments()
+    {
+        return $this->hasMany(Document::class, 'id_ref', 'id')
+            ->where('table_ref', 'expiration-vehicles');
+    }
+    
+    /**
+     * Conta totale documenti (entrambi i tipi)
+     */
+    public function getDocumentsCountAttribute()
+    {
+        return $this->staffDocuments()->count() + $this->vehicleDocuments()->count();
+    }
+
+    // ==================== HELPER PER OTTENERE L'ENTITÀ ASSOCIATA ====================
+    
     public function getLinkedEntityAttribute()
     {
-        // Nuovo sistema polimorfico per STAFF
         if ($this->table_references === self::TABLE_STAFF && $this->id_references) {
             return Staff::find($this->id_references);
         }
         
-        // Nuovo sistema polimorfico per ENTITY
-        if ($this->table_references === self::TABLE_ENTITY && $this->id_references) {
-            return Entity::find($this->id_references);
-        }
-        
-        // Per i VEHICOLI (many-to-many) - restituisce la collezione
         if ($this->table_references === self::TABLE_VEHICLE) {
             return $this->vehicles;
         }
         
-        // Retrocompatibilità
+        if ($this->table_references === self::TABLE_ENTITY && $this->id_references) {
+            return Entity::find($this->id_references);
+        }
+        
         if ($this->id_entities) {
             return $this->entityLegacy;
         }
@@ -150,7 +157,6 @@ class Expiration extends Model
     
     public function getLinkedEntityNameAttribute()
     {
-        // Per i VEHICOLI (many-to-many)
         if ($this->table_references === self::TABLE_VEHICLE) {
             $vehicles = $this->vehicles;
             if ($vehicles && $vehicles->count() > 0) {
@@ -169,17 +175,14 @@ class Expiration extends Model
             return '-';
         }
         
-        // Staff
         if (isset($entity->full_name)) {
             return $entity->full_name;
         }
         
-        // Entity (cliente/fornitore)
         if (isset($entity->ragione_sociale)) {
             return $entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome);
         }
         
-        // Ownership
         if (isset($entity->RagSocialePr)) {
             return $entity->RagSocialePr;
         }
@@ -209,7 +212,6 @@ class Expiration extends Model
             return 'Proprietà';
         }
         
-        // Retrocompatibilità
         if ($this->id_entities && $this->entityLegacy) {
             $entity = $this->entityLegacy;
             return $entity->entity_type === 'fornitore' ? 'Fornitore' : 'Cliente';
@@ -247,9 +249,6 @@ class Expiration extends Model
         return $query->where('id_settings', $settingId);
     }
     
-    /**
-     * Scope per filtrare per staff specifico
-     */
     public function scopeForStaff($query, $staffId)
     {
         return $query->where(function($q) use ($staffId) {
@@ -262,9 +261,6 @@ class Expiration extends Model
         });
     }
     
-    /**
-     * Scope per filtrare per veicolo specifico
-     */
     public function scopeForVehicle($query, $vehicleId)
     {
         return $query->where(function($q) use ($vehicleId) {
@@ -326,18 +322,5 @@ class Expiration extends Model
             return '-';
         }
         return '€ ' . number_format($this->importo, 2, ',', '.');
-    }
-
-    // ==================== RELAZIONE CON DOCUMENTI ====================
-    
-    public function documents()
-    {
-        return $this->hasMany(Document::class, 'id_ref', 'id')
-            ->where('table_ref', 'expiration-staff');
-    }
-
-    public function getDocumentsCountAttribute()
-    {
-        return $this->documents()->count();
     }
 }

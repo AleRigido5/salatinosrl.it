@@ -7,12 +7,108 @@ use App\Http\Controllers\Controller;
 use App\Models\Document;
 use App\Models\Staff;
 use App\Models\Expiration;
+use App\Models\Vehicles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class DocumentController extends Controller
 {
+    /**
+     * Pulisce una stringa per renderla utilizzabile come nome cartella
+     */
+    private function sanitizeFolderName($name)
+    {
+        if (empty($name)) {
+            return 'documento';
+        }
+        
+        // Rimuove caratteri speciali e sostituisce con underscore
+        $name = preg_replace('/[^a-zA-Z0-9À-ÿ\s-]/u', '', $name);
+        // Sostituisce spazi e trattini con underscore
+        $name = preg_replace('/[\s-]+/', '_', $name);
+        // Limita la lunghezza a 80 caratteri
+        $name = substr($name, 0, 80);
+        // Rimuove underscore multipli
+        $name = preg_replace('/_+/', '_', $name);
+        // Rimuove underscore all'inizio e fine
+        $name = trim($name, '_');
+        
+        return $name ?: 'documento';
+    }
+
+    /**
+     * Genera un nome di cartella descrittivo per i documenti
+     */
+    private function getDocumentFolderPath($tableRef, $idRef)
+    {
+        switch ($tableRef) {
+            case 'expiration-staff':
+                $expiration = Expiration::find($idRef);
+                if ($expiration && $expiration->staff) {
+                    $staffName = $this->sanitizeFolderName($expiration->staff->full_name);
+                    $titolo = $this->sanitizeFolderName($expiration->titolo);
+                    return "upload/expiration-staff/{$staffName}_{$titolo}";
+                }
+                return "upload/expiration-staff/{$idRef}";
+                
+            case 'expiration-vehicles':
+                $expiration = Expiration::find($idRef);
+                if ($expiration && $expiration->vehicles()->count() > 0) {
+                    $vehicle = $expiration->vehicles->first();
+                    if ($vehicle) {
+                        // Costruisce un nome descrittivo: MARCA_MODELLO_TARGA_TITOLO
+                        $vehicleName = '';
+                        if ($vehicle->marca) {
+                            $vehicleName .= $this->sanitizeFolderName($vehicle->marca);
+                        }
+                        if ($vehicle->modello) {
+                            $vehicleName .= '_' . $this->sanitizeFolderName($vehicle->modello);
+                        }
+                        if ($vehicle->targa) {
+                            $vehicleName .= '_' . $this->sanitizeFolderName($vehicle->targa);
+                        }
+                        if (empty($vehicleName)) {
+                            $vehicleName = 'mezzo_' . $vehicle->id;
+                        }
+                        
+                        $titolo = $this->sanitizeFolderName($expiration->titolo);
+                        return "upload/expiration-vehicles/{$vehicleName}_{$titolo}";
+                    }
+                }
+                return "upload/expiration-vehicles/{$idRef}";
+                
+            case 'staff':
+                $staff = Staff::find($idRef);
+                $staffName = $staff ? $this->sanitizeFolderName($staff->full_name) : $idRef;
+                return "upload/staff/{$staffName}";
+                
+            case 'vehicles':
+                $vehicle = Vehicles::find($idRef);
+                if ($vehicle) {
+                    // Costruisce un nome descrittivo: MARCA_MODELLO_TARGA
+                    $vehicleName = '';
+                    if ($vehicle->marca) {
+                        $vehicleName .= $this->sanitizeFolderName($vehicle->marca);
+                    }
+                    if ($vehicle->modello) {
+                        $vehicleName .= '_' . $this->sanitizeFolderName($vehicle->modello);
+                    }
+                    if ($vehicle->targa) {
+                        $vehicleName .= '_' . $this->sanitizeFolderName($vehicle->targa);
+                    }
+                    if (empty($vehicleName)) {
+                        $vehicleName = 'mezzo_' . $vehicle->id;
+                    }
+                    return "upload/vehicles/{$vehicleName}";
+                }
+                return "upload/vehicles/{$idRef}";
+                
+            default:
+                return "upload/documents/{$idRef}";
+        }
+    }
+
     public function index($tableRef, $idRef, Request $request)
     {
         $documents = Document::where('table_ref', $tableRef)
@@ -23,25 +119,57 @@ class DocumentController extends Controller
         $title = '';
         $backUrl = '';
         $staffId = $request->get('staff_id');
+        $vehicleId = $request->get('vehicle_id');
         
         if ($tableRef === 'staff') {
             $staff = Staff::find($idRef);
             $title = $staff ? $staff->full_name : 'Documenti Personale';
-            $backUrl = route('admin.staff.show', $idRef) . ($staffId ? '?staff_id=' . $staffId : '');
-        } elseif ($tableRef === 'expiration-staff') {
+            $backUrl = route('admin.staff.show', $idRef);
+        } 
+        elseif ($tableRef === 'expiration-staff') {
             $expiration = Expiration::find($idRef);
             if ($expiration && $expiration->id_references) {
                 $staff = Staff::find($expiration->id_references);
-                $title = $staff ? $staff->full_name : 'Documenti Scadenza';
+                $title = $staff ? $staff->full_name : 'Documenti Scadenza Personale';
             } else {
-                $title = 'Documenti Scadenza';
+                $title = 'Documenti Scadenza Personale';
             }
-            $backUrl = route('admin.expiration.index') . ($staffId ? '?staff_id=' . $staffId : '');
-        } else {
-            $backUrl = route('admin.expiration.index');
+            $backUrl = route('admin.expiration-staff.index', ['staffId' => $staffId]);
+        }
+        elseif ($tableRef === 'expiration-vehicles') {
+            $expiration = Expiration::find($idRef);
+            $title = 'Documenti Scadenza Mezzo';
+            
+            if ($vehicleId) {
+                $vehicle = Vehicles::find($vehicleId);
+                if ($vehicle) {
+                    $title = ($vehicle->full_name ?? $vehicle->targa) . ' - Documenti Scadenza';
+                }
+                $backUrl = route('admin.expiration-vehicle.index', ['vehicleId' => $vehicleId]);
+            } else {
+                if ($expiration && $expiration->vehicles()->count() > 0) {
+                    $firstVehicle = $expiration->vehicles->first();
+                    if ($firstVehicle) {
+                        $title = ($firstVehicle->full_name ?? $firstVehicle->targa) . ' - Documenti Scadenza';
+                        $backUrl = route('admin.expiration-vehicle.index', ['vehicleId' => $firstVehicle->id]);
+                    } else {
+                        $backUrl = route('admin.expiration-vehicle.index');
+                    }
+                } else {
+                    $backUrl = route('admin.expiration-vehicle.index');
+                }
+            }
+        }
+        elseif ($tableRef === 'vehicles') {
+            $vehicle = Vehicles::find($idRef);
+            $title = $vehicle ? ($vehicle->full_name ?? $vehicle->targa) : 'Documenti Mezzo';
+            $backUrl = route('admin.vehicles.show', $idRef);
+        }
+        else {
+            $backUrl = route('admin.expiration-staff.index');
         }
         
-        return view('admin.documents.index', compact('documents', 'tableRef', 'idRef', 'title', 'backUrl', 'staffId'));
+        return view('admin.documents.index', compact('documents', 'tableRef', 'idRef', 'title', 'backUrl', 'staffId', 'vehicleId'));
     }
     
     public function store(Request $request, $tableRef, $idRef)
@@ -57,9 +185,19 @@ class DocumentController extends Controller
         $commonTitle = $request->titolo;
         $commonNote = $request->note;
         $staffId = $request->staff_id;
+        $vehicleId = $request->vehicle_id;
         
         $successCount = 0;
         $errors = [];
+        
+        // Usa il metodo getDocumentFolderPath per generare il percorso descrittivo
+        $folderPath = $this->getDocumentFolderPath($tableRef, $idRef);
+        
+        $fullPath = public_path($folderPath);
+        
+        if (!file_exists($fullPath)) {
+            mkdir($fullPath, 0755, true);
+        }
         
         foreach ($files as $file) {
             try {
@@ -69,13 +207,6 @@ class DocumentController extends Controller
                 $cleanOriginalName = preg_replace('/[^a-zA-Z0-9-_]/', '_', $originalName);
                 $timestamp = time() . '_' . Str::random(4);
                 $savedName = $cleanOriginalName . '_' . $timestamp . '.' . $extension;
-                
-                $folderPath = "upload/staff/{$idRef}";
-                $fullPath = public_path($folderPath);
-                
-                if (!file_exists($fullPath)) {
-                    mkdir($fullPath, 0755, true);
-                }
                 
                 $file->move($fullPath, $savedName);
                 
@@ -97,9 +228,19 @@ class DocumentController extends Controller
             }
         }
         
-        $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
-        if ($staffId) {
-            $redirectUrl .= '?staff_id=' . $staffId;
+        // Costruisci URL di redirect
+        if ($tableRef === 'expiration-staff') {
+            $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
+            if ($staffId) {
+                $redirectUrl .= '?staff_id=' . $staffId;
+            }
+        } elseif ($tableRef === 'expiration-vehicles') {
+            $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
+            if ($vehicleId) {
+                $redirectUrl .= '?vehicle_id=' . $vehicleId;
+            }
+        } else {
+            $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
         }
         
         $message = "{$successCount} documento/i caricato/i con successo!";
@@ -119,18 +260,26 @@ class DocumentController extends Controller
                 ->where('id', $documentId)
                 ->firstOrFail();
             
-            // Elimina file fisico
             $filePath = public_path($document->path_doc . '/' . $document->file_name);
             if (file_exists($filePath)) {
                 unlink($filePath);
             }
             
-            // Elimina record dal database
-            $document->forceDelete(); // Usa forceDelete() per eliminare definitivamente
+            $document->forceDelete();
             
-            $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
-            if ($request->staff_id) {
-                $redirectUrl .= '?staff_id=' . $request->staff_id;
+            // Costruisci URL di redirect
+            if ($tableRef === 'expiration-staff') {
+                $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
+                if ($request->staff_id) {
+                    $redirectUrl .= '?staff_id=' . $request->staff_id;
+                }
+            } elseif ($tableRef === 'expiration-vehicles') {
+                $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
+                if ($request->vehicle_id) {
+                    $redirectUrl .= '?vehicle_id=' . $request->vehicle_id;
+                }
+            } else {
+                $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
             }
             
             return redirect($redirectUrl)->with('success', 'Documento eliminato con successo!');
@@ -139,6 +288,9 @@ class DocumentController extends Controller
             $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
             if ($request->staff_id) {
                 $redirectUrl .= '?staff_id=' . $request->staff_id;
+            }
+            if ($request->vehicle_id) {
+                $redirectUrl .= '?vehicle_id=' . $request->vehicle_id;
             }
             return redirect($redirectUrl)->with('error', 'Errore durante l\'eliminazione: ' . $e->getMessage());
         }
@@ -161,9 +313,18 @@ class DocumentController extends Controller
                 $count++;
             }
             
-            $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
-            if ($request->staff_id) {
-                $redirectUrl .= '?staff_id=' . $request->staff_id;
+            if ($tableRef === 'expiration-staff') {
+                $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
+                if ($request->staff_id) {
+                    $redirectUrl .= '?staff_id=' . $request->staff_id;
+                }
+            } elseif ($tableRef === 'expiration-vehicles') {
+                $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
+                if ($request->vehicle_id) {
+                    $redirectUrl .= '?vehicle_id=' . $request->vehicle_id;
+                }
+            } else {
+                $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
             }
             
             if ($count > 0) {
@@ -174,9 +335,6 @@ class DocumentController extends Controller
             
         } catch (\Exception $e) {
             $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
-            if ($request->staff_id) {
-                $redirectUrl .= '?staff_id=' . $request->staff_id;
-            }
             return redirect($redirectUrl)->with('error', 'Errore durante l\'eliminazione: ' . $e->getMessage());
         }
     }
@@ -195,9 +353,18 @@ class DocumentController extends Controller
             return response()->download($filePath, $originalName);
         }
         
-        $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
-        if ($request->staff_id) {
-            $redirectUrl .= '?staff_id=' . $request->staff_id;
+        if ($tableRef === 'expiration-staff') {
+            $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
+            if ($request->staff_id) {
+                $redirectUrl .= '?staff_id=' . $request->staff_id;
+            }
+        } elseif ($tableRef === 'expiration-vehicles') {
+            $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
+            if ($request->vehicle_id) {
+                $redirectUrl .= '?vehicle_id=' . $request->vehicle_id;
+            }
+        } else {
+            $redirectUrl = route('admin.documents.index', [$tableRef, $idRef]);
         }
         
         return redirect($redirectUrl)->with('error', 'File non trovato sul server');

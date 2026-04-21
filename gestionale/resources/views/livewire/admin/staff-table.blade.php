@@ -1,13 +1,13 @@
 <div>
     <!-- Filtri e Ricerca -->
-    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
+    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200" wire:key="filters-{{ $search }}-{{ $statusFilter }}">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="relative md:col-span-2">
                 <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
                 <input type="text" 
-                       wire:model.live.debounce.300ms="search" 
-                       placeholder="Cerca per: Nome, Cognome, Soprannome, Cellulare, Email, Codice Fiscale..." 
-                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
+                    wire:model.live.debounce.300ms="search" 
+                    placeholder="Cerca per: Nome, Cognome, Soprannome, Cellulare, Email, Codice Fiscale..." 
+                    class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
             </div>
             
             <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
@@ -182,7 +182,7 @@
                                             wire:key="status-{{ $person->id_personale }}"
                                             class="transition-colors text-base {{ $person->valid ? 'text-lime-600 hover:text-lime-800' : 'text-gray-400 hover:text-gray-600' }}"
                                             title="{{ $person->valid ? 'Disattiva' : 'Attiva' }}">
-                                        <i class="{{ $person->valid ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark' }}"></i>
+                                        <i class="{{ $person->valid ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark text-red-400' }}"></i>
                                     </button>
                                 @endif
                             </div>

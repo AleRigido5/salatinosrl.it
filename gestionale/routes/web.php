@@ -13,7 +13,8 @@ use App\Http\Controllers\Admin\ContactController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\VehiclesController;
 use App\Http\Controllers\Admin\SettingCategoryController;
-use App\Http\Controllers\Admin\ExpirationController;
+use App\Http\Controllers\Admin\ExpirationStaffController;
+use App\Http\Controllers\Admin\ExpirationVehicleController;
 use App\Http\Controllers\Admin\DocumentController;
 use Illuminate\Support\Facades\Route;
 
@@ -133,26 +134,45 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // =============================================
         // GESTIONE SCADENZE (EXPIRATION)
         // =============================================
-        Route::prefix('expiration')->name('expiration.')->group(function () {
-            Route::get('/', [ExpirationController::class, 'index'])->name('index');
-            Route::get('/create', [ExpirationController::class, 'create'])->name('create');
-            Route::post('/', [ExpirationController::class, 'store'])->name('store');
-            Route::get('/{id}/edit', [ExpirationController::class, 'edit'])->name('edit');
-            Route::put('/{id}', [ExpirationController::class, 'update'])->name('update');
-            Route::delete('/{id}', [ExpirationController::class, 'destroy'])->name('destroy');
-            Route::post('/{id}/restore', [ExpirationController::class, 'restore'])->name('restore');
-            Route::post('/{id}/toggle-status', [ExpirationController::class, 'toggleStatus'])->name('toggle-status');
+        // Scadenze Staff
+        Route::prefix('expiration-staff')->name('expiration-staff.')->middleware(['auth:admin'])->group(function () {
+            Route::get('/', [ExpirationStaffController::class, 'index'])->name('index');
+            Route::get('/create', [ExpirationStaffController::class, 'create'])->name('create');
+            Route::post('/', [ExpirationStaffController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [ExpirationStaffController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [ExpirationStaffController::class, 'update'])->name('update');
+            Route::delete('/{id}', [ExpirationStaffController::class, 'destroy'])->name('destroy');
+            Route::post('/{id}/restore', [ExpirationStaffController::class, 'restore'])->name('restore');
+            Route::post('/{id}/toggle-status', [ExpirationStaffController::class, 'toggleStatus'])->name('toggle-status');
+        });
+
+        // Scadenze Veicoli
+        Route::prefix('expiration-vehicle')->name('expiration-vehicle.')->middleware(['auth:admin'])->group(function () {
+            Route::get('/', [ExpirationVehicleController::class, 'index'])->name('index');
+            Route::get('/create', [ExpirationVehicleController::class, 'create'])->name('create');
+            Route::post('/', [ExpirationVehicleController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [ExpirationVehicleController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [ExpirationVehicleController::class, 'update'])->name('update');
+            Route::delete('/{id}', [ExpirationVehicleController::class, 'destroy'])->name('destroy');
+            Route::post('/{id}/restore', [ExpirationVehicleController::class, 'restore'])->name('restore');
+            Route::post('/{id}/toggle-status', [ExpirationVehicleController::class, 'toggleStatus'])->name('toggle-status');
+        });
+
+        // Scadenze Generiche (tutte)
+        Route::prefix('expiration')->name('expiration-all.')->middleware(['auth:admin'])->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\ExpirationAllController::class, 'index'])->name('index');
         });
 
         // =============================================
         // GESTIONE DOCUMENTI
         // =============================================
-        Route::prefix('documents')->name('documents.')->group(function () {
-            Route::get('{tableRef}/{idRef}', [DocumentController::class, 'index'])->name('index');
-            Route::post('{tableRef}/{idRef}', [DocumentController::class, 'store'])->name('store');
-            Route::delete('{tableRef}/{idRef}/all', [DocumentController::class, 'destroyAll'])->name('destroy.all');
-            Route::delete('{tableRef}/{idRef}/{documentId}', [DocumentController::class, 'destroy'])->name('destroy');
-            Route::get('{tableRef}/{idRef}/{documentId}/download', [DocumentController::class, 'download'])->name('download');
+        // Documenti - Rotta generica per tutti i tipi
+        Route::prefix('documents/{tableRef}/{idRef}')->name('documents.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\DocumentController::class, 'index'])->name('index');
+            Route::post('/', [App\Http\Controllers\Admin\DocumentController::class, 'store'])->name('store');
+            Route::delete('/{documentId}', [App\Http\Controllers\Admin\DocumentController::class, 'destroy'])->name('destroy');
+            Route::delete('/all/delete', [App\Http\Controllers\Admin\DocumentController::class, 'destroyAll'])->name('destroyAll');
+            Route::get('/{documentId}/download', [App\Http\Controllers\Admin\DocumentController::class, 'download'])->name('download');
         });
 
         // =============================================
@@ -218,11 +238,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/search-vehicles', [VehiclesController::class, 'search'])->name('search-vehicles');
             Route::get('/vehicles/{vehicle}', [VehiclesController::class, 'getVehicle'])->name('vehicles.get');
             Route::get('/vehicles/{vehicle}/documents', [VehiclesController::class, 'getDocuments'])->name('vehicle-documents');
-            
-            // API per Scadenze (Expiration)
-            Route::get('/search-expiration', [ExpirationController::class, 'search'])->name('search-expiration');
-            Route::get('/expiration/staff/{staffId}', [ExpirationController::class, 'getByStaff'])->name('expiration.by-staff');
-            Route::get('/expiration/vehicle/{vehicleId}', [ExpirationController::class, 'getByVehicle'])->name('expiration.by-vehicle');
         });
     });
 });

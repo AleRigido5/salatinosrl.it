@@ -1,27 +1,16 @@
-{{-- resources/views/livewire/admin/expiration-table.blade.php --}}
-
 <div>
     <!-- Header con breadcrumb -->
     <div class="mb-6">
         <div class="flex justify-between items-center">
             <div>
-                <h1 class="text-2xl font-bold text-gray-800">Gestione Scadenze</h1>
+                <h1 class="text-2xl font-bold text-gray-800">Gestione Scadenze Personale</h1>
                 @if($staffName)
                 <p class="text-gray-500 mt-1">
                     <i class="fas fa-user mr-1"></i> Scadenze per: <strong>{{ $staffName }}</strong>
                 </p>
-                @elseif($entityName && $entityType === 'vehicle')
-                <p class="text-gray-500 mt-1">
-                    <i class="fas fa-truck mr-1"></i> Scadenze per mezzo: <strong>{{ $entityName }}</strong>
-                </p>
-                @elseif($entityName)
-                <p class="text-gray-500 mt-1">
-                    <i class="fas fa-building mr-1"></i> Scadenze per: <strong>{{ $entityName }}</strong>
-                </p>
                 @endif
             </div>
             <div class="flex gap-3">
-                <!-- Tooltip per il bottone Nuova Scadenza -->
                 <div class="relative group">
                     <button wire:click="openCreateModal" 
                             class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
@@ -29,21 +18,15 @@
                     </button>
                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
                         Nuova scadenza
-                        <div class="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
                     </div>
                 </div>
                 
-                <!-- Bottone per tornare indietro -->
-                @if($staffId || ($entityId && $entityType === 'vehicle'))
+                @if($staffId)
                 <div class="relative group">
-                    <button wire:click="backToParent" 
+                    <button wire:click="backToStaff" 
                             class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
                         <i class="fa-solid fa-arrow-left"></i>
                     </button>
-                    <div class="absolute bottom-full transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                        Torna alla gestione
-                        <div class="absolute top-full transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
-                    </div>
                 </div>
                 @endif
             </div>
@@ -130,7 +113,7 @@
                 </thead>
                 <tbody>
                     @forelse($expirations as $expiration)
-                    <tr class="hover:bg-gray-50 transition-colors duration-150 border-t border-gray-200">
+                    <tr wire:key="expiration-{{ $expiration->id }}" class="hover:bg-gray-50 transition-colors duration-150 border-t border-gray-200">
                         <td class="px-6 py-4">
                             <div class="text-sm font-medium text-gray-900">
                                 {{ $expiration->titolo }}
@@ -172,20 +155,22 @@
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
                                 <button wire:click="viewExpiration({{ $expiration->id }})" 
+                                        wire:key="view-{{ $expiration->id }}"
                                         class="text-blue-600 hover:text-blue-900 transition-colors"
                                         title="Visualizza">
                                     <i class="fa-regular fa-eye text-blue-600 hover:text-blue-900"></i>
                                 </button>
                                 
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_expiration'))
-                                <a href="{{ route('admin.expiration.edit', ['id' => $expiration->id, 'staff_id' => $staffId]) }}"
-                                   class="text-yellow-600 hover:text-yellow-900 transition-colors"
-                                   title="Modifica">
+                                <button wire:click="openEditModal({{ $expiration->id }})" 
+                                        wire:key="edit-{{ $expiration->id }}"
+                                        class="text-yellow-600 hover:text-yellow-900 transition-colors"
+                                        title="Modifica">
                                     <i class="fa-solid fa-pen-to-square text-yellow-600 hover:text-yellow-900"></i>
-                                </a>
+                                </button>
                                 @endif
 
-                                <!-- Pulsante Documenti -->
+                                <!-- Pulsante Documenti per Staff -->
                                 <a href="{{ route('admin.documents.index', ['expiration-staff', $expiration->id]) . '?staff_id=' . $staffId }}" 
                                 class="text-indigo-600 hover:text-indigo-900 transition-colors relative"
                                 title="Gestisci Documenti">
@@ -231,6 +216,40 @@
     </div>
     @endif
 
+    <style>
+        nav[role="navigation"] div.flex-1 {
+            display: none !important;
+        }
+        nav[role="navigation"] .relative.z-0 {
+            justify-content: center !important;
+            display: flex !important;
+        }
+        nav[role="navigation"] span[aria-current="page"] span,
+        nav[role="navigation"] .relative.inline-flex.items-center {
+            background-color: white !important;
+            border-color: #e5e7eb !important;
+            color: #374151 !important;
+        }
+        nav[role="navigation"] span[aria-current="page"] span {
+            background-color: #84cc16 !important;
+            border-color: #84cc16 !important;
+            color: white !important;
+        }
+        nav[role="navigation"] .relative.inline-flex.items-center:hover {
+            background-color: #f9fafb !important;
+            border-color: #d1d5db !important;
+        }
+        nav[role="navigation"] p.text-sm {
+            display: none !important;
+        }
+        nav[role="navigation"] > div:first-child {
+            justify-content: center !important;
+        }
+        nav[role="navigation"] > div:first-child > div:first-child {
+            display: none !important;
+        }
+    </style>
+
     <!-- MODAL CREAZIONE NUOVA SCADENZA -->
     @if($showCreateModal)
     <div class="fixed inset-0 z-50 overflow-y-auto" 
@@ -259,7 +278,6 @@
                     </div>
                     
                     <div class="space-y-4">
-                        <!-- RIGA 1: Tipologia + Ownership (2 colonne) -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -279,13 +297,12 @@
                                 <select wire:model="createOwnershipId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                                     <option value="">Seleziona ownership...</option>
                                     @foreach($ownerships as $ownership)
-                                        <option value="{{ $ownership->id_proprieta }}">{{ $ownership->RagSocialePr }}</option>
+                                        <option value="{{ $ownership->id_proprieta }}">{{ $ownership->RagAbbrev }}</option>
                                     @endforeach
                                 </select>
                             </div>
                         </div>
                         
-                        <!-- RIGA 2: Titolo (col 12) -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
                                 Titolo <span class="text-red-500">*</span>
@@ -297,7 +314,6 @@
                             @error('createTitolo') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                         </div>
                         
-                        <!-- RIGA 3: Data Inizio + Data Scadenza (2 colonne) -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -319,7 +335,6 @@
                             </div>
                         </div>
                         
-                        <!-- RIGA 4: Fornitore + Sottotitolo (2 colonne) -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Fornitore</label>
@@ -391,7 +406,6 @@
                             </div>
                         </div>
                         
-                        <!-- RIGA 5: Note (col 12) -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Note</label>
                             <textarea wire:model="createNote" 
@@ -403,14 +417,12 @@
                 </div>
                 
                 <div class="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col sm:flex-row sm:justify-end gap-3">
-                    <button @click="open = false" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors flex items-center justify-center">
-                        <i class="fas fa-times mr-2"></i>
-                        Annulla
+                    <button @click="open = false" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md">
+                        <i class="fas fa-times mr-2"></i> Annulla
                     </button>
                     <button wire:click="saveExpiration" 
-                            class="px-4 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-md transition-colors flex items-center justify-center">
-                        <i class="fas fa-save mr-2"></i>
-                        Crea Scadenza
+                            class="px-4 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-md">
+                        <i class="fas fa-save mr-2"></i> Crea Scadenza
                     </button>
                 </div>
             </div>
@@ -418,7 +430,7 @@
     </div>
     @endif
     
-    <!-- Modal Visualizzazione Dettaglio Scadenza (CORRETTA - senza relazioni problematiche) -->
+    <!-- Modal Visualizzazione Dettaglio Scadenza -->
     @if($showViewModal && $viewingExpiration)
     <div class="fixed inset-0 z-50 overflow-y-auto" 
          x-data="{ open: true }" 
@@ -442,7 +454,6 @@
                     </div>
                     
                     <div class="space-y-4">
-                        <!-- Mostra l'entità associata usando getLinkedEntityAttribute (SICURA) -->
                         @php
                             $linkedEntity = $viewingExpiration->getLinkedEntityAttribute();
                             $linkedEntityName = $viewingExpiration->getLinkedEntityNameAttribute();
@@ -450,13 +461,10 @@
                         @endphp
                         
                         @if($linkedEntity && $linkedEntityName != '-')
-                        <div class="{{ $linkedEntityType === 'Personale' ? 'bg-lime-50' : 'bg-blue-50' }} p-3 rounded-lg">
-                            <p class="text-sm {{ $linkedEntityType === 'Personale' ? 'text-lime-700' : 'text-blue-700' }}">
-                                <i class="fas {{ $linkedEntityType === 'Personale' ? 'fa-user' : 'fa-building' }} mr-1"></i> 
+                        <div class="bg-lime-50 p-3 rounded-lg">
+                            <p class="text-sm text-lime-700">
+                                <i class="fas fa-user mr-1"></i> 
                                 {{ $linkedEntityType }} Associato: <strong>{{ $linkedEntityName }}</strong>
-                                @if($linkedEntityType === 'Cliente' || $linkedEntityType === 'Fornitore')
-                                <span class="ml-2 text-xs">({{ $linkedEntityType }})</span>
-                                @endif
                             </p>
                         </div>
                         @endif
@@ -497,7 +505,6 @@
                         </div>
                         @endif
                         
-                        <!-- Tracciamento -->
                         <div class="border-t pt-4 mt-4">
                             <h4 class="text-sm font-semibold text-gray-700 mb-2">Tracciamento</h4>
                             <div class="text-xs text-gray-500 space-y-1">
@@ -523,11 +530,161 @@
                         <i class="fas fa-times mr-2"></i> Chiudi
                     </button>
                     @if(auth()->guard('admin')->user()->hasPermission('edit_expiration'))
-                    <a href="{{ route('admin.expiration.edit', ['id' => $viewingExpiration->id, 'staff_id' => $staffId]) }}"
+                    <a href="{{ route('admin.expiration-staff.edit', ['id' => $viewingExpiration->id, 'staff_id' => $staffId]) }}"
                        class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md">
                         <i class="fas fa-edit mr-2"></i> Modifica
                     </a>
                     @endif
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- MODAL MODIFICA SCADENZA -->
+    @if($showEditModal && $editingExpiration)
+    <div class="fixed inset-0 z-50 overflow-y-auto" 
+        x-data="{ open: true }" 
+        x-show="open"
+        x-init="$watch('open', value => { if (!value) $wire.closeEditModal() })"
+        @keydown.escape.window="open = false">
+        
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="open = false"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+            
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="flex justify-between items-center mb-4 border-b pb-3">
+                        <h2 class="text-xl font-bold text-gray-800">
+                            <i class="fas fa-edit mr-2 text-yellow-600"></i>
+                            Modifica Scadenza
+                            @if($staffName)
+                            <span class="text-sm font-normal text-gray-500 ml-2">{{ $staffName }}</span>
+                            @endif
+                        </h2>
+                        <button @click="open = false" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-2xl"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Tipologia Scadenza <span class="text-red-500">*</span>
+                                </label>
+                                <select wire:model="editTipologiaId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                                    <option value="">Seleziona tipologia...</option>
+                                    @foreach($tipologie as $tipologia)
+                                        <option value="{{ $tipologia->id }}">{{ $tipologia->valore }}</option>
+                                    @endforeach
+                                </select>
+                                @error('editTipologiaId') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Ownership / Azienda</label>
+                                <select wire:model="editOwnershipId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                                    <option value="">Seleziona ownership...</option>
+                                    @foreach($ownerships as $ownership)
+                                        <option value="{{ $ownership->id_proprieta }}">{{ $ownership->RagAbbrev }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Titolo <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" 
+                                wire:model="editTitolo" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                            @error('editTitolo') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Data Inizio <span class="text-red-500">*</span>
+                                </label>
+                                <input type="date" wire:model="editDataInizio" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                                @error('editDataInizio') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Data Scadenza</label>
+                                <input type="date" wire:model="editDataFine" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                                <p class="text-xs text-gray-400 mt-1">Opzionale: lascia vuoto se non ha scadenza</p>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Fornitore</label>
+                                <div class="relative">
+                                    <input type="text" 
+                                        wire:model.live.debounce.300ms="editEntitySearch" 
+                                        placeholder="Cerca fornitore..."
+                                        class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                                    <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
+                                    
+                                    @if($editEntityNome)
+                                    <button type="button" wire:click="clearEditEntity" class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                    @endif
+                                </div>
+                                
+                                @if(count($editEntityResults) > 0)
+                                <div class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                    @foreach($editEntityResults as $result)
+                                    <div class="px-4 py-2 hover:bg-lime-50 cursor-pointer border-b border-gray-100 last:border-0"
+                                        wire:click="selectEditEntity({{ $result->id_cliente }}, '{{ addslashes($result->ragione_sociale ?: $result->nome . ' ' . $result->cognome) }}')">
+                                        <div class="font-medium text-gray-900">
+                                            {{ $result->ragione_sociale ?: $result->nome . ' ' . $result->cognome }}
+                                        </div>
+                                        <div class="text-xs text-gray-500">
+                                            @if($result->partita_iva) P.IVA: {{ $result->partita_iva }} @endif
+                                        </div>
+                                    </div>
+                                    @endforeach
+                                </div>
+                                @endif
+                                
+                                @if($editEntityNome)
+                                <div class="mt-2 p-2 bg-green-50 rounded-md border border-green-200">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm text-green-700">Associato a: {{ $editEntityNome }}</span>
+                                        <button type="button" wire:click="clearEditEntity" class="text-green-600 hover:text-green-800">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                @endif
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Qualifica / Sottotitolo</label>
+                                <input type="text" wire:model="editQualifica" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Note</label>
+                            <textarea wire:model="editNote" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col sm:flex-row sm:justify-end gap-3">
+                    <button @click="open = false" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md">
+                        <i class="fas fa-times mr-2"></i> Annulla
+                    </button>
+                    <button wire:click="updateExpiration" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md">
+                        <i class="fas fa-save mr-2"></i> Aggiorna
+                    </button>
                 </div>
             </div>
         </div>

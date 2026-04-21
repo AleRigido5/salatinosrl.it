@@ -189,7 +189,7 @@
                     <tr wire:key="vehicle-{{ $vehicle->id }}" class="hover:bg-gray-50 transition-colors duration-150 border-t border-gray-200">
                         <!-- ID -->
                         <td class="px-4 py-4 whitespace-nowrap">
-                            <span class="text-sm font-mono font-medium text-gray-900">
+                            <span class="text-sm font-sans font-medium text-gray-900">
                                 #{{ $vehicle->id }}
                             </span>
                         </td>
@@ -306,7 +306,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-4 py-12 text-center">
+                        <td colspan="8" class="px-4 py-12 text-center">
                             <div class="text-gray-500">
                                 <i class="fas fa-truck fa-3x text-gray-400 mb-3"></i>
                                 <p class="mt-2 text-sm">Nessun mezzo trovato</p>
@@ -620,6 +620,10 @@
                     <div class="space-y-4">
                         <div class="grid grid-cols-2 gap-4">
                             <div>
+                                <label class="text-sm font-medium text-gray-500">ID Mezzo</label>
+                                <p class="text-gray-900 font-medium">#{{ $viewingVehicle->id }}</p>
+                            </div>
+                            <div>
                                 <label class="text-sm font-medium text-gray-500">Targa</label>
                                 <p class="text-gray-900 font-medium">{{ $viewingVehicle->targa ?: '-' }}</p>
                             </div>
@@ -638,6 +642,10 @@
                             <div>
                                 <label class="text-sm font-medium text-gray-500">Tipologia</label>
                                 <p><span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">{{ $viewingVehicle->tipologia ?: '-' }}</span></p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Proprietà</label>
+                                <p class="text-gray-900">{{ $viewingVehicle->proprieta_nome ?? '-' }}</p>
                             </div>
                             <div>
                                 <label class="text-sm font-medium text-gray-500">Stato</label>

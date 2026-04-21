@@ -19,7 +19,7 @@ class VehiclesTable extends Component
     public $statoFilter = '';
     public $ownershipFilter = '';
     public $perPage = 15;
-    public $sortField = 'targa';
+    public $sortField = 'id';
     public $sortDirection = 'asc';
     
     // Modal visualizzazione
@@ -55,7 +55,7 @@ class VehiclesTable extends Component
     public $deleteName = '';
     
     protected $paginationTheme = 'tailwind';
-    protected $queryString = ['search', 'tipoFilter', 'statoFilter', 'ownershipFilter'];
+    protected $queryString = ['search', 'tipoFilter', 'statoFilter', 'ownershipFilter', 'sortField', 'sortDirection'];
     
     protected $listeners = [
         'filters-reset' => 'resetFilters'
@@ -131,11 +131,14 @@ class VehiclesTable extends Component
             'search' => $this->search,
             'tipoFilter' => $this->tipoFilter,
             'statoFilter' => $this->statoFilter,
-            'ownershipFilter' => $this->ownershipFilter
+            'ownershipFilter' => $this->ownershipFilter,
+            'sortField' => $this->sortField,
+            'sortDirection' => $this->sortDirection
         ]);
         
         $query = Vehicles::with('ownership', 'expirations');
         
+        // Filtri di ricerca
         if ($this->search) {
             $query->where(function($q) {
                 $q->where('targa', 'like', '%'.$this->search.'%')
@@ -156,7 +159,34 @@ class VehiclesTable extends Component
             $query->where('id_ownership', $this->ownershipFilter);
         }
         
-        $query->orderBy($this->sortField, $this->sortDirection);
+        // Ordinamento esplicito per campo
+        switch ($this->sortField) {
+            case 'id':
+                $query->orderBy('id', $this->sortDirection);
+                break;
+            case 'id_ownership':
+                $query->orderBy('id_ownership', $this->sortDirection);
+                break;
+            case 'tipologia':
+                $query->orderBy('tipologia', $this->sortDirection);
+                break;
+            case 'marca':
+                $query->orderBy('marca', $this->sortDirection)
+                      ->orderBy('modello', $this->sortDirection);
+                break;
+            case 'targa':
+                $query->orderBy('targa', $this->sortDirection);
+                break;
+            case 'immatricolazione':
+                $query->orderBy('immatricolazione', $this->sortDirection);
+                break;
+            case 'valid':
+                $query->orderBy('valid', $this->sortDirection);
+                break;
+            default:
+                $query->orderBy('id', 'asc');
+                break;
+        }
         
         return $query->paginate($this->perPage);
     }
@@ -166,6 +196,14 @@ class VehiclesTable extends Component
     public function sortBy($field)
     {
         Log::info('VehiclesTable: sortBy chiamato', ['field' => $field]);
+        
+        // Lista dei campi validi per l'ordinamento
+        $validSortFields = ['id', 'id_ownership', 'tipologia', 'marca', 'targa', 'immatricolazione', 'valid'];
+        
+        if (!in_array($field, $validSortFields)) {
+            Log::warning('VehiclesTable: sortBy - campo non valido', ['field' => $field]);
+            return;
+        }
         
         if ($this->sortField === $field) {
             $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
@@ -186,7 +224,7 @@ class VehiclesTable extends Component
         $this->tipoFilter = '';
         $this->statoFilter = '';
         $this->ownershipFilter = '';
-        $this->sortField = 'targa';
+        $this->sortField = 'id';
         $this->sortDirection = 'asc';
         $this->resetPage();
         $this->dispatch('filters-reset');

@@ -1,44 +1,43 @@
 <?php
-// app/Http/Controllers/Admin/VademecumController.php
 
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Auth;
 
 class VademecumController extends Controller
 {
     /**
-     * Restituisce il primo file PDF trovato nella cartella vademecum
+     * Restituisce il PDF dalla cartella public/vademecum
      */
     public function getPdf()
     {
-        // Percorso della cartella public/vademecum
         $vademecumPath = public_path('vademecum');
         
-        // Cerca tutti i file PDF nella cartella
+        if (!File::exists($vademecumPath)) {
+            abort(404, 'Cartella vademecum non trovata');
+        }
+        
         $pdfFiles = File::glob($vademecumPath . '/*.pdf');
         
         if (!empty($pdfFiles)) {
-            // Prende il primo file PDF trovato
             $pdfFile = $pdfFiles[0];
             $filename = basename($pdfFile);
             
-            // Restituisce il file PDF
-            return response()->file($pdfFile, [
+            return Response::file($pdfFile, [
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="' . $filename . '"'
             ]);
         }
         
-        // Se non trova nessun PDF
-        abort(404, 'Nessun file VADEMECUM trovato');
+        abort(404, 'Nessun file PDF trovato nella cartella vademecum');
     }
     
     /**
-     * Restituisce le informazioni sul PDF disponibile (per l'interfaccia)
+     * Restituisce informazioni sul PDF
      */
     public function info()
     {
@@ -47,6 +46,11 @@ class VademecumController extends Controller
         }
         
         $vademecumPath = public_path('vademecum');
+        
+        if (!File::exists($vademecumPath)) {
+            return response()->json(['success' => false, 'message' => 'Cartella non trovata']);
+        }
+        
         $pdfFiles = File::glob($vademecumPath . '/*.pdf');
         
         if (!empty($pdfFiles)) {
@@ -65,9 +69,9 @@ class VademecumController extends Controller
             'message' => 'Nessun PDF trovato'
         ]);
     }
-
+    
     /**
-     * Permette di caricare un nuovo PDF (sovrascrivendo quello esistente)
+     * Carica un nuovo PDF
      */
     public function upload(Request $request)
     {
@@ -108,7 +112,14 @@ class VademecumController extends Controller
             // Sposta il nuovo file
             $file->move($destinationPath, $filename);
             
-            return redirect()->back()->with('success', 'PDF VADEMECUM ASSUNZIONE caricato con successo!');
+            // Prepara i dati per la vista
+            $currentPdf = [
+                'filename' => $filename,
+                'size' => File::size($destinationPath . '/' . $filename),
+                'last_modified' => File::lastModified($destinationPath . '/' . $filename)
+            ];
+            
+            return redirect()->route('admin.vademecum.index')->with('success', 'PDF VADEMECUM ASSUNZIONE caricato con successo!')->with('currentPdf', $currentPdf);
             
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Errore durante l\'upload: ' . $e->getMessage());

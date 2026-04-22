@@ -16,7 +16,14 @@ use App\Http\Controllers\Admin\SettingCategoryController;
 use App\Http\Controllers\Admin\ExpirationStaffController;
 use App\Http\Controllers\Admin\ExpirationVehicleController;
 use App\Http\Controllers\Admin\DocumentController;
+use App\Http\Controllers\Admin\VademecumController;
+use App\Http\Controllers\Admin\CostCenterController;
+use App\Http\Controllers\Admin\ServiceController;
+use App\Http\Controllers\Admin\ExpirationAllController;
+use App\Models\Ownership;
+use App\Models\Entity;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\File;
 
 // Rotte pubbliche
 Route::get('/', function () {
@@ -135,19 +142,19 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // GESTIONE CENTRI DI COSTO
         // =============================================
         Route::prefix('cost-centers')->name('cost_centers.')->group(function () {
-            Route::get('/', [App\Http\Controllers\Admin\CostCenterController::class, 'index'])->name('index');
-            Route::get('/create', [App\Http\Controllers\Admin\CostCenterController::class, 'create'])->name('create');
-            Route::post('/', [App\Http\Controllers\Admin\CostCenterController::class, 'store'])->name('store');
-            Route::get('/{id}/edit', [App\Http\Controllers\Admin\CostCenterController::class, 'edit'])->name('edit');
-            Route::put('/{id}', [App\Http\Controllers\Admin\CostCenterController::class, 'update'])->name('update');
-            Route::delete('/{id}', [App\Http\Controllers\Admin\CostCenterController::class, 'destroy'])->name('destroy');
-            Route::post('/{id}/toggle-status', [App\Http\Controllers\Admin\CostCenterController::class, 'toggleStatus'])->name('toggle-status');
+            Route::get('/', [CostCenterController::class, 'index'])->name('index');
+            Route::get('/create', [CostCenterController::class, 'create'])->name('create');
+            Route::post('/', [CostCenterController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [CostCenterController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [CostCenterController::class, 'update'])->name('update');
+            Route::delete('/{id}', [CostCenterController::class, 'destroy'])->name('destroy');
+            Route::post('/{id}/toggle-status', [CostCenterController::class, 'toggleStatus'])->name('toggle-status');
         });
 
         // API per centri di costo
         Route::get('/api/references/{type}', function ($type) {
             if ($type === 'ownership') {
-                $items = App\Models\Ownership::where('valid', 1)->get();
+                $items = Ownership::where('valid', 1)->get();
                 return response()->json($items->map(function($item) {
                     return [
                         'id' => $item->id_proprieta,
@@ -155,10 +162,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
                     ];
                 }));
             } elseif ($type === 'entities') {
-                $items = App\Models\Entity::where('valid', 1)->get();
+                $items = Entity::where('valid', 1)->get();
                 return response()->json($items->map(function($item) {
                     return [
-                        'id' => $item->id,
+                        'id' => $item->id_cliente,
                         'name' => $item->ragione_sociale ?? ($item->nome . ' ' . $item->cognome)
                     ];
                 }));
@@ -195,7 +202,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Scadenze Generiche (tutte)
         Route::prefix('expiration')->name('expiration-all.')->middleware(['auth:admin'])->group(function () {
-            Route::get('/', [App\Http\Controllers\Admin\ExpirationAllController::class, 'index'])->name('index');
+            Route::get('/', [ExpirationAllController::class, 'index'])->name('index');
         });
 
         // =============================================
@@ -203,11 +210,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // =============================================
         // Documenti - Rotta generica per tutti i tipi
         Route::prefix('documents/{tableRef}/{idRef}')->name('documents.')->group(function () {
-            Route::get('/', [App\Http\Controllers\Admin\DocumentController::class, 'index'])->name('index');
-            Route::post('/', [App\Http\Controllers\Admin\DocumentController::class, 'store'])->name('store');
-            Route::delete('/{documentId}', [App\Http\Controllers\Admin\DocumentController::class, 'destroy'])->name('destroy');
-            Route::delete('/all/delete', [App\Http\Controllers\Admin\DocumentController::class, 'destroyAll'])->name('destroyAll');
-            Route::get('/{documentId}/download', [App\Http\Controllers\Admin\DocumentController::class, 'download'])->name('download');
+            Route::get('/', [DocumentController::class, 'index'])->name('index');
+            Route::post('/', [DocumentController::class, 'store'])->name('store');
+            Route::delete('/{documentId}', [DocumentController::class, 'destroy'])->name('destroy');
+            Route::delete('/all/delete', [DocumentController::class, 'destroyAll'])->name('destroyAll');
+            Route::get('/{documentId}/download', [DocumentController::class, 'download'])->name('download');
         });
 
         // =============================================
@@ -232,13 +239,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // GESTIONE SERVIZI
         // =============================================
         Route::prefix('services')->name('services.')->group(function () {
-            Route::get('/', [App\Http\Controllers\Admin\ServiceController::class, 'index'])->name('index');
-            Route::get('/create', [App\Http\Controllers\Admin\ServiceController::class, 'create'])->name('create');
-            Route::post('/', [App\Http\Controllers\Admin\ServiceController::class, 'store'])->name('store');
-            Route::get('/{service}', [App\Http\Controllers\Admin\ServiceController::class, 'show'])->name('show');
-            Route::get('/{service}/edit', [App\Http\Controllers\Admin\ServiceController::class, 'edit'])->name('edit');
-            Route::put('/{service}', [App\Http\Controllers\Admin\ServiceController::class, 'update'])->name('update');
-            Route::post('/{service}/toggle-status', [App\Http\Controllers\Admin\ServiceController::class, 'toggleStatus'])->name('toggle-status');
+            Route::get('/', [ServiceController::class, 'index'])->name('index');
+            Route::get('/create', [ServiceController::class, 'create'])->name('create');
+            Route::post('/', [ServiceController::class, 'store'])->name('store');
+            Route::get('/{service}', [ServiceController::class, 'show'])->name('show');
+            Route::get('/{service}/edit', [ServiceController::class, 'edit'])->name('edit');
+            Route::put('/{service}', [ServiceController::class, 'update'])->name('update');
+            Route::post('/{service}/toggle-status', [ServiceController::class, 'toggleStatus'])->name('toggle-status');
         });
 
         // =============================================
@@ -252,10 +259,31 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('/bulk-delete', [ContactController::class, 'bulkDelete'])->name('bulk-delete');
         });
 
-        // Route per il VADEMECUM (accessibile a tutti gli admin autenticati)
-        Route::get('/vademecum/pdf', [App\Http\Controllers\Admin\VademecumController::class, 'getPdf'])->name('vademecum.pdf');
-        Route::get('/vademecum/info', [App\Http\Controllers\Admin\VademecumController::class, 'info'])->name('vademecum.info');
-        Route::post('/vademecum/upload', [App\Http\Controllers\Admin\VademecumController::class, 'upload'])->name('vademecum.upload');
+        // =============================================
+        // GESTIONE VADEMECUM
+        // =============================================
+        // Vista index per la gestione del VADEMECUM
+        Route::get('/vademecum', function () {
+            $vademecumPath = public_path('vademecum');
+            $pdfFiles = File::glob($vademecumPath . '/*.pdf');
+            $currentPdf = null;
+            
+            if (!empty($pdfFiles)) {
+                $pdfFile = $pdfFiles[0];
+                $currentPdf = [
+                    'filename' => basename($pdfFile),
+                    'size' => File::size($pdfFile),
+                    'last_modified' => File::lastModified($pdfFile)
+                ];
+            }
+            
+            return view('admin.vademecum.index', compact('currentPdf'));
+        })->name('vademecum.index');
+        
+        // Route per il PDF (accessibile a tutti gli admin autenticati)
+        Route::get('/vademecum/pdf', [VademecumController::class, 'getPdf'])->name('vademecum.pdf');
+        Route::get('/vademecum/info', [VademecumController::class, 'info'])->name('vademecum.info');
+        Route::post('/vademecum/upload', [VademecumController::class, 'upload'])->name('vademecum.upload');
 
         // =============================================
         // API PER RICERCHE AJAX / Livewire

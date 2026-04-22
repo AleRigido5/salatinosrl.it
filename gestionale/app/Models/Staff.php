@@ -32,6 +32,7 @@ class Staff extends Model
         'CodFiscPers',
         'DataNascPers',
         'LuogoNasc',
+        'IbanPers',        // <--- AGGIUNTO IBAN!
         'valid',
         'id_gruppo',
         'created_by',

@@ -10,6 +10,8 @@ class Role extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'roles';
+    
     protected $fillable = [
         'name',
         'slug',
@@ -30,7 +32,7 @@ class Role extends Model
      */
     public function permissions()
     {
-        return $this->belongsToMany(Permission::class, 'role_permission');
+        return $this->belongsToMany(Permission::class, 'role_permission', 'role_id', 'permission_id');
     }
 
     /**
@@ -38,7 +40,7 @@ class Role extends Model
      */
     public function administrators()
     {
-        return $this->hasMany(Administrator::class);
+        return $this->hasMany(Administrator::class, 'role_id', 'id');
     }
 
     /**
@@ -47,6 +49,14 @@ class Role extends Model
     public function hasPermission($permissionSlug)
     {
         return $this->permissions()->where('slug', $permissionSlug)->exists();
+    }
+
+    /**
+     * Verifica se ha un permesso (alias)
+     */
+    public function hasPermissionTo($permissionSlug)
+    {
+        return $this->hasPermission($permissionSlug);
     }
 
     /**
@@ -62,7 +72,9 @@ class Role extends Model
      */
     public function addPermission($permissionId)
     {
-        $this->permissions()->attach($permissionId);
+        if (!$this->permissions()->where('permission_id', $permissionId)->exists()) {
+            $this->permissions()->attach($permissionId);
+        }
     }
 
     /**

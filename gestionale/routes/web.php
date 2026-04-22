@@ -132,6 +132,41 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         // =============================================
+        // GESTIONE CENTRI DI COSTO
+        // =============================================
+        Route::prefix('cost-centers')->name('cost_centers.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\CostCenterController::class, 'index'])->name('index');
+            Route::get('/create', [App\Http\Controllers\Admin\CostCenterController::class, 'create'])->name('create');
+            Route::post('/', [App\Http\Controllers\Admin\CostCenterController::class, 'store'])->name('store');
+            Route::get('/{id}/edit', [App\Http\Controllers\Admin\CostCenterController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [App\Http\Controllers\Admin\CostCenterController::class, 'update'])->name('update');
+            Route::delete('/{id}', [App\Http\Controllers\Admin\CostCenterController::class, 'destroy'])->name('destroy');
+            Route::post('/{id}/toggle-status', [App\Http\Controllers\Admin\CostCenterController::class, 'toggleStatus'])->name('toggle-status');
+        });
+
+        // API per centri di costo
+        Route::get('/api/references/{type}', function ($type) {
+            if ($type === 'ownership') {
+                $items = App\Models\Ownership::where('valid', 1)->get();
+                return response()->json($items->map(function($item) {
+                    return [
+                        'id' => $item->id_proprieta,
+                        'name' => $item->RagAbbrev ?? $item->Rag_Soc_intest ?? 'Proprietà ' . $item->id_proprieta
+                    ];
+                }));
+            } elseif ($type === 'entities') {
+                $items = App\Models\Entity::where('valid', 1)->get();
+                return response()->json($items->map(function($item) {
+                    return [
+                        'id' => $item->id,
+                        'name' => $item->ragione_sociale ?? ($item->nome . ' ' . $item->cognome)
+                    ];
+                }));
+            }
+            return response()->json([]);
+        })->name('api.references');
+
+        // =============================================
         // GESTIONE SCADENZE (EXPIRATION)
         // =============================================
         // Scadenze Staff
@@ -216,6 +251,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::delete('/{contact}', [ContactController::class, 'destroy'])->name('destroy');
             Route::post('/bulk-delete', [ContactController::class, 'bulkDelete'])->name('bulk-delete');
         });
+
+        // Route per il VADEMECUM (accessibile a tutti gli admin autenticati)
+        Route::get('/vademecum/pdf', [App\Http\Controllers\Admin\VademecumController::class, 'getPdf'])->name('vademecum.pdf');
+        Route::get('/vademecum/info', [App\Http\Controllers\Admin\VademecumController::class, 'info'])->name('vademecum.info');
+        Route::post('/vademecum/upload', [App\Http\Controllers\Admin\VademecumController::class, 'upload'])->name('vademecum.upload');
 
         // =============================================
         // API PER RICERCHE AJAX / Livewire

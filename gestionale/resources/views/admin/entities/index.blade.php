@@ -26,17 +26,22 @@
             @endif
             
             <!-- Pulsante Cestino con badge contatore -->
-            <button onclick="Livewire.dispatch('openTrashModal')"
-                    id="trashButton"
-                    class="relative px-5 py-2.5 rounded-lg shadow-md transition-all duration-200 bg-gray-200 text-gray-700 hover:bg-gray-300">
-                <i class="fas fa-trash-alt mr-2"></i>
-                Cestino
-                <span id="trashCountBadge" 
-                      class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-md"
-                      style="{{ $trashCount == 0 ? 'display: none;' : '' }}">
-                    {{ $trashCount }}
-                </span>
-            </button>
+            <div class="relative group">
+                <button onclick="Livewire.dispatch('openTrashModal')"
+                        id="trashButton"
+                        class="relative px-5 py-2.5 rounded-lg shadow-md transition-all duration-200 bg-gray-200 text-gray-700 hover:bg-gray-300">
+                    <i class="fas fa-trash-alt"></i>
+                    <span id="trashCountBadge" 
+                          class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-md"
+                          style="{{ $trashCount == 0 ? 'display: none;' : '' }}">
+                        {{ $trashCount }}
+                    </span>
+                </button>
+                <div class="absolute bottom-full transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                    Cestino
+                    <div class="absolute top-full transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
+                </div>
+            </div>
         </div>
     </div>
 

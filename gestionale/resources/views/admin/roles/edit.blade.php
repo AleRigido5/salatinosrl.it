@@ -25,20 +25,11 @@
                 @csrf
                 @method('PUT')
                 
-                <!-- Verifica se l'utente è autenticato e se è Super Admin -->
                 @php
-                    $isSuperAdmin = false;
-                    if (auth()->guard('admin')->check()) {
-                        $currentAdmin = auth()->guard('admin')->user();
-                        $isSuperAdmin = $currentAdmin->role_id == 1;
-                    } else {
-                        $currentAdmin = auth()->user();
-                        $isSuperAdmin = $currentAdmin && $currentAdmin->role_id == 1;
-                    }
+                    $isSuperAdmin = auth()->guard('admin')->user()->isSuperAdmin();
                 @endphp
 
                 @if($isSuperAdmin)
-                    <!-- Campi modificabili solo dal Super Admin -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -51,7 +42,7 @@
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
-                                <i class="fas fa-code mr-1 text-emerald-500"></i> Slug *
+                                <i class="fas fa-code mr-1 text-emerald-500"></i> Identificativo (Slug) *
                             </label>
                             <input type="text" name="slug" value="{{ old('slug', $role->slug) }}" required
                                    class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
@@ -82,7 +73,7 @@
                                 <input type="checkbox" name="is_default" value="1" {{ old('is_default', $role->is_default) ? 'checked' : '' }}
                                        class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
                                 <span class="ml-2 text-sm text-gray-700">
-                                    <i class="fas fa-star text-amber-500 mr-1"></i> Ruolo predefinito per nuovi admin
+                                    <i class="fas fa-star text-amber-500 mr-1"></i> Ruolo predefinito per nuovi amministratori
                                 </span>
                             </label>
                         </div>
@@ -98,7 +89,6 @@
                         </div>
                     </div>
                 @else
-                    <!-- Visualizzazione sola lettura per non super admin -->
                     <div class="bg-gray-50 rounded-lg p-4 mb-6">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -106,7 +96,7 @@
                                 <p class="font-medium text-gray-800">{{ $role->name }}</p>
                             </div>
                             <div>
-                                <p class="text-sm text-gray-500">Slug</p>
+                                <p class="text-sm text-gray-500">Identificativo</p>
                                 <p class="font-medium text-gray-800">{{ $role->slug }}</p>
                             </div>
                             <div>
@@ -120,7 +110,6 @@
                         </div>
                     </div>
                     
-                    <!-- Campi nascosti per mantenere i valori originali -->
                     <input type="hidden" name="name" value="{{ $role->name }}">
                     <input type="hidden" name="slug" value="{{ $role->slug }}">
                     <input type="hidden" name="level" value="{{ $role->level }}">
@@ -142,40 +131,54 @@
                                        {{ count($perms->whereIn('id', $rolePermissions)) == count($perms) ? 'checked' : '' }}
                                        {{ !$isSuperAdmin ? 'disabled' : '' }}>
                                 <span class="font-semibold text-emerald-800">
-                                    <i class="fas {{ $group == 'expiration' ? 'fa-calendar-alt' : ($group == 'trash' ? 'fa-trash-alt' : 'fa-folder-open') }} mr-1"></i> 
-                                    {{ ucfirst($group) }}
+                                    <i class="fas 
+                                        @if($group == 'dashboard') fa-tachometer-alt
+                                        @elseif($group == 'administrators') fa-user-shield
+                                        @elseif($group == 'roles') fa-users-cog
+                                        @elseif($group == 'entities') fa-building
+                                        @elseif($group == 'staff') fa-users
+                                        @elseif($group == 'vehicles') fa-truck
+                                        @elseif($group == 'services') fa-concierge-bell
+                                        @elseif($group == 'expiration') fa-calendar-alt
+                                        @elseif($group == 'cost_centers') fa-chart-line
+                                        @elseif($group == 'settings') fa-cog
+                                        @elseif($group == 'trash') fa-trash-alt
+                                        @else fa-folder-open
+                                        @endif mr-1"></i> 
+                                    @if($group == 'dashboard') Dashboard
+                                    @elseif($group == 'administrators') Amministratori
+                                    @elseif($group == 'roles') Ruoli e Permessi
+                                    @elseif($group == 'entities') Clienti / Fornitori
+                                    @elseif($group == 'staff') Personale
+                                    @elseif($group == 'vehicles') Mezzi
+                                    @elseif($group == 'services') Servizi
+                                    @elseif($group == 'expiration') Scadenze
+                                    @elseif($group == 'cost_centers') Centri di Costo
+                                    @elseif($group == 'settings') Impostazioni
+                                    @elseif($group == 'trash') Cestino
+                                    @else {{ ucfirst($group) }}
+                                    @endif
                                 </span>
                             </label>
                         </div>
                         <div class="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                             @foreach($perms as $perm)
                                 @php
-                                    // Nascondere i permessi di modifica per Editor e Viewer
                                     $isEditPermission = str_contains($perm->slug, 'edit_') || 
                                                        str_contains($perm->slug, 'create_') || 
                                                        str_contains($perm->slug, 'delete_') ||
-                                                       str_contains($perm->slug, 'manage_') ||
-                                                       str_contains($perm->slug, 'bulk_') ||
-                                                       str_contains($perm->slug, 'export_') ||
-                                                       str_contains($perm->slug, 'backup_') ||
-                                                       str_contains($perm->slug, 'empty_') ||
-                                                       str_contains($perm->slug, 'force_delete_');
+                                                       str_contains($perm->slug, 'manage_');
                                     
                                     $showPermission = $isSuperAdmin || !$isEditPermission;
                                     
-                                    // Icone specifiche per gruppo
                                     $icon = 'fa-check';
-                                    if($group == 'expiration') {
-                                        if(str_contains($perm->slug, 'view')) $icon = 'fa-eye';
-                                        elseif(str_contains($perm->slug, 'create')) $icon = 'fa-plus-circle';
-                                        elseif(str_contains($perm->slug, 'edit')) $icon = 'fa-edit';
-                                        elseif(str_contains($perm->slug, 'delete')) $icon = 'fa-trash-alt';
-                                    } elseif($group == 'trash') {
-                                        if(str_contains($perm->slug, 'view')) $icon = 'fa-eye';
-                                        elseif(str_contains($perm->slug, 'restore')) $icon = 'fa-undo-alt';
-                                        elseif(str_contains($perm->slug, 'force_delete')) $icon = 'fa-skull-crossbones';
-                                        elseif(str_contains($perm->slug, 'empty')) $icon = 'fa-broom';
-                                    }
+                                    if(str_contains($perm->slug, 'view')) $icon = 'fa-eye';
+                                    elseif(str_contains($perm->slug, 'create')) $icon = 'fa-plus-circle';
+                                    elseif(str_contains($perm->slug, 'edit')) $icon = 'fa-edit';
+                                    elseif(str_contains($perm->slug, 'delete')) $icon = 'fa-trash-alt';
+                                    elseif(str_contains($perm->slug, 'restore')) $icon = 'fa-undo-alt';
+                                    elseif(str_contains($perm->slug, 'force_delete')) $icon = 'fa-skull-crossbones';
+                                    elseif(str_contains($perm->slug, 'empty')) $icon = 'fa-broom';
                                 @endphp
                                 
                                 @if($showPermission)

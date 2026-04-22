@@ -370,13 +370,13 @@
     <!-- Modal di inserimento -->
     @if($showCreateModal)
     <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
-         x-data="{ show: true }" 
-         x-show="show" 
-         x-transition.opacity.duration.200ms>
+        x-data="{ show: true }" 
+        x-show="show" 
+        x-transition.opacity.duration.200ms>
         
         <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto" 
-             x-on:click.away="show = false; $wire.closeCreateModal()"
-             x-transition.scale.origin.top>
+            x-on:click.away="show = false; $wire.closeCreateModal()"
+            x-transition.scale.origin.top>
             
             <div class="flex justify-between items-center mb-6 border-b pb-3">
                 <h2 class="text-2xl font-bold text-gray-800">
@@ -389,70 +389,114 @@
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Ragione Sociale - OBBLIGATORIO -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Ragione Sociale</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Ragione Sociale <span class="text-red-500">*</span>
+                    </label>
                     <input type="text" 
                         wire:model="formRagioneSociale" 
-                        placeholder="Ragione Sociale (opzionale)" 
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        placeholder="Ragione Sociale" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('formRagioneSociale') border-red-500 @enderror">
+                    @error('formRagioneSociale') 
+                        <span class="text-xs text-red-500 mt-1 block">{{ $message }}</span> 
+                    @enderror
                 </div>
 
+                <!-- Tipologia - OBBLIGATORIA -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         Tipologia <span class="text-red-500">*</span>
                     </label>
                     <select wire:model="formTipologia" 
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 @error('formTipologia') border-red-500 @enderror">
                         <option value="">Seleziona Tipologia</option>
                         <option value="cliente">Cliente</option>
                         <option value="fornitore">Fornitore</option>
                         <option value="entrambi">Entrambi</option>
                     </select>
-                    @error('formTipologia') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
+                    @error('formTipologia') 
+                        <span class="text-xs text-red-500 mt-1 block">{{ $message }}</span> 
+                    @enderror
                 </div>
                 
+                <!-- Partita IVA - OBBLIGATORIA -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Partita IVA <span class="text-red-500">*</span>
+                    </label>
                     <input type="text" 
-                           wire:model="formCognome" 
-                           placeholder="Inserisci il cognome" 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        wire:model="formPartitaIva" 
+                        placeholder="Es: IT023750907498 o 023750907498" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('formPartitaIva') border-red-500 @enderror">
+                    @error('formPartitaIva') 
+                        <span class="text-xs text-red-500 mt-1 block">{{ $message }}</span> 
+                    @enderror
+                    <p class="text-xs text-gray-400 mt-1">
+                        <i class="fas fa-info-circle mr-1"></i> 
+                        Puoi inserire la partita IVA con o senza prefisso paese (IT, DE, FR, ecc.)
+                    </p>
                 </div>
                 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-                    <input type="text" 
-                           wire:model="formNome" 
-                           placeholder="Inserisci il nome" 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Persona di Riferimento</label>
-                    <input type="text" 
-                           wire:model="formRiferimento" 
-                           placeholder="Persona di riferimento" 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Partita IVA</label>
-                    <input type="text" 
-                           wire:model="formPartitaIva" 
-                           placeholder="Partita IVA" 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                </div>
-                
+                <!-- Codice Fiscale -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
                     <input type="text" 
-                           wire:model="formCodiceFiscale" 
-                           placeholder="Codice Fiscale" 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        wire:model="formCodiceFiscale" 
+                        placeholder="Codice Fiscale" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    @error('formCodiceFiscale') 
+                        <span class="text-xs text-red-500 mt-1 block">{{ $message }}</span> 
+                    @enderror
+                </div>
+                
+                <!-- Nome -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                    <input type="text" 
+                        wire:model="formNome" 
+                        placeholder="Inserisci il nome" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                
+                <!-- Cognome -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
+                    <input type="text" 
+                        wire:model="formCognome" 
+                        placeholder="Inserisci il cognome" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                
+                <!-- Persona di Riferimento -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Persona di Riferimento</label>
+                    <input type="text" 
+                        wire:model="formRiferimento" 
+                        placeholder="Persona di riferimento" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                
+                <!-- Email -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" 
+                        wire:model="formEmail" 
+                        placeholder="Email" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('formEmail') border-red-500 @enderror">
+                    @error('formEmail') 
+                        <span class="text-xs text-red-500 mt-1 block">{{ $message }}</span> 
+                    @enderror
                 </div>
             </div>
             
-            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+            <!-- Messaggio informativo campi obbligatori -->
+            <div class="mt-4 text-xs text-gray-500 border-t pt-3">
+                <i class="fas fa-asterisk text-red-500 text-xs mr-1"></i> 
+                Campi obbligatori
+            </div>
+            
+            <div class="flex justify-end space-x-3 mt-4 pt-4 border-t">
                 <button wire:click="closeCreateModal" 
                         class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
                     <i class="fas fa-times mr-2"></i> Annulla

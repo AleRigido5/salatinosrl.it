@@ -11,7 +11,7 @@
             <div class="flex gap-3">
                 @if(auth()->guard('admin')->user()->hasPermission('create_vehicles'))
                 <button wire:click="openCreateModal" 
-                        class="bg-lime-600 hover:bg-lime-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+                        class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
                     <i class="fas fa-plus"></i>
                 </button>
                 @endif
@@ -189,8 +189,8 @@
                     <tr wire:key="vehicle-{{ $vehicle->id }}" class="hover:bg-gray-50 transition-colors duration-150 border-t border-gray-200">
                         <!-- ID -->
                         <td class="px-4 py-4 whitespace-nowrap">
-                            <span class="text-sm font-sans font-medium text-gray-900">
-                                #{{ $vehicle->id }}
+                            <span class="text-sm font-sans font-medium text-gray-400">
+                                {{ $vehicle->id }}
                             </span>
                         </td>
 

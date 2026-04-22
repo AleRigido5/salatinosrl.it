@@ -5,6 +5,7 @@ namespace App\Livewire\Admin;
 use App\Models\Role;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Illuminate\Support\Facades\Auth;
 
 class RolesTable extends Component
 {
@@ -33,6 +34,7 @@ class RolesTable extends Component
             $this->sortField = $field;
             $this->sortDirection = 'asc';
         }
+        $this->resetPage();
     }
     
     public function updatingSearch()
@@ -41,11 +43,6 @@ class RolesTable extends Component
     }
     
     public function updatingStatus()
-    {
-        $this->resetPage();
-    }
-    
-    public function updatingPerPage()
     {
         $this->resetPage();
     }
@@ -89,6 +86,7 @@ class RolesTable extends Component
         
         $role->delete();
         session()->flash('success', 'Ruolo eliminato con successo!');
+        $this->dispatch('roleDeleted');
         $this->resetPage();
     }
     
@@ -107,6 +105,7 @@ class RolesTable extends Component
         if ($role && $role->slug != 'super_admin') {
             $role->update(['is_active' => !$role->is_active]);
             session()->flash('success', 'Stato del ruolo aggiornato con successo!');
+            $this->dispatch('roleUpdated');
         }
     }
     

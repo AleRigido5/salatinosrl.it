@@ -11,6 +11,7 @@ use App\Models\Vehicles;
 use App\Models\Entity;
 use App\Models\Ownership;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class VehicleExpirationTable extends Component
 {
@@ -112,6 +113,7 @@ class VehicleExpirationTable extends Component
         $this->createEntityNome = $nome;
         $this->createEntitySearch = $nome;
         $this->createEntityResults = [];
+        $this->dispatch('entity-selected');
     }
     
     public function clearEntity()
@@ -147,10 +149,15 @@ class VehicleExpirationTable extends Component
     
     public function selectEditEntity($id, $nome)
     {
+        Log::info('selectEditEntity chiamato', ['id' => $id, 'nome' => $nome]);
+        
         $this->editEntityId = $id;
         $this->editEntityNome = $nome;
         $this->editEntitySearch = $nome;
         $this->editEntityResults = [];
+        
+        // Forza l'aggiornamento della UI
+        $this->dispatch('edit-entity-selected', ['id' => $id, 'nome' => $nome]);
     }
     
     public function clearEditEntity()
@@ -159,6 +166,7 @@ class VehicleExpirationTable extends Component
         $this->editEntityNome = '';
         $this->editEntitySearch = '';
         $this->editEntityResults = [];
+        $this->dispatch('edit-entity-cleared');
     }
     
     // ==================== METODI CREAZIONE ====================
@@ -269,9 +277,18 @@ class VehicleExpirationTable extends Component
                     $this->editEntityId = $entity->id_cliente;
                     $this->editEntityNome = $entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome);
                     $this->editEntitySearch = $this->editEntityNome;
+                } else {
+                    $this->editEntityId = '';
+                    $this->editEntityNome = '';
+                    $this->editEntitySearch = '';
                 }
+            } else {
+                $this->editEntityId = '';
+                $this->editEntityNome = '';
+                $this->editEntitySearch = '';
             }
             
+            $this->editEntityResults = [];
             $this->showEditModal = true;
             
         } catch (\Exception $e) {
@@ -340,6 +357,8 @@ class VehicleExpirationTable extends Component
             
             if ($this->editEntityId) {
                 $data['id_entities'] = $this->editEntityId;
+            } else {
+                $data['id_entities'] = null;
             }
             
             $expiration->update($data);
@@ -357,6 +376,8 @@ class VehicleExpirationTable extends Component
     
     public function getTipologieProperty()
     {
+        // Filtra le tipologie per le scadenze dei veicoli
+        // Usa solo i campi che esistono nella tabella settings
         return Setting::where('tabella_riferimento', 'expiration')
             ->where('valid', 1)
             ->orderBy('ordinamento')

@@ -111,6 +111,48 @@ class EntitiesTable extends Component
         ];
     }
     
+    /**
+     * Funzione per normalizzare la Partita IVA (rimuove il prefisso del paese)
+     */
+    private function normalizePartitaIva($partitaIva)
+    {
+        if (empty($partitaIva)) {
+            return $partitaIva;
+        }
+        
+        // Rimuove prefissi paese (IT, DE, FR, ES, GB, ecc.) di 2 lettere
+        // Esempio: "IT023750907498" -> "023750907498"
+        //          "DE123456789" -> "123456789"
+        return preg_replace('/^[A-Z]{2}/', '', $partitaIva);
+    }
+    
+    /**
+     * Verifica se una Partita IVA esiste già (ignorando il prefisso del paese)
+     */
+    private function checkDuplicatePartitaIva($partitaIva, $excludeId = null)
+    {
+        if (empty($partitaIva)) {
+            return null;
+        }
+        
+        $normalizedNew = $this->normalizePartitaIva($partitaIva);
+        
+        $query = Entity::where(function($q) use ($normalizedNew) {
+            // Controllo 1: Partita IVA esattamente uguale alla normalizzata
+            $q->where('partita_iva', $normalizedNew)
+              // Controllo 2: Partita IVA che finisce con la normalizzata
+              ->orWhere('partita_iva', 'LIKE', '%' . $normalizedNew)
+              // Controllo 3: Partita IVA senza le prime 2 lettere
+              ->orWhereRaw("REPLACE(partita_iva, SUBSTRING(partita_iva, 1, 2), '') = ?", [$normalizedNew]);
+        });
+        
+        if ($excludeId) {
+            $query->where('id_cliente', '!=', $excludeId);
+        }
+        
+        return $query->first();
+    }
+    
     public function getEntitiesProperty()
     {
         $query = Entity::query();
@@ -395,24 +437,13 @@ class EntitiesTable extends Component
     
     // ==================== METODI FILTRI ====================
     
-    // public function resetFilters()
-    // {
-    //     $this->search = '';
-    //     $this->typeFilter = '';
-    //     $this->statusFilter = '';
-    //     $this->sortField = 'ragione_sociale';
-    //     $this->sortDirection = 'asc';
-    //     $this->resetPage();
-    // }
-    
     public function resetFilters()
     {
         $this->reset(['search', 'typeFilter', 'statusFilter']);
-        $this->resetPage(); // Resetta anche la paginazione
-        
-        // Opzionale: dispatch dell'evento come nel primo codice
+        $this->resetPage();
         $this->dispatch('filters-reset');
     }
+    
     // ==================== METODI INSERIMENTO ====================
     
     public function openCreateModal()
@@ -443,26 +474,36 @@ class EntitiesTable extends Component
     {
         $this->validate([
             'formTipologia' => 'required|in:cliente,fornitore,entrambi',
+            'formRagioneSociale' => 'required|string|max:255',
+            'formPartitaIva' => 'required|string|max:30',
             'formEmail' => 'nullable|email',
-            'formPartitaIva' => 'nullable|string|max:20',
             'formCodiceFiscale' => 'nullable|string|max:20',
+        ], [
+            'formTipologia.required' => 'La tipologia è obbligatoria',
+            'formTipologia.in' => 'Seleziona un tipo valido',
+            'formRagioneSociale.required' => 'La ragione sociale è obbligatoria',
+            'formRagioneSociale.max' => 'La ragione sociale non può superare i 255 caratteri',
+            'formPartitaIva.required' => 'La partita IVA è obbligatoria',
+            'formPartitaIva.max' => 'La partita IVA non può superare i 30 caratteri',
+            'formEmail.email' => 'Inserisci un indirizzo email valido',
         ]);
 
         try {
-            // CONTROLLO DUPLICATI PARTITA IVA
-            if (!empty($this->formPartitaIva)) {
-                $existingEntity = Entity::where('partita_iva', $this->formPartitaIva)->first();
-                if ($existingEntity) {
-                    $this->dispatch('showError', message: "Partita IVA {$this->formPartitaIva} già presente in archivio per: " . $existingEntity->full_name);
-                    return;
-                }
+            // Normalizza la Partita IVA (rimuove prefisso paese)
+            $normalizedPartitaIva = $this->normalizePartitaIva($this->formPartitaIva);
+            
+            // CONTROLLO DUPLICATI PARTITA IVA (ignorando il prefisso del paese)
+            $existingEntity = $this->checkDuplicatePartitaIva($this->formPartitaIva);
+            if ($existingEntity) {
+                $this->dispatch('showError', message: "Partita IVA '{$this->formPartitaIva}' già presente in archivio per: " . $existingEntity->full_name);
+                return;
             }
             
             // Controllo anche codice fiscale se presente
             if (!empty($this->formCodiceFiscale)) {
                 $existingByCF = Entity::where('codice_fiscale', $this->formCodiceFiscale)->first();
                 if ($existingByCF) {
-                    $this->dispatch('showError', message: "Codice Fiscale {$this->formCodiceFiscale} già presente in archivio per: " . $existingByCF->full_name);
+                    $this->dispatch('showError', message: "Codice Fiscale '{$this->formCodiceFiscale}' già presente in archivio per: " . $existingByCF->full_name);
                     return;
                 }
             }
@@ -471,12 +512,12 @@ class EntitiesTable extends Component
             
             $entity = Entity::create([
                 'entity_type' => $this->formTipologia,
-                'ragione_sociale' => $this->formRagioneSociale ?: null,
+                'ragione_sociale' => $this->formRagioneSociale,
                 'nome' => $this->formNome ?: null,
                 'cognome' => $this->formCognome ?: null,
                 'persona_riferimento' => $this->formRiferimento ?: null,
                 'email' => $this->formEmail ?: null,
-                'partita_iva' => $this->formPartitaIva ?: null,
+                'partita_iva' => $normalizedPartitaIva, // Salva la versione normalizzata
                 'codice_fiscale' => $this->formCodiceFiscale ?: null,
                 'valid' => 1,
                 'data_inserimento' => now(),

@@ -16,22 +16,7 @@ class RoleController extends Controller
             abort(403, 'Non hai i permessi necessari.');
         }
         
-        $query = Role::withCount('administrators');
-        
-        if ($request->filled('search')) {
-            $query->where(function($q) use ($request) {
-                $q->where('name', 'like', "%{$request->search}%")
-                ->orWhere('slug', 'like', "%{$request->search}%");
-            });
-        }
-        
-        if ($request->filled('status')) {
-            $query->where('is_active', $request->status === 'active');
-        }
-        
-        $roles = $query->latest()->paginate(15);
-        
-        return view('admin.roles.index', compact('roles'));
+        return view('admin.roles.index');
     }
 
     public function create()
@@ -53,8 +38,8 @@ class RoleController extends Controller
         }
         
         $request->validate([
-            'name' => 'required|string|max:255|unique:roles',
-            'slug' => 'required|string|max:255|unique:roles',
+            'name' => 'required|string|max:255|unique:roles,name',
+            'slug' => 'required|string|max:255|unique:roles,slug',
             'level' => 'required|integer|min:1|max:100',
             'permissions' => 'nullable|array',
         ]);
@@ -81,7 +66,6 @@ class RoleController extends Controller
             abort(403, 'Non hai i permessi necessari.');
         }
         
-        // Super admin non può essere modificato
         if ($role->slug === 'super_admin' && !Auth::guard('admin')->user()->isSuperAdmin()) {
             abort(403, 'Non puoi modificare il ruolo Super Admin.');
         }
@@ -99,7 +83,6 @@ class RoleController extends Controller
             return back()->with('error', 'Non hai i permessi necessari.');
         }
         
-        // Super admin non può essere modificato
         if ($role->slug === 'super_admin' && !Auth::guard('admin')->user()->isSuperAdmin()) {
             return back()->with('error', 'Non puoi modificare il ruolo Super Admin.');
         }
@@ -133,7 +116,6 @@ class RoleController extends Controller
             return back()->with('error', 'Non hai i permessi necessari.');
         }
         
-        // Impedisci eliminazione ruoli di sistema
         if (in_array($role->slug, ['super_admin', 'admin', 'editor', 'viewer'])) {
             return back()->with('error', 'Non puoi eliminare i ruoli di sistema.');
         }

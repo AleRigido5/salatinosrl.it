@@ -30,7 +30,7 @@ class StaffTable extends Component
     // Form fields per modifica
     public $editNome = '';
     public $editCognome = '';
-    public $editSoprannome = '';
+    public $editSoprannome = '';  // Aggiunto Soprannome
     public $editCodFiscale = '';
     public $editTelefono = '';
     public $editCellulare = '';
@@ -263,7 +263,7 @@ class StaffTable extends Component
                     'CapPers' => $this->editCap,
                     'DataNascPers' => $this->editDataNascita,
                     'LuogoNasc' => $this->editLuogoNascita,
-                    'IbanPers' => $this->editIban,
+                    'IbanPers' => $this->editIban,  // CORRETTO: ora salva IBAN
                     'id_gruppo' => $this->editGruppo,
                     'valid' => $this->editValid,
                     'updated_by' => auth()->guard('admin')->id(),
@@ -398,20 +398,10 @@ class StaffTable extends Component
     
     // ==================== METODI FILTRI ====================
     
-    // public function resetFilters()
-    // {
-    //     $this->search = '';
-    //     $this->statusFilter = '';
-    //     $this->sortField = 'id_personale';
-    //     $this->sortDirection = 'asc';
-    //     $this->resetPage();
-    //     session()->forget('staff_filters');
-    // }
-
     public function resetFilters()
     {
         $this->reset(['search', 'statusFilter']);
-        $this->resetPage(); // Resetta la paginazione alla prima pagina
+        $this->resetPage();
     }
 
     public function render()

@@ -436,6 +436,7 @@
                         </button>
                     </div>
                     
+                    <!-- RIGA 1: Nome e Cognome (6+6) -->
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-4 max-h-[70vh] overflow-y-auto p-2">
                         <div class="md:col-span-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
@@ -446,11 +447,17 @@
                             <input type="text" wire:model="editCognome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
                         
-                        <div class="md:col-span-12">
+                        <!-- RIGA 2: Soprannome (8) e Indirizzo (4) sulla stessa riga -->
+                        <div class="md:col-span-8">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Soprannome</label>
+                            <input type="text" wire:model="editSoprannome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div class="md:col-span-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
                             <input type="text" wire:model="editIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
                         
+                        <!-- RIGA 3: Città, Provincia, CAP (7+2+3) -->
                         <div class="md:col-span-7">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
                             <input type="text" wire:model="editCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -464,26 +471,21 @@
                             <input type="text" wire:model="editCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" maxlength="5">
                         </div>
                         
-                        <div class="md:col-span-6">
+                        <!-- RIGA 4: Telefono (4), Cellulare (4), Email (4) sulla stessa riga -->
+                        <div class="md:col-span-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
                             <input type="text" wire:model="editTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        <div class="md:col-span-6">
+                        <div class="md:col-span-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Cellulare</label>
                             <input type="text" wire:model="editCellulare" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        
-                        <div class="md:col-span-8">
+                        <div class="md:col-span-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
                             <input type="email" wire:model="editEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        <div class="md:col-span-4 flex items-center">
-                            <label class="inline-flex items-center">
-                                <input type="checkbox" wire:model="editValid" class="rounded border-gray-300 text-lime-600 focus:ring-lime-500">
-                                <span class="ml-2 text-sm text-gray-700">Account attivo</span>
-                            </label>
-                        </div>
                         
+                        <!-- RIGA 5: Data Nascita (6) e Luogo Nascita (6) -->
                         <div class="md:col-span-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Data Nascita</label>
                             <input type="date" wire:model="editDataNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -493,16 +495,18 @@
                             <input type="text" wire:model="editLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
                         
-                        <div class="md:col-span-6">
+                        <!-- RIGA 6: IBAN (8) e Codice Fiscale (4) -->
+                        <div class="md:col-span-8">
                             <label class="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
                             <input type="text" wire:model="editIban" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        <div class="md:col-span-6">
+                        <div class="md:col-span-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
                             <input type="text" wire:model="editCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" maxlength="16">
                         </div>
                         
-                        <div class="md:col-span-12">
+                        <!-- RIGA 7: Gruppo (8) e Account Attivo (4) -->
+                        <div class="md:col-span-8">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Gruppo</label>
                             <select wire:model="editGruppo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                                 <option value="">Seleziona gruppo...</option>
@@ -510,6 +514,12 @@
                                     <option value="{{ $group->id }}">{{ $group->valore }}</option>
                                 @endforeach
                             </select>
+                        </div>
+                        <div class="md:col-span-4 flex items-center pt-6">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" wire:model="editValid" class="rounded border-gray-300 text-lime-600 focus:ring-lime-500">
+                                <span class="ml-2 text-sm text-gray-700">Account attivo</span>
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -532,16 +542,16 @@
     <!-- MODAL CREAZIONE -->
     @if($showCreateModal)
     <div wire:ignore.self class="fixed inset-0 z-50 overflow-y-auto" 
-         x-data="{ show: true }" 
-         x-show="show" 
-         x-transition.opacity.duration.200ms>
+        x-data="{ show: true }" 
+        x-show="show" 
+        x-transition.opacity.duration.200ms>
         
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" x-on:click="show = false; $wire.closeCreateModal()" aria-hidden="true"></div>
             
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
-            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full">
                 <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <div class="flex justify-between items-center mb-4 border-b pb-3">
                         <h2 class="text-xl font-bold text-gray-800">
@@ -552,63 +562,81 @@
                         </button>
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
-                        <div>
+                    <!-- Stesso layout della modifica -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 max-h-[70vh] overflow-y-auto p-2">
+                        <!-- RIGA 1: Nome e Cognome (6+6) -->
+                        <div class="md:col-span-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
                             <input type="text" wire:model="createNome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                             @error('createNome') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                         </div>
-                        <div>
+                        <div class="md:col-span-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
                             <input type="text" wire:model="createCognome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                             @error('createCognome') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                         </div>
-                        <div>
+                        
+                        <!-- RIGA 2: Soprannome (8) e Indirizzo (4) -->
+                        <div class="md:col-span-8">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Soprannome</label>
                             <input type="text" wire:model="createSoprannome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
-                            <input type="text" wire:model="createCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        <div class="md:col-span-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
+                            <input type="text" wire:model="createIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        <div>
+                        
+                        <!-- RIGA 3: Città, Provincia, CAP (7+2+3) -->
+                        <div class="md:col-span-7">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
+                            <input type="text" wire:model="createCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Prov.</label>
+                            <input type="text" wire:model="createProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" maxlength="2">
+                        </div>
+                        <div class="md:col-span-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">CAP</label>
+                            <input type="text" wire:model="createCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" maxlength="5">
+                        </div>
+                        
+                        <!-- RIGA 4: Telefono (4), Cellulare (4), Email (4) -->
+                        <div class="md:col-span-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
                             <input type="text" wire:model="createTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        <div>
+                        <div class="md:col-span-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Cellulare</label>
                             <input type="text" wire:model="createCellulare" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        <div class="md:col-span-2">
+                        <div class="md:col-span-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
                             <input type="email" wire:model="createEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                             @error('createEmail') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                         </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
-                            <input type="text" wire:model="createIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
-                            <input type="text" wire:model="createCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
-                            <input type="text" wire:model="createProvincia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">CAP</label>
-                            <input type="text" wire:model="createCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                        </div>
-                        <div>
+                        
+                        <!-- RIGA 5: Data Nascita (6) e Luogo Nascita (6) -->
+                        <div class="md:col-span-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Data Nascita</label>
                             <input type="date" wire:model="createDataNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        <div>
+                        <div class="md:col-span-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Luogo Nascita</label>
                             <input type="text" wire:model="createLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
-                        {{-- <div class="md:col-span-2">
+                        
+                        <!-- RIGA 6: IBAN (8) e Codice Fiscale (4) -->
+                        <div class="md:col-span-8">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
+                            <input type="text" wire:model="createIban" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div class="md:col-span-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
+                            <input type="text" wire:model="createCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" maxlength="16">
+                        </div>
+                        
+                        <!-- RIGA 7: Gruppo (8) e Account Attivo (4) -->
+                        <div class="md:col-span-8">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Gruppo</label>
                             <select wire:model="createGruppo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                                 <option value="">Seleziona gruppo...</option>
@@ -616,8 +644,8 @@
                                     <option value="{{ $group->id }}">{{ $group->valore }}</option>
                                 @endforeach
                             </select>
-                        </div> --}}
-                        <div>
+                        </div>
+                        <div class="md:col-span-4 flex items-center pt-6">
                             <label class="inline-flex items-center">
                                 <input type="checkbox" wire:model="createValid" class="rounded border-gray-300 text-lime-600" checked>
                                 <span class="ml-2 text-sm text-gray-700">Account attivo</span>

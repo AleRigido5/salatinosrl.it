@@ -359,9 +359,8 @@
                 <!-- Dashboard -->
                 @if($currentAdmin && $currentAdmin->hasPermission('access_dashboard'))
                 <div>
-
                     <a href="{{ route('admin.dashboard') }}" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.dashboard') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
                         <i class="fas fa-tachometer-alt w-5 h-5 {{ request()->routeIs('admin.dashboard') ? 'text-lime-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Dashboard</span>
                     </a>
@@ -369,35 +368,84 @@
                 @endif
                 
                 <!-- Anagrafica -->
-                @if($currentAdmin && $currentAdmin->hasPermission('view_entities'))
+                @if($currentAdmin && ($currentAdmin->hasPermission('view_entities') || $currentAdmin->hasPermission('view_staff') || $currentAdmin->hasPermission('view_vehicles') || $currentAdmin->hasPermission('view_cost_centers')))
                 <div class="mb-6">
-                    
                     <!-- Clienti / Fornitori -->
+                    @if($currentAdmin && $currentAdmin->hasPermission('view_entities'))
                     <a href="{{ route('admin.entities.index') }}" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.entities.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.entities.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
                         <i class="fas fa-building w-5 h-5 {{ request()->routeIs('admin.entities.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Clienti / Fornitori</span>
                     </a>
+                    @endif
                     
                     <!-- Personale -->
+                    @if($currentAdmin && $currentAdmin->hasPermission('view_staff'))
                     <a href="{{ route('admin.staff.index') }}" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.staff.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.staff.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
                         <i class="fas fa-users w-5 h-5 {{ request()->routeIs('admin.staff.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Personale</span>
                     </a>
+                    @endif
                     
                     <!-- Mezzi -->
+                    @if($currentAdmin && $currentAdmin->hasPermission('view_vehicles'))
                     <a href="{{ route('admin.vehicles.index') }}" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.vehicles.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.vehicles.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
                         <i class="fas fa-truck w-5 h-5 {{ request()->routeIs('admin.vehicles.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Mezzi</span>
                     </a>
+                    @endif
 
                     <!-- Centri di Costo -->
-                    <a href="#" 
-                       class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.cost_centers.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                    @if($currentAdmin && $currentAdmin->hasPermission('view_cost_centers'))
+                    <a href="{{ route('admin.cost_centers.index') }}" 
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.cost_centers.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
                         <i class="fa-solid fa-scale-unbalanced w-5 h-5 {{ request()->routeIs('admin.cost_centers.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Centri di Costo</span>
+                    </a>
+                    @endif
+
+                    <!-- Acquisti -->
+                    {{-- @if($currentAdmin && $currentAdmin->hasPermission('view_purchases'))
+                    <a href="{{ route('admin.purchases.index') }}" 
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.purchases.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                        <i class="fa-solid fa-dolly w-5 h-5 {{ request()->routeIs('admin.purchases.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                        <span class="sidebar-link-text text-sm font-medium ml-3">Acquisti</span>
+                    </a>
+                    @endif --}}
+                    <a href="#" 
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.purchases.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                        <i class="fa-solid fa-dolly w-5 h-5 {{ request()->routeIs('admin.purchases.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                        <span class="sidebar-link-text text-sm font-medium ml-3">Acquisti</span>
+                    </a>
+
+                    <!-- Vendite -->
+                    {{-- @if($currentAdmin && $currentAdmin->hasPermission('view_sales'))
+                    <a href="{{ route('admin.sales.index') }}" 
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.sales.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                        <i class="fas fa-chart-line w-5 h-5 {{ request()->routeIs('admin.sales.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                        <span class="sidebar-link-text text-sm font-medium ml-3">Vendite</span>
+                    </a>
+                    @endif --}}
+                    <a href="#" 
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.sales.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                        <i class="fa-solid fa-briefcase w-5 h-5 {{ request()->routeIs('admin.sales.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                        <span class="sidebar-link-text text-sm font-medium ml-3">Vendite</span>
+                    </a>
+
+                    <!-- Prima Nota -->
+                    {{-- @if($currentAdmin && $currentAdmin->hasPermission('view_journal_entries'))
+                    <a href="{{ route('admin.journal_entries.index') }}" 
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.journal_entries.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                        <i class="fa-solid fa-comment-dollar w-5 h-5 {{ request()->routeIs('admin.journal_entries.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                        <span class="sidebar-link-text text-sm font-medium ml-3">Prima Nota</span>
+                    </a>
+                    @endif --}}
+                    <a href="#" 
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.journal_entries.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                        <i class="fa-solid fa-comment-dollar w-5 h-5 {{ request()->routeIs('admin.journal_entries.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                        <span class="sidebar-link-text text-sm font-medium ml-3">Prima Nota</span>
                     </a>
                 </div>
                 @endif

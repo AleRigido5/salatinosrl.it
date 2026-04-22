@@ -36,7 +36,7 @@
                     
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-code mr-1 text-emerald-500"></i> Slug *
+                            <i class="fas fa-code mr-1 text-emerald-500"></i> Identificativo (Slug) *
                         </label>
                         <input type="text" name="slug" value="{{ old('slug') }}" required
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
@@ -67,7 +67,7 @@
                             <input type="checkbox" name="is_default" value="1" {{ old('is_default') ? 'checked' : '' }}
                                    class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
                             <span class="ml-2 text-sm text-gray-700">
-                                <i class="fas fa-star text-amber-500 mr-1"></i> Ruolo predefinito per nuovi admin
+                                <i class="fas fa-star text-amber-500 mr-1"></i> Ruolo predefinito per nuovi amministratori
                             </span>
                         </label>
                     </div>
@@ -93,8 +93,33 @@
                             <label class="flex items-center cursor-pointer">
                                 <input type="checkbox" class="group-selector mr-2" data-group="{{ $group }}">
                                 <span class="font-semibold text-emerald-800">
-                                    <i class="fas {{ $group == 'expiration' ? 'fa-calendar-alt' : ($group == 'trash' ? 'fa-trash-alt' : 'fa-folder-open') }} mr-1"></i> 
-                                    {{ ucfirst($group) }}
+                                    <i class="fas 
+                                        @if($group == 'dashboard') fa-tachometer-alt
+                                        @elseif($group == 'administrators') fa-user-shield
+                                        @elseif($group == 'roles') fa-users-cog
+                                        @elseif($group == 'entities') fa-building
+                                        @elseif($group == 'staff') fa-users
+                                        @elseif($group == 'vehicles') fa-truck
+                                        @elseif($group == 'services') fa-concierge-bell
+                                        @elseif($group == 'expiration') fa-calendar-alt
+                                        @elseif($group == 'cost_centers') fa-chart-line
+                                        @elseif($group == 'settings') fa-cog
+                                        @elseif($group == 'trash') fa-trash-alt
+                                        @else fa-folder-open
+                                        @endif mr-1"></i> 
+                                    @if($group == 'dashboard') Dashboard
+                                    @elseif($group == 'administrators') Amministratori
+                                    @elseif($group == 'roles') Ruoli e Permessi
+                                    @elseif($group == 'entities') Clienti / Fornitori
+                                    @elseif($group == 'staff') Personale
+                                    @elseif($group == 'vehicles') Mezzi
+                                    @elseif($group == 'services') Servizi
+                                    @elseif($group == 'expiration') Scadenze
+                                    @elseif($group == 'cost_centers') Centri di Costo
+                                    @elseif($group == 'settings') Impostazioni
+                                    @elseif($group == 'trash') Cestino
+                                    @else {{ ucfirst($group) }}
+                                    @endif
                                 </span>
                             </label>
                         </div>
@@ -102,17 +127,13 @@
                             @foreach($perms as $perm)
                                 @php
                                     $icon = 'fa-check';
-                                    if($group == 'expiration') {
-                                        if(str_contains($perm->slug, 'view')) $icon = 'fa-eye';
-                                        elseif(str_contains($perm->slug, 'create')) $icon = 'fa-plus-circle';
-                                        elseif(str_contains($perm->slug, 'edit')) $icon = 'fa-edit';
-                                        elseif(str_contains($perm->slug, 'delete')) $icon = 'fa-trash-alt';
-                                    } elseif($group == 'trash') {
-                                        if(str_contains($perm->slug, 'view')) $icon = 'fa-eye';
-                                        elseif(str_contains($perm->slug, 'restore')) $icon = 'fa-undo-alt';
-                                        elseif(str_contains($perm->slug, 'force_delete')) $icon = 'fa-skull-crossbones';
-                                        elseif(str_contains($perm->slug, 'empty')) $icon = 'fa-broom';
-                                    }
+                                    if(str_contains($perm->slug, 'view')) $icon = 'fa-eye';
+                                    elseif(str_contains($perm->slug, 'create')) $icon = 'fa-plus-circle';
+                                    elseif(str_contains($perm->slug, 'edit')) $icon = 'fa-edit';
+                                    elseif(str_contains($perm->slug, 'delete')) $icon = 'fa-trash-alt';
+                                    elseif(str_contains($perm->slug, 'restore')) $icon = 'fa-undo-alt';
+                                    elseif(str_contains($perm->slug, 'force_delete')) $icon = 'fa-skull-crossbones';
+                                    elseif(str_contains($perm->slug, 'empty')) $icon = 'fa-broom';
                                 @endphp
                                 <label class="flex items-center space-x-2 cursor-pointer hover:bg-emerald-50 p-1 rounded transition-colors">
                                     <input type="checkbox" name="permissions[]" value="{{ $perm->id }}"

@@ -1,4 +1,4 @@
-<div class="px-4 md:px-6 lg:px-8 xl:px-12">
+<div>
     <!-- Header con breadcrumb -->
     <div class="mb-6">
         <div class="flex justify-between items-center">
@@ -124,7 +124,7 @@
         </div>
     </div>
 
-    <!-- Tabella Scadenze - Larghezza aumentata per schermi grandi -->
+    <!-- Tabella Scadenze -->
     <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
         <div class="overflow-x-auto">
             <table class="min-w-full w-full divide-y divide-gray-200">
@@ -179,7 +179,6 @@
                 <tbody>
                     @forelse($expirations as $expiration)
                     <tr wire:key="expiration-{{ $expiration->id }}" class="hover:bg-gray-50 transition-colors duration-150 border-t border-gray-200">
-                        <!-- Titolo -->
                         <td class="px-4 py-4 align-top">
                             <div class="text-sm font-medium text-gray-900">
                                 {{ $expiration->titolo }}
@@ -191,7 +190,6 @@
                             @endif
                         </td>
                         
-                        <!-- Fornitore (ragione sociale) -->
                         <td class="px-4 py-4 align-top whitespace-normal">
                             @php
                                 $fornitoreNome = '';
@@ -210,7 +208,6 @@
                             @endif
                         </td>
                         
-                        <!-- Polizza n. (codice) -->
                         <td class="px-4 py-4 align-top whitespace-nowrap">
                             @if($expiration->codice)
                             <span class="text-sm font-mono text-gray-900">{{ $expiration->codice }}</span>
@@ -219,22 +216,25 @@
                             @endif
                         </td>
                         
-                        <!-- Data Inizio -->
                         <td class="px-4 py-4 align-top whitespace-nowrap text-sm text-gray-500">
                             {{ $expiration->data_inizio ? $expiration->data_inizio->format('d/m/Y') : '-' }}
                         </td>
                         
-                        <!-- Data Scadenza -->
                         <td class="px-4 py-4 align-top whitespace-nowrap text-sm text-gray-500">
                             {{ $expiration->data_fine ? $expiration->data_fine->format('d/m/Y') : '-' }}
                         </td>
                         
-                        <!-- Note -->
                         <td class="px-4 py-4 align-top">
                             @php
                                 $cleanNote = '';
                                 if($expiration->note) {
+                                    // Rimuovi marker [Scadenza_id: ...]
                                     $cleanNote = preg_replace('/\[Scadenza_id: \d+\]/', '', $expiration->note);
+                                    // Gestisci il testo "1° semestre" e "2° semestre"
+                                    $cleanNote = preg_replace('/1Â° semestre/', '1° semestre', $cleanNote);
+                                    $cleanNote = preg_replace('/2Â° semestre/', '2° semestre', $cleanNote);
+                                    $cleanNote = preg_replace('/1� semestre/', '1° semestre', $cleanNote);
+                                    $cleanNote = preg_replace('/2� semestre/', '2° semestre', $cleanNote);
                                     $cleanNote = preg_replace('/\s+/', ' ', $cleanNote);
                                     $cleanNote = html_entity_decode($cleanNote, ENT_QUOTES, 'UTF-8');
                                     $cleanNote = trim($cleanNote);
@@ -249,7 +249,6 @@
                             @endif
                         </td>
                         
-                        <!-- Importo -->
                         <td class="px-4 py-4 align-top whitespace-nowrap">
                             @if($expiration->importo)
                             <span class="text-sm font-semibold text-green-600">
@@ -260,7 +259,6 @@
                             @endif
                         </td>
                         
-                        <!-- Azioni -->
                         <td class="px-4 py-4 align-top text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
                                 <button wire:click="viewExpiration({{ $expiration->id }})" 
@@ -279,7 +277,6 @@
                                 </button>
                                 @endif
 
-                                <!-- Pulsante Documenti per Veicoli -->
                                 <a href="{{ route('admin.documents.index', ['expiration-vehicles', $expiration->id]) . '?vehicle_id=' . $vehicleId }}" 
                                    class="text-indigo-600 hover:text-indigo-900 transition-colors relative"
                                    title="Gestisci Documenti">
@@ -291,7 +288,7 @@
                                     @endif
                                 </a>
                             </div>
-                        </td
+                        </td>
                     </tr>
                     @empty
                     <tr>
@@ -305,7 +302,7 @@
                                 </button>
                                 @endif
                             </div>
-                        </td
+                        </td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -326,7 +323,6 @@
     @endif
 
     <style>
-        /* Stile paginazione */
         nav[role="navigation"] div.flex-1 {
             display: none !important;
         }
@@ -359,7 +355,6 @@
             display: none !important;
         }
         
-        /* Per schermi molto grandi (TV/Monitor) */
         @media (min-width: 1920px) {
             .container, .p-6 {
                 max-width: 100%;
@@ -370,7 +365,6 @@
             }
         }
         
-        /* Per schermi 4K */
         @media (min-width: 2560px) {
             table th, table td {
                 padding-left: 2rem !important;
@@ -491,47 +485,39 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Fornitore / Cliente</label>
                                 <div class="relative">
-                                    <div class="relative">
-                                        <input type="text" 
-                                            wire:model.live.debounce.300ms="createEntitySearch" 
-                                            placeholder="Cerca cliente o fornitore..."
-                                            class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
-                                        <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
-                                        
-                                        @if($createEntityNome)
-                                        <button type="button" 
-                                                wire:click="clearEntity" 
-                                                class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                        @endif
-                                    </div>
+                                    <input type="text" 
+                                        wire:model.live.debounce.300ms="createEntitySearch" 
+                                        placeholder="Cerca cliente o fornitore..."
+                                        class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                                        autocomplete="off">
+                                    <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
                                     
-                                    @if(count($createEntityResults) > 0)
-                                    <div class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                                        @foreach($createEntityResults as $result)
-                                        <div class="px-4 py-2 hover:bg-lime-50 cursor-pointer border-b border-gray-100 last:border-0"
-                                            wire:click="selectEntity({{ $result->id_cliente }}, '{{ addslashes($result->ragione_sociale ?: $result->nome . ' ' . $result->cognome) }}')">
-                                            <div class="font-medium text-gray-900">
-                                                {{ $result->ragione_sociale ?: $result->nome . ' ' . $result->cognome }}
-                                            </div>
-                                            <div class="text-xs text-gray-500 flex flex-wrap gap-2 mt-0.5">
-                                                @if($result->partita_iva)
-                                                <span class="inline-flex items-center">
-                                                    <i class="fas fa-credit-card mr-1 text-xs"></i>
-                                                    P.IVA: {{ $result->partita_iva }}
-                                                </span>
-                                                @endif
-                                                @if($result->codice_fiscale)
-                                                <span>CF: {{ $result->codice_fiscale }}</span>
-                                                @endif
-                                                <span>Tipo: {{ $result->entity_type === 'fornitore' ? 'Fornitore' : 'Cliente' }}</span>
-                                            </div>
-                                        </div>
-                                        @endforeach
-                                    </div>
+                                    @if($createEntityNome)
+                                    <button type="button" 
+                                            wire:click="clearEntity" 
+                                            class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
+                                        <i class="fas fa-times"></i>
+                                    </button>
                                     @endif
                                 </div>
+                                
+                                @if(count($createEntityResults) > 0)
+                                <div class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto" style="position: relative; z-index: 60;">
+                                    @foreach($createEntityResults as $index => $result)
+                                    <div class="px-4 py-2 hover:bg-lime-50 cursor-pointer border-b border-gray-100 last:border-0"
+                                        wire:click="selectEntity({{ $result->id_cliente }}, '{{ addslashes($result->ragione_sociale ?: $result->nome . ' ' . $result->cognome) }}')"
+                                        wire:key="create-result-{{ $result->id_cliente }}-{{ $index }}">
+                                        <div class="font-medium text-gray-900">
+                                            {{ $result->ragione_sociale ?: $result->nome . ' ' . $result->cognome }}
+                                        </div>
+                                        <div class="text-xs text-gray-500">
+                                            @if($result->partita_iva) P.IVA: {{ $result->partita_iva }} @endif
+                                            @if($result->codice_fiscale) | CF: {{ $result->codice_fiscale }} @endif
+                                        </div>
+                                    </div>
+                                    @endforeach
+                                </div>
+                                @endif
                                 
                                 @if($createEntityNome)
                                 <div class="mt-2 p-2 bg-green-50 rounded-md border border-green-200">
@@ -677,6 +663,10 @@
                             <p class="text-gray-700 mt-1">
                                 @php
                                     $cleanViewNote = preg_replace('/\[Scadenza_id: \d+\]/', '', $viewingExpiration->note);
+                                    $cleanViewNote = preg_replace('/1Â° semestre/', '1° semestre', $cleanViewNote);
+                                    $cleanViewNote = preg_replace('/2Â° semestre/', '2° semestre', $cleanViewNote);
+                                    $cleanViewNote = preg_replace('/1� semestre/', '1° semestre', $cleanViewNote);
+                                    $cleanViewNote = preg_replace('/2� semestre/', '2° semestre', $cleanViewNote);
                                     $cleanViewNote = preg_replace('/\s+/', ' ', $cleanViewNote);
                                     $cleanViewNote = html_entity_decode($cleanViewNote, ENT_QUOTES, 'UTF-8');
                                     $cleanViewNote = trim($cleanViewNote);
@@ -722,7 +712,7 @@
     </div>
     @endif
 
-        <!-- MODAL MODIFICA SCADENZA -->
+    <!-- MODAL MODIFICA SCADENZA -->
     @if($showEditModal && $editingExpiration)
     <div class="fixed inset-0 z-50 overflow-y-auto" 
         x-data="{ open: true }" 
@@ -827,7 +817,8 @@
                                     <input type="text" 
                                         wire:model.live.debounce.300ms="editEntitySearch" 
                                         placeholder="Cerca cliente o fornitore..."
-                                        class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                                        class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                                        autocomplete="off">
                                     <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
                                     
                                     @if($editEntityNome)
@@ -838,15 +829,17 @@
                                 </div>
                                 
                                 @if(count($editEntityResults) > 0)
-                                <div class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                                    @foreach($editEntityResults as $result)
+                                <div class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto" style="position: relative; z-index: 60;">
+                                    @foreach($editEntityResults as $index => $result)
                                     <div class="px-4 py-2 hover:bg-lime-50 cursor-pointer border-b border-gray-100 last:border-0"
-                                        wire:click="selectEditEntity({{ $result->id_cliente }}, '{{ addslashes($result->ragione_sociale ?: $result->nome . ' ' . $result->cognome) }}')">
+                                        wire:click="selectEditEntity({{ $result->id_cliente }}, '{{ addslashes($result->ragione_sociale ?: $result->nome . ' ' . $result->cognome) }}')"
+                                        wire:key="edit-result-{{ $result->id_cliente }}-{{ $index }}">
                                         <div class="font-medium text-gray-900">
                                             {{ $result->ragione_sociale ?: $result->nome . ' ' . $result->cognome }}
                                         </div>
                                         <div class="text-xs text-gray-500">
                                             @if($result->partita_iva) P.IVA: {{ $result->partita_iva }} @endif
+                                            @if($result->codice_fiscale) | CF: {{ $result->codice_fiscale }} @endif
                                         </div>
                                     </div>
                                     @endforeach
@@ -856,7 +849,11 @@
                                 @if($editEntityNome)
                                 <div class="mt-2 p-2 bg-green-50 rounded-md border border-green-200">
                                     <div class="flex items-center justify-between">
-                                        <span class="text-sm text-green-700">Associato a: {{ $editEntityNome }}</span>
+                                        <div class="flex items-center text-sm text-green-700">
+                                            <i class="fas fa-check-circle mr-1"></i>
+                                            <span class="font-medium">Associato a:</span>
+                                            <span class="ml-1">{{ $editEntityNome }}</span>
+                                        </div>
                                         <button type="button" wire:click="clearEditEntity" class="text-green-600 hover:text-green-800">
                                             <i class="fas fa-times"></i>
                                         </button>
@@ -891,3 +888,19 @@
     </div>
     @endif
 </div>
+
+<script>
+    document.addEventListener('livewire:init', function () {
+        Livewire.on('edit-entity-selected', (data) => {
+            console.log('Entità selezionata per modifica:', data);
+        });
+        
+        Livewire.on('edit-entity-cleared', () => {
+            console.log('Entità deselezionata in modifica');
+        });
+        
+        Livewire.on('entity-selected', () => {
+            console.log('Entità selezionata per creazione');
+        });
+    });
+</script>

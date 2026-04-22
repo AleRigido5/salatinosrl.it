@@ -1,7 +1,7 @@
 <div>
     <!-- Filtri e Ricerca Live -->
     <div class="bg-gradient-to-r from-white to-emerald-50 rounded-xl shadow-md mb-6 p-5 border border-emerald-100">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <!-- Ricerca live -->
             <div class="relative md:col-span-2">
                 <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
@@ -40,7 +40,7 @@
             </span>
             @endif
             <button wire:click="resetFilters" class="text-emerald-600 hover:text-emerald-800 text-xs">
-                <i class="fas fa-undo-alt mr-1"></i> Reset filtri
+                <i class="fas fa-undo-alt mr-1"></i> Resetta filtri
             </button>
         </div>
         @endif
@@ -64,7 +64,7 @@
                         </th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-emerald-700 uppercase tracking-wider cursor-pointer hover:bg-emerald-100 transition" wire:click="sortBy('slug')">
                             <div class="flex items-center space-x-1">
-                                <span>Slug</span>
+                                <span>Identificativo</span>
                                 @if($sortField === 'slug')
                                     <i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-emerald-500"></i>
                                 @else
@@ -82,7 +82,7 @@
                                 @endif
                             </div>
                         </th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-emerald-700 uppercase tracking-wider">Admin Associati</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-emerald-700 uppercase tracking-wider">Amministratori Associati</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-emerald-700 uppercase tracking-wider">Stato</th>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-emerald-700 uppercase tracking-wider">Azioni</th>
                     </tr>
@@ -111,7 +111,7 @@
                         </td>
                         <td class="px-6 py-4">
                             <span class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-800">
-                                <i class="fas fa-users mr-1"></i> {{ $role->administrators_count }} admin
+                                <i class="fas fa-users mr-1"></i> {{ $role->administrators_count }} amministratori
                             </span>
                         </td>
                         <td class="px-6 py-4">
@@ -163,6 +163,7 @@
         </div>
         
         <!-- Paginazione -->
+        @if($roles->hasPages())
         <div class="px-6 py-4 border-t border-emerald-100 bg-emerald-50/20">
             <div class="flex justify-between items-center">
                 <div class="text-sm text-gray-500">
@@ -173,5 +174,6 @@
                 </div>
             </div>
         </div>
+        @endif
     </div>
 </div>

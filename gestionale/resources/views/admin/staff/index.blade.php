@@ -46,7 +46,7 @@
     // Funzione per aprire il PDF VADEMECUM ASSUNZIONE
     function openVademecum() {
         // Usa il file PHP che serve dinamicamente il PDF
-        const pdfUrl = '/vademecum/get-pdf.php';
+        const pdfUrl = '/public/vademecum/get-pdf.php';
         
         // Apri il PDF in una nuova scheda
         window.open(pdfUrl, '_blank');

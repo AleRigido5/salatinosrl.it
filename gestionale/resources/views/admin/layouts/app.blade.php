@@ -368,8 +368,17 @@
                 @endif
                 
                 <!-- Anagrafica -->
-                @if($currentAdmin && ($currentAdmin->hasPermission('view_entities') || $currentAdmin->hasPermission('view_staff') || $currentAdmin->hasPermission('view_vehicles') || $currentAdmin->hasPermission('view_cost_centers')))
+                @if($currentAdmin && ($currentAdmin->hasPermission('view_entities') || $currentAdmin->hasPermission('view_staff') || $currentAdmin->hasPermission('view_vehicles') || $currentAdmin->hasPermission('view_cost_centers') || $currentAdmin->hasPermission('view_activities')))
                 <div class="mb-6">
+                    <!-- Attività -->
+                    @if($currentAdmin && $currentAdmin->hasPermission('view_activities'))
+                    <a href="{{ route('admin.activities.index') }}" 
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.activities.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                        <i class="fa-solid fa-person-digging w-5 h-5 {{ request()->routeIs('admin.activities.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                        <span class="sidebar-link-text text-sm font-medium ml-3">Attività</span>
+                    </a>
+                    @endif
+
                     <!-- Clienti / Fornitori -->
                     @if($currentAdmin && $currentAdmin->hasPermission('view_entities'))
                     <a href="{{ route('admin.entities.index') }}" 

@@ -103,6 +103,19 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         // =============================================
+        // GESTIONE ATTIVITÀ (ACTIVITIES)
+        // =============================================
+        Route::prefix('activities')->name('activities.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\ActivityController::class, 'index'])->name('index');
+            Route::get('/create', [App\Http\Controllers\Admin\ActivityController::class, 'create'])->name('create');
+            Route::post('/', [App\Http\Controllers\Admin\ActivityController::class, 'store'])->name('store');
+            Route::get('/{activity}', [App\Http\Controllers\Admin\ActivityController::class, 'show'])->name('show');
+            Route::get('/{activity}/edit', [App\Http\Controllers\Admin\ActivityController::class, 'edit'])->name('edit');
+            Route::put('/{activity}', [App\Http\Controllers\Admin\ActivityController::class, 'update'])->name('update');
+            Route::delete('/{activity}', [App\Http\Controllers\Admin\ActivityController::class, 'destroy'])->name('destroy');
+        });
+
+        // =============================================
         // GESTIONE PERSONALE (STAFF)
         // =============================================
         Route::prefix('staff')->name('staff.')->group(function () {

@@ -145,7 +145,7 @@
                 <tbody>
                     @forelse($vehicles as $vehicle)
                     @php
-                        // Ottieni la prossima scadenza più vicina
+                        // Ottieni l'ultima scadenza (quella con data_fine più grande)
                         $nextExpiration = null;
                         $expirationStatus = '';
                         $expirationColor = '';
@@ -153,34 +153,30 @@
                         $expirationTitle = '';
                         
                         if($vehicle->expirations && $vehicle->expirations->count() > 0) {
-                            // Trova la scadenza più vicina (data_fine più piccola e >= oggi)
-                            $today = now();
-                            $closestExpiration = null;
-                            $closestDiff = null;
+                            // Trova la scadenza con data_fine più grande (ultima)
+                            $latestExpiration = null;
+                            $latestDate = null;
                             
                             foreach($vehicle->expirations as $exp) {
                                 if($exp->data_fine) {
-                                    $diff = $today->diffInDays($exp->data_fine, false);
-                                    if($closestExpiration === null || ($diff >= 0 && $diff < $closestDiff)) {
-                                        $closestExpiration = $exp;
-                                        $closestDiff = $diff;
+                                    if($latestExpiration === null || $exp->data_fine > $latestDate) {
+                                        $latestExpiration = $exp;
+                                        $latestDate = $exp->data_fine;
                                     }
                                 }
                             }
                             
-                            if($closestExpiration) {
-                                $nextExpiration = $closestExpiration;
+                            if($latestExpiration) {
+                                $nextExpiration = $latestExpiration;
                                 $expirationTitle = $nextExpiration->titolo;
                                 $expirationDate = $nextExpiration->data_fine->format('d/m/Y');
+                                $today = now();
                                 
                                 if($nextExpiration->data_fine < $today) {
-                                    $expirationStatus = 'Scaduta';
                                     $expirationColor = 'text-red-600 bg-red-50';
                                 } elseif($nextExpiration->data_fine <= $today->copy()->addDays(30)) {
-                                    $expirationStatus = 'In scadenza';
                                     $expirationColor = 'text-yellow-600 bg-yellow-50';
                                 } else {
-                                    $expirationStatus = 'Valida';
                                     $expirationColor = 'text-green-600 bg-green-50';
                                 }
                             }
@@ -255,7 +251,6 @@
                                 <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium {{ $expirationColor }}">
                                     <i class="fas fa-calendar-alt mr-1"></i>
                                     {{ $expirationDate }}
-                                    <span class="ml-1">({{ $expirationStatus }})</span>
                                 </div>
                             </div>
                             @else

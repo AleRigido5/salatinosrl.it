@@ -1,24 +1,31 @@
 <div>
     <!-- Filtri e Ricerca -->
-    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200" wire:key="filters-{{ $search }}-{{ $statusFilter }}">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200" wire:key="filters-{{ $search }}-{{ $statusFilter }}-{{ $gruppoFilter }}">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="relative md:col-span-2">
                 <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
                 <input type="text" 
                     wire:model.live.debounce.300ms="search" 
-                    placeholder="Cerca per: Nome, Cognome, Soprannome, Cellulare, Email, Codice Fiscale..." 
+                    placeholder="Cerca per: Nome, Cognome, Soprannome, Cellulare, Email..." 
                     class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
             </div>
             
             <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
-                <option value="">Tutti gli stati</option>
                 <option value="active">Attivi</option>
                 <option value="inactive">Disattivi</option>
+                <option value="">Tutti</option>
+            </select>
+            
+            <select wire:model.live="gruppoFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                <option value="">Tutti i gruppi</option>
+                @foreach($staffGroups as $group)
+                    <option value="{{ $group->id }}">{{ $group->valore }}</option>
+                @endforeach
             </select>
         </div>
         
         <div class="flex justify-between items-center mt-4">
-            @if($search || $statusFilter)
+            @if($search || $statusFilter != 'active' || $gruppoFilter)
             <button wire:click="resetFilters" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
                 <i class="fas fa-sync-alt mr-1"></i>
                 Resetta filtri
@@ -26,7 +33,7 @@
             @endif
         </div>
         
-        @if($search || $statusFilter)
+        @if($search || $statusFilter != 'active' || $gruppoFilter)
         <div class="mt-3 flex flex-wrap items-center gap-2">
             <span class="text-sm text-gray-500">Filtri attivi:</span>
             @if($search)
@@ -37,10 +44,21 @@
                 </button>
             </span>
             @endif
-            @if($statusFilter)
+            @if($statusFilter != 'active')
             <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
-                Stato: {{ $statusFilter === 'active' ? 'Attivi' : 'Disattivi' }}
-                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-lime-900">
+                Stato: {{ $statusFilter === 'active' ? 'Attivi' : ($statusFilter === 'inactive' ? 'Disattivi' : 'Tutti') }}
+                <button wire:click="$set('statusFilter', 'active')" class="ml-1 hover:text-lime-900">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            </span>
+            @endif
+            @if($gruppoFilter)
+            @php
+                $selectedGroup = $staffGroups->firstWhere('id', $gruppoFilter);
+            @endphp
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
+                Gruppo: {{ $selectedGroup->valore ?? $gruppoFilter }}
+                <button wire:click="$set('gruppoFilter', '')" class="ml-1 hover:text-lime-900">
                     <i class="fas fa-times text-xs"></i>
                 </button>
             </span>
@@ -76,32 +94,25 @@
                             </div>
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contatti</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Codice Fiscale</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('valid')">
-                            <div class="flex items-center space-x-1">
-                                <span>Stato</span>
-                                @if($sortField === 'valid')
-                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
-                                @else
-                                    <i class="fas fa-sort text-gray-400"></i>
-                                @endif
-                            </div>
-                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scadenze</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($staff as $person)
+                    @php
+                        $assunzioneDate = $person->expirations->where('titolo', 'Assunzione')->first();
+                        $visitaMedicaDate = $person->expirations->where('titolo', 'Visita medica')->first();
+                        $assunzioneInfo = $assunzioneDate ? $this->formatExpirationDate($assunzioneDate->data_fine) : null;
+                        $visitaMedicaInfo = $visitaMedicaDate ? $this->formatExpirationDate($visitaMedicaDate->data_fine) : null;
+                    @endphp
                     <tr wire:key="staff-{{ $person->id_personale }}" class="hover:bg-gray-50 transition-colors duration-150">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ $person->id_personale }}
                         </td>
                         <td class="px-6 py-4">
                             <div class="flex items-center">
-                                <div class="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center bg-gray-100">
-                                    <i class="fas fa-user text-gray-500 text-lg"></i>
-                                </div>
-                                <div class="ml-4">
+                                <div class="ml-0">
                                     <div class="text-sm font-medium text-gray-900">
                                         {{ $person->NomePers ?: '-' }} {{ $person->CognomePers ?: '-' }}
                                     </div>
@@ -138,14 +149,43 @@
                                 @endif
                             </div>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-500 font-mono">
-                            {{ $person->CodFiscPers ?: '-' }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {{ $person->valid ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
-                                {{ $person->valid ? 'Attivo' : 'Disattivo' }}
-                            </span>
+                        <td class="px-6 py-4">
+                            <div class="space-y-2">
+                                <!-- Assunzione -->
+                                <div class="flex flex-col">
+                                    <span class="text-xs font-medium text-gray-500">Assunzione:</span>
+                                    @if($assunzioneInfo)
+                                        <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium {{ $assunzioneInfo['bg_class'] }}">
+                                            <i class="fas fa-calendar-alt mr-1"></i>
+                                            {{ $assunzioneInfo['formatted'] }}
+                                            @if($assunzioneInfo['is_expired'])
+                                                <span class="ml-1">(Scaduta da {{ $assunzioneInfo['days_left'] }} gg)</span>
+                                            @elseif($assunzioneInfo['is_expiring_soon'])
+                                                <span class="ml-1">(Tra {{ $assunzioneInfo['days_left'] }} gg)</span>
+                                            @endif
+                                        </div>
+                                    @else
+                                        <span class="text-xs text-gray-400 italic px-2 py-1 bg-gray-100 rounded-md">Nessuna scadenza</span>
+                                    @endif
+                                </div>
+                                <!-- Visita Medica -->
+                                <div class="flex flex-col">
+                                    <span class="text-xs font-medium text-gray-500">Visita Medica:</span>
+                                    @if($visitaMedicaInfo)
+                                        <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium {{ $visitaMedicaInfo['bg_class'] }}">
+                                            <i class="fas fa-calendar-alt mr-1"></i>
+                                            {{ $visitaMedicaInfo['formatted'] }}
+                                            @if($visitaMedicaInfo['is_expired'])
+                                                <span class="ml-1">(Scaduta da {{ $visitaMedicaInfo['days_left'] }} gg)</span>
+                                            @elseif($visitaMedicaInfo['is_expiring_soon'])
+                                                <span class="ml-1">(Tra {{ $visitaMedicaInfo['days_left'] }} gg)</span>
+                                            @endif
+                                        </div>
+                                    @else
+                                        <span class="text-xs text-gray-400 italic px-2 py-1 bg-gray-100 rounded-md">Nessuna scadenza</span>
+                                    @endif
+                                </div>
+                            </div>
                         </td>
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
@@ -167,7 +207,6 @@
                                     </button>
                                 @endif
 
-                                <!-- Icona Scadenze -->
                                 @if(auth()->guard('admin')->user()->hasPermission('view_expiration'))
                                     <button wire:click="goToExpiration({{ $person->id_personale }})" 
                                             wire:key="expiration-{{ $person->id_personale }}"
@@ -190,11 +229,11 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center">
+                        <td colspan="5" class="px-6 py-12 text-center">
                             <div class="text-gray-500">
                                 <i class="fas fa-users-slash mx-auto h-12 w-12 text-gray-400 text-5xl"></i>
                                 <p class="mt-2 text-sm">Nessun personale trovato</p>
-                                @if($search || $statusFilter)
+                                @if($search || $statusFilter != 'active' || $gruppoFilter)
                                 <button wire:click="resetFilters" class="mt-2 text-sm text-lime-600 hover:text-lime-800">
                                     Resetta filtri
                                 </button>
@@ -254,7 +293,7 @@
         }
     </style>
     
-    <!-- MODAL VISUALIZZAZIONE -->
+    <!-- MODAL VISUALIZZAZIONE (mantieni uguale) -->
     @if($showViewModal && $viewingStaff)
     <div wire:ignore.self class="fixed inset-0 z-50 overflow-y-auto" 
          x-data="{ show: true }" 
@@ -284,10 +323,6 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-3">
-                            <span class="px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap
-                                {{ $viewingStaff->valid ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
-                                {{ $viewingStaff->valid ? 'Attivo' : 'Disattivo' }}
-                            </span>
                             <button wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600">
                                 <i class="fa-solid fa-xmark text-2xl"></i>
                             </button>
@@ -413,7 +448,7 @@
     </div>
     @endif
 
-    <!-- MODAL MODIFICA -->
+    <!-- MODAL MODIFICA (mantieni uguale) -->
     @if($showEditModal && $editingStaff)
     <div wire:ignore.self class="fixed inset-0 z-50 overflow-y-auto" 
         x-data="{ show: true }" 
@@ -436,7 +471,6 @@
                         </button>
                     </div>
                     
-                    <!-- RIGA 1: Nome e Cognome (6+6) -->
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-4 max-h-[70vh] overflow-y-auto p-2">
                         <div class="md:col-span-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
@@ -447,7 +481,6 @@
                             <input type="text" wire:model="editCognome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
                         
-                        <!-- RIGA 2: Soprannome (8) e Indirizzo (4) sulla stessa riga -->
                         <div class="md:col-span-8">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Soprannome</label>
                             <input type="text" wire:model="editSoprannome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -457,7 +490,6 @@
                             <input type="text" wire:model="editIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
                         
-                        <!-- RIGA 3: Città, Provincia, CAP (7+2+3) -->
                         <div class="md:col-span-7">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
                             <input type="text" wire:model="editCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -471,7 +503,6 @@
                             <input type="text" wire:model="editCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" maxlength="5">
                         </div>
                         
-                        <!-- RIGA 4: Telefono (4), Cellulare (4), Email (4) sulla stessa riga -->
                         <div class="md:col-span-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
                             <input type="text" wire:model="editTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -485,7 +516,6 @@
                             <input type="email" wire:model="editEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
                         
-                        <!-- RIGA 5: Data Nascita (6) e Luogo Nascita (6) -->
                         <div class="md:col-span-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Data Nascita</label>
                             <input type="date" wire:model="editDataNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -495,7 +525,6 @@
                             <input type="text" wire:model="editLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
                         
-                        <!-- RIGA 6: IBAN (8) e Codice Fiscale (4) -->
                         <div class="md:col-span-8">
                             <label class="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
                             <input type="text" wire:model="editIban" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -505,7 +534,6 @@
                             <input type="text" wire:model="editCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" maxlength="16">
                         </div>
                         
-                        <!-- RIGA 7: Gruppo (8) e Account Attivo (4) -->
                         <div class="md:col-span-8">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Gruppo</label>
                             <select wire:model="editGruppo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -539,7 +567,7 @@
     </div>
     @endif
 
-    <!-- MODAL CREAZIONE -->
+    <!-- MODAL CREAZIONE (mantieni uguale) -->
     @if($showCreateModal)
     <div wire:ignore.self class="fixed inset-0 z-50 overflow-y-auto" 
         x-data="{ show: true }" 
@@ -562,9 +590,7 @@
                         </button>
                     </div>
                     
-                    <!-- Stesso layout della modifica -->
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-4 max-h-[70vh] overflow-y-auto p-2">
-                        <!-- RIGA 1: Nome e Cognome (6+6) -->
                         <div class="md:col-span-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
                             <input type="text" wire:model="createNome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -576,7 +602,6 @@
                             @error('createCognome') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                         </div>
                         
-                        <!-- RIGA 2: Soprannome (8) e Indirizzo (4) -->
                         <div class="md:col-span-8">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Soprannome</label>
                             <input type="text" wire:model="createSoprannome" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -586,7 +611,6 @@
                             <input type="text" wire:model="createIndirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
                         
-                        <!-- RIGA 3: Città, Provincia, CAP (7+2+3) -->
                         <div class="md:col-span-7">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
                             <input type="text" wire:model="createCitta" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -600,7 +624,6 @@
                             <input type="text" wire:model="createCap" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" maxlength="5">
                         </div>
                         
-                        <!-- RIGA 4: Telefono (4), Cellulare (4), Email (4) -->
                         <div class="md:col-span-4">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
                             <input type="text" wire:model="createTelefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -615,7 +638,6 @@
                             @error('createEmail') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                         </div>
                         
-                        <!-- RIGA 5: Data Nascita (6) e Luogo Nascita (6) -->
                         <div class="md:col-span-6">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Data Nascita</label>
                             <input type="date" wire:model="createDataNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -625,7 +647,6 @@
                             <input type="text" wire:model="createLuogoNascita" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                         </div>
                         
-                        <!-- RIGA 6: IBAN (8) e Codice Fiscale (4) -->
                         <div class="md:col-span-8">
                             <label class="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
                             <input type="text" wire:model="createIban" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -635,7 +656,6 @@
                             <input type="text" wire:model="createCodFiscale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" maxlength="16">
                         </div>
                         
-                        <!-- RIGA 7: Gruppo (8) e Account Attivo (4) -->
                         <div class="md:col-span-8">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Gruppo</label>
                             <select wire:model="createGruppo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">

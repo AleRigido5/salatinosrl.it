@@ -6,14 +6,17 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Staff;
 use App\Models\Setting;
+use App\Models\Expiration;
 use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 class StaffTable extends Component
 {
     use WithPagination;
 
     public $search = '';
-    public $statusFilter = '';
+    public $statusFilter = 'active'; // Default: solo attivi
+    public $gruppoFilter = '';
     public $perPage = 15;
     public $sortField = 'id_personale';
     public $sortDirection = 'asc';
@@ -30,7 +33,7 @@ class StaffTable extends Component
     // Form fields per modifica
     public $editNome = '';
     public $editCognome = '';
-    public $editSoprannome = '';  // Aggiunto Soprannome
+    public $editSoprannome = '';
     public $editCodFiscale = '';
     public $editTelefono = '';
     public $editCellulare = '';
@@ -77,8 +80,9 @@ class StaffTable extends Component
         if (session()->has('staff_filters')) {
             $filters = session('staff_filters');
             $this->search = $filters['search'] ?? '';
-            $this->statusFilter = $filters['statusFilter'] ?? '';
-            $this->sortField = $filters['sortField'] ?? 'id_personale';
+            $this->statusFilter = $filters['statusFilter'] ?? 'active';
+            $this->gruppoFilter = $filters['gruppoFilter'] ?? '';
+            $this->sortField = $filters['sortField'] ?? 'CognomePers';
             $this->sortDirection = $filters['sortDirection'] ?? 'asc';
             session()->forget('staff_filters');
         }
@@ -89,6 +93,7 @@ class StaffTable extends Component
         session(['staff_filters' => [
             'search' => $this->search,
             'statusFilter' => $this->statusFilter,
+            'gruppoFilter' => $this->gruppoFilter,
             'sortField' => $this->sortField,
             'sortDirection' => $this->sortDirection
         ]]);
@@ -115,10 +120,26 @@ class StaffTable extends Component
         $this->resetPage();
     }
     
+    public function updatingGruppoFilter()
+    {
+        $this->resetPage();
+    }
+    
     public function getStaffProperty()
     {
         $query = Staff::query();
         
+        // Filtro per stato (attivo/inattivo)
+        if ($this->statusFilter !== '') {
+            $query->where('valid', $this->statusFilter === 'active');
+        }
+        
+        // Filtro per gruppo
+        if (!empty($this->gruppoFilter)) {
+            $query->where('id_gruppo', $this->gruppoFilter);
+        }
+        
+        // Filtro ricerca
         if ($this->search) {
             $searchTerm = '%' . $this->search . '%';
             $query->where(function($q) use ($searchTerm) {
@@ -131,13 +152,17 @@ class StaffTable extends Component
             });
         }
         
-        if ($this->statusFilter !== '') {
-            $query->where('valid', $this->statusFilter === 'active');
-        }
-        
         $query->orderBy($this->sortField, $this->sortDirection);
         
-        return $query->with(['createdBy', 'updatedBy', 'gruppo'])->paginate($this->perPage);
+        return $query->with([
+            'createdBy', 
+            'updatedBy', 
+            'gruppo',
+            'expirations' => function($q) {
+                $q->whereIn('titolo', ['Assunzione', 'Visita medica'])
+                  ->orderBy('data_fine', 'desc');
+            }
+        ])->paginate($this->perPage);
     }
     
     public function getStaffGroupsProperty()
@@ -148,12 +173,64 @@ class StaffTable extends Component
             ->get();
     }
     
+    // Helper per formattare la data e calcolare lo stato con bg color
+    public function formatExpirationDate($date)
+    {
+        if (!$date) {
+            return [
+                'formatted' => '-',
+                'status' => 'none',
+                'days_left' => null,
+                'bg_class' => 'bg-gray-100 text-gray-500',
+                'is_expired' => false,
+                'is_expiring_soon' => false
+            ];
+        }
+        
+        $carbonDate = Carbon::parse($date);
+        $now = Carbon::now();
+        $daysLeft = $now->diffInDays($carbonDate, false);
+        
+        if ($carbonDate->isPast()) {
+            return [
+                'formatted' => $carbonDate->format('d/m/Y'),
+                'status' => 'expired',
+                'days_left' => abs($daysLeft),
+                'bg_class' => 'bg-red-100 text-red-800',
+                'is_expired' => true,
+                'is_expiring_soon' => false
+            ];
+        } elseif ($daysLeft <= 30) {
+            return [
+                'formatted' => $carbonDate->format('d/m/Y'),
+                'status' => 'warning',
+                'days_left' => $daysLeft,
+                'bg_class' => 'bg-yellow-100 text-yellow-800',
+                'is_expired' => false,
+                'is_expiring_soon' => true
+            ];
+        } else {
+            return [
+                'formatted' => $carbonDate->format('d/m/Y'),
+                'status' => 'valid',
+                'days_left' => $daysLeft,
+                'bg_class' => 'bg-green-100 text-green-800',
+                'is_expired' => false,
+                'is_expiring_soon' => false
+            ];
+        }
+    }
+    
     // ==================== METODI VISUALIZZAZIONE ====================
     
     public function viewStaff($id)
     {
         try {
-            $staff = Staff::with(['createdBy', 'updatedBy', 'gruppo'])->find($id);
+            $staff = Staff::with(['createdBy', 'updatedBy', 'gruppo', 'expirations' => function($q) {
+                $q->whereIn('titolo', ['Assunzione', 'Visita medica'])
+                  ->orderBy('data_fine', 'desc');
+            }])->find($id);
+            
             if (!$staff) {
                 $this->dispatch('showError', message: 'Personale non trovato');
                 return;
@@ -263,7 +340,7 @@ class StaffTable extends Component
                     'CapPers' => $this->editCap,
                     'DataNascPers' => $this->editDataNascita,
                     'LuogoNasc' => $this->editLuogoNascita,
-                    'IbanPers' => $this->editIban,  // CORRETTO: ora salva IBAN
+                    'IbanPers' => $this->editIban,
                     'id_gruppo' => $this->editGruppo,
                     'valid' => $this->editValid,
                     'updated_by' => auth()->guard('admin')->id(),
@@ -315,7 +392,6 @@ class StaffTable extends Component
     
     public function saveStaff()
     {
-        // CONTROLLO DUPLICATI CODICE FISCALE
         if (!empty($this->createCodFiscale)) {
             $existingStaff = Staff::where('CodFiscPers', $this->createCodFiscale)->first();
             if ($existingStaff) {
@@ -400,7 +476,8 @@ class StaffTable extends Component
     
     public function resetFilters()
     {
-        $this->reset(['search', 'statusFilter']);
+        $this->reset(['search', 'gruppoFilter']);
+        $this->statusFilter = 'active';
         $this->resetPage();
     }
 

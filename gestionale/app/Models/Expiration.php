@@ -402,9 +402,9 @@ class Expiration extends Model
 
     public function getStatusBadgeAttribute()
     {
-        if ($this->trashed()) {
-            return '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">Disattivo</span>';
-        }
+        // if ($this->trashed()) {
+        //     return '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">Disattivo</span>';
+        // }
         
         if ($this->data_fine && $this->data_fine < now()) {
             return '<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Scaduto</span>';

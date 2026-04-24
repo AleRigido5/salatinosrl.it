@@ -8,132 +8,198 @@
             <input type="date" wire:model.live="dateTo" class="text-sm px-3 py-1.5 border border-gray-300 rounded-md">
             @if($dateFrom || $dateTo)
             <button wire:click="applyCustomDateRange" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-1.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
-            Applica
+                Applica
             </button>
             @endif
         </div>
         
-        <!-- Advanced Filters with Autocomplete -->
-    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        <!-- Search -->
-        <div class="relative">
-            <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-            <input type="text" 
-                wire:model.live.debounce.500ms="search" 
-                placeholder="Cerca fattura, note..." 
-                class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
-        </div>
-        
-        <!-- Centro di Costo Autocomplete -->
-        <div class="relative">
+        <!-- Filtri Avanzati con Autocomplete -->
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            <!-- Search -->
             <div class="relative">
-                <i class="fas fa-building absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
                 <input type="text" 
-                    wire:model.live.debounce.300ms="costCenterSearch" 
-                    wire:focus="$set('showCostCenterDropdown', true)"
-                    placeholder="Cerca centro di costo..."
-                    class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
-                @if($costCenterFilter)
-                <button wire:click="clearCostCenter" class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times-circle text-sm"></i>
-                </button>
-                @endif
+                    wire:model.live.debounce.300ms="search" 
+                    placeholder="Cerca fattura, note, ha, lat/long..." 
+                    class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
             </div>
-            @if($showCostCenterDropdown && $costCenterSearch && isset($filteredCostCenters) && $filteredCostCenters->count() > 0)
-            <div class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                @foreach($filteredCostCenters as $cc)
-                <div wire:click="selectCostCenter({{ $cc->id }}, '{{ addslashes($cc->Nome) }}')" 
-                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                    <div class="font-medium text-gray-800">{{ $cc->Nome }}</div>
-                    @if($cc->Localita)
-                    <div class="text-xs text-gray-500">{{ $cc->Localita }}</div>
-                    @endif
-                </div>
-                @endforeach
-            </div>
-            @endif
-        </div>
-        
-        <!-- Servizio Autocomplete -->
-        <div class="relative">
-            <div class="relative">
-                <i class="fas fa-concierge-bell absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-                <input type="text" 
-                    wire:model.live.debounce.300ms="serviceSearch" 
-                    wire:focus="$set('showServiceDropdown', true)"
-                    placeholder="Cerca servizio..."
-                    class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
-                @if($serviceFilter)
-                <button wire:click="clearService" class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times-circle text-sm"></i>
-                </button>
-                @endif
-            </div>
-            @if($showServiceDropdown && $serviceSearch && isset($filteredServices) && $filteredServices->count() > 0)
-            <div class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                @foreach($filteredServices as $service)
-                <div wire:click="selectService({{ $service->id }}, '{{ addslashes($service->Titolo) }}')" 
-                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                    <div class="font-medium text-gray-800">{{ $service->Titolo }}</div>
-                    @if($service->Descrizione)
-                    <div class="text-xs text-gray-500 truncate">{{ $service->Descrizione }}</div>
-                    @endif
-                </div>
-                @endforeach
-            </div>
-            @endif
-        </div>
-        
-        <!-- Cliente/Fornitore Autocomplete -->
-        <div class="relative">
-            <div class="relative">
-                <i class="fas fa-user absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-                <input type="text" 
-                    wire:model.live.debounce.300ms="entitySearch" 
-                    wire:focus="$set('showEntityDropdown', true)"
-                    placeholder="Cerca cliente/fornitore..."
-                    class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
-                @if($entityFilter)
-                <button wire:click="clearEntity" class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times-circle text-sm"></i>
-                </button>
-                @endif
-            </div>
-            @if($showEntityDropdown && $entitySearch && isset($filteredEntities) && $filteredEntities->count() > 0)
-            <div class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                @foreach($filteredEntities as $entity)
-                @php
-                    $entityName = $entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome);
-                @endphp
-                <div wire:click="selectEntity({{ $entity->id_cliente }}, '{{ addslashes($entityName) }}')" 
-                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                    <div class="font-medium text-gray-800">{{ $entityName }}</div>
-                    @if($entity->partita_iva)
-                    <div class="text-xs text-gray-500">P.IVA: {{ $entity->partita_iva }}</div>
-                    @endif
-                </div>
-                @endforeach
-            </div>
-            @endif
-        </div>
-        
-        <!-- Per Page Selector -->
-        <div class="flex items-center space-x-2">
-            <select wire:model.live="perPage" class="text-sm px-3 py-2 border border-gray-300 rounded-md">
-                <option value="15">15 per pagina</option>
-                <option value="25">25 per pagina</option>
-                <option value="50">50 per pagina</option>
-                <option value="100">100 per pagina</option>
-            </select>
             
-            @if($search || $costCenterFilter || $serviceFilter || $entityFilter || !$useDateFilter)
-            <button wire:click="resetFilters" class="text-sm text-gray-500 hover:text-gray-700" title="Resetta tutti i filtri">
-                <i class="fas fa-sync-alt"></i>
-            </button>
-            @endif
-        </div>
-    </div>
+            <!-- Centro di Costo Autocomplete -->
+            <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                <div class="relative">
+                    <i class="fas fa-building absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                    <input type="text" 
+                        id="cost_center_input"
+                        wire:model.live.debounce.300ms="costCenterSearch" 
+                        x-on:focus="open = true"
+                        x-on:input="open = true; @this.set('costCenterSearch', $event.target.value)"
+                        placeholder="Cerca centro di costo..."
+                        class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                        autocomplete="off">
+                    @if($costCenterFilter)
+                    <button type="button" 
+                        wire:click="clearCostCenter" 
+                        x-on:click="document.getElementById('cost_center_input').value = ''"
+                        class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times-circle text-sm"></i>
+                    </button>
+                    @endif
+                </div>
+                
+                <!-- Dropdown risultati -->
+                <div x-show="open && @entangle('showCostCenterDropdown')" 
+                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    @if($filteredCostCenters && $filteredCostCenters->count() > 0)
+                        @foreach($filteredCostCenters as $cc)
+                        <div 
+                            x-on:click="
+                                open = false;
+                                document.getElementById('cost_center_input').value = '{{ addslashes($cc->Nome) }}';
+                                @this.set('costCenterSearch', '{{ addslashes($cc->Nome) }}');
+                                @this.set('costCenterFilter', {{ $cc->id }});
+                                @this.set('costCenterName', '{{ addslashes($cc->Nome) }}');
+                                @this.set('showCostCenterDropdown', false);
+                                @this.call('resetPage');
+                            " 
+                            class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                            <div class="font-medium text-gray-800">{{ $cc->Nome }}</div>
+                            @if($cc->Localita)
+                            <div class="text-xs text-gray-500">{{ $cc->Localita }}</div>
+                            @endif
+                        </div>
+                        @endforeach
+                    @else
+                        <div class="px-3 py-2 text-sm text-gray-500 text-center">
+                            Nessun risultato trovato
+                        </div>
+                    @endif
+                </div>
+            </div>
             
+            <!-- Servizio Autocomplete -->
+            <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                <div class="relative">
+                    <i class="fas fa-concierge-bell absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                    <input type="text" 
+                        id="service_input"
+                        wire:model.live.debounce.300ms="serviceSearch" 
+                        x-on:focus="open = true"
+                        x-on:input="open = true; @this.set('serviceSearch', $event.target.value)"
+                        placeholder="Cerca servizio..."
+                        class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                        autocomplete="off">
+                    @if($serviceFilter)
+                    <button type="button" 
+                        wire:click="clearService" 
+                        x-on:click="document.getElementById('service_input').value = ''"
+                        class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times-circle text-sm"></i>
+                    </button>
+                    @endif
+                </div>
+                
+                <!-- Dropdown risultati -->
+                <div x-show="open && @entangle('showServiceDropdown')" 
+                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    @if($filteredServices && $filteredServices->count() > 0)
+                        @foreach($filteredServices as $service)
+                        <div 
+                            x-on:click="
+                                open = false;
+                                document.getElementById('service_input').value = '{{ addslashes($service->Titolo) }}';
+                                @this.set('serviceSearch', '{{ addslashes($service->Titolo) }}');
+                                @this.set('serviceFilter', {{ $service->id }});
+                                @this.set('serviceName', '{{ addslashes($service->Titolo) }}');
+                                @this.set('showServiceDropdown', false);
+                                @this.call('resetPage');
+                            " 
+                            class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                            <div class="font-medium text-gray-800">{{ $service->Titolo }}</div>
+                            @if($service->Descrizione)
+                            <div class="text-xs text-gray-500 truncate">{{ $service->Descrizione }}</div>
+                            @endif
+                        </div>
+                        @endforeach
+                    @else
+                        <div class="px-3 py-2 text-sm text-gray-500 text-center">
+                            Nessun risultato trovato
+                        </div>
+                    @endif
+                </div>
+            </div>
+            
+            <!-- Cliente/Fornitore Autocomplete -->
+            <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                <div class="relative">
+                    <i class="fas fa-user absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                    <input type="text" 
+                        id="entity_input"
+                        wire:model.live.debounce.300ms="entitySearch" 
+                        x-on:focus="open = true"
+                        x-on:input="open = true; @this.set('entitySearch', $event.target.value)"
+                        placeholder="Cerca cliente/fornitore..."
+                        class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                        autocomplete="off">
+                    @if($entityFilter)
+                    <button type="button" 
+                        wire:click="clearEntity" 
+                        x-on:click="document.getElementById('entity_input').value = ''"
+                        class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times-circle text-sm"></i>
+                    </button>
+                    @endif
+                </div>
+                
+                <!-- Dropdown risultati -->
+                <div x-show="open && @entangle('showEntityDropdown')" 
+                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    @if($filteredEntities && $filteredEntities->count() > 0)
+                        @foreach($filteredEntities as $entity)
+                        @php
+                            $entityName = addslashes($entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome));
+                        @endphp
+                        <div 
+                            x-on:click="
+                                open = false;
+                                document.getElementById('entity_input').value = '{{ $entityName }}';
+                                @this.set('entitySearch', '{{ $entityName }}');
+                                @this.set('entityFilter', {{ $entity->id_cliente }});
+                                @this.set('entityName', '{{ $entityName }}');
+                                @this.set('showEntityDropdown', false);
+                                @this.call('resetPage');
+                            " 
+                            class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                            <div class="font-medium text-gray-800">{{ $entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome) }}</div>
+                            @if($entity->partita_iva)
+                            <div class="text-xs text-gray-500">P.IVA: {{ $entity->partita_iva }}</div>
+                            @endif
+                        </div>
+                        @endforeach
+                    @else
+                        <div class="px-3 py-2 text-sm text-gray-500 text-center">
+                            Nessun risultato trovato
+                        </div>
+                    @endif
+                </div>
+            </div>
+            
+            <!-- Per Page Selector -->
+            <div class="flex items-center space-x-2">
+                <select wire:model.live="perPage" class="text-sm px-3 py-2 border border-gray-300 rounded-md">
+                    <option value="15">15 per pagina</option>
+                    <option value="25">25 per pagina</option>
+                    <option value="50">50 per pagina</option>
+                    <option value="100">100 per pagina</option>
+                </select>
+                
+                @if($search || $costCenterFilter || $serviceFilter || $entityFilter || !$useDateFilter)
+                <button type="button" wire:click="resetFilters" class="text-sm text-gray-500 hover:text-gray-700" title="Resetta tutti i filtri">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                @endif
+            </div>
+        </div>
+        
         <!-- JavaScript per chiudere i dropdown quando si clicca fuori -->
         <script>
             document.addEventListener('click', function(event) {
@@ -157,29 +223,41 @@
                 </button>
             </span>
             @endif
+            
             @if($costCenterFilter)
             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-lime-100 text-lime-800">
                 <i class="fas fa-building mr-1 text-xs"></i>
-                {{ $costCenterName ?? $costCenterFilter }}
-                <button wire:click="clearCostCenter" class="ml-1 hover:text-lime-900">
+                {{ $costCenterName }}
+                <button 
+                    wire:click="clearCostCenter" 
+                    x-on:click="document.getElementById('cost_center_input').value = ''"
+                    class="ml-1 hover:text-lime-900">
                     <i class="fas fa-times text-xs"></i>
                 </button>
             </span>
             @endif
+            
             @if($serviceFilter)
             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-lime-100 text-lime-800">
                 <i class="fas fa-concierge-bell mr-1 text-xs"></i>
-                {{ $serviceName ?? $serviceFilter }}
-                <button wire:click="clearService" class="ml-1 hover:text-lime-900">
+                {{ $serviceName }}
+                <button 
+                    wire:click="clearService" 
+                    x-on:click="document.getElementById('service_input').value = ''"
+                    class="ml-1 hover:text-lime-900">
                     <i class="fas fa-times text-xs"></i>
                 </button>
             </span>
             @endif
+            
             @if($entityFilter)
             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-lime-100 text-lime-800">
                 <i class="fas fa-user mr-1 text-xs"></i>
-                {{ $entityName ?? $entityFilter }}
-                <button wire:click="clearEntity" class="ml-1 hover:text-lime-900">
+                {{ $entityName }}
+                <button 
+                    wire:click="clearEntity" 
+                    x-on:click="document.getElementById('entity_input').value = ''"
+                    class="ml-1 hover:text-lime-900">
                     <i class="fas fa-times text-xs"></i>
                 </button>
             </span>
@@ -191,10 +269,10 @@
     <!-- Tabella Attività -->
     <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+            <table class="table-fixed w-full divide-y divide-gray-200" style="min-width: 1200px;">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" wire:click="sortBy('data_activities')">
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-24" wire:click="sortBy('data_activities')">
                             <div class="flex items-center space-x-1">
                                 <span>Data</span>
                                 @if($sortField === 'data_activities')
@@ -202,84 +280,115 @@
                                 @endif
                             </div>
                         </th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Centro di Costo</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Servizio</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente/Fornitore</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Riferimenti</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" wire:click="sortBy('imponibile')">
-                            <div class="flex items-center justify-end space-x-1">
-                                <span>Importo</span>
-                                @if($sortField === 'imponibile')
-                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600 text-xs"></i>
-                                @endif
-                            </div>
-                        </th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Cliente / Cantiere</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">Personale (ore)</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-44">Titolo</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Lat/Long</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Note</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">ha</th>
+                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Azioni</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($activities as $activity)
                     <tr wire:key="activity-{{ $activity->id }}" class="hover:bg-gray-50 transition-colors">
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        <!-- Data Attività -->
+                        <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">
                             {{ $this->formatDate($activity->data_activities) }}
                         </td>
-                        <td class="px-4 py-3 text-sm">
-                            @if($activity->costCenter)
-                                <span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">
-                                    {{ $activity->costCenter->Nome ?? '-' }}
-                                </span>
-                            @else
-                                <span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-400">N/D</span>
-                            @endif
-                        </td>
-                        <td class="px-4 py-3 text-sm">
-                            @if($activity->service)
-                                <span class="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
-                                    {{ $activity->service->Titolo ?? '-' }}
-                                </span>
-                            @else
-                                <span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-400">N/D</span>
-                            @endif
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-700 max-w-[200px] truncate">
+                        
+                        <!-- Cliente / Cantiere -->
+                        <td class="px-3 py-3 text-sm">
                             @php
                                 $entity = $activity->entity;
+                                $costCenter = $activity->costCenter;
+                                $clienteNome = $entity ? ($entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome)) : '-';
+                                $cantiereNome = $costCenter ? $costCenter->Nome : '-';
                             @endphp
-                            @if($entity)
-                                <span title="{{ $entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome) }}">
-                                    {{ $entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome) ?: '-' }}
-                                </span>
-                            @else
-                                <span class="text-gray-400 italic">N/D</span>
-                            @endif
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-500">
-                            <div class="space-y-0.5">
-                                @if($activity->invoice_references)
-                                <div class="text-xs font-mono">{{ $activity->invoice_references }}</div>
-                                @endif
-                                @if($activity->note)
-                                <div class="text-xs text-gray-400 truncate max-w-[150px]" title="{{ $activity->note }}">
-                                    {{ Str::limit($activity->note, 30) }}
-                                </div>
+                            <div class="flex flex-col">
+                                <span class="font-medium text-gray-800 truncate max-w-[180px]" title="{{ $clienteNome }}">{{ $clienteNome }}</span>
+                                @if($cantiereNome != '-')
+                                    <span class="text-xs text-gray-500 mt-0.5 truncate max-w-[180px]" title="{{ $cantiereNome }}">{{ $cantiereNome }}</span>
                                 @endif
                             </div>
                         </td>
-                        <td class="px-4 py-3 text-sm text-right font-medium">
-                            {{ $this->formatCurrency($activity->imponibile) }}
+                        
+                        <!-- Personale (ore) -->
+                        <td class="px-3 py-3 text-sm">
+                            @if($activity->staffDetails && $activity->staffDetails->count() > 0)
+                                <div class="flex flex-wrap gap-2">
+                                    @foreach($activity->staffDetails as $staffDetail)
+                                        @php
+                                            $staff = $staffDetail->staff;
+                                            $staffName = $staff ? ($staff->CognomePers . ' ' . $staff->NomePers) : '-';
+                                            $ore = $staffDetail->n_ore ?: 0;
+                                        @endphp
+                                        <div class="text-sm whitespace-nowrap">
+                                            <span class="text-gray-700">{{ $staffName }}</span>
+                                            <span class="text-xs text-gray-500 ml-1">({{ number_format($ore, 1) }} h)</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <span class="text-gray-400 italic">-</span>
+                            @endif
                         </td>
-                        <td class="px-4 py-3 text-sm whitespace-nowrap">
+                        
+                        <!-- Titolo (Servizio) -->
+                        <td class="px-3 py-3 text-sm">
+                            @if($activity->service)
+                                <span class="inline-flex px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700 truncate max-w-[160px]" title="{{ $activity->service->Titolo ?? '-' }}">
+                                    {{ Str::limit($activity->service->Titolo ?? '-', 30) }}
+                                </span>
+                            @else
+                                <span class="text-gray-400 italic">-</span>
+                            @endif
+                        </td>
+                        
+                        <!-- Lat/Long -->
+                        <td class="px-3 py-3 text-sm">
+                            @if($activity->Lat_Long)
+                                <span class="font-mono text-xs text-gray-600 truncate block max-w-[120px]" title="{{ $activity->Lat_Long }}">
+                                    {{ Str::limit($activity->Lat_Long, 20) }}
+                                </span>
+                            @else
+                                <span class="text-gray-400 italic">-</span>
+                            @endif
+                        </td>
+                        
+                        <!-- Note -->
+                        <td class="px-3 py-3 text-sm text-gray-500">
+                            @if($activity->note)
+                                <div class="truncate max-w-[180px]" title="{{ $activity->note }}">
+                                    {{ Str::limit($activity->note, 40) }}
+                                </div>
+                            @else
+                                <span class="text-gray-400 italic">-</span>
+                            @endif
+                        </td>
+                        
+                        <!-- Ettari (ha) -->
+                        <td class="px-3 py-3 text-sm whitespace-nowrap">
+                            @if($activity->ha)
+                                <span class="font-medium">{{ $activity->ha }}</span>
+                            @else
+                                <span class="text-gray-400 italic">-</span>
+                            @endif
+                        </td>
+                        
+                        <!-- Azioni -->
+                        <td class="px-3 py-3 text-sm whitespace-nowrap">
                             <div class="flex items-center justify-center space-x-2">
                                 @if(auth()->guard('admin')->user()->hasPermission('view_activities'))
                                 <button wire:click="viewActivity({{ $activity->id }})" 
-                                        class="text-blue-500 hover:text-blue-700 transition-colors" 
+                                        class="text-blue-500 hover:text-blue-700 transition-colors p-1" 
                                         title="Visualizza">
                                     <i class="fa-regular fa-eye"></i>
                                 </button>
                                 @endif
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
                                 <button wire:click="editActivity({{ $activity->id }})" 
-                                        class="text-yellow-500 hover:text-yellow-700 transition-colors" 
+                                        class="text-yellow-500 hover:text-yellow-700 transition-colors p-1" 
                                         title="Modifica">
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </button>
@@ -289,13 +398,13 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-4 py-12 text-center text-gray-500">
+                        <td colspan="8" class="px-4 py-12 text-center text-gray-500">
                             <i class="fas fa-tasks text-4xl mb-2 text-gray-300"></i>
                             <p>Nessuna attività trovata</p>
                             @if(auth()->guard('admin')->user()->hasPermission('create_activities'))
-                            <button wire:click="openCreateModal" class="mt-2 text-lime-500 hover:text-lime-600 transition-colors">
-                                <i class="fas fa-plus-circle"></i> Clicca per aggiungere
-                            </button>
+                            <a href="{{ route('admin.activities.create') }}" class="mt-2 text-lime-500 hover:text-lime-600 transition-colors inline-flex items-center">
+                                <i class="fas fa-plus-circle mr-1"></i> Clicca per aggiungere
+                            </a>
                             @endif
                         </td>
                     </tr>
@@ -574,4 +683,23 @@
         </div>
     </div>
     @endif
+
+    @push('scripts')
+    <script>
+        document.addEventListener('livewire:initialized', () => {
+            // Ascolta gli eventi per pulire i campi
+            Livewire.on('clear-cost-center', () => {
+                document.getElementById('cost_center_input').value = '';
+            });
+            
+            Livewire.on('clear-service', () => {
+                document.getElementById('service_input').value = '';
+            });
+            
+            Livewire.on('clear-entity', () => {
+                document.getElementById('entity_input').value = '';
+            });
+        });
+    </script>
+    @endpush
 </div>

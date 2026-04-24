@@ -3,10 +3,9 @@
     <div class="mb-6">
         <div class="flex justify-between items-center">
             <div>
-                <h1 class="text-2xl font-bold text-gray-800">Gestione Mezzi</h1>
-                <p class="text-gray-500 mt-1">
-                    <i class="fas fa-truck mr-1"></i> Gestione automezzi, trattori e macchinari
-                </p>
+                <h1 class="text-2xl font-bold text-gray-800">
+                    <i class="fas fa-truck mr-2 text-lime-600"></i> Gestione Mezzi
+                </h1>
             </div>
             <div class="flex gap-3">
                 @if(auth()->guard('admin')->user()->hasPermission('create_vehicles'))

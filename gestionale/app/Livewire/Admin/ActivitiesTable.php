@@ -21,6 +21,9 @@ class ActivitiesTable extends Component
     public $costCenterFilter = '';
     public $serviceFilter = '';
     public $entityFilter = '';
+    public $costCenterName = '';
+    public $serviceName = '';
+    public $entityName = '';
     public $dateFrom = '';
     public $dateTo = '';
     public $perPage = 15;
@@ -201,24 +204,34 @@ class ActivitiesTable extends Component
     {
         $this->costCenterFilter = '';
         $this->costCenterSearch = '';
+        $this->costCenterName = '';  
         $this->showCostCenterDropdown = false;
         $this->resetPage();
+
+        $this->dispatch('clear-cost-center')->to('admin.activities-table');
     }
 
     public function clearService()
     {
         $this->serviceFilter = '';
         $this->serviceSearch = '';
+        $this->serviceName = '';
         $this->showServiceDropdown = false;
         $this->resetPage();
+
+        $this->dispatch('clear-service')->to('admin.activities-table');
     }
 
     public function clearEntity()
     {
         $this->entityFilter = '';
         $this->entitySearch = '';
+        $this->entityName = '';
         $this->showEntityDropdown = false;
         $this->resetPage();
+
+        // Dispatch evento per pulire l'input nel frontend
+        $this->dispatch('clear-entity')->to('admin.activities-table');
     }
 
     public function getFilteredCostCentersProperty()
@@ -717,7 +730,10 @@ class ActivitiesTable extends Component
             'entityFilter',
             'costCenterSearch',
             'serviceSearch',
-            'entitySearch'
+            'entitySearch',
+            'costCenterName',  
+            'serviceName',     
+            'entityName' 
         ]);
         $this->setCurrentMonthRange();
         $this->resetPage();

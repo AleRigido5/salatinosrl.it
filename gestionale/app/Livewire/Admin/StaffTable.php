@@ -159,18 +159,50 @@ class StaffTable extends Component
             'updatedBy', 
             'gruppo',
             'expirations' => function($q) {
-                $q->whereIn('titolo', ['Assunzione', 'Visita medica'])
-                  ->orderBy('data_fine', 'desc');
+                // CAMBIA QUESTO: usa LIKE invece di whereIn esatto
+                $q->where(function($query) {
+                    $query->where('titolo', 'LIKE', 'Assunzione%')
+                        ->orWhere('titolo', 'LIKE', 'Visita medica%');
+                })
+                ->orderBy('data_fine', 'desc');
             }
         ])->paginate($this->perPage);
     }
     
+    public function getLatestExpiration($staffId, $titoloPrefix)
+    {
+        return Expiration::where('table_references', 'staff')
+            ->where('id_references', $staffId)
+            ->where('titolo', 'LIKE', $titoloPrefix . '%')
+            ->whereNotNull('data_fine')
+            ->orderBy('data_fine', 'desc')
+            ->first();
+    }
+
     public function getStaffGroupsProperty()
     {
         return Setting::where('tabella_riferimento', 'staff')
             ->where('valid', 1)
             ->orderBy('ordinamento')
             ->get();
+    }
+
+    public function getUltimaAssunzioneAttribute()
+    {
+        return $this->expirations()
+            ->where('titolo', 'LIKE', 'Assunzione%')  // Prende "Assunzione", "Assunzione 1.sem", etc.
+            ->whereNotNull('data_fine')
+            ->orderBy('data_fine', 'desc')
+            ->first();
+    }
+
+    public function getUltimaVisitaMedicaAttribute()
+    {
+        return $this->expirations()
+            ->where('titolo', 'LIKE', 'Visita medica%')
+            ->whereNotNull('data_fine')
+            ->orderBy('data_fine', 'desc')
+            ->first();
     }
     
     // Helper per formattare la data e calcolare lo stato con bg color

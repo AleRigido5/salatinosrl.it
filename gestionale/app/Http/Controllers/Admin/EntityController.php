@@ -219,6 +219,34 @@ class EntityController extends Controller
     }
 
     /**
+     * API search for clients only (not suppliers)
+     */
+    public function searchClients(Request $request)
+    {
+        $query = $request->get('q', '');
+        
+        if (strlen($query) < 2) {
+            return response()->json([]);
+        }
+        
+        $results = Entity::where('valid', 1)
+            ->where(function($q) use ($query) {
+                $q->where('ragione_sociale', 'like', '%' . $query . '%')
+                ->orWhere('nome', 'like', '%' . $query . '%')
+                ->orWhere('cognome', 'like', '%' . $query . '%')
+                ->orWhere('partita_iva', 'like', '%' . $query . '%')
+                ->orWhere('codice_fiscale', 'like', '%' . $query . '%');
+            })
+            ->whereIn('entity_type', ['cliente', 'entrambi'])  // Solo clienti
+            ->orderBy('ragione_sociale')
+            ->orderBy('nome')
+            ->limit(10)
+            ->get(['id_cliente', 'ragione_sociale', 'nome', 'cognome', 'partita_iva', 'codice_fiscale', 'entity_type']);
+        
+        return response()->json($results);
+    }
+
+    /**
      * API per la ricerca di entità (clienti/fornitori) via AJAX
      */
     public function search(Request $request)

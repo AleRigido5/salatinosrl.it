@@ -4,11 +4,8 @@
         <div class="flex justify-between items-center">
             <div>
                 <h1 class="text-2xl font-bold text-gray-800">
-                    <i class="fa-solid fa-scale-unbalanced mr-2 text-lime-600"></i> Centri di Costo
+                    <i class="fa-solid fa-scale-unbalanced mr-2 text-lime-600"></i> Centri di Costo 
                 </h1>
-                <p class="text-gray-500 mt-1">
-                    <i class="fas fa-chart-line mr-1"></i> Gestione centri di costo per proprietà e clienti/fornitori
-                </p>
             </div>
             <div class="flex gap-3">
                 @if(auth()->guard('admin')->user()->hasPermission('create_cost_centers'))

@@ -97,6 +97,38 @@ class StaffController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * API search for staff (AJAX)
+     */
+    public function search(Request $request)
+    {
+        $query = $request->get('q', '');
+        
+        if (strlen($query) < 2) {
+            return response()->json([]);
+        }
+        
+        $results = Staff::where('valid', 1)
+            ->where(function($q) use ($query) {
+                $q->where('NomePers', 'like', '%' . $query . '%')
+                ->orWhere('CognomePers', 'like', '%' . $query . '%')
+                ->orWhereRaw("CONCAT(NomePers, ' ', CognomePers) LIKE ?", ['%' . $query . '%'])
+                ->orWhereRaw("CONCAT(CognomePers, ' ', NomePers) LIKE ?", ['%' . $query . '%']);
+            })
+            ->orderBy('CognomePers')
+            ->orderBy('NomePers')
+            ->limit(10)
+            ->get(['id_personale', 'NomePers', 'CognomePers']);
+        
+        // Add full_name field
+        $results->transform(function($item) {
+            $item->full_name = $item->CognomePers . ' ' . $item->NomePers;
+            return $item;
+        });
+        
+        return response()->json($results);
+    }
     
     /**
      * Display the specified staff.

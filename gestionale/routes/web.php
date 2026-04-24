@@ -302,7 +302,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // API PER RICERCHE AJAX / Livewire
         // =============================================
         Route::prefix('api')->name('api.')->group(function () {
+            // API per Entità
             Route::get('/search-entities', [EntityController::class, 'search'])->name('search-entities');
+            Route::get('/search-clients', [EntityController::class, 'searchClients'])->name('search-clients');
             Route::get('/entity-contacts/{entity}', [ContactController::class, 'getEntityContacts'])->name('entity-contacts');
             
             // API per indirizzi
@@ -319,6 +321,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/search-vehicles', [VehiclesController::class, 'search'])->name('search-vehicles');
             Route::get('/vehicles/{vehicle}', [VehiclesController::class, 'getVehicle'])->name('vehicles.get');
             Route::get('/vehicles/{vehicle}/documents', [VehiclesController::class, 'getDocuments'])->name('vehicle-documents');
+
+            // ===== API PER ACTIVITIES =====
+            // API per Centri di Costo
+            Route::get('/search-cost-centers', [CostCenterController::class, 'search'])->name('search-cost-centers');
+            
+            // API per recuperare il cliente associato a un centro di costo
+            Route::get('/cost-center-client', [CostCenterController::class, 'getClientByCostCenter'])->name('cost-center-client');
+            
+            // API per Servizi
+            Route::get('/search-services', [ServiceController::class, 'search'])->name('search-services');
         });
     });
 });

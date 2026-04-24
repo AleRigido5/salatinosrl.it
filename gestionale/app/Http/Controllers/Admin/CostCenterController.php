@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CostCenter;
 use App\Models\Ownership;
 use App\Models\Entity;
+use App\Models\Service;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -72,6 +73,61 @@ class CostCenterController extends Controller
         } else {
             return response()->json([]);
         }
+        
+        return response()->json($results);
+    }
+
+    /**
+     * Get the client associated with a cost center
+     */
+    public function getClientByCostCenter(Request $request)
+    {
+        $costCenterId = $request->get('id');
+        
+        if (!$costCenterId) {
+            return response()->json(null);
+        }
+        
+        $costCenter = CostCenter::find($costCenterId);
+        
+        if (!$costCenter) {
+            return response()->json(null);
+        }
+        
+        // Recupera l'entità associata (id_references punta a id_cliente quando table_references = 'entities')
+        if ($costCenter->table_references === 'entities') {
+            $client = Entity::find($costCenter->id_references);
+            if ($client) {
+                return response()->json([
+                    'id_cliente' => $client->id_cliente,
+                    'ragione_sociale' => $client->ragione_sociale,
+                    'nome' => $client->nome,
+                    'cognome' => $client->cognome,
+                    'partita_iva' => $client->partita_iva,
+                    'entity_type' => $client->entity_type,
+                ]);
+            }
+        }
+        
+        return response()->json(null);
+    }
+
+    /**
+     * API search for cost centers (AJAX)
+     */
+    public function search(Request $request)
+    {
+        $query = $request->get('q', '');
+        
+        if (strlen($query) < 2) {
+            return response()->json([]);
+        }
+        
+        $results = CostCenter::where('valid', 1)
+            ->where('Nome', 'like', '%' . $query . '%')
+            ->orderBy('Nome')
+            ->limit(10)
+            ->get(['id', 'Nome', 'Localita']);
         
         return response()->json($results);
     }

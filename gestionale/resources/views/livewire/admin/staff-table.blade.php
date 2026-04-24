@@ -101,8 +101,9 @@
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($staff as $person)
                     @php
-                        $assunzioneDate = $person->expirations->where('titolo', 'Assunzione')->first();
-                        $visitaMedicaDate = $person->expirations->where('titolo', 'Visita medica')->first();
+                        $assunzioneDate = $this->getLatestExpiration($person->id_personale, 'Assunzione');
+                        $visitaMedicaDate = $this->getLatestExpiration($person->id_personale, 'Visita medica');
+                        
                         $assunzioneInfo = $assunzioneDate ? $this->formatExpirationDate($assunzioneDate->data_fine) : null;
                         $visitaMedicaInfo = $visitaMedicaDate ? $this->formatExpirationDate($visitaMedicaDate->data_fine) : null;
                     @endphp

@@ -633,7 +633,7 @@ class VehiclesTable extends Component
     
     public function render()
     {
-        return view('livewire.admin.vehicles-table', [
+        return view('livewire.admin.vehicles.vehicles-table', [
             'vehicles' => $this->vehicles,
             'tipiList' => $this->tipiList,
             'statiList' => $this->statiList,

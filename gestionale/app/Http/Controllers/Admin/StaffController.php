@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Staff;
+use App\Models\Activity;
+use App\Models\ActivityStaffLink;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 class StaffController extends Controller
 {
@@ -123,7 +126,7 @@ class StaffController extends Controller
         
         // Add full_name field
         $results->transform(function($item) {
-            $item->full_name = $item->CognomePers . ' ' . $item->NomePers;
+            $item->full_name = trim($item->CognomePers . ' ' . $item->NomePers);
             return $item;
         });
         
@@ -227,7 +230,7 @@ class StaffController extends Controller
         
         try {
             $staff = Staff::findOrFail($id);
-            $name = $staff->full_name ?? $staff->NomePers . ' ' . $staff->CognomePers;
+            $name = trim($staff->NomePers . ' ' . $staff->CognomePers);
             $staff->delete();
             
             return response()->json([
@@ -270,5 +273,84 @@ class StaffController extends Controller
                 'message' => 'Errore durante il cambio di stato: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Display activity report for a staff member.
+     */
+    public function activityReport($id, Request $request)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('view_activity_report')) {
+            abort(403, 'Non hai i permessi necessari.');
+        }
+        
+        $staff = Staff::findOrFail($id);
+        
+        // Gestione mese/anno o range personalizzato
+        $selectedMonth = $request->get('month', Carbon::now()->format('m'));
+        $selectedYear = $request->get('year', Carbon::now()->format('Y'));
+        $currentYear = Carbon::now()->year;
+        
+        if ($request->has('date_from') && $request->has('date_to')) {
+            $dateFrom = Carbon::parse($request->date_from)->startOfDay();
+            $dateTo = Carbon::parse($request->date_to)->endOfDay();
+            $selectedMonth = $dateFrom->format('m');
+            $selectedYear = $dateFrom->format('Y');
+        } else {
+            $dateFrom = Carbon::createFromDate($selectedYear, $selectedMonth, 1)->startOfMonth();
+            $dateTo = Carbon::createFromDate($selectedYear, $selectedMonth, 1)->endOfMonth();
+        }
+        
+        // Query attività per questo staff filtrando per data_activities
+        $activityIds = ActivityStaffLink::where('id_staff', $staff->id_personale)
+            ->pluck('id_activities');
+        
+        $activities = Activity::with(['costCenter', 'service', 'entity', 'staffDetails' => function($q) use ($staff) {
+            $q->where('id_staff', $staff->id_personale);
+        }])
+        ->whereIn('id', $activityIds)
+        ->whereBetween('data_activities', [$dateFrom, $dateTo])
+        ->orderBy('data_activities', 'desc')
+        ->get();
+        
+        // Calcolo statistiche
+        $totalHours = 0;
+        $totalMaturato = 0;
+        $totalSpese = 0;
+        $totalCostoOrario = 0;
+        $activityCount = 0;
+        
+        foreach ($activities as $activity) {
+            $staffDetail = $activity->staffDetails->first();
+            if ($staffDetail) {
+                $ore = floatval($staffDetail->n_ore ?? 0);
+                $costoOrario = floatval($staffDetail->costo_h ?? 0);
+                $spese = floatval($staffDetail->spese ?? 0);
+                
+                $totalHours += $ore;
+                $totalMaturato += $ore * $costoOrario;
+                $totalSpese += $spese;
+                if ($ore > 0) {
+                    $totalCostoOrario += $costoOrario;
+                    $activityCount++;
+                }
+            }
+        }
+        
+        $totalWorkingDays = $totalHours / 8;
+        $averageHourlyCost = $activityCount > 0 ? $totalCostoOrario / $activityCount : 0;
+        
+        // Mesi per navigazione
+        $currentDate = Carbon::createFromDate($selectedYear, $selectedMonth, 1);
+        $previousMonth = $currentDate->copy()->subMonth();
+        $nextMonth = $currentDate->copy()->addMonth();
+        
+        return view('admin.staff.activity-report', compact(
+            'staff', 'activities', 'dateFrom', 'dateTo',
+            'selectedMonth', 'selectedYear', 'currentYear',
+            'previousMonth', 'nextMonth',
+            'totalHours', 'totalMaturato', 'totalSpese',
+            'totalWorkingDays', 'averageHourlyCost'
+        ));
     }
 }

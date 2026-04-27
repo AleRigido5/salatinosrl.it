@@ -38,8 +38,8 @@
         </div>
     </div>
 
-    <!-- Componente Livewire -->
-    @livewire('admin.staff-table')
+    <!-- Componente Livewire - CORRETTO -->
+    @livewire('admin.staff.staff-table')
 </div>
 
 <script>

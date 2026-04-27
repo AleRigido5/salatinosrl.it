@@ -12,12 +12,22 @@ class RolesTable extends Component
     use WithPagination;
 
     public $search = '';
-    public $status = '';
     public $perPage = 15;
     public $sortField = 'level';
     public $sortDirection = 'asc';
     
-    protected $queryString = ['search', 'status', 'sortField', 'sortDirection'];
+    // Cestino
+    public $showTrashModal = false;
+    public $trashSearch = '';
+    public $trashSortField = 'deleted_at';
+    public $trashSortDirection = 'desc';
+    
+    // Modale conferma eliminazione
+    public $showDeleteModal = false;
+    public $roleToDelete = null;
+    public $roleNameToDelete = '';
+    
+    protected $queryString = ['search', 'sortField', 'sortDirection'];
     
     protected $listeners = ['roleDeleted' => 'refreshTable'];
     
@@ -42,11 +52,6 @@ class RolesTable extends Component
         $this->resetPage();
     }
     
-    public function updatingStatus()
-    {
-        $this->resetPage();
-    }
-    
     public function getRolesProperty()
     {
         return Role::query()
@@ -54,46 +59,30 @@ class RolesTable extends Component
             ->when($this->search, function($query) {
                 $query->where(function($q) {
                     $q->where('name', 'like', '%' . $this->search . '%')
-                      ->orWhere('slug', 'like', '%' . $this->search . '%')
-                      ->orWhere('description', 'like', '%' . $this->search . '%');
+                      ->orWhere('slug', 'like', '%' . $this->search . '%');
                 });
-            })
-            ->when($this->status !== '', function($query) {
-                $query->where('is_active', $this->status === 'active');
             })
             ->orderBy($this->sortField, $this->sortDirection)
             ->paginate($this->perPage);
     }
     
-    public function deleteRole($id)
+    public function getTrashedRolesProperty()
     {
-        $role = Role::find($id);
-        
-        if (!$role) {
-            session()->flash('error', 'Ruolo non trovato');
-            return;
-        }
-        
-        if (in_array($role->slug, ['super_admin', 'admin', 'editor', 'viewer'])) {
-            session()->flash('error', 'Non puoi eliminare i ruoli di sistema.');
-            return;
-        }
-        
-        if ($role->administrators()->count() > 0) {
-            session()->flash('error', 'Non puoi eliminare un ruolo che ha amministratori associati.');
-            return;
-        }
-        
-        $role->delete();
-        session()->flash('success', 'Ruolo eliminato con successo!');
-        $this->dispatch('roleDeleted');
-        $this->resetPage();
+        return Role::onlyTrashed()
+            ->with('deletedBy')
+            ->when($this->trashSearch, function($query) {
+                $query->where(function($q) {
+                    $q->where('name', 'like', '%' . $this->trashSearch . '%')
+                      ->orWhere('slug', 'like', '%' . $this->trashSearch . '%');
+                });
+            })
+            ->orderBy($this->trashSortField, $this->trashSortDirection)
+            ->paginate(10);
     }
     
     public function resetFilters()
     {
         $this->search = '';
-        $this->status = '';
         $this->sortField = 'level';
         $this->sortDirection = 'asc';
         $this->resetPage();
@@ -103,16 +92,117 @@ class RolesTable extends Component
     {
         $role = Role::find($id);
         if ($role && $role->slug != 'super_admin') {
-            $role->update(['is_active' => !$role->is_active]);
-            session()->flash('success', 'Stato del ruolo aggiornato con successo!');
-            $this->dispatch('roleUpdated');
+            $role->update([
+                'is_active' => !$role->is_active,
+                'updated_by' => Auth::guard('admin')->id(),
+                'updated_at' => now()
+            ]);
+            $this->dispatch('showSuccess', message: 'Stato del ruolo aggiornato con successo!');
+        }
+    }
+    
+    public function confirmDelete($id)
+    {
+        $role = Role::find($id);
+        
+        if (!$role) {
+            $this->dispatch('showError', message: 'Ruolo non trovato');
+            return;
+        }
+        
+        if (in_array($role->slug, ['super_admin', 'admin', 'editor', 'viewer'])) {
+            $this->dispatch('showError', message: 'Non puoi eliminare i ruoli di sistema.');
+            return;
+        }
+        
+        if ($role->administrators()->count() > 0) {
+            $this->dispatch('showError', message: 'Non puoi eliminare un ruolo che ha amministratori associati.');
+            return;
+        }
+        
+        $this->roleToDelete = $id;
+        $this->roleNameToDelete = $role->name;
+        $this->showDeleteModal = true;
+    }
+    
+    public function cancelDelete()
+    {
+        $this->showDeleteModal = false;
+        $this->roleToDelete = null;
+        $this->roleNameToDelete = '';
+    }
+    
+    public function deleteRole()
+    {
+        $role = Role::find($this->roleToDelete);
+        if ($role) {
+            $role->delete();
+            $this->dispatch('showSuccess', message: 'Ruolo spostato nel cestino con successo!');
+        }
+        $this->cancelDelete();
+        $this->resetPage();
+    }
+    
+    // Gestione Cestino
+    public function openTrashModal()
+    {
+        $this->showTrashModal = true;
+        $this->trashSearch = '';
+        $this->trashSortField = 'deleted_at';
+        $this->trashSortDirection = 'desc';
+    }
+    
+    public function closeTrashModal()
+    {
+        $this->showTrashModal = false;
+    }
+    
+    public function resetTrashFilters()
+    {
+        $this->trashSearch = '';
+        $this->trashSortField = 'deleted_at';
+        $this->trashSortDirection = 'desc';
+    }
+    
+    public function trashSortBy($field)
+    {
+        if ($this->trashSortField === $field) {
+            $this->trashSortDirection = $this->trashSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->trashSortField = $field;
+            $this->trashSortDirection = 'asc';
+        }
+    }
+    
+    public function restoreFromTrash($id)
+    {
+        $role = Role::onlyTrashed()->find($id);
+        if ($role) {
+            $role->restore();
+            $role->update([
+                'updated_by' => Auth::guard('admin')->id(),
+                'updated_at' => now()
+            ]);
+            $this->dispatch('showSuccess', message: 'Ruolo ripristinato con successo!');
+            $this->refreshTable();
+        }
+    }
+    
+    public function forceDeleteFromTrash($id)
+    {
+        $role = Role::onlyTrashed()->find($id);
+        if ($role) {
+            $role->forceDelete();
+            $this->dispatch('showSuccess', message: 'Ruolo eliminato definitivamente!');
+            $this->refreshTable();
         }
     }
     
     public function render()
     {
         return view('livewire.admin.roles-table', [
-            'roles' => $this->roles
+            'roles' => $this->roles,
+            'trashedRoles' => $this->trashedRoles,
         ]);
     }
 }

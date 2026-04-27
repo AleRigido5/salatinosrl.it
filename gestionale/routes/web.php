@@ -127,7 +127,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::put('/{staff}', [StaffController::class, 'update'])->name('update');
             Route::delete('/{staff}', [StaffController::class, 'destroy'])->name('destroy');
             Route::post('/{staff}/toggle-status', [StaffController::class, 'toggleStatus'])->name('toggle-status');
-            
+
+            // Report attività per staff
+            Route::get('/{staff}/activity-report', [StaffController::class, 'activityReport'])->name('activity-report');        
+                
             // Export staff
             Route::get('/export/csv', [StaffController::class, 'export'])->name('export');
             Route::get('/export/pdf', [StaffController::class, 'exportPdf'])->name('export.pdf');

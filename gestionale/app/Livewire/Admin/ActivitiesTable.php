@@ -30,7 +30,7 @@ class ActivitiesTable extends Component
     public $sortField = 'data_activities';
     public $sortDirection = 'desc';
     
-    // Autocomplete properties
+    // Autocomplete properties per filtri
     public $costCenterSearch = '';
     public $serviceSearch = '';
     public $entitySearch = '';
@@ -43,6 +43,11 @@ class ActivitiesTable extends Component
     public $selectedYear = '';
     public $useDateFilter = true;
     public $monthDisplay = 'Tutte le attività';
+    
+    // Dropdown data
+    public $costCenters = [];
+    public $services = [];
+    public $entities = [];
     
     // Modal visualizzazione
     public $showViewModal = false;
@@ -63,6 +68,14 @@ class ActivitiesTable extends Component
     public $editImponibile = '';
     public $editCostiMat = '';
     
+    // Autocomplete properties per modifica
+    public $editCostCenterSearch = '';
+    public $editServiceSearch = '';
+    public $editEntitySearch = '';
+    public $showEditCostCenterDropdown = false;
+    public $showEditServiceDropdown = false;
+    public $showEditEntityDropdown = false;
+    
     // Modal creazione
     public $showCreateModal = false;
     
@@ -75,6 +88,14 @@ class ActivitiesTable extends Component
     public $createInvoiceRef = '';
     public $createImponibile = '';
     public $createCostiMat = '';
+    
+    // Autocomplete properties per creazione
+    public $createCostCenterSearch = '';
+    public $createServiceSearch = '';
+    public $createEntitySearch = '';
+    public $showCreateCostCenterDropdown = false;
+    public $showCreateServiceDropdown = false;
+    public $showCreateEntityDropdown = false;
     
     protected $paginationTheme = 'tailwind';
     
@@ -109,6 +130,9 @@ class ActivitiesTable extends Component
         // Set current month range
         $this->setCurrentMonthRange();
         $this->updateMonthDisplay();
+        
+        // Load dropdown data
+        $this->loadDropdownData();
         
         // Load filters from session if exist
         if (session()->has('activities_filters')) {
@@ -147,7 +171,25 @@ class ActivitiesTable extends Component
         }
     }
     
-    // ==================== AUTOCOMPLETE METHODS ====================
+    // ==================== DROPDOWN DATA METHODS ====================
+    
+    public function loadDropdownData()
+    {
+        $this->costCenters = CostCenter::where('valid', 1)
+            ->orderBy('Nome', 'asc')
+            ->get();
+        
+        $this->services = Service::where('Stato', 1)
+            ->orderBy('Titolo', 'asc')
+            ->get();
+        
+        $this->entities = Entity::where('valid', 1)
+            ->orderBy('ragione_sociale')
+            ->orderBy('nome')
+            ->get();
+    }
+    
+    // ==================== AUTOCOMPLETE METHODS PER FILTRI ====================
     
     public function updatedCostCenterSearch()
     {
@@ -207,8 +249,6 @@ class ActivitiesTable extends Component
         $this->costCenterName = '';  
         $this->showCostCenterDropdown = false;
         $this->resetPage();
-
-        $this->dispatch('clear-cost-center')->to('admin.activities-table');
     }
 
     public function clearService()
@@ -218,8 +258,6 @@ class ActivitiesTable extends Component
         $this->serviceName = '';
         $this->showServiceDropdown = false;
         $this->resetPage();
-
-        $this->dispatch('clear-service')->to('admin.activities-table');
     }
 
     public function clearEntity()
@@ -229,9 +267,6 @@ class ActivitiesTable extends Component
         $this->entityName = '';
         $this->showEntityDropdown = false;
         $this->resetPage();
-
-        // Dispatch evento per pulire l'input nel frontend
-        $this->dispatch('clear-entity')->to('admin.activities-table');
     }
 
     public function getFilteredCostCentersProperty()
@@ -279,6 +314,194 @@ class ActivitiesTable extends Component
             ->orderBy('nome')
             ->limit(10)
             ->get();
+    }
+    
+    // ==================== AUTOCOMPLETE METHODS PER MODIFICA ====================
+    
+    public function updatedEditCostCenterSearch()
+    {
+        $this->showEditCostCenterDropdown = !empty($this->editCostCenterSearch);
+        if (empty($this->editCostCenterSearch)) {
+            $this->editCostCenter = '';
+        }
+    }
+
+    public function updatedEditServiceSearch()
+    {
+        $this->showEditServiceDropdown = !empty($this->editServiceSearch);
+        if (empty($this->editServiceSearch)) {
+            $this->editService = '';
+        }
+    }
+
+    public function updatedEditEntitySearch()
+    {
+        $this->showEditEntityDropdown = !empty($this->editEntitySearch);
+        if (empty($this->editEntitySearch)) {
+            $this->editEntity = '';
+        }
+    }
+
+    public function getFilteredEditCostCentersProperty()
+    {
+        if (empty($this->editCostCenterSearch)) {
+            return collect();
+        }
+        
+        $searchTerm = '%' . $this->editCostCenterSearch . '%';
+        return CostCenter::where('valid', 1)
+            ->where('Nome', 'like', $searchTerm)
+            ->orderBy('Nome', 'asc')
+            ->limit(10)
+            ->get();
+    }
+
+    public function getFilteredEditServicesProperty()
+    {
+        if (empty($this->editServiceSearch)) {
+            return collect();
+        }
+        
+        $searchTerm = '%' . $this->editServiceSearch . '%';
+        return Service::where('Stato', 1)
+            ->where('Titolo', 'like', $searchTerm)
+            ->orderBy('Titolo', 'asc')
+            ->limit(10)
+            ->get();
+    }
+
+    public function getFilteredEditEntitiesProperty()
+    {
+        if (empty($this->editEntitySearch)) {
+            return collect();
+        }
+        
+        $searchTerm = '%' . $this->editEntitySearch . '%';
+        return Entity::where('valid', 1)
+            ->where(function($q) use ($searchTerm) {
+                $q->where('ragione_sociale', 'like', $searchTerm)
+                  ->orWhere('nome', 'like', $searchTerm)
+                  ->orWhere('cognome', 'like', $searchTerm);
+            })
+            ->orderBy('ragione_sociale')
+            ->orderBy('nome')
+            ->limit(10)
+            ->get();
+    }
+
+    public function clearEditCostCenter()
+    {
+        $this->editCostCenter = '';
+        $this->editCostCenterSearch = '';
+        $this->showEditCostCenterDropdown = false;
+    }
+
+    public function clearEditService()
+    {
+        $this->editService = '';
+        $this->editServiceSearch = '';
+        $this->showEditServiceDropdown = false;
+    }
+
+    public function clearEditEntity()
+    {
+        $this->editEntity = '';
+        $this->editEntitySearch = '';
+        $this->showEditEntityDropdown = false;
+    }
+    
+    // ==================== AUTOCOMPLETE METHODS PER CREAZIONE ====================
+    
+    public function updatedCreateCostCenterSearch()
+    {
+        $this->showCreateCostCenterDropdown = !empty($this->createCostCenterSearch);
+        if (empty($this->createCostCenterSearch)) {
+            $this->createCostCenter = '';
+        }
+    }
+
+    public function updatedCreateServiceSearch()
+    {
+        $this->showCreateServiceDropdown = !empty($this->createServiceSearch);
+        if (empty($this->createServiceSearch)) {
+            $this->createService = '';
+        }
+    }
+
+    public function updatedCreateEntitySearch()
+    {
+        $this->showCreateEntityDropdown = !empty($this->createEntitySearch);
+        if (empty($this->createEntitySearch)) {
+            $this->createEntity = '';
+        }
+    }
+
+    public function getFilteredCreateCostCentersProperty()
+    {
+        if (empty($this->createCostCenterSearch)) {
+            return collect();
+        }
+        
+        $searchTerm = '%' . $this->createCostCenterSearch . '%';
+        return CostCenter::where('valid', 1)
+            ->where('Nome', 'like', $searchTerm)
+            ->orderBy('Nome', 'asc')
+            ->limit(10)
+            ->get();
+    }
+
+    public function getFilteredCreateServicesProperty()
+    {
+        if (empty($this->createServiceSearch)) {
+            return collect();
+        }
+        
+        $searchTerm = '%' . $this->createServiceSearch . '%';
+        return Service::where('Stato', 1)
+            ->where('Titolo', 'like', $searchTerm)
+            ->orderBy('Titolo', 'asc')
+            ->limit(10)
+            ->get();
+    }
+
+    public function getFilteredCreateEntitiesProperty()
+    {
+        if (empty($this->createEntitySearch)) {
+            return collect();
+        }
+        
+        $searchTerm = '%' . $this->createEntitySearch . '%';
+        return Entity::where('valid', 1)
+            ->where(function($q) use ($searchTerm) {
+                $q->where('ragione_sociale', 'like', $searchTerm)
+                  ->orWhere('nome', 'like', $searchTerm)
+                  ->orWhere('cognome', 'like', $searchTerm);
+            })
+            ->orderBy('ragione_sociale')
+            ->orderBy('nome')
+            ->limit(10)
+            ->get();
+    }
+
+    public function clearCreateCostCenter()
+    {
+        $this->createCostCenter = '';
+        $this->createCostCenterSearch = '';
+        $this->showCreateCostCenterDropdown = false;
+    }
+
+    public function clearCreateService()
+    {
+        $this->createService = '';
+        $this->createServiceSearch = '';
+        $this->showCreateServiceDropdown = false;
+    }
+
+    public function clearCreateEntity()
+    {
+        $this->createEntity = '';
+        $this->createEntitySearch = '';
+        $this->showCreateEntityDropdown = false;
     }
     
     // ==================== CALENDAR METHODS ====================
@@ -537,6 +760,85 @@ class ActivitiesTable extends Component
     
     // ==================== CRUD METHODS ====================
     
+    // ==================== METODI PER AGGIORNAMENTO DIRETTO IN TABELLA ====================
+    
+    /**
+     * Aggiorna Lat/Long direttamente dalla tabella
+     */
+    public function updateLatLong($id, $value)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            $this->dispatch('showError', message: 'Permessi insufficienti');
+            return;
+        }
+        
+        try {
+            $activity = Activity::find($id);
+            if ($activity) {
+                $activity->update([
+                    'Lat_Long' => $value ?: null,
+                    'updated_by' => Auth::guard('admin')->id()
+                ]);
+                $this->dispatch('showSuccess', message: 'Coordinate aggiornate con successo!');
+                $this->resetPage();
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Aggiorna Ettari (ha) direttamente dalla tabella
+     */
+    public function updateHa($id, $value)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            $this->dispatch('showError', message: 'Permessi insufficienti');
+            return;
+        }
+        
+        try {
+            $activity = Activity::find($id);
+            if ($activity) {
+                // Converti la virgola in punto per il decimale
+                $value = str_replace(',', '.', $value);
+                $activity->update([
+                    'ha' => $value ? floatval($value) : null,
+                    'updated_by' => Auth::guard('admin')->id()
+                ]);
+                $this->dispatch('showSuccess', message: 'Ettari aggiornati con successo!');
+                $this->resetPage();
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Aggiorna Nota direttamente dalla tabella
+     */
+    public function updateNote($id, $value)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            $this->dispatch('showError', message: 'Permessi insufficienti');
+            return;
+        }
+        
+        try {
+            $activity = Activity::find($id);
+            if ($activity) {
+                $activity->update([
+                    'note' => $value ?: null,
+                    'updated_by' => Auth::guard('admin')->id()
+                ]);
+                $this->dispatch('showSuccess', message: 'Nota aggiornata con successo!');
+                $this->resetPage();
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+    
     public function viewActivity($id)
     {
         try {
@@ -568,7 +870,7 @@ class ActivitiesTable extends Component
         }
         
         try {
-            $activity = Activity::find($id);
+            $activity = Activity::with(['costCenter', 'service', 'entity'])->find($id);
             if (!$activity) {
                 $this->dispatch('showError', message: 'Attività non trovata');
                 return;
@@ -584,6 +886,17 @@ class ActivitiesTable extends Component
             $this->editInvoiceRef = $activity->invoice_references;
             $this->editImponibile = $activity->imponibile;
             $this->editCostiMat = $activity->costi_mat;
+            
+            // Inizializza i campi di ricerca con i nomi correnti
+            if ($activity->costCenter) {
+                $this->editCostCenterSearch = $activity->costCenter->Nome;
+            }
+            if ($activity->service) {
+                $this->editServiceSearch = $activity->service->Titolo;
+            }
+            if ($activity->entity) {
+                $this->editEntitySearch = $activity->entity->ragione_sociale ?: ($activity->entity->nome . ' ' . $activity->entity->cognome);
+            }
             
             $this->showEditModal = true;
         } catch (\Exception $e) {
@@ -602,13 +915,19 @@ class ActivitiesTable extends Component
     public function resetEditForm()
     {
         $this->editCostCenter = '';
+        $this->editCostCenterSearch = '';
         $this->editService = '';
+        $this->editServiceSearch = '';
         $this->editEntity = '';
+        $this->editEntitySearch = '';
         $this->editDate = '';
         $this->editNote = '';
         $this->editInvoiceRef = '';
         $this->editImponibile = '';
         $this->editCostiMat = '';
+        $this->showEditCostCenterDropdown = false;
+        $this->showEditServiceDropdown = false;
+        $this->showEditEntityDropdown = false;
     }
     
     public function updateActivity()
@@ -635,11 +954,11 @@ class ActivitiesTable extends Component
                 ]);
                 
                 $this->closeEditModal();
-                $this->dispatch('showSuccess', message: 'Attività aggiornata!');
+                $this->dispatch('showSuccess', message: 'Attività aggiornata con successo!');
                 $this->resetPage();
             }
         } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+            $this->dispatch('showError', message: 'Errore durante l\'aggiornamento: ' . $e->getMessage());
         }
     }
     
@@ -664,13 +983,19 @@ class ActivitiesTable extends Component
     public function resetCreateForm()
     {
         $this->createCostCenter = '';
+        $this->createCostCenterSearch = '';
         $this->createService = '';
+        $this->createServiceSearch = '';
         $this->createEntity = '';
+        $this->createEntitySearch = '';
         $this->createDate = '';
         $this->createNote = '';
         $this->createInvoiceRef = '';
         $this->createImponibile = '';
         $this->createCostiMat = '';
+        $this->showCreateCostCenterDropdown = false;
+        $this->showCreateServiceDropdown = false;
+        $this->showCreateEntityDropdown = false;
     }
     
     public function saveActivity()
@@ -695,10 +1020,10 @@ class ActivitiesTable extends Component
             ]);
             
             $this->closeCreateModal();
-            $this->dispatch('showSuccess', message: 'Attività creata!');
+            $this->dispatch('showSuccess', message: 'Attività creata con successo!');
             $this->resetPage();
         } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+            $this->dispatch('showError', message: 'Errore durante la creazione: ' . $e->getMessage());
         }
     }
     
@@ -713,11 +1038,11 @@ class ActivitiesTable extends Component
             $activity = Activity::find($id);
             if ($activity) {
                 $activity->delete();
-                $this->dispatch('showSuccess', message: 'Attività eliminata!');
+                $this->dispatch('showSuccess', message: 'Attività eliminata con successo!');
                 $this->resetPage();
             }
         } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+            $this->dispatch('showError', message: 'Errore durante l\'eliminazione: ' . $e->getMessage());
         }
     }
     
@@ -747,7 +1072,7 @@ class ActivitiesTable extends Component
     
     public function formatCurrency($amount)
     {
-        if (!$amount) return '-';
+        if (!$amount || $amount == 0) return '€ 0,00';
         return '€ ' . number_format($amount, 2, ',', '.');
     }
 
@@ -758,6 +1083,12 @@ class ActivitiesTable extends Component
             'filteredCostCenters' => $this->filteredCostCenters,
             'filteredServices' => $this->filteredServices,
             'filteredEntities' => $this->filteredEntities,
+            'filteredEditCostCenters' => $this->filteredEditCostCenters,
+            'filteredEditServices' => $this->filteredEditServices,
+            'filteredEditEntities' => $this->filteredEditEntities,
+            'filteredCreateCostCenters' => $this->filteredCreateCostCenters,
+            'filteredCreateServices' => $this->filteredCreateServices,
+            'filteredCreateEntities' => $this->filteredCreateEntities,
             'staffList' => $this->staffList,
             'availableYears' => $this->availableYears,
             'totalCount' => $this->totalCount,

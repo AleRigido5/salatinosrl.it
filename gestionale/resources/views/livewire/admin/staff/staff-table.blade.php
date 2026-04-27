@@ -190,40 +190,54 @@
                         </td>
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
+                                <!-- Report Attività -->
+                                @if(auth()->guard('admin')->user()->hasPermission('view_activity_report'))
+                                <button wire:click="goToActivityReport({{ $person->id_personale }})" 
+                                        wire:key="report-{{ $person->id_personale }}"
+                                        class="text-indigo-600 hover:text-indigo-900 transition-colors text-base"
+                                        title="Report Attività">
+                                    <i class="fa-solid fa-clipboard-user"></i>
+                                </button>
+                                @endif
+                                
+                                <!-- Visualizza -->
                                 @if(auth()->guard('admin')->user()->hasPermission('view_staff'))
-                                    <button wire:click="viewStaff({{ $person->id_personale }})" 
-                                            wire:key="view-{{ $person->id_personale }}"
-                                            class="text-blue-600 hover:text-blue-900 transition-colors text-base"
-                                            title="Visualizza">
-                                        <i class="fa-regular fa-eye text-blue-600 hover:text-blue-900"></i>
-                                    </button>
+                                <button wire:click="viewStaff({{ $person->id_personale }})" 
+                                        wire:key="view-{{ $person->id_personale }}"
+                                        class="text-blue-600 hover:text-blue-900 transition-colors text-base"
+                                        title="Visualizza">
+                                    <i class="fa-regular fa-eye text-blue-600 hover:text-blue-900"></i>
+                                </button>
                                 @endif
 
+                                <!-- Modifica -->
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
-                                    <button wire:click="editStaff({{ $person->id_personale }})" 
-                                            wire:key="edit-{{ $person->id_personale }}"
-                                            class="text-yellow-600 hover:text-yellow-900 transition-colors text-base"
-                                            title="Modifica">
-                                        <i class="fa-solid fa-pen-to-square text-yellow-600 hover:text-yellow-900"></i>
-                                    </button>
+                                <button wire:click="editStaff({{ $person->id_personale }})" 
+                                        wire:key="edit-{{ $person->id_personale }}"
+                                        class="text-yellow-600 hover:text-yellow-900 transition-colors text-base"
+                                        title="Modifica">
+                                    <i class="fa-solid fa-pen-to-square text-yellow-600 hover:text-yellow-900"></i>
+                                </button>
                                 @endif
 
+                                <!-- Gestisci Scadenze -->
                                 @if(auth()->guard('admin')->user()->hasPermission('view_expiration'))
-                                    <button wire:click="goToExpiration({{ $person->id_personale }})" 
-                                            wire:key="expiration-{{ $person->id_personale }}"
-                                            class="text-purple-600 hover:text-purple-900 transition-colors text-base"
-                                            title="Gestisci Scadenze">
-                                        <i class="fa-regular fa-calendar text-purple-600 hover:text-purple-900"></i>
-                                    </button>
+                                <button wire:click="goToExpiration({{ $person->id_personale }})" 
+                                        wire:key="expiration-{{ $person->id_personale }}"
+                                        class="text-purple-600 hover:text-purple-900 transition-colors text-base"
+                                        title="Gestisci Scadenze">
+                                    <i class="fa-regular fa-calendar text-purple-600 hover:text-purple-900"></i>
+                                </button>
                                 @endif
 
+                                <!-- Attiva/Disattiva -->
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_staff'))
-                                    <button wire:click="toggleStatus({{ $person->id_personale }})" 
-                                            wire:key="status-{{ $person->id_personale }}"
-                                            class="transition-colors text-base {{ $person->valid ? 'text-lime-600 hover:text-lime-800' : 'text-gray-400 hover:text-gray-600' }}"
-                                            title="{{ $person->valid ? 'Disattiva' : 'Attiva' }}">
-                                        <i class="{{ $person->valid ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark text-red-400' }}"></i>
-                                    </button>
+                                <button wire:click="toggleStatus({{ $person->id_personale }})" 
+                                        wire:key="status-{{ $person->id_personale }}"
+                                        class="transition-colors text-base {{ $person->valid ? 'text-lime-600 hover:text-lime-800' : 'text-gray-400 hover:text-gray-600' }}"
+                                        title="{{ $person->valid ? 'Disattiva' : 'Attiva' }}">
+                                    <i class="{{ $person->valid ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark text-red-400' }}"></i>
+                                </button>
                                 @endif
                             </div>
                         </td>

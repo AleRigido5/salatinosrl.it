@@ -502,7 +502,7 @@ class VehicleExpirationTable extends Component
 
     public function render()
     {
-        return view('livewire.admin.vehicle-expiration-table', [
+        return view('livewire.admin.vehicles.vehicle-expiration-table', [
             'expirations' => $this->expirations,
             'tipologie' => $this->tipologie,
             'ownerships' => $this->ownerships,

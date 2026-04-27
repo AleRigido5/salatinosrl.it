@@ -9,17 +9,17 @@
                 <input type="text" 
                        wire:model.live.debounce.300ms="search" 
                        placeholder="Cerca per titolo o descrizione..." 
-                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
             </div>
             
-            <select wire:model.live="categoryFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <select wire:model.live="categoryFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 <option value="">Tutte le categorie</option>
                 @foreach($categories as $category)
                     <option value="{{ $category->id }}">{{ $category->valore }}</option>
                 @endforeach
             </select>
             
-            <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 <option value="">Tutti gli stati</option>
                 <option value="active">Attivi</option>
                 <option value="inactive">Disattivi</option>
@@ -41,9 +41,9 @@
         <div class="mt-3 flex flex-wrap items-center gap-2">
             <span class="text-sm text-gray-500">Filtri attivi:</span>
             @if($search)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-emerald-100 text-emerald-800">
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
                 Ricerca: "{{ $search }}"
-                <button wire:click="$set('search', '')" class="ml-1 hover:text-emerald-900">
+                <button wire:click="$set('search', '')" class="ml-1 hover:text-lime-900">
                     <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -51,9 +51,9 @@
             </span>
             @endif
             @if($categoryFilter)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-emerald-100 text-emerald-800">
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
                 Categoria: {{ $categories->firstWhere('id', $categoryFilter)->valore ?? $categoryFilter }}
-                <button wire:click="$set('categoryFilter', '')" class="ml-1 hover:text-emerald-900">
+                <button wire:click="$set('categoryFilter', '')" class="ml-1 hover:text-lime-900">
                     <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -61,9 +61,9 @@
             </span>
             @endif
             @if($statusFilter)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-emerald-100 text-emerald-800">
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
                 Stato: {{ $statusFilter === 'active' ? 'Attivi' : 'Disattivi' }}
-                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-emerald-900">
+                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-lime-900">
                     <svg class="inline-block w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -153,7 +153,7 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                {{ $service->category_name }}
+                                {{ $service->category->valore ?? '-' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -168,42 +168,35 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {{ $service->Stato ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800' }}">
+                                {{ $service->Stato ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
                                 {{ $service->Stato ? 'Attivo' : 'Disattivo' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
+                                <!-- Visualizza -->
                                 <button type="button" wire:click="viewService({{ $service->id }})" 
-                                        class="text-blue-600 hover:text-blue-900 transition-colors"
+                                        class="text-blue-500 hover:text-blue-700 transition-colors p-1 text-base"
                                         title="Visualizza">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    </svg>
+                                    <i class="fa-regular fa-eye"></i>
                                 </button>
                                 
+                                <!-- Modifica -->
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_services'))
                                 <button type="button" wire:click="editService({{ $service->id }})" 
-                                        class="text-yellow-600 hover:text-yellow-900 transition-colors"
+                                        class="text-yellow-500 hover:text-yellow-700 transition-colors p-1 text-base"
                                         title="Modifica">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                    </svg>
+                                    <i class="fa-solid fa-pen-to-square"></i>
                                 </button>
                                 @endif
                                 
+                                <!-- Attiva/Disattiva -->
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_services'))
-                                <button type="button" wire:click="toggleStatus({{ $service->id }})" 
-                                        class="transition-colors {{ $service->Stato ? 'text-emerald-600 hover:text-emerald-800' : 'text-gray-400 hover:text-gray-600' }}"
+                                <button wire:click="toggleStatus({{ $service->id }})" 
+                                        wire:key="status-{{ $service->Stato }}"
+                                        class="transition-colors text-base {{ $service->Stato ? 'text-lime-600 hover:text-lime-800' : 'text-gray-400 hover:text-gray-600' }}"
                                         title="{{ $service->Stato ? 'Disattiva' : 'Attiva' }}">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        @if($service->Stato)
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        @else
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        @endif
-                                    </svg>
+                                    <i class="{{ $service->Stato ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark text-red-400' }}"></i>
                                 </button>
                                 @endif
                             </div>
@@ -211,14 +204,14 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-12 text-center">
+                        <td colspan="5" class="px-6 py-12 text-center">
                             <div class="text-gray-500">
                                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                                 </svg>
                                 <p class="mt-2 text-sm">Nessun servizio trovato</p>
                                 @if($search || $categoryFilter || $statusFilter)
-                                <button wire:click="resetFilters" class="mt-2 text-sm text-emerald-600 hover:text-emerald-800">
+                                <button wire:click="resetFilters" class="mt-2 text-sm text-lime-600 hover:text-lime-800">
                                     Resetta filtri
                                 </button>
                                 @endif
@@ -233,7 +226,7 @@
 
     <!-- Paginazione -->
     @if($services->hasPages())
-    <div class="mt-6" wire:key="pagination-{{ $services->currentPage() }}-{{ $services->lastPage() }}">
+    <div class="mt-6">
         <div class="text-sm text-gray-500 mb-2">
             Mostrando {{ $services->firstItem() ?? 0 }} - {{ $services->lastItem() ?? 0 }} di {{ $services->total() }} risultati
         </div>
@@ -277,7 +270,7 @@
         }
     </style>
 
-    <!-- Modal Visualizzazione Dettagli con TRACCIAMENTO -->
+    <!-- MODAL VISUALIZZAZIONE -->
     @if($showViewModal && $viewingService)
     <div class="fixed inset-0 z-50 overflow-y-auto" 
          x-data="{ open: true }" 
@@ -290,7 +283,6 @@
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
             
             <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-                <!-- Header -->
                 <div class="bg-white px-4 pt-4 pb-2 sm:px-6 border-b border-gray-200">
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div class="flex-1 min-w-0">
@@ -298,7 +290,7 @@
                         </div>
                         <div class="flex items-center gap-3">
                             <span class="px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap
-                                {{ $viewingService->Stato ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800' }}">
+                                {{ $viewingService->Stato ? 'bg-lime-100 text-lime-800' : 'bg-red-100 text-red-800' }}">
                                 {{ $viewingService->Stato ? 'Attivo' : 'Disattivo' }}
                             </span>
                             <button @click="open = false" class="text-gray-400 hover:text-gray-600">
@@ -310,7 +302,6 @@
                     </div>
                 </div>
                 
-                <!-- Contenuto -->
                 <div class="px-4 pt-4 pb-2 sm:px-6 max-h-[70vh] overflow-y-auto">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-gray-50 rounded-lg p-4">
@@ -318,7 +309,7 @@
                                 <i class="fas fa-info-circle mr-2 text-blue-500"></i> Dati Servizio
                             </h3>
                             <div class="space-y-2">
-                                <div class="flex"><span class="w-24 text-gray-600">Categoria:</span><span class="text-gray-800">{{ $viewingService->category_name }}</span></div>
+                                <div class="flex"><span class="w-24 text-gray-600">Categoria:</span><span class="text-gray-800">{{ $viewingService->category->valore ?? '-' }}</span></div>
                                 <div class="flex"><span class="w-24 text-gray-600">Prezzo:</span>
                                     <span class="text-gray-800">
                                         @if($viewingService->Prezzo_un)
@@ -365,18 +356,17 @@
                         </div>
                         @endif
                         
-                        <!-- ========== TRACCIAMENTO ========== -->
+                        <!-- Tracciamento -->
                         <div class="bg-gray-50 rounded-lg p-4 md:col-span-2">
                             <h3 class="text-md font-semibold text-gray-800 mb-3 border-b pb-2">
                                 <i class="fas fa-history mr-2 text-indigo-500"></i> Tracciamento
                             </h3>
                             <div class="space-y-3">
-                                {{-- Creato da --}}
                                 <div class="flex items-start">
                                     <div class="w-28 text-gray-600 text-sm pt-0.5">Inserito da:</div>
                                     <div class="flex-1">
                                         <div class="flex items-center gap-2 flex-wrap">
-                                            <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg class="w-4 h-4 text-lime-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                             </svg>
                                             <span class="text-gray-800 font-medium">
@@ -387,15 +377,9 @@
                                                 {{ $viewingService->created_at ? $viewingService->created_at->format('d/m/Y H:i') : '-' }}
                                             </span>
                                         </div>
-                                        @if($viewingService->createdBy && $viewingService->createdBy->email)
-                                        <div class="text-xs text-gray-400 mt-1 ml-6 break-all">
-                                            {{ $viewingService->createdBy->email }}
-                                        </div>
-                                        @endif
                                     </div>
                                 </div>
                                 
-                                {{-- Modificato da --}}
                                 @if($viewingService->updated_at && $viewingService->created_at != $viewingService->updated_at)
                                 <div class="flex items-start">
                                     <div class="w-28 text-gray-600 text-sm pt-0.5">Modificato da:</div>
@@ -412,11 +396,6 @@
                                                 {{ $viewingService->updated_at ? $viewingService->updated_at->format('d/m/Y H:i') : '-' }}
                                             </span>
                                         </div>
-                                        @if($viewingService->updatedBy && $viewingService->updatedBy->email)
-                                        <div class="text-xs text-gray-400 mt-1 ml-6 break-all">
-                                            {{ $viewingService->updatedBy->email }}
-                                        </div>
-                                        @endif
                                         <div class="text-xs text-gray-400 mt-1 ml-6">
                                             ({{ $viewingService->updated_at->diffForHumans() }})
                                         </div>
@@ -437,11 +416,9 @@
                                 @endif
                             </div>
                         </div>
-                        <!-- ========== FINE TRACCIAMENTO ========== -->
                     </div>
                 </div>
                 
-                <!-- Footer -->
                 <div class="bg-gray-50 px-4 py-3 sm:px-6 flex flex-col sm:flex-row sm:justify-end gap-3">
                     <button @click="open = false" 
                             class="w-full sm:w-auto inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm">
@@ -459,7 +436,7 @@
     </div>
     @endif
 
-    <!-- MODAL MODIFICA SERVIZIO -->
+    <!-- MODAL MODIFICA -->
     @if($showEditModal && $editingService)
     <div class="fixed inset-0 z-50 overflow-y-auto" 
          x-data="{ open: true }" 
@@ -484,18 +461,17 @@
                         </button>
                     </div>
                     
-                    <div class="space-y-4 max-h-[80vh] overflow-y-auto">
-                        <!-- RIGA 1: Titolo e Categoria (6 e 6) -->
+                    <div class="space-y-4 max-h-[70vh] overflow-y-auto">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Titolo <span class="text-red-500">*</span></label>
-                                <input type="text" wire:model="editTitolo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500">
+                                <input type="text" wire:model="editTitolo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                                 @error('editTitolo') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-                                <select wire:model="editCategoria" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500">
+                                <select wire:model="editCategoria" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                                     <option value="">Seleziona categoria</option>
                                     @foreach($categories as $category)
                                         <option value="{{ $category->id }}">{{ $category->valore }}</option>
@@ -504,29 +480,26 @@
                             </div>
                         </div>
                         
-                        <!-- RIGA 2: Descrizione -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
-                            <textarea wire:model="editDescrizione" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500"></textarea>
+                            <textarea wire:model="editDescrizione" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"></textarea>
                         </div>
                         
-                        <!-- RIGA 3: Descrizione Fattura -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Descrizione Fattura</label>
-                            <textarea wire:model="editDescrFattura" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500"></textarea>
+                            <textarea wire:model="editDescrFattura" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"></textarea>
                         </div>
                         
-                        <!-- RIGA 4: Prezzo e Unità di misura (6 e 6) -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Prezzo</label>
-                                <input type="number" step="0.01" wire:model="editPrezzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500">
+                                <input type="number" step="0.01" wire:model="editPrezzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                                 @error('editPrezzo') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Unità di misura</label>
-                                <select wire:model="editUnitaMisura" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500">
+                                <select wire:model="editUnitaMisura" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                                     <option value="">Seleziona unità</option>
                                     @foreach($unitaMisura as $um)
                                         <option value="{{ $um->id_um }}">{{ $um->nome }} ({{ $um->codice }})</option>
@@ -535,10 +508,9 @@
                             </div>
                         </div>
                         
-                        <!-- RIGA 5: Stato -->
                         <div>
                             <label class="inline-flex items-center">
-                                <input type="checkbox" wire:model="editStato" class="rounded border-gray-300 text-emerald-600">
+                                <input type="checkbox" wire:model="editStato" class="rounded border-gray-300 text-lime-600">
                                 <span class="ml-2 text-sm text-gray-700">Servizio attivo</span>
                             </label>
                         </div>
@@ -558,5 +530,5 @@
             </div>
         </div>
     </div>
-    @endif  
+    @endif
 </div>

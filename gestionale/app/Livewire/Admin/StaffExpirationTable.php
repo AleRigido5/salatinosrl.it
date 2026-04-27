@@ -463,7 +463,7 @@ class StaffExpirationTable extends Component
 
     public function render()
     {
-        return view('livewire.admin.staff-expiration-table', [
+        return view('livewire.admin.staff.staff-expiration-table', [
             'expirations' => $this->expirations,
             'tipologie' => $this->tipologie,
             'ownerships' => $this->ownerships,

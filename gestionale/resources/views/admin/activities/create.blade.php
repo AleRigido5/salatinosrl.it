@@ -224,7 +224,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
                         <div class="md:col-span-4">
                             <label class="block text-xs font-medium text-gray-600 mb-1">Personale <span class="text-red-500">*</span></label>
-                            <div class="relative" x-data="staffAutocomplete('__INDEX__')">
+                            <div class="relative" x-data="staffAutocomplete(__INDEX__)">
                                 <input type="hidden" :name="'staff[' + index + '][id_staff]'" x-model="selectedId">
                                 <input type="text" 
                                     x-model="search"
@@ -616,7 +616,9 @@ document.addEventListener('alpine:init', () => {
         scrollToHighlight() { this.$nextTick(() => { const h = document.querySelector('.bg-lime-50'); if (h) h.scrollIntoView({ block: 'nearest' }); }); }
     }));
     
-    // Staff Autocomplete
+    // Staff Autocomplete - Versione migliorata per supportare più righe dinamiche
+    window.staffAutocompleteInstances = {};
+    
     Alpine.data('staffAutocomplete', (rowIndex) => ({
         index: rowIndex,
         search: '',
@@ -627,8 +629,13 @@ document.addEventListener('alpine:init', () => {
         highlightIndex: -1,
         errorStaff: false,
         errorStaffMessage: '',
+        errorHours: false,
+        errorHoursMessage: '',
         
         init() {
+            // Registra l'istanza
+            window.staffAutocompleteInstances[this.index] = this;
+            
             this.$watch('selectedId', val => {
                 if (val) {
                     this.errorStaff = false
@@ -681,13 +688,6 @@ document.addEventListener('alpine:init', () => {
 // Validazione lato client
 function validateForm() {
     let isValid = true;
-    
-    // Pulisci errori globali
-    document.querySelectorAll('.text-red-500.mt-1').forEach(el => {
-        if (!el.closest('.staff-row-template')) {
-            // Non pulire gli errori che vengono da Alpine
-        }
-    });
     
     // 1. Validazione Centro di Costo
     const costCenterId = document.querySelector('input[name="id_cost_centers"]')?.value;
@@ -744,9 +744,15 @@ function validateForm() {
         if (globalErrorEl) globalErrorEl.classList.add('hidden');
         
         staffRows.forEach((row, idx) => {
-            const staffInput = row.querySelector('input[type="text"][placeholder*="nome o cognome"]');
-            const staffComponent = staffInput?.__x?.$data;
-            const hoursInput = row.querySelector('input[name*="[n_ore]"]');
+            // Trova l'istanza Alpine tramite l'attributo x-data
+            const staffDiv = row.querySelector('[x-data^="staffAutocomplete"]');
+            let staffComponent = null;
+            
+            if (staffDiv && staffDiv.__x) {
+                staffComponent = staffDiv.__x.$data;
+            }
+            
+            const hoursInput = row.querySelector('input[name*="[n_ore]"]') || row.querySelector('input[name="staff[0][n_ore]"]');
             const hours = parseFloat(hoursInput?.value || '0');
             
             if (staffComponent) {
@@ -767,27 +773,6 @@ function validateForm() {
                     staffComponent.errorHours = false;
                     staffComponent.errorHoursMessage = '';
                 }
-            } else if (idx === 0) {
-                // Per la prima riga predefinita
-                const staffIdInput = row.querySelector('input[name="staff[0][id_staff]"]');
-                const staffId = staffIdInput?.value;
-                const errorStaffMsg = row.querySelector('.text-red-500.mt-1');
-                
-                if (!staffId || staffId === '') {
-                    if (errorStaffMsg) errorStaffMsg.textContent = 'Seleziona un membro del personale';
-                    isValid = false;
-                } else if (errorStaffMsg) {
-                    errorStaffMsg.textContent = '';
-                }
-                
-                if (hours <= 0) {
-                    const errorHoursMsg = row.querySelectorAll('.text-red-500.mt-1')[1];
-                    if (errorHoursMsg) errorHoursMsg.textContent = 'Le ore devono essere maggiori di zero';
-                    isValid = false;
-                } else {
-                    const errorHoursMsg = row.querySelectorAll('.text-red-500.mt-1')[1];
-                    if (errorHoursMsg) errorHoursMsg.textContent = '';
-                }
             }
         });
     }
@@ -796,26 +781,32 @@ function validateForm() {
 }
 
 // Submit con validazione
-document.getElementById('submitBtn').addEventListener('click', function(e) {
-    e.preventDefault();
-    if (validateForm()) {
-        document.getElementById('activityForm').submit();
-    } else {
-        // Scroll al primo errore
-        const firstError = document.querySelector('.border-red-500, .text-red-500');
-        if (firstError) {
-            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+document.addEventListener('DOMContentLoaded', function() {
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (validateForm()) {
+                document.getElementById('activityForm').submit();
+            } else {
+                // Scroll al primo errore
+                const firstError = document.querySelector('.border-red-500, .text-red-500');
+                if (firstError) {
+                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        });
     }
 });
 
 // Gestione righe personale
 let staffIndex = 1;
 
-document.getElementById('addStaffBtn').addEventListener('click', function() {
+document.getElementById('addStaffBtn')?.addEventListener('click', function() {
     const template = document.querySelector('.staff-row-template');
-    const clone = template.cloneNode(true);
+    if (!template) return;
     
+    const clone = template.cloneNode(true);
     clone.classList.remove('staff-row-template', 'hidden');
     clone.classList.add('staff-row');
     
@@ -828,13 +819,18 @@ document.getElementById('addStaffBtn').addEventListener('click', function() {
     
     document.getElementById('staffContainer').appendChild(newRow);
     
+    // Reinizializza Alpine per la nuova riga
+    if (window.Alpine && newRow) {
+        window.Alpine.initTree(newRow);
+    }
+    
     const removeBtn = newRow.querySelector('.remove-staff-btn');
     if (removeBtn) removeBtn.style.display = 'block';
     
     staffIndex++;
 });
 
-document.getElementById('staffContainer').addEventListener('click', function(e) {
+document.getElementById('staffContainer')?.addEventListener('click', function(e) {
     const removeBtn = e.target.closest('.remove-staff-btn');
     if (removeBtn) {
         const row = removeBtn.closest('.staff-row');

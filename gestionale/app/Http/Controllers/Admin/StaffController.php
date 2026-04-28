@@ -302,13 +302,17 @@ class StaffController extends Controller
         }
         
         // Query attività per questo staff filtrando per data_activities
-        $activityIds = ActivityStaffLink::where('id_staff', $staff->id_personale)
-            ->pluck('id_activities');
-        
-        $activities = Activity::with(['costCenter', 'service', 'entity', 'staffDetails' => function($q) use ($staff) {
+        $activities = Activity::whereHas('staffDetails', function($q) use ($staff) {
             $q->where('id_staff', $staff->id_personale);
-        }])
-        ->whereIn('id', $activityIds)
+        })
+        ->with([
+            'costCenter', 
+            'service', 
+            'entity',
+            'staffDetails' => function($q) use ($staff) {
+                $q->where('id_staff', $staff->id_personale);
+            }
+        ])
         ->whereBetween('data_activities', [$dateFrom, $dateTo])
         ->orderBy('data_activities', 'desc')
         ->get();
@@ -324,7 +328,7 @@ class StaffController extends Controller
             $staffDetail = $activity->staffDetails->first();
             if ($staffDetail) {
                 $ore = floatval($staffDetail->n_ore ?? 0);
-                $costoOrario = floatval($staffDetail->costo_h ?? 0);
+                $costoOrario = floatval($staffDetail->costo_orario ?? 0);
                 $spese = floatval($staffDetail->spese ?? 0);
                 
                 $totalHours += $ore;
@@ -352,5 +356,95 @@ class StaffController extends Controller
             'totalHours', 'totalMaturato', 'totalSpese',
             'totalWorkingDays', 'averageHourlyCost'
         ));
+    }
+
+    // ==================== METODI PER TOOLTIP (AJAX) ====================
+
+    /**
+     * Update ore for staff detail
+     */
+    public function updateOre($staffDetailId, Request $request)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            return response()->json(['success' => false, 'message' => 'Permessi insufficienti'], 403);
+        }
+        
+        try {
+            $staffDetail = ActivityStaffLink::findOrFail($staffDetailId);
+            $staffDetail->update([
+                'n_ore' => floatval($request->value),
+                'updated_by' => Auth::guard('admin')->id()
+            ]);
+            
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update costo orario for staff detail
+     */
+    public function updateCostoOrario($staffDetailId, Request $request)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            return response()->json(['success' => false, 'message' => 'Permessi insufficienti'], 403);
+        }
+        
+        try {
+            $staffDetail = ActivityStaffLink::findOrFail($staffDetailId);
+            $staffDetail->update([
+                'costo_orario' => floatval($request->value),
+                'updated_by' => Auth::guard('admin')->id()
+            ]);
+            
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update spese for staff detail
+     */
+    public function updateSpese($staffDetailId, Request $request)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            return response()->json(['success' => false, 'message' => 'Permessi insufficienti'], 403);
+        }
+        
+        try {
+            $staffDetail = ActivityStaffLink::findOrFail($staffDetailId);
+            $staffDetail->update([
+                'spese' => floatval($request->value),
+                'updated_by' => Auth::guard('admin')->id()
+            ]);
+            
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update note for activity
+     */
+    public function updateActivityNote($activityId, Request $request)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            return response()->json(['success' => false, 'message' => 'Permessi insufficienti'], 403);
+        }
+        
+        try {
+            $activity = Activity::findOrFail($activityId);
+            $activity->update([
+                'note' => $request->value,
+                'updated_by' => Auth::guard('admin')->id()
+            ]);
+            
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
 }

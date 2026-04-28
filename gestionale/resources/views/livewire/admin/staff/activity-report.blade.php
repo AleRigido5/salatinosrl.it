@@ -17,7 +17,7 @@
         </div>
         <div class="flex gap-3">
             <a href="{{ route('admin.staff.index') }}" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
-                <i class="fas fa-arrow-left"></i>
+                <i class="fas fa-arrow-left mr-2"></i> Torna al Personale
             </a>
         </div>
     </div>
@@ -96,7 +96,6 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Località / Servizio</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">N. Ore</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Costo €/h</th>
-                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Maturato (€)</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Spese (€)</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Note</th>
                     </tr>
@@ -111,10 +110,25 @@
                         $localita = $costCenter ? $costCenter->Localita : '-';
                         $serviceName = $activity->service ? $activity->service->Titolo : '-';
                         $staffDetail = $activity->staffDetails->first();
-                        $ore = $staffDetail->n_ore ?? 0;
-                        $costoOrario = $staffDetail->costo_h ?? 0;
-                        $maturato = $ore * $costoOrario;
-                        $spese = $staffDetail->spese ?? 0;
+                        $staffDetailId = $staffDetail ? $staffDetail->id : null;
+                        $ore = floatval($staffDetail->n_ore ?? 0);
+                        $costoOrario = floatval($staffDetail->costo_orario ?? 0);
+                        $spese = floatval($staffDetail->spese ?? 0);
+                        
+                        // Ottieni la città dal cliente
+                        $clienteCitta = '';
+                        if ($entity && $entity->addresses && $entity->addresses->isNotEmpty()) {
+                            $primaryAddress = $entity->addresses->firstWhere('sede', 'principale') ?? $entity->addresses->first();
+                            $clienteCitta = $primaryAddress->citta ?? '';
+                        }
+                        
+                        // Determina la località da mostrare
+                        $displayLocalita = '-';
+                        if ($localita && $localita != '-') {
+                            $displayLocalita = $localita;
+                        } elseif ($clienteCitta) {
+                            $displayLocalita = $clienteCitta;
+                        }
                     @endphp
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
@@ -122,47 +136,309 @@
                         </td>
                         <td class="px-4 py-3 text-sm">
                             <div class="flex flex-col">
-                                <span class="font-medium text-gray-800">{{ $clienteNome }}</span>
+                                <span class="font-medium text-gray-800">{{ htmlspecialchars($clienteNome, ENT_QUOTES, 'UTF-8') }}</span>
                                 @if($cantiereNome != '-')
-                                    <span class="text-xs text-gray-500">{{ $cantiereNome }}</span>
+                                    <span class="text-xs text-gray-500">{{ htmlspecialchars($cantiereNome, ENT_QUOTES, 'UTF-8') }}</span>
                                 @endif
                             </div>
                         </td>
                         <td class="px-4 py-3 text-sm">
                             <div class="flex flex-col">
-                                @if($localita != '-')
+                                @if($displayLocalita != '-')
                                     <span class="text-gray-600">
                                         <i class="fas fa-map-marker-alt text-gray-400 mr-1 text-xs"></i>
-                                        {{ $localita }}
+                                        {{ htmlspecialchars($displayLocalita, ENT_QUOTES, 'UTF-8') }}
                                     </span>
                                 @endif
                                 <span class="text-gray-800 mt-1">
                                     <i class="fas fa-tag text-gray-400 mr-1 text-xs"></i>
-                                    {{ $serviceName }}
+                                    {{ htmlspecialchars($serviceName, ENT_QUOTES, 'UTF-8') }}
                                 </span>
                             </div>
                         </td>
-                        <td class="px-4 py-3 text-sm text-center font-medium">
-                            {{ number_format($ore, 1) }}
-                        </td>
-                        <td class="px-4 py-3 text-sm text-center">
-                            € {{ number_format($costoOrario, 2) }}
-                        </td>
-                        <td class="px-4 py-3 text-sm text-center text-green-600 font-medium">
-                            € {{ number_format($maturato, 2) }}
-                        </td>
-                        <td class="px-4 py-3 text-sm text-center text-orange-600">
-                            € {{ number_format($spese, 2) }}
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-500 max-w-[300px]">
-                            <div class="whitespace-normal break-words" title="{{ htmlspecialchars($activity->note ?? '', ENT_QUOTES, 'UTF-8') }}">
-                                {!! nl2br(e($activity->note ?? '-')) !!}
+                        
+                        <!-- N. Ore modificabile -->
+                        <td class="px-4 py-3 text-sm relative">
+                            <div x-data="{ 
+                                ore: {{ $ore }},
+                                showTooltip: false,
+                                isEditing: false,
+                                editedValue: {{ $ore }},
+                                saveOre() {
+                                    this.isEditing = true;
+                                    fetch('{{ route('admin.staff.update-ore', $staffDetailId) }}', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                        },
+                                        body: JSON.stringify({ value: this.editedValue })
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        if (data.success) {
+                                            this.ore = this.editedValue;
+                                            this.showTooltip = false;
+                                            location.reload();
+                                        }
+                                        this.isEditing = false;
+                                    })
+                                    .catch(() => {
+                                        this.isEditing = false;
+                                    });
+                                }
+                            }">
+                                <div class="flex justify-center">
+                                    <span class="font-medium cursor-pointer hover:text-lime-600 hover:underline text-center"
+                                          x-on:click="showTooltip = true; editedValue = ore">
+                                        {{ number_format($ore, 1) }}
+                                    </span>
+                                </div>
+                                <div x-show="showTooltip" 
+                                     x-on:click.away="showTooltip = false"
+                                     class="absolute z-[100] bg-white border border-gray-300 rounded-lg shadow-xl p-3 min-w-[200px]"
+                                     style="top: 100%; left: 50%; transform: translateX(-50%); margin-top: 10px;"
+                                     x-cloak>
+                                    <div class="absolute -top-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-white border-l border-t border-gray-300 rotate-45"></div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">N. Ore</label>
+                                    <input type="number" 
+                                           step="0.5" 
+                                           x-model="editedValue" 
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
+                                           placeholder="0"
+                                           x-on:keydown.enter="saveOre()">
+                                    <div class="flex justify-end gap-2 mt-2">
+                                        <button type="button" 
+                                                x-on:click="showTooltip = false"
+                                                class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
+                                            <i class="fas fa-times"></i> Annulla
+                                        </button>
+                                        <button type="button" 
+                                                x-on:click="saveOre()"
+                                                x-bind:disabled="isEditing"
+                                                class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
+                                            <i class="fas fa-check" x-show="!isEditing"></i>
+                                            <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
+                                            <span x-show="!isEditing"> Salva</span>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </td>
+                        
+                        <!-- Costo €/h modificabile -->
+                        <td class="px-4 py-3 text-sm relative">
+                            <div x-data="{ 
+                                costoOrario: {{ $costoOrario }},
+                                showTooltip: false,
+                                isEditing: false,
+                                editedValue: {{ $costoOrario }},
+                                saveCosto() {
+                                    this.isEditing = true;
+                                    fetch('{{ route('admin.staff.update-costo-orario', $staffDetailId) }}', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                        },
+                                        body: JSON.stringify({ value: this.editedValue })
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        if (data.success) {
+                                            this.costoOrario = this.editedValue;
+                                            this.showTooltip = false;
+                                            location.reload();
+                                        }
+                                        this.isEditing = false;
+                                    })
+                                    .catch(() => {
+                                        this.isEditing = false;
+                                    });
+                                }
+                            }">
+                                <div class="flex justify-center">
+                                    <span class="font-medium cursor-pointer hover:text-lime-600 hover:underline text-center"
+                                          x-on:click="showTooltip = true; editedValue = costoOrario">
+                                        € {{ number_format($costoOrario, 2) }}
+                                    </span>
+                                </div>
+                                <div x-show="showTooltip" 
+                                     x-on:click.away="showTooltip = false"
+                                     class="absolute z-[100] bg-white border border-gray-300 rounded-lg shadow-xl p-3 min-w-[200px]"
+                                     style="top: 100%; left: 50%; transform: translateX(-50%); margin-top: 10px;"
+                                     x-cloak>
+                                    <div class="absolute -top-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-white border-l border-t border-gray-300 rotate-45"></div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">Costo €/h</label>
+                                    <input type="number" 
+                                           step="0.50" 
+                                           x-model="editedValue" 
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
+                                           placeholder="0.00"
+                                           x-on:keydown.enter="saveCosto()">
+                                    <div class="flex justify-end gap-2 mt-2">
+                                        <button type="button" 
+                                                x-on:click="showTooltip = false"
+                                                class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
+                                            <i class="fas fa-times"></i> Annulla
+                                        </button>
+                                        <button type="button" 
+                                                x-on:click="saveCosto()"
+                                                x-bind:disabled="isEditing"
+                                                class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
+                                            <i class="fas fa-check" x-show="!isEditing"></i>
+                                            <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
+                                            <span x-show="!isEditing"> Salva</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        
+                        <!-- Spese modificabili -->
+                        <td class="px-4 py-3 text-sm relative">
+                            <div x-data="{ 
+                                spese: {{ $spese }},
+                                showTooltip: false,
+                                isEditing: false,
+                                editedValue: {{ $spese }},
+                                saveSpese() {
+                                    this.isEditing = true;
+                                    fetch('{{ route('admin.staff.update-spese', $staffDetailId) }}', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                        },
+                                        body: JSON.stringify({ value: this.editedValue })
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        if (data.success) {
+                                            this.spese = this.editedValue;
+                                            this.showTooltip = false;
+                                            location.reload();
+                                        }
+                                        this.isEditing = false;
+                                    })
+                                    .catch(() => {
+                                        this.isEditing = false;
+                                    });
+                                }
+                            }">
+                                <div class="flex justify-center">
+                                    <span class="font-medium cursor-pointer hover:text-lime-600 hover:underline text-center"
+                                          x-on:click="showTooltip = true; editedValue = spese">
+                                        € {{ number_format($spese, 2) }}
+                                    </span>
+                                </div>
+                                <div x-show="showTooltip" 
+                                     x-on:click.away="showTooltip = false"
+                                     class="absolute z-[100] bg-white border border-gray-300 rounded-lg shadow-xl p-3 min-w-[200px]"
+                                     style="top: 100%; left: 50%; transform: translateX(-50%); margin-top: 10px;"
+                                     x-cloak>
+                                    <div class="absolute -top-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-white border-l border-t border-gray-300 rotate-45"></div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">Spese (€)</label>
+                                    <input type="number" 
+                                           step="0.01" 
+                                           x-model="editedValue" 
+                                           class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
+                                           placeholder="0.00"
+                                           x-on:keydown.enter="saveSpese()">
+                                    <div class="flex justify-end gap-2 mt-2">
+                                        <button type="button" 
+                                                x-on:click="showTooltip = false"
+                                                class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
+                                            <i class="fas fa-times"></i> Annulla
+                                        </button>
+                                        <button type="button" 
+                                                x-on:click="saveSpese()"
+                                                x-bind:disabled="isEditing"
+                                                class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
+                                            <i class="fas fa-check" x-show="!isEditing"></i>
+                                            <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
+                                            <span x-show="!isEditing"> Salva</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        
+                        <!-- Note modificabili -->
+                        <td class="px-4 py-3 text-sm text-gray-500 max-w-[300px] relative">
+                            <div x-data="{ 
+                                showTooltip: false, 
+                                isEditing: false,
+                                editedValue: '{{ addslashes($activity->note) }}',
+                                saveNote() {
+                                    this.isEditing = true;
+                                    fetch('{{ route('admin.staff.update-activity-note', $activity->id) }}', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                        },
+                                        body: JSON.stringify({ value: this.editedValue })
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        if (data.success) {
+                                            this.showTooltip = false;
+                                            location.reload();
+                                        }
+                                        this.isEditing = false;
+                                    })
+                                    .catch(() => {
+                                        this.isEditing = false;
+                                    });
+                                }
+                            }">
+                                <div class="whitespace-normal break-words cursor-pointer hover:text-lime-600" 
+                                     x-on:click="showTooltip = true">
+                                    {!! nl2br(e(Str::limit($activity->note ?? '-', 50))) !!}
+                                </div>
+                                
+                                <div x-show="showTooltip" 
+                                     x-on:click.away="showTooltip = false"
+                                     class="fixed z-[100] bg-white border border-gray-300 rounded-lg shadow-xl p-4"
+                                     style="top: 50%; left: 50%; transform: translate(-50%, -50%); width: 500px; max-width: 90vw;">
+                                    <div class="flex justify-between items-center mb-3">
+                                        <h3 class="text-md font-semibold text-gray-800">
+                                            <i class="fas fa-edit text-lime-500 mr-2"></i> Modifica Nota
+                                        </h3>
+                                        <button type="button" 
+                                                x-on:click="showTooltip = false"
+                                                class="text-gray-400 hover:text-gray-600">
+                                            <i class="fas fa-times text-xl"></i>
+                                        </button>
+                                    </div>
+                                    <textarea x-model="editedValue" 
+                                              rows="6"
+                                              class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
+                                              placeholder="Inserisci nota..."></textarea>
+                                    <div class="flex justify-end gap-2 mt-3">
+                                        <button type="button" 
+                                                x-on:click="showTooltip = false"
+                                                class="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 rounded-md">
+                                            <i class="fas fa-times mr-1"></i> Annulla
+                                        </button>
+                                        <button type="button" 
+                                                x-on:click="saveNote()"
+                                                x-bind:disabled="isEditing"
+                                                class="px-4 py-2 text-sm bg-lime-500 hover:bg-lime-600 text-white rounded-md disabled:opacity-50">
+                                            <i class="fas fa-check mr-1" x-show="!isEditing"></i>
+                                            <i class="fas fa-spinner fa-spin mr-1" x-show="isEditing"></i>
+                                            <span x-show="!isEditing"> Salva</span>
+                                            <span x-show="isEditing"> Salvataggio...</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </td--^
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="px-4 py-12 text-center text-gray-500">
+                        <td colspan="7" class="px-4 py-12 text-center text-gray-500">
                             <i class="fas fa-tasks text-4xl mb-2 text-gray-300"></i>
                             <p>Nessuna attività trovata per questo periodo</p>
                         </td>

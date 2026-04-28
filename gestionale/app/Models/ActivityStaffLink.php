@@ -24,18 +24,22 @@ class ActivityStaffLink extends Model
         'note',
         'data_att',
         'att_start',
-        'att_end'
+        'att_end',
+        'updated_by'
     ];
 
     protected $casts = [
         'data_att' => 'date',
         'att_start' => 'datetime',
         'att_end' => 'datetime',
+        'n_ore' => 'decimal:2',
         'costo_orario' => 'decimal:2',
         'spese' => 'decimal:2',
         'contributo' => 'integer',
         'contributo_ore' => 'integer'
     ];
+
+    // ==================== RELAZIONI ====================
 
     /**
      * Relazione con l'attività
@@ -61,12 +65,14 @@ class ActivityStaffLink extends Model
         return $this->belongsTo(Ownership::class, 'id_ownership', 'id_proprieta');
     }
 
+    // ==================== ACCESSOR ====================
+
     /**
      * Calcola il costo totale (ore * costo_orario + spese)
      */
     public function getTotalCostAttribute()
     {
-        $ore = floatval($this->n_ore);
+        $ore = floatval($this->n_ore ?? 0);
         $costoOrario = floatval($this->costo_orario ?? 0);
         $spese = floatval($this->spese ?? 0);
         
@@ -79,5 +85,29 @@ class ActivityStaffLink extends Model
     public function getTotalCostFormattedAttribute()
     {
         return '€ ' . number_format($this->total_cost, 2, ',', '.');
+    }
+
+    /**
+     * Formatta le ore
+     */
+    public function getOreFormattedAttribute()
+    {
+        return number_format(floatval($this->n_ore ?? 0), 1);
+    }
+
+    /**
+     * Formatta il costo orario
+     */
+    public function getCostoOrarioFormattedAttribute()
+    {
+        return '€ ' . number_format(floatval($this->costo_orario ?? 0), 2);
+    }
+
+    /**
+     * Formatta le spese
+     */
+    public function getSpeseFormattedAttribute()
+    {
+        return '€ ' . number_format(floatval($this->spese ?? 0), 2);
     }
 }

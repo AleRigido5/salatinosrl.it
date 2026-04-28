@@ -350,14 +350,14 @@
                             @endif
                         </td>
                         
-                        <!-- Lat/Long con tooltip modificabile (aggiornamento real-time) -->
+                        <!-- Lat/Long con tooltip modificabile -->
                         <td class="px-3 py-3 text-sm relative group">
                             @if($activity->Lat_Long)
                                 <div x-data="{ 
-                                    latLong: '{{ $activity->Lat_Long }}',
+                                    latLong: '{{ addslashes($activity->Lat_Long) }}',
                                     showTooltip: false,
                                     isEditing: false,
-                                    editedValue: '{{ $activity->Lat_Long }}',
+                                    editedValue: '{{ addslashes($activity->Lat_Long) }}',
                                     
                                     saveLatLong() {
                                         this.isEditing = true;
@@ -366,11 +366,12 @@
                                                 this.latLong = this.editedValue;
                                                 this.showTooltip = false;
                                                 this.isEditing = false;
-                                                window.showSuccessAlert('Coordinate aggiornate con successo!');
+                                                // Forza l'aggiornamento della vista
+                                                @this.dispatch('refreshActivities');
                                             })
                                             .catch(() => {
                                                 this.isEditing = false;
-                                                window.showErrorAlert('Errore durante il salvataggio');
+                                                this.showTooltip = false;
                                             });
                                     }
                                 }">
@@ -389,22 +390,27 @@
                                         <label class="block text-xs font-medium text-gray-700 mb-1">Latitudine / Longitudine</label>
                                         <input type="text" 
                                             x-model="editedValue" 
-                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
+                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
                                             placeholder="es. 45.123456, 12.123456"
                                             x-on:keydown.enter="saveLatLong()">
                                         <div class="flex justify-end gap-2 mt-2">
                                             <button type="button" 
                                                     x-on:click="showTooltip = false"
                                                     class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
-                                                <i class="fas fa-times"></i> Annulla
+                                                Annulla
                                             </button>
                                             <button type="button" 
                                                     x-on:click="saveLatLong()"
                                                     x-bind:disabled="isEditing"
                                                     class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
-                                                <i class="fas fa-check" x-show="!isEditing"></i>
-                                                <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
-                                                <span x-show="!isEditing"> Salva</span>
+                                                <span x-show="!isEditing">Salva</span>
+                                                <span x-show="isEditing" class="inline-flex items-center">
+                                                    <svg class="animate-spin h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24">
+                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    Salvataggio...
+                                                </span>
                                             </button>
                                         </div>
                                     </div>
@@ -420,10 +426,11 @@
                                             .then(() => {
                                                 this.showTooltip = false;
                                                 this.isEditing = false;
-                                                window.location.reload();
+                                                @this.dispatch('refreshActivities');
                                             })
                                             .catch(() => {
                                                 this.isEditing = false;
+                                                this.showTooltip = false;
                                             });
                                     }
                                 }">
@@ -441,28 +448,33 @@
                                         <label class="block text-xs font-medium text-gray-700 mb-1">Latitudine / Longitudine</label>
                                         <input type="text" 
                                             x-model="editedValue" 
-                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
+                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
                                             placeholder="es. 45.123456, 12.123456"
                                             x-on:keydown.enter="saveLatLong()">
                                         <div class="flex justify-end gap-2 mt-2">
                                             <button type="button" 
                                                     x-on:click="showTooltip = false"
                                                     class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
-                                                <i class="fas fa-times"></i> Annulla
+                                                Annulla
                                             </button>
                                             <button type="button" 
                                                     x-on:click="saveLatLong()"
                                                     x-bind:disabled="isEditing"
                                                     class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
-                                                <i class="fas fa-check" x-show="!isEditing"></i>
-                                                <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
-                                                <span x-show="!isEditing"> Salva</span>
+                                                <span x-show="!isEditing">Salva</span>
+                                                <span x-show="isEditing" class="inline-flex items-center">
+                                                    <svg class="animate-spin h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24">
+                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    Salvataggio...
+                                                </span>
                                             </button>
                                         </div>
                                     </div>
                                 </div>
                             @endif
-                        </td>
+                            </td>
                         
                         <!-- Note -->
                         <td class="px-3 py-3 text-sm">
@@ -477,7 +489,7 @@
                             @endif
                         </td>
                         
-                        <!-- Ettari (ha) con tooltip modificabile (aggiornamento real-time) -->
+                        <!-- Ettari (ha) con tooltip modificabile -->
                         <td class="px-3 py-3 text-sm whitespace-nowrap relative group">
                             @if($activity->ha)
                                 <div x-data="{ 
@@ -493,11 +505,11 @@
                                                 this.ha = this.editedValue;
                                                 this.showTooltip = false;
                                                 this.isEditing = false;
-                                                window.showSuccessAlert('Ettari aggiornati con successo!');
+                                                @this.dispatch('refreshActivities');
                                             })
                                             .catch(() => {
                                                 this.isEditing = false;
-                                                window.showErrorAlert('Errore durante il salvataggio');
+                                                this.showTooltip = false;
                                             });
                                     }
                                 }">
@@ -516,22 +528,27 @@
                                         <input type="number" 
                                             step="0.01" 
                                             x-model="editedValue" 
-                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
+                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
                                             placeholder="0.00"
                                             x-on:keydown.enter="saveHa()">
                                         <div class="flex justify-end gap-2 mt-2">
                                             <button type="button" 
                                                     x-on:click="showTooltip = false"
                                                     class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
-                                                <i class="fas fa-times"></i> Annulla
+                                                Annulla
                                             </button>
                                             <button type="button" 
                                                     x-on:click="saveHa()"
                                                     x-bind:disabled="isEditing"
                                                     class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
-                                                <i class="fas fa-check" x-show="!isEditing"></i>
-                                                <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
-                                                <span x-show="!isEditing"> Salva</span>
+                                                <span x-show="!isEditing">Salva</span>
+                                                <span x-show="isEditing" class="inline-flex items-center">
+                                                    <svg class="animate-spin h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24">
+                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    Salvataggio...
+                                                </span>
                                             </button>
                                         </div>
                                     </div>
@@ -547,10 +564,11 @@
                                             .then(() => {
                                                 this.showTooltip = false;
                                                 this.isEditing = false;
-                                                window.location.reload();
+                                                @this.dispatch('refreshActivities');
                                             })
                                             .catch(() => {
                                                 this.isEditing = false;
+                                                this.showTooltip = false;
                                             });
                                     }
                                 }">
@@ -569,28 +587,33 @@
                                         <input type="number" 
                                             step="0.01" 
                                             x-model="editedValue" 
-                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
+                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
                                             placeholder="0.00"
                                             x-on:keydown.enter="saveHa()">
                                         <div class="flex justify-end gap-2 mt-2">
                                             <button type="button" 
                                                     x-on:click="showTooltip = false"
                                                     class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
-                                                <i class="fas fa-times"></i> Annulla
+                                                Annulla
                                             </button>
                                             <button type="button" 
                                                     x-on:click="saveHa()"
                                                     x-bind:disabled="isEditing"
                                                     class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
-                                                <i class="fas fa-check" x-show="!isEditing"></i>
-                                                <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
-                                                <span x-show="!isEditing"> Salva</span>
+                                                <span x-show="!isEditing">Salva</span>
+                                                <span x-show="isEditing" class="inline-flex items-center">
+                                                    <svg class="animate-spin h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24">
+                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    Salvataggio...
+                                                </span>
                                             </button>
                                         </div>
                                     </div>
                                 </div>
                             @endif
-                        </td>
+                            </td>
                         
                         <!-- Azioni -->
                         <td class="px-3 py-3 text-sm whitespace-nowrap">

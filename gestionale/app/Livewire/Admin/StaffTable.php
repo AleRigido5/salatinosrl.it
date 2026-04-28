@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Admin\Staff;
+namespace App\Livewire\Admin;
 
 use Livewire\Component;
 use Livewire\WithPagination;

@@ -1,8 +1,3 @@
-@extends('admin.layouts.app')
-
-@section('title', 'Attività')
-
-@section('content')
 <div>
     <!-- Filtri e Ricerca -->
     <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
@@ -350,35 +345,31 @@
                             @endif
                         </td>
                         
-                        <!-- Lat/Long con tooltip modificabile -->
+                        <!-- Lat/Long con tooltip modificabile (SOTTO il campo) -->
                         <td class="px-3 py-3 text-sm relative group">
                             @if($activity->Lat_Long)
                                 <div x-data="{ 
-                                    latLong: '{{ addslashes($activity->Lat_Long) }}',
+                                    latLong: '{{ $activity->Lat_Long }}',
                                     showTooltip: false,
                                     isEditing: false,
-                                    editedValue: '{{ addslashes($activity->Lat_Long) }}',
+                                    editedValue: '{{ $activity->Lat_Long }}',
                                     
                                     saveLatLong() {
                                         this.isEditing = true;
                                         @this.call('updateLatLong', {{ $activity->id }}, this.editedValue)
                                             .then(() => {
-                                                this.latLong = this.editedValue;
-                                                this.showTooltip = false;
-                                                this.isEditing = false;
-                                                // Forza l'aggiornamento della vista
-                                                @this.dispatch('refreshActivities');
+                                                // Ricarica la pagina dopo il salvataggio
+                                                window.location.reload();
                                             })
                                             .catch(() => {
                                                 this.isEditing = false;
-                                                this.showTooltip = false;
                                             });
                                     }
                                 }">
                                     <div class="font-mono text-xs text-gray-600 cursor-pointer hover:text-lime-600 hover:underline break-words whitespace-normal max-w-[120px]" 
                                         title="Clicca per modificare"
                                         x-on:click="showTooltip = true; editedValue = latLong">
-                                        <span x-text="latLong">{{ $activity->Lat_Long }}</span>
+                                        {{ $activity->Lat_Long }}
                                     </div>
                                     
                                     <div x-show="showTooltip" 
@@ -390,50 +381,28 @@
                                         <label class="block text-xs font-medium text-gray-700 mb-1">Latitudine / Longitudine</label>
                                         <input type="text" 
                                             x-model="editedValue" 
-                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
+                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
                                             placeholder="es. 45.123456, 12.123456"
                                             x-on:keydown.enter="saveLatLong()">
                                         <div class="flex justify-end gap-2 mt-2">
                                             <button type="button" 
                                                     x-on:click="showTooltip = false"
                                                     class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
-                                                Annulla
+                                                <i class="fas fa-times"></i> Annulla
                                             </button>
                                             <button type="button" 
                                                     x-on:click="saveLatLong()"
                                                     x-bind:disabled="isEditing"
                                                     class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
-                                                <span x-show="!isEditing">Salva</span>
-                                                <span x-show="isEditing" class="inline-flex items-center">
-                                                    <svg class="animate-spin h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24">
-                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                    </svg>
-                                                    Salvataggio...
-                                                </span>
+                                                <i class="fas fa-check" x-show="!isEditing"></i>
+                                                <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
+                                                <span x-show="!isEditing"> Salva</span>
                                             </button>
                                         </div>
                                     </div>
                                 </div>
                             @else
-                                <div x-data="{ 
-                                    showTooltip: false, 
-                                    editedValue: '', 
-                                    isEditing: false,
-                                    saveLatLong() {
-                                        this.isEditing = true;
-                                        @this.call('updateLatLong', {{ $activity->id }}, this.editedValue)
-                                            .then(() => {
-                                                this.showTooltip = false;
-                                                this.isEditing = false;
-                                                @this.dispatch('refreshActivities');
-                                            })
-                                            .catch(() => {
-                                                this.isEditing = false;
-                                                this.showTooltip = false;
-                                            });
-                                    }
-                                }">
+                                <div x-data="{ showTooltip: false, editedValue: '', isEditing: false }">
                                     <span class="text-gray-400 italic cursor-pointer hover:text-lime-600" 
                                         x-on:click="showTooltip = true">
                                         -
@@ -448,34 +417,29 @@
                                         <label class="block text-xs font-medium text-gray-700 mb-1">Latitudine / Longitudine</label>
                                         <input type="text" 
                                             x-model="editedValue" 
-                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
+                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
                                             placeholder="es. 45.123456, 12.123456"
-                                            x-on:keydown.enter="saveLatLong()">
+                                            x-on:keydown.enter="isEditing = true; @this.call('updateLatLong', {{ $activity->id }}, editedValue).then(() => { window.location.reload(); })">
                                         <div class="flex justify-end gap-2 mt-2">
                                             <button type="button" 
                                                     x-on:click="showTooltip = false"
                                                     class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
-                                                Annulla
+                                                <i class="fas fa-times"></i> Annulla
                                             </button>
                                             <button type="button" 
-                                                    x-on:click="saveLatLong()"
+                                                    x-on:click="isEditing = true; @this.call('updateLatLong', {{ $activity->id }}, editedValue).then(() => { window.location.reload(); })"
                                                     x-bind:disabled="isEditing"
                                                     class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
-                                                <span x-show="!isEditing">Salva</span>
-                                                <span x-show="isEditing" class="inline-flex items-center">
-                                                    <svg class="animate-spin h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24">
-                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                    </svg>
-                                                    Salvataggio...
-                                                </span>
+                                                <i class="fas fa-check" x-show="!isEditing"></i>
+                                                <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
+                                                <span x-show="!isEditing"> Salva</span>
                                             </button>
                                         </div>
                                     </div>
                                 </div>
                             @endif
-                            </td>
-                        
+                        </td>
+
                         <!-- Note -->
                         <td class="px-3 py-3 text-sm">
                             @if($activity->note)
@@ -488,8 +452,8 @@
                                 </span>
                             @endif
                         </td>
-                        
-                        <!-- Ettari (ha) con tooltip modificabile -->
+
+                        <!-- Ettari (ha) con tooltip modificabile (SOTTO il campo) -->
                         <td class="px-3 py-3 text-sm whitespace-nowrap relative group">
                             @if($activity->ha)
                                 <div x-data="{ 
@@ -502,20 +466,16 @@
                                         this.isEditing = true;
                                         @this.call('updateHa', {{ $activity->id }}, this.editedValue)
                                             .then(() => {
-                                                this.ha = this.editedValue;
-                                                this.showTooltip = false;
-                                                this.isEditing = false;
-                                                @this.dispatch('refreshActivities');
+                                                window.location.reload();
                                             })
                                             .catch(() => {
                                                 this.isEditing = false;
-                                                this.showTooltip = false;
                                             });
                                     }
                                 }">
                                     <span class="font-medium cursor-pointer hover:text-lime-600 hover:underline" 
                                         x-on:click="showTooltip = true; editedValue = ha">
-                                        <span x-text="ha">{{ $activity->ha }}</span>
+                                        {{ $activity->ha }}
                                     </span>
                                     
                                     <div x-show="showTooltip" 
@@ -528,50 +488,28 @@
                                         <input type="number" 
                                             step="0.01" 
                                             x-model="editedValue" 
-                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
+                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
                                             placeholder="0.00"
                                             x-on:keydown.enter="saveHa()">
                                         <div class="flex justify-end gap-2 mt-2">
                                             <button type="button" 
                                                     x-on:click="showTooltip = false"
                                                     class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
-                                                Annulla
+                                                <i class="fas fa-times"></i> Annulla
                                             </button>
                                             <button type="button" 
                                                     x-on:click="saveHa()"
                                                     x-bind:disabled="isEditing"
                                                     class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
-                                                <span x-show="!isEditing">Salva</span>
-                                                <span x-show="isEditing" class="inline-flex items-center">
-                                                    <svg class="animate-spin h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24">
-                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                    </svg>
-                                                    Salvataggio...
-                                                </span>
+                                                <i class="fas fa-check" x-show="!isEditing"></i>
+                                                <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
+                                                <span x-show="!isEditing"> Salva</span>
                                             </button>
                                         </div>
                                     </div>
                                 </div>
                             @else
-                                <div x-data="{ 
-                                    showTooltip: false, 
-                                    editedValue: '', 
-                                    isEditing: false,
-                                    saveHa() {
-                                        this.isEditing = true;
-                                        @this.call('updateHa', {{ $activity->id }}, this.editedValue)
-                                            .then(() => {
-                                                this.showTooltip = false;
-                                                this.isEditing = false;
-                                                @this.dispatch('refreshActivities');
-                                            })
-                                            .catch(() => {
-                                                this.isEditing = false;
-                                                this.showTooltip = false;
-                                            });
-                                    }
-                                }">
+                                <div x-data="{ showTooltip: false, editedValue: '', isEditing: false }">
                                     <span class="text-gray-400 italic cursor-pointer hover:text-lime-600" 
                                         x-on:click="showTooltip = true">
                                         -
@@ -587,33 +525,28 @@
                                         <input type="number" 
                                             step="0.01" 
                                             x-model="editedValue" 
-                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
+                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
                                             placeholder="0.00"
-                                            x-on:keydown.enter="saveHa()">
+                                            x-on:keydown.enter="isEditing = true; @this.call('updateHa', {{ $activity->id }}, editedValue).then(() => { window.location.reload(); })">
                                         <div class="flex justify-end gap-2 mt-2">
                                             <button type="button" 
                                                     x-on:click="showTooltip = false"
                                                     class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
-                                                Annulla
+                                                <i class="fas fa-times"></i> Annulla
                                             </button>
                                             <button type="button" 
-                                                    x-on:click="saveHa()"
+                                                    x-on:click="isEditing = true; @this.call('updateHa', {{ $activity->id }}, editedValue).then(() => { window.location.reload(); })"
                                                     x-bind:disabled="isEditing"
                                                     class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
-                                                <span x-show="!isEditing">Salva</span>
-                                                <span x-show="isEditing" class="inline-flex items-center">
-                                                    <svg class="animate-spin h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24">
-                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                    </svg>
-                                                    Salvataggio...
-                                                </span>
+                                                <i class="fas fa-check" x-show="!isEditing"></i>
+                                                <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
+                                                <span x-show="!isEditing"> Salva</span>
                                             </button>
                                         </div>
                                     </div>
                                 </div>
                             @endif
-                            </td>
+                        </td>
                         
                         <!-- Azioni -->
                         <td class="px-3 py-3 text-sm whitespace-nowrap">
@@ -705,10 +638,12 @@
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" x-on:click="show = false; $wire.closeViewModal()" aria-hidden="true"></div>
             
+            <!-- Questo span è necessario per l'allineamento verticale -->
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
             <div class="inline-block align-bottom bg-white rounded-lg shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
                 <div class="bg-white rounded-lg max-h-[90vh] flex flex-col">
+                    <!-- Header fisso -->
                     <div class="px-6 pt-4 pb-3 border-b sticky top-0 bg-white rounded-t-lg z-10">
                         <div class="flex justify-between items-center">
                             <h2 class="text-lg font-bold text-gray-800">
@@ -720,13 +655,17 @@
                         </div>
                     </div>
                     
+                    <!-- Contenuto scrollabile -->
                     <div class="flex-1 overflow-y-auto p-6 space-y-4">
+                        <!-- Informazioni principali in griglia -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Data -->
                             <div class="bg-gray-50 p-3 rounded-lg">
                                 <span class="text-xs text-gray-500 uppercase font-semibold">Data</span>
                                 <p class="font-medium text-gray-800 mt-1">{{ $this->formatDate($viewingActivity->data_activities) }}</p>
                             </div>
                             
+                            <!-- Centro di Costo -->
                             <div class="bg-gray-50 p-3 rounded-lg">
                                 <span class="text-xs text-gray-500 uppercase font-semibold">Centro di Costo</span>
                                 <p class="font-medium text-gray-800 mt-1">{{ $viewingActivity->costCenter->Nome ?? '-' }}</p>
@@ -735,6 +674,7 @@
                                 @endif
                             </div>
                             
+                            <!-- Servizio -->
                             <div class="bg-gray-50 p-3 rounded-lg">
                                 <span class="text-xs text-gray-500 uppercase font-semibold">Servizio</span>
                                 <p class="font-medium text-gray-800 mt-1">{{ $viewingActivity->service->Titolo ?? '-' }}</p>
@@ -743,6 +683,7 @@
                                 @endif
                             </div>
                             
+                            <!-- Cliente/Fornitore -->
                             <div class="bg-gray-50 p-3 rounded-lg">
                                 <span class="text-xs text-gray-500 uppercase font-semibold">Cliente/Fornitore</span>
                                 <p class="font-medium text-gray-800 mt-1">
@@ -754,6 +695,7 @@
                             </div>
                         </div>
                         
+                        <!-- Note -->
                         @if($viewingActivity->note)
                         <div class="bg-gray-50 p-3 rounded-lg">
                             <span class="text-xs text-gray-500 uppercase font-semibold">Note</span>
@@ -761,6 +703,7 @@
                         </div>
                         @endif
                         
+                        <!-- Tracciamento (Created/Updated) -->
                         <div class="border-t pt-3 mt-2">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-gray-500">
                                 @if($viewingActivity->created_at)
@@ -779,6 +722,7 @@
                         </div>
                     </div>
                     
+                    <!-- Footer fisso con pulsanti -->
                     <div class="px-6 py-3 border-t bg-gray-50 rounded-b-lg sticky bottom-0">
                         <div class="flex justify-end gap-3">
                             <button wire:click="closeViewModal" 
@@ -809,6 +753,7 @@
             
             <div class="inline-block align-bottom bg-white rounded-lg shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
                 <div class="bg-white rounded-lg max-h-[90vh] flex flex-col">
+                    <!-- Header fisso -->
                     <div class="px-6 pt-4 pb-3 border-b sticky top-0 bg-white rounded-t-lg z-10">
                         <div class="flex justify-between items-center">
                             <h2 class="text-lg font-bold text-gray-800">
@@ -820,9 +765,11 @@
                         </div>
                     </div>
                     
+                    <!-- Form scrollabile -->
                     <form wire:submit.prevent="updateActivity" class="flex-1 overflow-y-auto">
                         <div class="p-6 space-y-4">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- Data -->
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">
                                         Data <span class="text-red-500">*</span>
@@ -833,6 +780,7 @@
                                     @error('editDate') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
                                 </div>
                                 
+                                <!-- Centro di Costo Autocomplete -->
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">
                                         Centro di Costo <span class="text-red-500">*</span>
@@ -858,6 +806,7 @@
                                             @endif
                                         </div>
                                         
+                                        <!-- Dropdown risultati -->
                                         <div x-show="open && @entangle('showEditCostCenterDropdown')" 
                                             class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                                             @if($filteredEditCostCenters && $filteredEditCostCenters->count() > 0)
@@ -887,6 +836,7 @@
                                     @error('editCostCenter') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
                                 </div>
                                 
+                                <!-- Servizio Autocomplete -->
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">
                                         Servizio <span class="text-red-500">*</span>
@@ -912,6 +862,7 @@
                                             @endif
                                         </div>
                                         
+                                        <!-- Dropdown risultati -->
                                         <div x-show="open && @entangle('showEditServiceDropdown')" 
                                             class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                                             @if($filteredEditServices && $filteredEditServices->count() > 0)
@@ -941,6 +892,7 @@
                                     @error('editService') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
                                 </div>
                                 
+                                <!-- Cliente/Fornitore Autocomplete -->
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">
                                         Cliente/Fornitore <span class="text-red-500">*</span>
@@ -966,6 +918,7 @@
                                             @endif
                                         </div>
                                         
+                                        <!-- Dropdown risultati -->
                                         <div x-show="open && @entangle('showEditEntityDropdown')" 
                                             class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                                             @if($filteredEditEntities && $filteredEditEntities->count() > 0)
@@ -998,6 +951,7 @@
                                     @error('editEntity') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
                                 </div>
                                 
+                                <!-- Rif. Fattura -->
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Rif. Fattura</label>
                                     <input type="text" 
@@ -1006,6 +960,7 @@
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
                                 </div>
                                 
+                                <!-- Imponibile -->
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Imponibile (€)</label>
                                     <input type="number" 
@@ -1015,6 +970,7 @@
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
                                 </div>
                                 
+                                <!-- Costi Materiali -->
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Costi Materiali (€)</label>
                                     <input type="number" 
@@ -1024,6 +980,7 @@
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
                                 </div>
                                 
+                                <!-- Totale (solo visualizzazione) -->
                                 <div class="bg-lime-50 p-3 rounded-lg border border-lime-200">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Totale (calcolato)</label>
                                     <p class="text-lg font-bold text-lime-600">
@@ -1032,6 +989,7 @@
                                 </div>
                             </div>
                             
+                            <!-- Note (full width) -->
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Note</label>
                                 <textarea wire:model="editNote" 
@@ -1042,6 +1000,7 @@
                         </div>
                     </form>
                     
+                    <!-- Footer fisso con pulsanti -->
                     <div class="px-6 py-3 border-t bg-gray-50 rounded-b-lg sticky bottom-0">
                         <div class="flex justify-end gap-3">
                             <button type="button" 
@@ -1066,24 +1025,8 @@
 
     @push('scripts')
     <script>
-        // Funzioni globali per alert
-        window.showSuccessAlert = function(message) {
-            const alert = document.createElement('div');
-            alert.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-            alert.innerHTML = '<i class="fas fa-check-circle mr-2"></i>' + message;
-            document.body.appendChild(alert);
-            setTimeout(() => alert.remove(), 3000);
-        };
-
-        window.showErrorAlert = function(message) {
-            const alert = document.createElement('div');
-            alert.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-            alert.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i>' + message;
-            document.body.appendChild(alert);
-            setTimeout(() => alert.remove(), 3000);
-        };
-
         document.addEventListener('livewire:initialized', () => {
+            // Ascolta gli eventi per pulire i campi
             Livewire.on('clear-cost-center', () => {
                 document.getElementById('cost_center_input').value = '';
             });
@@ -1099,4 +1042,3 @@
     </script>
     @endpush
 </div>
-@endsection

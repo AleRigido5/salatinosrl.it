@@ -786,7 +786,7 @@ class ActivitiesTable extends Component
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
-    
+
     /**
      * Aggiorna Ettari (ha) direttamente dalla tabella
      */
@@ -800,7 +800,6 @@ class ActivitiesTable extends Component
         try {
             $activity = Activity::find($id);
             if ($activity) {
-                // Converti la virgola in punto per il decimale
                 $value = str_replace(',', '.', $value);
                 $activity->update([
                     'ha' => $value ? floatval($value) : null,

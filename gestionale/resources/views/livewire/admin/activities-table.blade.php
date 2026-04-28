@@ -462,7 +462,7 @@
                                     </div>
                                 </div>
                             @endif
-                        </td--^
+                        </td>
                         
                         <!-- Note -->
                         <td class="px-3 py-3 text-sm">
@@ -475,7 +475,7 @@
                                     -
                                 </span>
                             @endif
-                        </td--^
+                        </td>
                         
                         <!-- Ettari (ha) con tooltip modificabile (aggiornamento real-time) -->
                         <td class="px-3 py-3 text-sm whitespace-nowrap relative group">
@@ -590,7 +590,7 @@
                                     </div>
                                 </div>
                             @endif
-                        </td--^
+                        </td>
                         
                         <!-- Azioni -->
                         <td class="px-3 py-3 text-sm whitespace-nowrap">
@@ -610,7 +610,7 @@
                                 </button>
                                 @endif
                             </div>
-                        </td--^
+                        </td>
                     </tr>
                     @empty
                     <tr>
@@ -622,7 +622,7 @@
                                 <i class="fas fa-plus-circle mr-1"></i> Clicca per aggiungere
                             </a>
                             @endif
-                        </td--^
+                        </td>
                     </tr>
                     @endforelse
                 </tbody>

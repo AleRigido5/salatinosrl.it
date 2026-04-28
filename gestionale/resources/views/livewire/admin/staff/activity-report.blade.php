@@ -160,7 +160,7 @@
                                 tooltipStyle: { display: 'none' },
                                 saveOre() {
                                     this.isEditing = true;
-                                    fetch('{{ route('staff.update-ore', $staffDetailId) }}', {
+                                    fetch('{{ route('admin.staff.update-ore', $staffDetailId) }}', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',
@@ -226,7 +226,7 @@
                                 tooltipStyle: { display: 'none' },
                                 saveCosto() {
                                     this.isEditing = true;
-                                    fetch('{{ route('staff.update-costo-orario', $staffDetailId) }}', {
+                                    fetch('{{ route('admin.staff.update-costo-orario', $staffDetailId) }}', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',
@@ -287,7 +287,7 @@
                                 tooltipStyle: { display: 'none' },
                                 saveSpese() {
                                     this.isEditing = true;
-                                    fetch('{{ route('staff.update-spese', $staffDetailId) }}', {
+                                    fetch('{{ route('admin.staff.update-spese', $staffDetailId) }}', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',
@@ -347,7 +347,7 @@
                                 noteText: '{{ addslashes($activity->note) }}',
                                 saveNote() {
                                     this.isEditing = true;
-                                    fetch('{{ route('staff.update-activity-note', $activity->id) }}', {
+                                    fetch('{{ route('admin.staff.update-activity-note', $activity->id) }}', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',
@@ -387,7 +387,7 @@
                                     </div>
                                 </div>
                             </div>
-                        </td>
+                        </td
                     </tr>
                     @empty
                     <tr>

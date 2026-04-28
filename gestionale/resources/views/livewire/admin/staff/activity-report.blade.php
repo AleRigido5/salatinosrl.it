@@ -17,7 +17,7 @@
         </div>
         <div class="flex gap-3">
             <a href="{{ route('admin.staff.index') }}" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
-                <i class="fas fa-arrow-left mr-2"></i> Torna al Personale
+                <i class="fas fa-arrow-left"></i>
             </a>
         </div>
     </div>
@@ -27,7 +27,6 @@
         <div class="flex flex-wrap items-center justify-between gap-3">
             <!-- Range personalizzato a sinistra -->
             <div class="flex items-center gap-3">
-                <label class="text-sm font-medium text-gray-700">Range:</label>
                 <input type="date" name="date_from" value="{{ request('date_from', $dateFrom->format('Y-m-d')) }}" 
                        id="date_from"
                        class="px-3 py-1.5 border border-gray-300 rounded-md text-sm">

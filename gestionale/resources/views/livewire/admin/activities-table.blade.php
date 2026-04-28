@@ -286,6 +286,7 @@
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Lat/Long</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Note</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">ha</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Rif. Fattura</th>
                         <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Azioni</th>
                     </tr>
                 </thead>
@@ -323,9 +324,9 @@
                                             $staffName = $staff ? ($staff->CognomePers . ' ' . $staff->NomePers) : '-';
                                             $ore = $staffDetail->n_ore ?: 0;
                                         @endphp
-                                        <div class="text-sm whitespace-nowrap">
-                                            <span class="text-sm text-gray-700">{{ $staffName }}</span>
-                                            <span class="text-xs text-gray-500 ml-1">({{ number_format($ore, 1) }} h)</span>
+                                        <div class="text-xs text-gray-500 whitespace-nowrap">
+                                            <span>{{ $staffName }}</span>
+                                            <span class="ml-1">({{ number_format($ore, 1) }} h)</span>
                                         </div>
                                     @endforeach
                                 </div>
@@ -443,11 +444,11 @@
                         <!-- Note -->
                         <td class="px-3 py-3 text-sm">
                             @if($activity->note)
-                                <div class="break-words whitespace-normal max-w-[180px]" title="{{ $activity->note }}">
+                                <div class="text-xs text-gray-500 break-words whitespace-normal max-w-[180px]" title="{{ $activity->note }}">
                                     {{ $activity->note }}
                                 </div>
                             @else
-                                <span class="text-gray-400 italic">
+                                <span class="text-gray-400 italic text-xs">
                                     -
                                 </span>
                             @endif
@@ -545,6 +546,17 @@
                                         </div>
                                     </div>
                                 </div>
+                            @endif
+                        </td>
+
+                        <!-- Rif. Fattura -->
+                        <td class="px-3 py-3 text-sm">
+                            @if($activity->invoice_references)
+                                <span class="text-xs text-gray-600 font-mono" title="{{ $activity->invoice_references }}">
+                                    {{ Str::limit($activity->invoice_references, 20) }}
+                                </span>
+                            @else
+                                <span class="text-gray-400 italic text-xs">-</span>
                             @endif
                         </td>
                         

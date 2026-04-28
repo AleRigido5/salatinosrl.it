@@ -159,11 +159,6 @@
                                         <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium {{ $assunzioneInfo['bg_class'] }}">
                                             <i class="fas fa-calendar-alt mr-1"></i>
                                             {{ $assunzioneInfo['formatted'] }}
-                                            @if($assunzioneInfo['is_expired'])
-                                                <span class="ml-1">(Scaduta da {{ $assunzioneInfo['days_left'] }} gg)</span>
-                                            @elseif($assunzioneInfo['is_expiring_soon'])
-                                                <span class="ml-1">(Tra {{ $assunzioneInfo['days_left'] }} gg)</span>
-                                            @endif
                                         </div>
                                     @else
                                         <span class="text-xs text-gray-400 italic px-2 py-1 bg-gray-100 rounded-md">Nessuna scadenza</span>
@@ -176,11 +171,6 @@
                                         <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium {{ $visitaMedicaInfo['bg_class'] }}">
                                             <i class="fas fa-calendar-alt mr-1"></i>
                                             {{ $visitaMedicaInfo['formatted'] }}
-                                            @if($visitaMedicaInfo['is_expired'])
-                                                <span class="ml-1">(Scaduta da {{ $visitaMedicaInfo['days_left'] }} gg)</span>
-                                            @elseif($visitaMedicaInfo['is_expiring_soon'])
-                                                <span class="ml-1">(Tra {{ $visitaMedicaInfo['days_left'] }} gg)</span>
-                                            @endif
                                         </div>
                                     @else
                                         <span class="text-xs text-gray-400 italic px-2 py-1 bg-gray-100 rounded-md">Nessuna scadenza</span>

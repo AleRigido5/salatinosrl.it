@@ -314,7 +314,7 @@ class StaffController extends Controller
             }
         ])
         ->whereBetween('data_activities', [$dateFrom, $dateTo])
-        ->orderBy('data_activities', 'desc')
+        ->orderBy('data_activities', 'asc')
         ->get();
         
         // Calcolo statistiche
@@ -341,7 +341,9 @@ class StaffController extends Controller
             }
         }
         
-        $totalWorkingDays = $totalHours / 8;
+        // Giornate effettive calcolate con 7 ore giornaliere
+        $hoursPerDay = 7;
+        $totalWorkingDays = $totalHours / $hoursPerDay;
         $averageHourlyCost = $activityCount > 0 ? $totalCostoOrario / $activityCount : 0;
         
         // Mesi per navigazione
@@ -354,7 +356,7 @@ class StaffController extends Controller
             'selectedMonth', 'selectedYear', 'currentYear',
             'previousMonth', 'nextMonth',
             'totalHours', 'totalMaturato', 'totalSpese',
-            'totalWorkingDays', 'averageHourlyCost'
+            'totalWorkingDays', 'averageHourlyCost', 'hoursPerDay'
         ));
     }
 
@@ -371,9 +373,10 @@ class StaffController extends Controller
         
         try {
             $staffDetail = ActivityStaffLink::findOrFail($staffDetailId);
+            $value = $request->input('value');
+            
             $staffDetail->update([
-                'n_ore' => floatval($request->value),
-                'updated_by' => Auth::guard('admin')->id()
+                'n_ore' => floatval($value)
             ]);
             
             return response()->json(['success' => true]);
@@ -393,9 +396,10 @@ class StaffController extends Controller
         
         try {
             $staffDetail = ActivityStaffLink::findOrFail($staffDetailId);
+            $value = $request->input('value');
+            
             $staffDetail->update([
-                'costo_orario' => floatval($request->value),
-                'updated_by' => Auth::guard('admin')->id()
+                'costo_orario' => floatval($value)
             ]);
             
             return response()->json(['success' => true]);
@@ -415,9 +419,10 @@ class StaffController extends Controller
         
         try {
             $staffDetail = ActivityStaffLink::findOrFail($staffDetailId);
+            $value = $request->input('value');
+            
             $staffDetail->update([
-                'spese' => floatval($request->value),
-                'updated_by' => Auth::guard('admin')->id()
+                'spese' => floatval($value)
             ]);
             
             return response()->json(['success' => true]);
@@ -437,9 +442,10 @@ class StaffController extends Controller
         
         try {
             $activity = Activity::findOrFail($activityId);
+            $value = $request->input('value');
+            
             $activity->update([
-                'note' => $request->value,
-                'updated_by' => Auth::guard('admin')->id()
+                'note' => $value
             ]);
             
             return response()->json(['success' => true]);

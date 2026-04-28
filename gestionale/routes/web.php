@@ -140,7 +140,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/export/csv', [StaffController::class, 'export'])->name('export');
             Route::get('/export/pdf', [StaffController::class, 'exportPdf'])->name('export.pdf');
         });
-
+        
         // =============================================
         // GESTIONE MEZZI (VEHICLES)
         // =============================================

@@ -17,7 +17,7 @@
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
             <!-- Header con gradiente -->
             <div class="w-full h-48 bg-lime-500 flex items-center justify-center p-6">
-                <img src="{{ asset('images/logo_login_salatino.png') }}" alt="Logo">
+                <img src="{{ asset('../../../../public/images/logo_login_salatino.png') }}" alt="Logo">
             </div>
             
             <div class="p-8">

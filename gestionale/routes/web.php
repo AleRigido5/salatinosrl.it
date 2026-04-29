@@ -131,14 +131,17 @@ Route::prefix('admin')->name('admin.')->group(function () {
             // Report attività per staff
             Route::get('/{staff}/activity-report', [StaffController::class, 'activityReport'])->name('activity-report');   
             
+            // Routes per aggiornamenti tooltip
             Route::post('/update-ore/{staffDetailId}', [StaffController::class, 'updateOre'])->name('update-ore');
             Route::post('/update-costo-orario/{staffDetailId}', [StaffController::class, 'updateCostoOrario'])->name('update-costo-orario');
             Route::post('/update-spese/{staffDetailId}', [StaffController::class, 'updateSpese'])->name('update-spese');
             Route::post('/update-activity-note/{activityId}', [StaffController::class, 'updateActivityNote'])->name('update-activity-note');
+            Route::post('/update-staff-note/{staffDetailId}', [StaffController::class, 'updateStaffNote'])->name('update-staff-note');
+            Route::post('/staff/bulk-update-costo/{staffId}', [StaffController::class, 'bulkUpdateCosto'])->name('bulk-update-costo');
                 
-            // Export staff
-            Route::get('/export/csv', [StaffController::class, 'export'])->name('export');
-            Route::get('/export/pdf', [StaffController::class, 'exportPdf'])->name('export.pdf');
+            // Export Report PDF ed Excel
+            Route::get('/{staff}/export-report-pdf', [StaffController::class, 'exportReportPdf'])->name('export-report-pdf');
+            Route::get('/{staff}/export-report-excel', [StaffController::class, 'exportReportExcel'])->name('export-report-excel');
         });
         
         // =============================================

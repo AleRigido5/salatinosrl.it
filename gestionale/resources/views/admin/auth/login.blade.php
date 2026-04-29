@@ -12,16 +12,12 @@
         body { font-family: 'Inter', sans-serif; }
     </style>
 </head>
-<body class="bg-gradient-to-br from-emerald-50 via-green-50 to-lime-50">
+<body class="bg-gradient-to-br from-lime-50 via-lime-50 to-lime-50">
     <div class="min-h-screen flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
             <!-- Header con gradiente -->
-            <div class="bg-gradient-to-r from-emerald-600 to-green-600 px-8 py-6 text-center">
-                <div class="mx-auto w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-3 backdrop-blur-sm">
-                    <i class="fas fa-lock text-2xl text-white"></i>
-                </div>
-                <h2 class="text-2xl font-bold text-white">Area Admin</h2>
-                <p class="text-emerald-100 text-sm mt-1">Pannello di controllo</p>
+            <div class="w-full h-48 bg-lime-500 flex items-center justify-center p-6">
+                <img src="{{ asset('images/logo_login_salatino.png') }}" alt="Logo">
             </div>
             
             <div class="p-8">
@@ -47,37 +43,37 @@
                     @csrf
                     <div class="mb-5">
                         <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-envelope mr-1 text-emerald-500"></i> Email
+                            <i class="fas fa-envelope mr-1 text-lime-500"></i> Email
                         </label>
                         <div class="relative">
                             <i class="fas fa-envelope absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                             <input type="email" name="email" id="email" value="{{ old('email') }}" 
-                                class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition"
+                                class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-200 transition"
                                 required autofocus>
                         </div>
                     </div>
 
                     <div class="mb-6">
                         <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-key mr-1 text-emerald-500"></i> Password
+                            <i class="fas fa-key mr-1 text-lime-500"></i> Password
                         </label>
                         <div class="relative">
                             <i class="fas fa-key absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                             <input type="password" name="password" id="password" 
-                                class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition"
+                                class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-lime-500 focus:ring-2 focus:ring-lime-200 transition"
                                 required>
                         </div>
                     </div>
 
                     <div class="flex items-center justify-between mb-8">
                         <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" name="remember" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                            <input type="checkbox" name="remember" class="rounded border-gray-300 text-lime-600 focus:ring-lime-500">
                             <span class="ml-2 text-sm text-gray-600">Ricordami</span>
                         </label>
                     </div>
 
                     <button type="submit" 
-                        class="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] shadow-md hover:shadow-lg">
+                        class="w-full bg-gradient-to-r from-lime-600 to-lime-600 hover:from-lime-700 hover:to-lime-700 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] shadow-md hover:shadow-lg">
                         <i class="fas fa-sign-in-alt mr-2"></i> Accedi
                     </button>
                 </form>

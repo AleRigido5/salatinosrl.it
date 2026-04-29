@@ -8,6 +8,12 @@ use App\Models\Activity;
 use App\Models\ActivityStaffLink;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Barryvdh\DomPDF\Facade\Pdf;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use Carbon\Carbon;
 
 class StaffController extends Controller
@@ -409,6 +415,44 @@ class StaffController extends Controller
     }
 
     /**
+     * Bulk update costo orario for multiple staff details
+     */
+    public function bulkUpdateCosto($staffId, Request $request)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            return response()->json(['success' => false, 'message' => 'Permessi insufficienti'], 403);
+        }
+        
+        try {
+            $costoOrario = floatval($request->input('costo_orario'));
+            $dateFrom = $request->input('date_from');
+            $dateTo = $request->input('date_to');
+            
+            // Prendi tutti gli staffDetail per questo staff nel periodo
+            $query = ActivityStaffLink::whereHas('activity', function($q) use ($dateFrom, $dateTo) {
+                if ($dateFrom && $dateTo) {
+                    $q->whereBetween('data_activities', [$dateFrom, $dateTo]);
+                }
+            })->where('id_staff', $staffId);
+            
+            $count = $query->count();
+            $query->update(['costo_orario' => $costoOrario]);
+            
+            return response()->json([
+                'success' => true,
+                'updated' => $count,
+                'message' => "Aggiornati $count record"
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Update spese for staff detail
      */
     public function updateSpese($staffDetailId, Request $request)
@@ -432,7 +476,7 @@ class StaffController extends Controller
     }
 
     /**
-     * Update note for activity
+     * Update note for activity (tabella activities)
      */
     public function updateActivityNote($activityId, Request $request)
     {
@@ -452,5 +496,444 @@ class StaffController extends Controller
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Update staff note in activities_staff_lnk
+     */
+    public function updateStaffNote($staffDetailId, Request $request)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            return response()->json(['success' => false, 'message' => 'Permessi insufficienti'], 403);
+        }
+        
+        try {
+            $staffDetail = ActivityStaffLink::findOrFail($staffDetailId);
+            $value = $request->input('value');
+            
+            $staffDetail->update([
+                'note' => $value
+            ]);
+            
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // ==================== METODI PER ESPORTAZIONE ====================
+
+    /**
+     * Export report to PDF
+     */
+    public function exportReportPdf($id, Request $request)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('view_activity_report')) {
+            abort(403, 'Non hai i permessi necessari.');
+        }
+        
+        $staff = Staff::findOrFail($id);
+        
+        // Gestione date
+        if ($request->has('date_from') && $request->has('date_to')) {
+            $dateFrom = Carbon::parse($request->date_from)->startOfDay();
+            $dateTo = Carbon::parse($request->date_to)->endOfDay();
+        } elseif ($request->has('month') && $request->has('year')) {
+            $dateFrom = Carbon::createFromDate($request->year, $request->month, 1)->startOfMonth();
+            $dateTo = Carbon::createFromDate($request->year, $request->month, 1)->endOfMonth();
+        } else {
+            $dateFrom = Carbon::now()->startOfMonth();
+            $dateTo = Carbon::now()->endOfMonth();
+        }
+        
+        // Query attività
+        $activities = Activity::whereHas('staffDetails', function($q) use ($staff) {
+            $q->where('id_staff', $staff->id_personale);
+        })
+        ->with([
+            'costCenter', 
+            'service', 
+            'entity.addresses',
+            'staffDetails' => function($q) use ($staff) {
+                $q->where('id_staff', $staff->id_personale);
+            }
+        ])
+        ->whereBetween('data_activities', [$dateFrom, $dateTo])
+        ->orderBy('data_activities', 'asc')
+        ->get();
+        
+        // Prepara i dati per il PDF (solo i campi richiesti)
+        $reportData = [];
+        $totalHours = 0;
+        $totalMaturato = 0;
+        $totalSpese = 0;
+        
+        foreach ($activities as $activity) {
+            $staffDetail = $activity->staffDetails->first();
+            if ($staffDetail) {
+                $ore = floatval($staffDetail->n_ore ?? 0);
+                $costoOrario = floatval($staffDetail->costo_orario ?? 0);
+                $spese = floatval($staffDetail->spese ?? 0);
+                
+                // Ottieni località
+                $costCenter = $activity->costCenter;
+                $entity = $activity->entity;
+                $localita = $costCenter && $costCenter->Localita ? $costCenter->Localita : '-';
+                if ($localita == '-' && $entity && $entity->addresses && $entity->addresses->isNotEmpty()) {
+                    $primaryAddress = $entity->addresses->firstWhere('sede', 'principale') ?? $entity->addresses->first();
+                    $localita = $primaryAddress->citta ?? '-';
+                }
+                
+                $serviceName = $activity->service ? $activity->service->Titolo : '-';
+                $displayLocalitaServizio = $localita != '-' ? $localita . ' / ' . $serviceName : $serviceName;
+                
+                $reportData[] = [
+                    'data' => Carbon::parse($activity->data_activities)->format('d/m/Y'),
+                    'localita_servizio' => $displayLocalitaServizio,
+                    'ore' => $ore,
+                    'costo_orario' => $costoOrario,
+                    'spese' => $spese,
+                ];
+                
+                $totalHours += $ore;
+                $totalMaturato += $ore * $costoOrario;
+                $totalSpese += $spese;
+            }
+        }
+        
+        // Creazione HTML per il PDF
+        $html = '
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Report Attività ' . e($staff->CognomePers) . ' ' . e($staff->NomePers) . '</title>
+            <style>
+                body {
+                    font-family: "DejaVu Sans", sans-serif;
+                    font-size: 10px;
+                    margin: 20px;
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 20px;
+                    border-bottom: 2px solid #4CAF50;
+                    padding-bottom: 10px;
+                }
+                .header h1 {
+                    margin: 0;
+                    font-size: 16px;
+                    color: #333;
+                }
+                .header p {
+                    margin: 5px 0 0;
+                    color: #666;
+                    font-size: 10px;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 15px;
+                }
+                th {
+                    background-color: #4CAF50;
+                    color: white;
+                    padding: 8px;
+                    text-align: center;
+                    font-size: 10px;
+                }
+                td {
+                    border: 1px solid #ddd;
+                    padding: 6px;
+                    text-align: center;
+                    font-size: 9px;
+                }
+                td:first-child, td:nth-child(2) {
+                    text-align: left;
+                }
+                .footer {
+                    margin-top: 20px;
+                    text-align: right;
+                    font-size: 9px;
+                    color: #666;
+                    border-top: 1px solid #ddd;
+                    padding-top: 10px;
+                }
+                .totals {
+                    margin-top: 15px;
+                    text-align: right;
+                    font-size: 10px;
+                    font-weight: bold;
+                }
+                .totals table {
+                    width: auto;
+                    float: right;
+                    margin-top: 0;
+                }
+                .totals td {
+                    border: none;
+                    padding: 4px 8px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Report Attività - ' . e($staff->NomePers) . ' ' . e($staff->CognomePers) . '</h1>
+                <p>Periodo: ' . $dateFrom->format('d/m/Y') . ' - ' . $dateTo->format('d/m/Y') . '</p>
+            </div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Località / Servizio</th>
+                        <th>N. Ore</th>
+                        <th>Costo €/h</th>
+                        <th>Spese (€)</th>
+                    </tr>
+                </thead>
+                <tbody>';
+        
+        if (empty($reportData)) {
+            $html .= '<tr><td colspan="5" style="text-align: center;">Nessuna attività trovata</td></tr>';
+        } else {
+            foreach ($reportData as $item) {
+                $html .= '
+                    <tr>
+                        <td>' . e($item['data']) . '</td>
+                        <td>' . e($item['localita_servizio']) . '</td>
+                        <td>' . number_format($item['ore'], 1) . '</td>
+                        <td>€ ' . number_format($item['costo_orario'], 2) . '</td>
+                        <td>€ ' . number_format($item['spese'], 2) . '</td>
+                    </tr>';
+            }
+        }
+        
+        $totalGenerico = $totalMaturato + $totalSpese;
+        
+        $html .= '
+                </tbody>
+            </table>
+            
+            <div class="totals">
+                <table>
+                    <tr>
+                        <td><strong>Totale Ore:</strong></td>
+                        <td>' . number_format($totalHours, 1) . ' h</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Totale Maturato:</strong></td>
+                        <td>€ ' . number_format($totalMaturato, 2) . '</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Totale Spese:</strong></td>
+                        <td>€ ' . number_format($totalSpese, 2) . '</td>
+                    </tr>
+                    <tr style="border-top: 1px solid #ddd;">
+                        <td><strong>TOTALE GENERALE:</strong></td>
+                        <td><strong>€ ' . number_format($totalGenerico, 2) . '</strong></td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div class="footer">
+                Documento generato il ' . Carbon::now()->format('d/m/Y H:i:s') . '
+            </div>
+        </body>
+        </html>';
+        
+        // Genera PDF direttamente dall'HTML
+        $pdf = Pdf::loadHTML($html);
+        $pdf->setPaper('A4', 'landscape');
+        
+        // Download diretto
+        return $pdf->download("report_{$staff->CognomePers}_{$staff->NomePers}_{$dateFrom->format('Y-m-d')}_{$dateTo->format('Y-m-d')}.pdf");
+    }
+
+    /**
+     * Export report to Excel
+     */
+    public function exportReportExcel($id, Request $request)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('view_activity_report')) {
+            abort(403, 'Non hai i permessi necessari.');
+        }
+        
+        $staff = Staff::findOrFail($id);
+        
+        // Gestione date
+        if ($request->has('date_from') && $request->has('date_to')) {
+            $dateFrom = Carbon::parse($request->date_from)->startOfDay();
+            $dateTo = Carbon::parse($request->date_to)->endOfDay();
+        } elseif ($request->has('month') && $request->has('year')) {
+            $dateFrom = Carbon::createFromDate($request->year, $request->month, 1)->startOfMonth();
+            $dateTo = Carbon::createFromDate($request->year, $request->month, 1)->endOfMonth();
+        } else {
+            $dateFrom = Carbon::now()->startOfMonth();
+            $dateTo = Carbon::now()->endOfMonth();
+        }
+        
+        // Query attività con tutti i dati
+        $activities = Activity::whereHas('staffDetails', function($q) use ($staff) {
+            $q->where('id_staff', $staff->id_personale);
+        })
+        ->with([
+            'costCenter', 
+            'service', 
+            'entity.addresses',
+            'staffDetails' => function($q) use ($staff) {
+                $q->where('id_staff', $staff->id_personale);
+            }
+        ])
+        ->whereBetween('data_activities', [$dateFrom, $dateTo])
+        ->orderBy('data_activities', 'asc')
+        ->get();
+        
+        // Crea nuovo foglio Excel
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        
+        // Titolo del foglio
+        $sheet->setTitle('Report Attività');
+        
+        // Intestazioni (tutti i campi)
+        $headers = [
+            'A1' => 'Data',
+            'B1' => 'Cliente',
+            'C1' => 'Cantiere',
+            'D1' => 'Località',
+            'E1' => 'Servizio',
+            'F1' => 'N. Ore',
+            'G1' => 'Costo €/h',
+            'H1' => 'Maturato (€)',
+            'I1' => 'Spese (€)',
+            'J1' => 'Totale (€)',
+            'K1' => 'Note Attività',
+            'L1' => 'Note Staff',
+        ];
+        
+        foreach ($headers as $cell => $value) {
+            $sheet->setCellValue($cell, $value);
+        }
+        
+        // Stile intestazioni
+        $headerStyle = [
+            'font' => ['bold' => true, 'size' => 11, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '4CAF50']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'DDDDDD']]],
+        ];
+        $sheet->getStyle('A1:L1')->applyFromArray($headerStyle);
+        
+        // Popola i dati
+        $row = 2;
+        $totalHours = 0;
+        $totalMaturato = 0;
+        $totalSpese = 0;
+        
+        foreach ($activities as $activity) {
+            $staffDetail = $activity->staffDetails->first();
+            if ($staffDetail) {
+                $entity = $activity->entity;
+                $costCenter = $activity->costCenter;
+                
+                $clienteNome = $entity ? ($entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome)) : '-';
+                $cantiereNome = $costCenter ? $costCenter->Nome : '-';
+                $localita = $costCenter && $costCenter->Localita ? $costCenter->Localita : '-';
+                
+                if ($localita == '-' && $entity && $entity->addresses && $entity->addresses->isNotEmpty()) {
+                    $primaryAddress = $entity->addresses->firstWhere('sede', 'principale') ?? $entity->addresses->first();
+                    $localita = $primaryAddress->citta ?? '-';
+                }
+                
+                $serviceName = $activity->service ? $activity->service->Titolo : '-';
+                $ore = floatval($staffDetail->n_ore ?? 0);
+                $costoOrario = floatval($staffDetail->costo_orario ?? 0);
+                $spese = floatval($staffDetail->spese ?? 0);
+                $maturato = $ore * $costoOrario;
+                $totale = $maturato + $spese;
+                
+                $sheet->setCellValue('A' . $row, Carbon::parse($activity->data_activities)->format('d/m/Y'));
+                $sheet->setCellValue('B' . $row, $clienteNome);
+                $sheet->setCellValue('C' . $row, $cantiereNome);
+                $sheet->setCellValue('D' . $row, $localita);
+                $sheet->setCellValue('E' . $row, $serviceName);
+                $sheet->setCellValue('F' . $row, $ore);
+                $sheet->setCellValue('G' . $row, $costoOrario);
+                $sheet->setCellValue('H' . $row, $maturato);
+                $sheet->setCellValue('I' . $row, $spese);
+                $sheet->setCellValue('J' . $row, $totale);
+                $sheet->setCellValue('K' . $row, $activity->note ?? '');
+                $sheet->setCellValue('L' . $row, $staffDetail->note ?? '');
+                
+                $totalHours += $ore;
+                $totalMaturato += $maturato;
+                $totalSpese += $spese;
+                $row++;
+            }
+        }
+        
+        // Riga totali
+        $sheet->setCellValue('E' . $row, 'TOTALI:');
+        $sheet->setCellValue('F' . $row, $totalHours);
+        $sheet->setCellValue('H' . $row, $totalMaturato);
+        $sheet->setCellValue('I' . $row, $totalSpese);
+        $sheet->setCellValue('J' . $row, $totalMaturato + $totalSpese);
+        
+        // Stile riga totali
+        $sheet->getStyle('E' . $row . ':J' . $row)->applyFromArray([
+            'font' => ['bold' => true, 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FEF3C7']],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'DDDDDD']]],
+        ]);
+        
+        // Unisci celle per la riga totali
+        $sheet->mergeCells('A' . $row . ':D' . $row);
+        $sheet->mergeCells('G' . $row . ':G' . $row);
+        
+        // Stile per i dati
+        $dataStyle = [
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'DDDDDD']]],
+            'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
+        ];
+        $sheet->getStyle('A2:L' . ($row - 1))->applyFromArray($dataStyle);
+        
+        // Allineamento numeri a destra
+        $sheet->getStyle('F2:F' . ($row - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('G2:G' . ($row - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('H2:H' . ($row - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('I2:I' . ($row - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('J2:J' . ($row - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        
+        // Formatta i numeri
+        $sheet->getStyle('F2:F' . ($row - 1))->getNumberFormat()->setFormatCode('0.00');
+        $sheet->getStyle('G2:G' . ($row - 1))->getNumberFormat()->setFormatCode('€ #,##0.00');
+        $sheet->getStyle('H2:H' . ($row - 1))->getNumberFormat()->setFormatCode('€ #,##0.00');
+        $sheet->getStyle('I2:I' . ($row - 1))->getNumberFormat()->setFormatCode('€ #,##0.00');
+        $sheet->getStyle('J2:J' . ($row - 1))->getNumberFormat()->setFormatCode('€ #,##0.00');
+        
+        // Auto-size delle colonne
+        foreach (range('A', 'L') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+        
+        // Aggiungi filtro
+        $sheet->setAutoFilter('A1:L' . ($row - 1));
+        
+        // Blocca la prima riga
+        $sheet->freezePane('A2');
+        
+        // Crea il file e scarica
+        $writer = new Xlsx($spreadsheet);
+        $filename = "report_{$staff->CognomePers}_{$staff->NomePers}_{$dateFrom->format('Y-m-d')}_{$dateTo->format('Y-m-d')}.xlsx";
+        
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+        header('Expires: 0');
+        header('Pragma: public');
+        
+        $writer->save('php://output');
+        exit;
     }
 }

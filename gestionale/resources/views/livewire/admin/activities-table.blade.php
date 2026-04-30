@@ -685,7 +685,7 @@
                                     <div x-show="showTooltip" 
                                         x-on:click.away="showTooltip = false"
                                         class="absolute z-[100] bg-white border border-gray-300 rounded-lg shadow-xl p-3 min-w-[280px]"
-                                        style="top: 100%; left: -50px; margin-top: 10px;"
+                                        style="top: 100%; left: -100px; margin-top: -30px;"
                                         x-cloak>
                                         <div class="absolute -top-2 left-1/2 w-4 h-4 bg-white border-l border-t border-gray-300 transform rotate-45 -translate-x-1/2"></div>
                                         <label class="block text-xs font-medium text-gray-700 mb-1">Riferimento Fattura</label>

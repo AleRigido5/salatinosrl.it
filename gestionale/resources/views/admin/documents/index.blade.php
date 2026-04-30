@@ -9,7 +9,7 @@
         <div class="flex justify-between items-center">
             <div>
                 <h1 class="text-2xl font-bold text-gray-800">
-                    <i class="fas fa-paperclip mr-2 text-purple-600"></i>
+                    <i class="fas fa-paperclip mr-2 text-lime-600"></i>
                     Gestione Documenti
                 </h1>
                 @if(!empty($title) && $title != 'Documenti Personale' && $title != 'Documenti Scadenza')
@@ -40,7 +40,7 @@
         <div class="lg:col-span-1">
             <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
                 <h2 class="text-lg font-semibold text-gray-800 mb-4">
-                    <i class="fas fa-cloud-upload-alt mr-2 text-purple-600"></i>
+                    <i class="fas fa-cloud-upload-alt mr-2 text-lime-600"></i>
                     Carica Documenti Multipli
                 </h2>
                 
@@ -68,7 +68,7 @@
                                     name="document_files[]" 
                                     accept=".pdf,.jpg,.jpeg"
                                     multiple
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 file:mr-4 file:py-2 file:px-4 file:rounded-l-md file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white file:hover:bg-purple-700 file:cursor-pointer"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 file:mr-4 file:py-2 file:px-4 file:rounded-l-md file:border-0 file:text-sm file:font-semibold file:bg-lime-600 file:text-white file:hover:bg-lime-700 file:cursor-pointer"
                                     required>
                                 <p class="text-xs text-gray-400 mt-1">Max 5MB per file. Formati supportati: PDF, JPG, JPEG. Puoi selezionare più file contemporaneamente.</p>
                             </div>
@@ -82,7 +82,7 @@
                             <input type="text" 
                                    name="titolo" 
                                    placeholder="Titolo per tutti i documenti (verrà usato come prefisso)"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                             <p class="text-xs text-gray-400 mt-1">Se lasciato vuoto, verrà usato il nome del file</p>
                         </div>
                         
@@ -91,11 +91,11 @@
                             <textarea name="note" 
                                       rows="3"
                                       placeholder="Note per tutti i documenti..."
-                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"></textarea>
                         </div>
                         
                         <button type="submit" 
-                                class="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md transition-colors flex items-center justify-center">
+                                class="w-full bg-lime-600 hover:bg-lime-700 text-white px-4 py-2 rounded-md transition-colors flex items-center justify-center">
                             <i class="fas fa-upload mr-2"></i>
                             Carica Documenti
                         </button>
@@ -109,10 +109,10 @@
             <div class="bg-white rounded-lg shadow border border-gray-200">
                 <div class="border-b px-6 py-4 flex justify-between items-center">
                     <h2 class="text-lg font-semibold text-gray-800">
-                        <i class="fas fa-list mr-2 text-purple-600"></i>
+                        <i class="fas fa-list mr-2 text-lime-600"></i>
                         Documenti Allegati
                         @if(count($documents) > 0)
-                        <span class="ml-2 px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded-full">
+                        <span class="ml-2 px-2 py-0.5 text-xs bg-lime-100 text-lime-800 rounded-full">
                             {{ count($documents) }}
                         </span>
                         @endif
@@ -210,7 +210,7 @@
                 </form>
                 <button type="button" 
                         onclick="closeDeleteModal()"
-                        class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-lime-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
                     Annulla
                 </button>
             </div>
@@ -258,7 +258,7 @@
                 </form>
                 <button type="button" 
                         onclick="closeDeleteAllModal()"
-                        class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-lime-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
                     Annulla
                 </button>
             </div>
@@ -288,7 +288,7 @@ function closeDeleteModal() {
 function openDeleteAllModal() {
     const modal = document.getElementById('deleteAllModal');
     const form = document.getElementById('deleteAllForm');
-    form.action = `/admin/documents/{{ $tableRef }}/{{ $idRef }}/all`;
+    form.action = `/admin/documents/{{ $tableRef }}/{{ $idRef }}/all/delete`;
     modal.classList.remove('hidden');
 }
 

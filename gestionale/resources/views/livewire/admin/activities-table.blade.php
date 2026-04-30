@@ -291,7 +291,61 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
+                    @php
+                        $lastDate = null;
+                    @endphp
+                    
                     @forelse($activities as $activity)
+                    @php
+                        $currentDate = $activity->data_activities;
+                        $showSeparator = ($lastDate !== null && $lastDate != $currentDate);
+                    @endphp
+                    
+                    <!-- Riga di separazione tra giorni diversi -->
+                    @if($showSeparator)
+                    @php
+                        $date = \Carbon\Carbon::parse($currentDate);
+                        $giorniSettimana = [
+                            'Monday' => 'Lunedì',
+                            'Tuesday' => 'Martedì',
+                            'Wednesday' => 'Mercoledì',
+                            'Thursday' => 'Giovedì',
+                            'Friday' => 'Venerdì',
+                            'Saturday' => 'Sabato',
+                            'Sunday' => 'Domenica'
+                        ];
+                        $mesi = [
+                            'January' => 'Gennaio',
+                            'February' => 'Febbraio',
+                            'March' => 'Marzo',
+                            'April' => 'Aprile',
+                            'May' => 'Maggio',
+                            'June' => 'Giugno',
+                            'July' => 'Luglio',
+                            'August' => 'Agosto',
+                            'September' => 'Settembre',
+                            'October' => 'Ottobre',
+                            'November' => 'Novembre',
+                            'December' => 'Dicembre'
+                        ];
+                        $giornoNome = $giorniSettimana[$date->format('l')] ?? $date->format('l');
+                        $meseNome = $mesi[$date->format('F')] ?? $date->format('F');
+                        $dataFormattata = $giornoNome . ' ' . $date->format('d') . ' ' . $meseNome . ' ' . $date->format('Y');
+                    @endphp
+                    <tr class="bg-gradient-to-r from-lime-50 via-lime-100/30 to-lime-50">
+                        <td colspan="9" class="px-4 py-2 text-center">
+                            <div class="flex items-center justify-center gap-3">
+                                <div class="h-px flex-1 bg-gradient-to-r from-transparent via-lime-400 to-transparent"></div>
+                                <div class="flex items-center gap-2 text-xs">
+                                    <i class="fas fa-calendar-day text-lime-500"></i>
+                                    <span class="font-semibold text-lime-700">{{ $dataFormattata }}</span>
+                                </div>
+                                <div class="h-px flex-1 bg-gradient-to-r from-transparent via-lime-400 to-transparent"></div>
+                            </div>
+                        </td>
+                    </tr>
+                    @endif
+                    
                     <tr wire:key="activity-{{ $activity->id }}" class="hover:bg-gray-50 transition-colors">
                         <!-- Data Attività -->
                         <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-700">
@@ -346,9 +400,10 @@
                             @endif
                         </td>
                         
-                        <!-- Lat/Long con tooltip modificabile (SOTTO il campo) -->
+                        <!-- Lat/Long con tooltip modificabile -->
                         <td class="px-3 py-3 text-sm relative group">
                             @if($activity->Lat_Long)
+                                @php $useTextarea = substr_count($activity->Lat_Long, ',') > 1; @endphp
                                 <div x-data="{ 
                                     latLong: '{{ $activity->Lat_Long }}',
                                     showTooltip: false,
@@ -359,7 +414,6 @@
                                         this.isEditing = true;
                                         @this.call('updateLatLong', {{ $activity->id }}, this.editedValue)
                                             .then(() => {
-                                                // Ricarica la pagina dopo il salvataggio
                                                 window.location.reload();
                                             })
                                             .catch(() => {
@@ -376,9 +430,64 @@
                                     <div x-show="showTooltip" 
                                         x-on:click.away="showTooltip = false"
                                         class="absolute z-[100] bg-white border border-gray-300 rounded-lg shadow-xl p-3 min-w-[280px]"
-                                        style="top: 100%; left: 0; margin-top: 10px;"
+                                        style="top: 100%; left: 50%; transform: translateX(-50%); margin-top: -20px;"
                                         x-cloak>
-                                        <div class="absolute -top-2 left-4 w-4 h-4 bg-white border-l border-t border-gray-300 transform rotate-45"></div>
+                                        <div class="absolute -top-2 left-1/2 w-4 h-4 bg-white border-l border-t border-gray-300 transform rotate-45 -translate-x-1/2"></div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">Latitudine / Longitudine</label>
+                                        @if($useTextarea)
+                                            <textarea x-model="editedValue" 
+                                                class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
+                                                placeholder="es. 45.123456, 12.123456"
+                                                rows="3"
+                                                x-on:keydown.ctrl.enter="saveLatLong()"></textarea>
+                                        @else
+                                            <input type="text" 
+                                                x-model="editedValue" 
+                                                class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
+                                                placeholder="es. 45.123456, 12.123456"
+                                                x-on:keydown.enter="saveLatLong()">
+                                        @endif
+                                        <div class="flex justify-end gap-2 mt-2">
+                                            <button type="button" 
+                                                    x-on:click="showTooltip = false"
+                                                    class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
+                                                <i class="fas fa-times"></i> Annulla
+                                            </button>
+                                            <button type="button" 
+                                                    x-on:click="saveLatLong()"
+                                                    x-bind:disabled="isEditing"
+                                                    class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
+                                                <i class="fas fa-check" x-show="!isEditing"></i>
+                                                <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
+                                                <span x-show="!isEditing"> Salva</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            @else
+                                <div x-data="{ showTooltip: false, editedValue: '', isEditing: false,
+                                    saveLatLong() {
+                                        this.isEditing = true;
+                                        @this.call('updateLatLong', {{ $activity->id }}, this.editedValue)
+                                            .then(() => {
+                                                window.location.reload();
+                                            })
+                                            .catch(() => {
+                                                this.isEditing = false;
+                                            });
+                                    }
+                                }">
+                                    <span class="text-gray-400 italic cursor-pointer hover:text-lime-600" 
+                                        x-on:click="showTooltip = true">
+                                        -
+                                    </span>
+                                    
+                                    <div x-show="showTooltip" 
+                                        x-on:click.away="showTooltip = false"
+                                        class="absolute z-[100] bg-white border border-gray-300 rounded-lg shadow-xl p-3 min-w-[280px]"
+                                        style="bottom: 100%; left: 0; margin-bottom: 10px;"
+                                        x-cloak>
+                                        <div class="absolute -bottom-2 left-4 w-4 h-4 bg-white border-gray-300 transform rotate-45"></div>
                                         <label class="block text-xs font-medium text-gray-700 mb-1">Latitudine / Longitudine</label>
                                         <input type="text" 
                                             x-model="editedValue" 
@@ -402,42 +511,6 @@
                                         </div>
                                     </div>
                                 </div>
-                            @else
-                                <div x-data="{ showTooltip: false, editedValue: '', isEditing: false }">
-                                    <span class="text-gray-400 italic cursor-pointer hover:text-lime-600" 
-                                        x-on:click="showTooltip = true">
-                                        -
-                                    </span>
-                                    
-                                    <div x-show="showTooltip" 
-                                        x-on:click.away="showTooltip = false"
-                                        class="absolute z-[100] bg-white border border-gray-300 rounded-lg shadow-xl p-3 min-w-[280px]"
-                                        style="top: 100%; left: 0; margin-top: 10px;"
-                                        x-cloak>
-                                        <div class="absolute -top-2 left-4 w-4 h-4 bg-white border-l border-t border-gray-300 transform rotate-45"></div>
-                                        <label class="block text-xs font-medium text-gray-700 mb-1">Latitudine / Longitudine</label>
-                                        <input type="text" 
-                                            x-model="editedValue" 
-                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
-                                            placeholder="es. 45.123456, 12.123456"
-                                            x-on:keydown.enter="isEditing = true; @this.call('updateLatLong', {{ $activity->id }}, editedValue).then(() => { window.location.reload(); })">
-                                        <div class="flex justify-end gap-2 mt-2">
-                                            <button type="button" 
-                                                    x-on:click="showTooltip = false"
-                                                    class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
-                                                <i class="fas fa-times"></i> Annulla
-                                            </button>
-                                            <button type="button" 
-                                                    x-on:click="isEditing = true; @this.call('updateLatLong', {{ $activity->id }}, editedValue).then(() => { window.location.reload(); })"
-                                                    x-bind:disabled="isEditing"
-                                                    class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
-                                                <i class="fas fa-check" x-show="!isEditing"></i>
-                                                <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
-                                                <span x-show="!isEditing"> Salva</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
                             @endif
                         </td>
 
@@ -448,13 +521,11 @@
                                     {{ $activity->note }}
                                 </div>
                             @else
-                                <span class="text-gray-400 italic text-xs">
-                                    -
-                                </span>
+                                <span class="text-gray-400 italic text-xs">-</span>
                             @endif
                         </td>
 
-                        <!-- Ettari (ha) con tooltip modificabile (SOTTO il campo) -->
+                        <!-- Ettari (ha) con tooltip modificabile -->
                         <td class="px-3 py-3 text-sm whitespace-nowrap relative group">
                             @if($activity->ha)
                                 <div x-data="{ 
@@ -550,13 +621,96 @@
                         </td>
 
                         <!-- Rif. Fattura -->
-                        <td class="px-3 py-3 text-sm">
+                        <td class="px-3 py-3 text-sm relative group">
                             @if($activity->invoice_references)
-                                <span class="text-xs text-gray-600 font-mono" title="{{ $activity->invoice_references }}">
-                                    {{ Str::limit($activity->invoice_references, 20) }}
-                                </span>
+                                <div x-data="{ 
+                                    invoiceRef: '{{ $activity->invoice_references }}',
+                                    showTooltip: false,
+                                    isEditing: false,
+                                    editedValue: '{{ $activity->invoice_references }}',
+                                    
+                                    saveInvoiceRef() {
+                                        this.isEditing = true;
+                                        @this.call('updateInvoiceRef', {{ $activity->id }}, this.editedValue)
+                                            .then(() => {
+                                                window.location.reload();
+                                            })
+                                            .catch(() => {
+                                                this.isEditing = false;
+                                            });
+                                    }
+                                }">
+                                    <span class="text-xs text-gray-600 font-mono cursor-pointer hover:text-lime-600 hover:underline" 
+                                        title="Clicca per modificare" 
+                                        x-on:click="showTooltip = true; editedValue = invoiceRef">
+                                        {{ Str::limit($activity->invoice_references, 20) }}
+                                    </span>
+                                    
+                                    <div x-show="showTooltip" 
+                                        x-on:click.away="showTooltip = false"
+                                        class="absolute z-[100] bg-white border border-gray-300 rounded-lg shadow-xl p-3 min-w-[280px]"
+                                        style="top: 100%; left: -100px; margin-top: -30px;"
+                                        x-cloak>
+                                        <div class="absolute -top-2 left-1/2 w-4 h-4 bg-white border-l border-t border-gray-300 transform rotate-45 -translate-x-1/2"></div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">Riferimento Fattura</label>
+                                        <input type="text" 
+                                            x-model="editedValue" 
+                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
+                                            placeholder="es. FV-2024-001"
+                                            x-on:keydown.enter="saveInvoiceRef()">
+                                        <div class="flex justify-end gap-2 mt-2">
+                                            <button type="button" 
+                                                    x-on:click="showTooltip = false"
+                                                    class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
+                                                <i class="fas fa-times"></i> Annulla
+                                            </button>
+                                            <button type="button" 
+                                                    x-on:click="saveInvoiceRef()"
+                                                    x-bind:disabled="isEditing"
+                                                    class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
+                                                <i class="fas fa-check" x-show="!isEditing"></i>
+                                                <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
+                                                <span x-show="!isEditing"> Salva</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             @else
-                                <span class="text-gray-400 italic text-xs">-</span>
+                                <div x-data="{ showTooltip: false, editedValue: '', isEditing: false }">
+                                    <span class="text-gray-400 italic text-xs cursor-pointer hover:text-lime-600" 
+                                        x-on:click="showTooltip = true">
+                                        -
+                                    </span>
+                                    
+                                    <div x-show="showTooltip" 
+                                        x-on:click.away="showTooltip = false"
+                                        class="absolute z-[100] bg-white border border-gray-300 rounded-lg shadow-xl p-3 min-w-[280px]"
+                                        style="top: 100%; left: -50px; margin-top: 10px;"
+                                        x-cloak>
+                                        <div class="absolute -top-2 left-1/2 w-4 h-4 bg-white border-l border-t border-gray-300 transform rotate-45 -translate-x-1/2"></div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">Riferimento Fattura</label>
+                                        <input type="text" 
+                                            x-model="editedValue" 
+                                            class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
+                                            placeholder="es. FV-2024-001"
+                                            x-on:keydown.enter="isEditing = true; @this.call('updateInvoiceRef', {{ $activity->id }}, editedValue).then(() => { window.location.reload(); })">
+                                        <div class="flex justify-end gap-2 mt-2">
+                                            <button type="button" 
+                                                    x-on:click="showTooltip = false"
+                                                    class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
+                                                <i class="fas fa-times"></i> Annulla
+                                            </button>
+                                            <button type="button" 
+                                                    x-on:click="isEditing = true; @this.call('updateInvoiceRef', {{ $activity->id }}, editedValue).then(() => { window.location.reload(); })"
+                                                    x-bind:disabled="isEditing"
+                                                    class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
+                                                <i class="fas fa-check" x-show="!isEditing"></i>
+                                                <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
+                                                <span x-show="!isEditing"> Salva</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             @endif
                         </td>
                         
@@ -571,18 +725,23 @@
                                 </button>
                                 @endif
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
-                                <button wire:click="editActivity({{ $activity->id }})" 
+                                <a href="{{ route('admin.activities.edit', $activity->id) }}" 
                                         class="text-yellow-500 hover:text-yellow-700 transition-colors p-1" 
                                         title="Modifica">
                                     <i class="fa-solid fa-pen-to-square"></i>
-                                </button>
+                                </a>
                                 @endif
                             </div>
                         </td>
                     </tr>
+                    
+                    @php
+                        $lastDate = $currentDate;
+                    @endphp
+                    
                     @empty
                     <tr>
-                        <td colspan="8" class="px-4 py-12 text-center text-gray-500">
+                        <td colspan="9" class="px-4 py-12 text-center text-gray-500">
                             <i class="fas fa-tasks text-4xl mb-2 text-gray-300"></i>
                             <p>Nessuna attività trovata</p>
                             @if(auth()->guard('admin')->user()->hasPermission('create_activities'))
@@ -650,7 +809,6 @@
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" x-on:click="show = false; $wire.closeViewModal()" aria-hidden="true"></div>
             
-            <!-- Questo span è necessario per l'allineamento verticale -->
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
             <div class="inline-block align-bottom bg-white rounded-lg shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
@@ -705,7 +863,60 @@
                                 <p class="text-xs text-gray-500 mt-0.5">P.IVA: {{ $viewingActivity->entity->partita_iva }}</p>
                                 @endif
                             </div>
+                            
+                            <!-- Rif. Fattura -->
+                            @if($viewingActivity->invoice_references)
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <span class="text-xs text-gray-500 uppercase font-semibold">Rif. Fattura</span>
+                                <p class="font-medium text-gray-800 mt-1">{{ $viewingActivity->invoice_references }}</p>
+                            </div>
+                            @endif
+                            
+                            <!-- Imponibile -->
+                            @if($viewingActivity->imponibile > 0)
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <span class="text-xs text-gray-500 uppercase font-semibold">Imponibile</span>
+                                <p class="font-medium text-gray-800 mt-1">{{ number_format($viewingActivity->imponibile, 2) }} €</p>
+                            </div>
+                            @endif
+                            
+                            <!-- Costi Materiali -->
+                            @if($viewingActivity->costi_mat > 0)
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <span class="text-xs text-gray-500 uppercase font-semibold">Costi Materiali</span>
+                                <p class="font-medium text-gray-800 mt-1">{{ number_format($viewingActivity->costi_mat, 2) }} €</p>
+                            </div>
+                            @endif
+                            
+                            <!-- Totale -->
+                            @if(($viewingActivity->imponibile ?? 0) + ($viewingActivity->costi_mat ?? 0) > 0)
+                            <div class="bg-lime-50 p-3 rounded-lg border border-lime-200">
+                                <span class="text-xs text-lime-600 uppercase font-semibold">Totale</span>
+                                <p class="text-lg font-bold text-lime-600 mt-1">{{ number_format(($viewingActivity->imponibile ?? 0) + ($viewingActivity->costi_mat ?? 0), 2) }} €</p>
+                            </div>
+                            @endif
                         </div>
+                        
+                        <!-- Personale Associato -->
+                        @if($viewingActivity->staffDetails && $viewingActivity->staffDetails->count() > 0)
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <span class="text-xs text-gray-500 uppercase font-semibold">Personale Associato</span>
+                            <div class="mt-2 space-y-1">
+                                @foreach($viewingActivity->staffDetails as $staffDetail)
+                                <div class="text-sm text-gray-700">
+                                    <span class="font-medium">{{ $staffDetail->staff->CognomePers ?? '' }} {{ $staffDetail->staff->NomePers ?? '' }}</span>
+                                    <span class="text-gray-500 ml-2">({{ number_format($staffDetail->n_ore, 1) }} ore)</span>
+                                    @if($staffDetail->spese > 0)
+                                    <span class="text-gray-500 ml-2">Spese: {{ number_format($staffDetail->spese, 2) }} €</span>
+                                    @endif
+                                    @if($staffDetail->note)
+                                    <div class="text-xs text-gray-500 mt-0.5 ml-2">{{ $staffDetail->note }}</div>
+                                    @endif
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endif
                         
                         <!-- Note -->
                         @if($viewingActivity->note)
@@ -714,6 +925,23 @@
                             <div class="mt-1 text-gray-700 whitespace-pre-wrap">{{ $viewingActivity->note }}</div>
                         </div>
                         @endif
+                        
+                        <!-- Lat/Long e Ha -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            @if($viewingActivity->Lat_Long)
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <span class="text-xs text-gray-500 uppercase font-semibold">Latitudine / Longitudine</span>
+                                <p class="font-mono text-sm text-gray-700 mt-1">{{ $viewingActivity->Lat_Long }}</p>
+                            </div>
+                            @endif
+                            
+                            @if($viewingActivity->ha)
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <span class="text-xs text-gray-500 uppercase font-semibold">Ettari (ha)</span>
+                                <p class="font-medium text-gray-800 mt-1">{{ $viewingActivity->ha }}</p>
+                            </div>
+                            @endif
+                        </div>
                         
                         <!-- Tracciamento (Created/Updated) -->
                         <div class="border-t pt-3 mt-2">
@@ -742,291 +970,11 @@
                                 <i class="fas fa-times mr-2"></i> Chiudi
                             </button>
                             @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
-                            <button wire:click="editActivity({{ $viewingActivity->id }})" 
-                                    class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 rounded-md text-white transition-colors">
+                            <a href="{{ route('admin.activities.edit', $viewingActivity->id) }}" 
+                                    class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 rounded-md text-white transition-colors inline-flex items-center">
                                 <i class="fas fa-edit mr-2"></i> Modifica
-                            </button>
+                            </a>
                             @endif
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    @endif
-
-    <!-- MODAL MODIFICA -->
-    @if($showEditModal && $editingActivity)
-    <div wire:ignore.self class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: true }" x-show="show" x-transition.opacity.duration.200ms>
-        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" x-on:click="show = false; $wire.closeEditModal()" aria-hidden="true"></div>
-            
-            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
-            <div class="inline-block align-bottom bg-white rounded-lg shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-                <div class="bg-white rounded-lg max-h-[90vh] flex flex-col">
-                    <!-- Header fisso -->
-                    <div class="px-6 pt-4 pb-3 border-b sticky top-0 bg-white rounded-t-lg z-10">
-                        <div class="flex justify-between items-center">
-                            <h2 class="text-lg font-bold text-gray-800">
-                                <i class="fas fa-edit text-yellow-500 mr-2"></i> Modifica Attività
-                            </h2>
-                            <button wire:click="closeEditModal" class="text-gray-400 hover:text-gray-600 transition-colors">
-                                <i class="fas fa-times text-xl"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Form scrollabile -->
-                    <form wire:submit.prevent="updateActivity" class="flex-1 overflow-y-auto">
-                        <div class="p-6 space-y-4">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <!-- Data -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                                        Data <span class="text-red-500">*</span>
-                                    </label>
-                                    <input type="date" 
-                                        wire:model="editDate" 
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
-                                    @error('editDate') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
-                                </div>
-                                
-                                <!-- Centro di Costo Autocomplete -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                                        Centro di Costo <span class="text-red-500">*</span>
-                                    </label>
-                                    <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
-                                        <div class="relative">
-                                            <i class="fas fa-building absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-                                            <input type="text" 
-                                                id="edit_cost_center_input"
-                                                wire:model.live.debounce.300ms="editCostCenterSearch" 
-                                                x-on:focus="open = true"
-                                                x-on:input="open = true; @this.set('editCostCenterSearch', $event.target.value)"
-                                                placeholder="Cerca centro di costo..."
-                                                class="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
-                                                autocomplete="off">
-                                            @if($editCostCenter)
-                                            <button type="button" 
-                                                wire:click="clearEditCostCenter" 
-                                                x-on:click="document.getElementById('edit_cost_center_input').value = ''"
-                                                class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
-                                                <i class="fas fa-times-circle text-sm"></i>
-                                            </button>
-                                            @endif
-                                        </div>
-                                        
-                                        <!-- Dropdown risultati -->
-                                        <div x-show="open && @entangle('showEditCostCenterDropdown')" 
-                                            class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                                            @if($filteredEditCostCenters && $filteredEditCostCenters->count() > 0)
-                                                @foreach($filteredEditCostCenters as $cc)
-                                                <div 
-                                                    x-on:click="
-                                                        open = false;
-                                                        document.getElementById('edit_cost_center_input').value = '{{ addslashes($cc->Nome) }}';
-                                                        @this.set('editCostCenterSearch', '{{ addslashes($cc->Nome) }}');
-                                                        @this.set('editCostCenter', {{ $cc->id }});
-                                                        @this.set('showEditCostCenterDropdown', false);
-                                                    " 
-                                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                                    <div class="font-medium text-gray-800">{{ $cc->Nome }}</div>
-                                                    @if($cc->Localita)
-                                                    <div class="text-xs text-gray-500">{{ $cc->Localita }}</div>
-                                                    @endif
-                                                </div>
-                                                @endforeach
-                                            @else
-                                                <div class="px-3 py-2 text-sm text-gray-500 text-center">
-                                                    Nessun risultato trovato
-                                                </div>
-                                            @endif
-                                        </div>
-                                    </div>
-                                    @error('editCostCenter') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
-                                </div>
-                                
-                                <!-- Servizio Autocomplete -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                                        Servizio <span class="text-red-500">*</span>
-                                    </label>
-                                    <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
-                                        <div class="relative">
-                                            <i class="fas fa-concierge-bell absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-                                            <input type="text" 
-                                                id="edit_service_input"
-                                                wire:model.live.debounce.300ms="editServiceSearch" 
-                                                x-on:focus="open = true"
-                                                x-on:input="open = true; @this.set('editServiceSearch', $event.target.value)"
-                                                placeholder="Cerca servizio..."
-                                                class="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
-                                                autocomplete="off">
-                                            @if($editService)
-                                            <button type="button" 
-                                                wire:click="clearEditService" 
-                                                x-on:click="document.getElementById('edit_service_input').value = ''"
-                                                class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
-                                                <i class="fas fa-times-circle text-sm"></i>
-                                            </button>
-                                            @endif
-                                        </div>
-                                        
-                                        <!-- Dropdown risultati -->
-                                        <div x-show="open && @entangle('showEditServiceDropdown')" 
-                                            class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                                            @if($filteredEditServices && $filteredEditServices->count() > 0)
-                                                @foreach($filteredEditServices as $service)
-                                                <div 
-                                                    x-on:click="
-                                                        open = false;
-                                                        document.getElementById('edit_service_input').value = '{{ addslashes($service->Titolo) }}';
-                                                        @this.set('editServiceSearch', '{{ addslashes($service->Titolo) }}');
-                                                        @this.set('editService', {{ $service->id }});
-                                                        @this.set('showEditServiceDropdown', false);
-                                                    " 
-                                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                                    <div class="font-medium text-gray-800">{{ $service->Titolo }}</div>
-                                                    @if($service->Descrizione)
-                                                    <div class="text-xs text-gray-500 truncate">{{ $service->Descrizione }}</div>
-                                                    @endif
-                                                </div>
-                                                @endforeach
-                                            @else
-                                                <div class="px-3 py-2 text-sm text-gray-500 text-center">
-                                                    Nessun risultato trovato
-                                                </div>
-                                            @endif
-                                        </div>
-                                    </div>
-                                    @error('editService') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
-                                </div>
-                                
-                                <!-- Cliente/Fornitore Autocomplete -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                                        Cliente/Fornitore <span class="text-red-500">*</span>
-                                    </label>
-                                    <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
-                                        <div class="relative">
-                                            <i class="fas fa-user absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-                                            <input type="text" 
-                                                id="edit_entity_input"
-                                                wire:model.live.debounce.300ms="editEntitySearch" 
-                                                x-on:focus="open = true"
-                                                x-on:input="open = true; @this.set('editEntitySearch', $event.target.value)"
-                                                placeholder="Cerca cliente/fornitore..."
-                                                class="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
-                                                autocomplete="off">
-                                            @if($editEntity)
-                                            <button type="button" 
-                                                wire:click="clearEditEntity" 
-                                                x-on:click="document.getElementById('edit_entity_input').value = ''"
-                                                class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
-                                                <i class="fas fa-times-circle text-sm"></i>
-                                            </button>
-                                            @endif
-                                        </div>
-                                        
-                                        <!-- Dropdown risultati -->
-                                        <div x-show="open && @entangle('showEditEntityDropdown')" 
-                                            class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                                            @if($filteredEditEntities && $filteredEditEntities->count() > 0)
-                                                @foreach($filteredEditEntities as $entity)
-                                                @php
-                                                    $entityName = addslashes($entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome));
-                                                @endphp
-                                                <div 
-                                                    x-on:click="
-                                                        open = false;
-                                                        document.getElementById('edit_entity_input').value = '{{ $entityName }}';
-                                                        @this.set('editEntitySearch', '{{ $entityName }}');
-                                                        @this.set('editEntity', {{ $entity->id_cliente }});
-                                                        @this.set('showEditEntityDropdown', false);
-                                                    " 
-                                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                                    <div class="font-medium text-gray-800">{{ $entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome) }}</div>
-                                                    @if($entity->partita_iva)
-                                                    <div class="text-xs text-gray-500">P.IVA: {{ $entity->partita_iva }}</div>
-                                                    @endif
-                                                </div>
-                                                @endforeach
-                                            @else
-                                                <div class="px-3 py-2 text-sm text-gray-500 text-center">
-                                                    Nessun risultato trovato
-                                                </div>
-                                            @endif
-                                        </div>
-                                    </div>
-                                    @error('editEntity') <span class="text-xs text-red-500 mt-1">{{ $message }}</span> @enderror
-                                </div>
-                                
-                                <!-- Rif. Fattura -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Rif. Fattura</label>
-                                    <input type="text" 
-                                        wire:model="editInvoiceRef" 
-                                        placeholder="es. FV-2024-001"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
-                                </div>
-                                
-                                <!-- Imponibile -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Imponibile (€)</label>
-                                    <input type="number" 
-                                        step="0.01" 
-                                        wire:model="editImponibile" 
-                                        placeholder="0.00"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
-                                </div>
-                                
-                                <!-- Costi Materiali -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Costi Materiali (€)</label>
-                                    <input type="number" 
-                                        step="0.01" 
-                                        wire:model="editCostiMat" 
-                                        placeholder="0.00"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
-                                </div>
-                                
-                                <!-- Totale (solo visualizzazione) -->
-                                <div class="bg-lime-50 p-3 rounded-lg border border-lime-200">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Totale (calcolato)</label>
-                                    <p class="text-lg font-bold text-lime-600">
-                                        {{ $this->formatCurrency(($editImponibile ?? 0) + ($editCostiMat ?? 0)) }}
-                                    </p>
-                                </div>
-                            </div>
-                            
-                            <!-- Note (full width) -->
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Note</label>
-                                <textarea wire:model="editNote" 
-                                        rows="4" 
-                                        placeholder="Inserisci note aggiuntive..."
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent"></textarea>
-                            </div>
-                        </div>
-                    </form>
-                    
-                    <!-- Footer fisso con pulsanti -->
-                    <div class="px-6 py-3 border-t bg-gray-50 rounded-b-lg sticky bottom-0">
-                        <div class="flex justify-end gap-3">
-                            <button type="button" 
-                                    wire:click="closeEditModal" 
-                                    class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-gray-700 transition-colors">
-                                <i class="fas fa-times mr-2"></i> Annulla
-                            </button>
-                            <button type="button" 
-                                    wire:click="updateActivity" 
-                                    wire:loading.attr="disabled"
-                                    class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 rounded-md text-white transition-colors disabled:opacity-50">
-                                <span wire:loading.remove><i class="fas fa-save mr-2"></i> Salva</span>
-                                <span wire:loading><i class="fas fa-spinner fa-spin mr-2"></i> Salvataggio...</span>
-                            </button>
                         </div>
                     </div>
                 </div>

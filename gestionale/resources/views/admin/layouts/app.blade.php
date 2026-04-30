@@ -485,8 +485,10 @@
                                     
                                     if ($currentRoute === 'admin.activities.show' || $currentRoute === 'admin.activities.edit') {
                                         $activity = $currentParams['activity'] ?? null;
-                                        if ($activity) {
-                                            $breadcrumbs[] = ['name' => $activity->title, 'url' => null, 'clickable' => false];
+                                        if ($activity && is_object($activity)) {
+                                            // CORREZIONE: usa data_activities o un'altra proprietà esistente
+                                            $activityName = 'Attività del ' . ($activity->data_activities ?? '');
+                                            $breadcrumbs[] = ['name' => $activityName, 'url' => null, 'clickable' => false];
                                         }
                                         if ($currentRoute === 'admin.activities.edit') {
                                             $breadcrumbs[] = ['name' => 'Modifica', 'url' => null, 'clickable' => false];
@@ -494,7 +496,7 @@
                                             $breadcrumbs[] = ['name' => 'Dettaglio', 'url' => null, 'clickable' => false];
                                         }
                                     } elseif ($currentRoute === 'admin.activities.create') {
-                                        $breadcrumbs[] = ['name' => 'Nuovo', 'url' => null, 'clickable' => false];
+                                        $breadcrumbs[] = ['name' => 'Nuova Attività', 'url' => null, 'clickable' => false];
                                     }
                                 }
                                 // Clienti / Fornitori

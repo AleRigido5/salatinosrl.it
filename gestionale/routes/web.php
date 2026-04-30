@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\Auth\LoginController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AdministratorController;
+use App\Http\Controllers\Admin\ActivityController;
 use App\Http\Controllers\Admin\TrashController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\RoleController;
@@ -106,13 +107,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // GESTIONE ATTIVITÀ (ACTIVITIES)
         // =============================================
         Route::prefix('activities')->name('activities.')->group(function () {
-            Route::get('/', [App\Http\Controllers\Admin\ActivityController::class, 'index'])->name('index');
-            Route::get('/create', [App\Http\Controllers\Admin\ActivityController::class, 'create'])->name('create');
-            Route::post('/', [App\Http\Controllers\Admin\ActivityController::class, 'store'])->name('store');
-            Route::get('/{activity}', [App\Http\Controllers\Admin\ActivityController::class, 'show'])->name('show');
-            Route::get('/{activity}/edit', [App\Http\Controllers\Admin\ActivityController::class, 'edit'])->name('edit');
-            Route::put('/{activity}', [App\Http\Controllers\Admin\ActivityController::class, 'update'])->name('update');
-            Route::delete('/{activity}', [App\Http\Controllers\Admin\ActivityController::class, 'destroy'])->name('destroy');
+            Route::get('/', [ActivityController::class, 'index'])->name('index');
+            Route::get('/create', [ActivityController::class, 'create'])->name('create');
+            Route::post('/', [ActivityController::class, 'store'])->name('store');
+            Route::get('/{activity}', [ActivityController::class, 'show'])->name('show');
+            Route::get('/{activity}/edit', [ActivityController::class, 'edit'])->name('edit');
+            Route::put('/{activity}', [ActivityController::class, 'update'])->name('update');
+            Route::delete('/{activity}', [ActivityController::class, 'destroy'])->name('destroy');
         });
 
         // =============================================
@@ -236,8 +237,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::prefix('documents/{tableRef}/{idRef}')->name('documents.')->group(function () {
             Route::get('/', [DocumentController::class, 'index'])->name('index');
             Route::post('/', [DocumentController::class, 'store'])->name('store');
-            Route::delete('/{documentId}', [DocumentController::class, 'destroy'])->name('destroy');
-            Route::delete('/all/delete', [DocumentController::class, 'destroyAll'])->name('destroyAll');
+            Route::delete('/all/delete', [DocumentController::class, 'destroyAll'])->name('documents.destroyAll');
+            Route::delete('/{documentId}', [DocumentController::class, 'destroy'])->name('documents.destroy');
             Route::get('/{documentId}/download', [DocumentController::class, 'download'])->name('download');
         });
 
@@ -313,6 +314,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // API PER RICERCHE AJAX / Livewire
         // =============================================
         Route::prefix('api')->name('api.')->group(function () {
+            // API per aggiornamenti tooltip (activities)
+            Route::post('/activities/{id}/update-latlong', [ActivityController::class, 'updateLatLong'])->name('activities.update-latlong');
+            Route::post('/activities/{id}/update-ha', [ActivityController::class, 'updateHa'])->name('activities.update-ha');
+            Route::post('/activities/{id}/update-invoice-ref', [ActivityController::class, 'updateInvoiceRef'])->name('activities.update-invoice-ref');
+
             // API per Entità
             Route::get('/search-entities', [EntityController::class, 'search'])->name('search-entities');
             Route::get('/search-clients', [EntityController::class, 'searchClients'])->name('search-clients');

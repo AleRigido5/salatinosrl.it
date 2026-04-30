@@ -43,6 +43,61 @@ class ActivityController extends Controller
         return view('admin.activities.create', compact('costCenters', 'services', 'entities', 'staffList'));
     }
 
+    public function edit($id)
+    {
+        $activity = Activity::with(['costCenter', 'service', 'entity', 'staffDetails.staff'])->findOrFail($id);
+        return view('admin.activities.edit', compact('activity'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'data_activities' => 'required|date',
+            'id_cost_centers' => 'required|exists:anagrafica_cdc,id',
+            'id_entities' => 'required|exists:clienti,id_cliente',
+            'id_services' => 'required|exists:servizi,id',
+            'invoice_references' => 'nullable|string|max:255',
+            'imponibile' => 'nullable|numeric|min:0',
+            'costi_mat' => 'nullable|numeric|min:0',
+            'note' => 'nullable|string',
+            'staff' => 'array',
+            'staff.*.id_staff' => 'required|exists:personale,id_personale',
+            'staff.*.n_ore' => 'required|numeric|min:0.5',
+            'staff.*.spese' => 'nullable|numeric|min:0',
+            'staff.*.note' => 'nullable|string',
+        ]);
+
+        $activity = Activity::findOrFail($id);
+        
+        $activity->update([
+            'data_activities' => $validated['data_activities'],
+            'id_cost_centers' => $validated['id_cost_centers'],
+            'id_entities' => $validated['id_entities'],
+            'id_services' => $validated['id_services'],
+            'invoice_references' => $validated['invoice_references'] ?? null,
+            'imponibile' => $validated['imponibile'] ?? 0,
+            'costi_mat' => $validated['costi_mat'] ?? 0,
+            'note' => $validated['note'] ?? null,
+        ]);
+        
+        // Aggiorna il personale associato
+        $activity->staffDetails()->delete();
+        
+        if (!empty($validated['staff'])) {
+            foreach ($validated['staff'] as $staffItem) {
+                $activity->staffDetails()->create([
+                    'id_staff' => $staffItem['id_staff'],
+                    'n_ore' => $staffItem['n_ore'],
+                    'spese' => $staffItem['spese'] ?? 0,
+                    'note' => $staffItem['note'] ?? null,
+                ]);
+            }
+        }
+        
+        return redirect()->route('admin.activities.index')
+            ->with('success', 'Attività modificata con successo!');
+    }
+
     public function store(Request $request)
     {
         if (!Auth::guard('admin')->user()->hasPermission('create_activities')) {
@@ -66,12 +121,6 @@ class ActivityController extends Controller
         try {
             DB::beginTransaction();
             
-            // Get names for old input preservation
-            $costCenter = CostCenter::find($request->id_cost_centers);
-            $service = Service::find($request->id_services);
-            $entity = Entity::find($request->id_entities);
-            
-            // Create activity
             $activity = Activity::create([
                 'id_cost_centers' => $request->id_cost_centers,
                 'id_services' => $request->id_services,
@@ -85,7 +134,6 @@ class ActivityController extends Controller
                 'updated_by' => Auth::guard('admin')->id(),
             ]);
             
-            // Create staff links
             if ($request->has('staff') && is_array($request->staff)) {
                 foreach ($request->staff as $staffItem) {
                     if (!empty($staffItem['id_staff'])) {
@@ -109,7 +157,6 @@ class ActivityController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             
-            // Preserve form data with names
             return back()->withInput()
                 ->with('error', 'Errore durante la creazione: ' . $e->getMessage());
         }
@@ -125,96 +172,6 @@ class ActivityController extends Controller
             ->findOrFail($id);
         
         return view('admin.activities.show', compact('activity'));
-    }
-
-    public function edit($id)
-    {
-        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
-            abort(403, 'Non hai i permessi necessari.');
-        }
-        
-        $activity = Activity::with('staffDetails')->findOrFail($id);
-        $costCenters = CostCenter::where('valid', 1)->orderBy('Nome')->get();
-        $services = Service::where('Stato', 1)->orderBy('Titolo')->get();
-        $entities = Entity::where('valid', 1)
-            ->orderBy('ragione_sociale')
-            ->orderBy('nome')
-            ->get();
-        $staffList = Staff::where('valid', 1)
-            ->orderBy('CognomePers')
-            ->orderBy('NomePers')
-            ->get();
-        
-        return view('admin.activities.edit', compact('activity', 'costCenters', 'services', 'entities', 'staffList'));
-    }
-
-    public function update(Request $request, $id)
-    {
-        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
-            return redirect()->route('admin.activities.index')
-                ->with('error', 'Permessi insufficienti');
-        }
-        
-        $request->validate([
-            'data_activities' => 'nullable|date',
-            'id_cost_centers' => 'required|exists:cost_centers,id',
-            'id_services' => 'required|exists:services,id',
-            'id_entities' => 'required|exists:entities,id_cliente',
-            'note' => 'nullable|string',
-            'staff' => 'array',
-            'staff.*.id_staff' => 'required|exists:staff,id_personale',
-            'staff.*.n_ore' => 'nullable|numeric',
-            'staff.*.spese' => 'nullable|numeric',
-            'staff.*.note' => 'nullable|string',
-        ]);
-        
-        try {
-            DB::beginTransaction();
-            
-            $activity = Activity::findOrFail($id);
-            
-            // Update activity
-            $activity->update([
-                'id_cost_centers' => $request->id_cost_centers,
-                'id_services' => $request->id_services,
-                'id_entities' => $request->id_entities,
-                'data_activities' => $request->data_activities,
-                'note' => $request->note,
-                'invoice_references' => $request->invoice_references ?? null,
-                'imponibile' => $request->imponibile ?? null,
-                'costi_mat' => $request->costi_mat ?? null,
-                'updated_by' => Auth::guard('admin')->id(),
-            ]);
-            
-            // Delete existing staff links
-            ActivityStaffLink::where('id_activities', $id)->delete();
-            
-            // Create new staff links
-            if ($request->has('staff') && is_array($request->staff)) {
-                foreach ($request->staff as $staffItem) {
-                    if (!empty($staffItem['id_staff'])) {
-                        ActivityStaffLink::create([
-                            'id_activities' => $activity->id,
-                            'id_staff' => $staffItem['id_staff'],
-                            'n_ore' => $staffItem['n_ore'] ?? 0,
-                            'spese' => $staffItem['spese'] ?? 0,
-                            'note' => $staffItem['note'] ?? null,
-                            'data_att' => $request->data_activities,
-                        ]);
-                    }
-                }
-            }
-            
-            DB::commit();
-            
-            return redirect()->route('admin.activities.index')
-                ->with('success', 'Attività aggiornata con successo!');
-                
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->withInput()
-                ->with('error', 'Errore durante l\'aggiornamento: ' . $e->getMessage());
-        }
     }
 
     public function destroy($id)
@@ -233,6 +190,49 @@ class ActivityController extends Controller
                 
         } catch (\Exception $e) {
             return back()->with('error', 'Errore durante l\'eliminazione: ' . $e->getMessage());
+        }
+    }
+
+    // =============================================
+    // API METHODS FOR TOOLTIP UPDATES (LIVE UPDATES)
+    // =============================================
+    
+    public function updateLatLong(Request $request, $id)
+    {
+        try {
+            $activity = Activity::findOrFail($id);
+            $activity->Lat_Long = $request->value;
+            $activity->save();
+            
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateHa(Request $request, $id)
+    {
+        try {
+            $activity = Activity::findOrFail($id);
+            $activity->ha = $request->value;
+            $activity->save();
+            
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function updateInvoiceRef(Request $request, $id)
+    {
+        try {
+            $activity = Activity::findOrFail($id);
+            $activity->invoice_references = $request->value;
+            $activity->save();
+            
+            return response()->json(['success' => true]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
 }

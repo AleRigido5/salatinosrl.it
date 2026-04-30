@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Document;
 use App\Models\Staff;
+use App\Models\Activity;
 use App\Models\Expiration;
 use App\Models\Vehicles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class DocumentController extends Controller
@@ -280,9 +282,19 @@ class DocumentController extends Controller
     public function destroyAll($tableRef, $idRef, Request $request)
     {
         try {
+            // Verifica che i parametri siano validi
+            if (empty($tableRef) || empty($idRef)) {
+                throw new \Exception('Parametri non validi');
+            }
+            
             $documents = Document::where('table_ref', $tableRef)
                 ->where('id_ref', $idRef)
                 ->get();
+            
+            if ($documents->isEmpty()) {
+                $redirectUrl = $this->buildRedirectUrl($tableRef, $idRef, $request->staff_id, $request->vehicle_id);
+                return redirect($redirectUrl)->with('warning', 'Nessun documento da eliminare.');
+            }
             
             $count = 0;
             foreach ($documents as $document) {
@@ -295,14 +307,10 @@ class DocumentController extends Controller
             }
             
             $redirectUrl = $this->buildRedirectUrl($tableRef, $idRef, $request->staff_id, $request->vehicle_id);
-            
-            if ($count > 0) {
-                return redirect($redirectUrl)->with('success', "{$count} documento/i eliminato/i con successo!");
-            } else {
-                return redirect($redirectUrl)->with('warning', 'Nessun documento da eliminare.');
-            }
+            return redirect($redirectUrl)->with('success', "{$count} documento/i eliminato/i con successo!");
             
         } catch (\Exception $e) {
+            Log::error('Errore destroyAll: ' . $e->getMessage());
             $redirectUrl = $this->buildRedirectUrl($tableRef, $idRef, $request->staff_id, $request->vehicle_id);
             return redirect($redirectUrl)->with('error', 'Errore durante l\'eliminazione: ' . $e->getMessage());
         }

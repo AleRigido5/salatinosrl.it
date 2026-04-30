@@ -646,6 +646,7 @@
                                         {{ Str::limit($activity->invoice_references, 20) }}
                                     </span>
                                     
+                                    
                                     <div x-show="showTooltip" 
                                         x-on:click.away="showTooltip = false"
                                         class="absolute z-[100] bg-white border border-gray-300 rounded-lg shadow-xl p-3 min-w-[280px]"

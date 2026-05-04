@@ -19,8 +19,8 @@ class Setting extends Model
         'descrizione',
         'ordinamento',
         'valid',
-        'created_by',      // <-- AGGIUNTO
-        'updated_by'       // <-- AGGIUNTO
+        'created_by',
+        'updated_by'
     ];
 
     protected $casts = [
@@ -30,6 +30,34 @@ class Setting extends Model
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime'
     ];
+
+    /**
+     * Boot method per automatismi
+     */
+    protected static function boot()
+    {
+        parent::boot();
+        
+        static::creating(function ($setting) {
+            // Se tabella_riferimento è vuoto, prova a prenderlo dalla categoria
+            if (empty($setting->tabella_riferimento) && $setting->category_id) {
+                $category = SettingCategory::find($setting->category_id);
+                if ($category && $category->tabella_riferimento) {
+                    $setting->tabella_riferimento = $category->tabella_riferimento;
+                }
+            }
+        });
+        
+        static::updating(function ($setting) {
+            // Se tabella_riferimento è vuoto e la categoria ha un valore, aggiorna
+            if (empty($setting->tabella_riferimento) && $setting->category_id) {
+                $category = SettingCategory::find($setting->category_id);
+                if ($category && $category->tabella_riferimento) {
+                    $setting->tabella_riferimento = $category->tabella_riferimento;
+                }
+            }
+        });
+    }
 
     // RELAZIONI PER IL TRACCIAMENTO
     public function createdBy()

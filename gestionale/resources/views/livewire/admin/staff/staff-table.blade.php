@@ -1,7 +1,7 @@
 <div>
     <!-- Filtri e Ricerca -->
-    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200" wire:key="filters-{{ $search }}-{{ $statusFilter }}-{{ $gruppoFilter }}">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div class="relative md:col-span-2">
                 <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
                 <input type="text" 
@@ -22,15 +22,21 @@
                     <option value="{{ $group->id }}">{{ $group->valore }}</option>
                 @endforeach
             </select>
-        </div>
-        
-        <div class="flex justify-between items-center mt-4">
-            @if($search || $statusFilter != 'active' || $gruppoFilter)
-            <button wire:click="resetFilters" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                <i class="fas fa-sync-alt mr-1"></i>
-                Resetta filtri
-            </button>
-            @endif
+            
+            <div class="flex items-center space-x-2">
+                <select wire:model.live="perPage" class="text-sm px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                    <option value="15">15 per pagina</option>
+                    <option value="25">25 per pagina</option>
+                    <option value="50">50 per pagina</option>
+                    <option value="100">100 per pagina</option>
+                </select>
+                
+                @if($search || $statusFilter != 'active' || $gruppoFilter)
+                <button type="button" wire:click="resetFilters" class="text-sm text-gray-500 hover:text-gray-700" title="Resetta tutti i filtri">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                @endif
+            </div>
         </div>
         
         @if($search || $statusFilter != 'active' || $gruppoFilter)
@@ -94,6 +100,16 @@
                             </div>
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contatti</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('id_gruppo')">
+                            <div class="flex items-center space-x-1">
+                                <span>Categoria</span>
+                                @if($sortField === 'id_gruppo')
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
+                                @else
+                                    <i class="fas fa-sort text-gray-400"></i>
+                                @endif
+                            </div>
+                        </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scadenze</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
                     </tr>
@@ -149,6 +165,17 @@
                                 <span class="text-gray-400 italic text-xs">Nessun contatto</span>
                                 @endif
                             </div>
+                        </td>
+                        <!-- COLONNA CATEGORIA (id_gruppo -> settings.valore) -->
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            @if($person->gruppo)
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-lime-100 text-lime-800">
+                                    <i class="fas fa-layer-group mr-1 text-xs"></i>
+                                    {{ $person->gruppo->valore }}
+                                </span>
+                            @else
+                                <span class="text-gray-400 italic text-xs">Nessuna categoria</span>
+                            @endif
                         </td>
                         <td class="px-6 py-4">
                             <div class="space-y-2">
@@ -234,7 +261,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="px-6 py-12 text-center">
+                        <td colspan="6" class="px-6 py-12 text-center">
                             <div class="text-gray-500">
                                 <i class="fas fa-users-slash mx-auto h-12 w-12 text-gray-400 text-5xl"></i>
                                 <p class="mt-2 text-sm">Nessun personale trovato</p>
@@ -298,7 +325,7 @@
         }
     </style>
     
-    <!-- MODAL VISUALIZZAZIONE (mantieni uguale) -->
+    <!-- MODAL VISUALIZZAZIONE -->
     @if($showViewModal && $viewingStaff)
     <div wire:ignore.self class="fixed inset-0 z-50 overflow-y-auto" 
          x-data="{ show: true }" 
@@ -345,6 +372,17 @@
                                 <div class="flex"><span class="w-32 text-gray-600">Codice Fiscale:</span><span class="text-gray-800 font-mono">{{ $viewingStaff->CodFiscPers ?: '-' }}</span></div>
                                 <div class="flex"><span class="w-32 text-gray-600">Data Nascita:</span><span class="text-gray-800">{{ $viewingStaff->DataNascPers ?: '-' }}</span></div>
                                 <div class="flex"><span class="w-32 text-gray-600">Luogo Nascita:</span><span class="text-gray-800">{{ $viewingStaff->LuogoNasc ?: '-' }}</span></div>
+                                <div class="flex"><span class="w-32 text-gray-600">Categoria:</span>
+                                    <span class="text-gray-800">
+                                        @if($viewingStaff->gruppo)
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
+                                                {{ $viewingStaff->gruppo->valore }}
+                                            </span>
+                                        @else
+                                            <span class="text-gray-400 italic">Nessuna categoria</span>
+                                        @endif
+                                    </span>
+                                </div>
                             </div>
                         </div>
                         
@@ -453,7 +491,7 @@
     </div>
     @endif
 
-    <!-- MODAL MODIFICA (mantieni uguale) -->
+    <!-- MODAL MODIFICA -->
     @if($showEditModal && $editingStaff)
     <div wire:ignore.self class="fixed inset-0 z-50 overflow-y-auto" 
         x-data="{ show: true }" 
@@ -540,7 +578,7 @@
                         </div>
                         
                         <div class="md:col-span-8">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Gruppo</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Gruppo/Categoria</label>
                             <select wire:model="editGruppo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                                 <option value="">Seleziona gruppo...</option>
                                 @foreach($staffGroups as $group)
@@ -572,7 +610,7 @@
     </div>
     @endif
 
-    <!-- MODAL CREAZIONE (mantieni uguale) -->
+    <!-- MODAL CREAZIONE -->
     @if($showCreateModal)
     <div wire:ignore.self class="fixed inset-0 z-50 overflow-y-auto" 
         x-data="{ show: true }" 
@@ -662,7 +700,7 @@
                         </div>
                         
                         <div class="md:col-span-8">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Gruppo</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Gruppo/Categoria</label>
                             <select wire:model="createGruppo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                                 <option value="">Seleziona gruppo...</option>
                                 @foreach($staffGroups as $group)

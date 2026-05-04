@@ -82,6 +82,7 @@ class StaffTable extends Component
             $this->search = $filters['search'] ?? '';
             $this->statusFilter = $filters['statusFilter'] ?? 'active';
             $this->gruppoFilter = $filters['gruppoFilter'] ?? '';
+            $this->perPage = $filters['perPage'] ?? 15;
             $this->sortField = $filters['sortField'] ?? 'CognomePers';
             $this->sortDirection = $filters['sortDirection'] ?? 'asc';
             session()->forget('staff_filters');
@@ -94,6 +95,7 @@ class StaffTable extends Component
             'search' => $this->search,
             'statusFilter' => $this->statusFilter,
             'gruppoFilter' => $this->gruppoFilter,
+            'perPage' => $this->perPage,
             'sortField' => $this->sortField,
             'sortDirection' => $this->sortDirection
         ]]);
@@ -121,6 +123,11 @@ class StaffTable extends Component
     }
     
     public function updatingGruppoFilter()
+    {
+        $this->resetPage();
+    }
+    
+    public function updatingPerPage()
     {
         $this->resetPage();
     }
@@ -154,7 +161,7 @@ class StaffTable extends Component
         return $query->with([
             'createdBy', 
             'updatedBy', 
-            'gruppo',
+            'gruppo',  // Relazione con la categoria (settings)
             'expirations' => function($q) {
                 $q->where(function($query) {
                     $query->where('titolo', 'LIKE', 'Assunzione%')
@@ -277,7 +284,7 @@ class StaffTable extends Component
             $this->editCitta = $staff->CittaPers;
             $this->editProvincia = $staff->ProvPers;
             $this->editCap = $staff->CapPers;
-            $this->editDataNascita = $staff->DataNascPers;
+            $this->editDataNascita = $staff->DataNascPers ? date('Y-m-d', strtotime($staff->DataNascPers)) : '';
             $this->editLuogoNascita = $staff->LuogoNasc;
             $this->editValid = (bool)$staff->valid;
             $this->editIban = $staff->IbanPers;

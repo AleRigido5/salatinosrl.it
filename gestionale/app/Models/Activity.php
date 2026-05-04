@@ -16,13 +16,15 @@ class Activity extends Model
         'id_entities',
         'data_activities',
         'note',
-        'invoice_references',
+        'invoice_references',  // AGGIUNTO
         'imponibile',
         'costi_mat',
         'Lat_Long',
         'ha',
         'ordine',
-        'Stagione_id_stagione'
+        'Stagione_id_stagione',
+        'created_by',
+        'updated_by'
     ];
 
     protected $casts = [

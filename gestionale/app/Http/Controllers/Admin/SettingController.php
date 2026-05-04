@@ -38,9 +38,14 @@ class SettingController extends Controller
         }
         
         $categories = SettingCategory::ordered()->get();
-        $selectedCategory = $request->get('category');
+        $selectedCategory = $request->get('category_id');
+        $category = null;
         
-        return view('admin.settings.create', compact('categories', 'selectedCategory'));
+        if ($selectedCategory) {
+            $category = SettingCategory::find($selectedCategory);
+        }
+        
+        return view('admin.settings.create', compact('categories', 'selectedCategory', 'category'));
     }
     
     public function store(Request $request)
@@ -57,15 +62,30 @@ class SettingController extends Controller
             'category_id' => 'nullable|exists:settings_categories,id',
             'descrizione' => 'nullable|string',
             'ordinamento' => 'nullable|integer',
-            'valid' => 'nullable|boolean'
+            'valid' => 'nullable|boolean',
+            'tabella_riferimento' => 'nullable|string|max:50'
         ]);
+        
+        // Recupera la categoria se presente
+        $category = null;
+        if ($request->category_id) {
+            $category = SettingCategory::find($request->category_id);
+        }
+        
+        // Determina tabella_riferimento: priorità al valore inviato, altrimenti dalla categoria
+        $tabellaRiferimento = $request->tabella_riferimento;
+        if (empty($tabellaRiferimento) && $category && $category->tabella_riferimento) {
+            $tabellaRiferimento = $category->tabella_riferimento;
+        }
         
         $setting = Setting::create([
             'valore' => $request->valore,
             'category_id' => $request->category_id,
             'descrizione' => $request->descrizione,
             'ordinamento' => $request->ordinamento ?: 0,
-            'valid' => $request->boolean('valid', true)
+            'valid' => $request->boolean('valid', true),
+            'tabella_riferimento' => $tabellaRiferimento,
+            'created_by' => Auth::guard('admin')->id()
         ]);
         
         // Verifica se è una richiesta AJAX
@@ -113,14 +133,23 @@ class SettingController extends Controller
             'valore' => 'nullable|string|max:255',
             'descrizione' => 'nullable|string|max:255',
             'ordinamento' => 'nullable|integer',
-            'valid' => 'nullable|boolean'
+            'valid' => 'nullable|boolean',
+            'tabella_riferimento' => 'nullable|string|max:50'
         ]);
+        
+        // Se non viene fornito tabella_riferimento, mantieni il valore esistente
+        $tabellaRiferimento = $request->tabella_riferimento;
+        if (empty($tabellaRiferimento) && empty($setting->tabella_riferimento) && $setting->category) {
+            $tabellaRiferimento = $setting->category->tabella_riferimento;
+        }
         
         $setting->update([
             'valore' => $request->valore,
             'descrizione' => $request->descrizione,
             'ordinamento' => (int)($request->ordinamento ?? 0),
-            'valid' => (bool)($request->boolean('valid') || $request->has('valid'))
+            'valid' => (bool)($request->boolean('valid') || $request->has('valid')),
+            'tabella_riferimento' => $tabellaRiferimento ?? $setting->tabella_riferimento,
+            'updated_by' => Auth::guard('admin')->id()
         ]);
         
         // Verifica se è una richiesta AJAX
@@ -178,7 +207,10 @@ class SettingController extends Controller
         }
         
         $setting = Setting::findOrFail($id);
-        $setting->update(['valid' => !$setting->valid]);
+        $setting->update([
+            'valid' => !$setting->valid,
+            'updated_by' => Auth::guard('admin')->id()
+        ]);
         
         $status = $setting->valid ? 'attivata' : 'disattivata';
         return back()->with('success', "Impostazione {$status} con successo!");

@@ -55,7 +55,7 @@ class ActivityController extends Controller
         $validated = $request->validate([
             'data_activities' => 'required|date',
             'id_cost_centers' => 'required|exists:cost_centers,id',
-            'id_entities' => 'nullable|exists:entities,id_cliente', // MODIFICATO: nullable
+            'id_entities' => 'nullable|exists:entities,id_cliente',
             'id_services' => 'required|exists:services,id',
             'invoice_references' => 'nullable|string|max:255',
             'imponibile' => 'nullable|numeric|min:0',
@@ -73,9 +73,9 @@ class ActivityController extends Controller
         $activity->update([
             'data_activities' => $validated['data_activities'],
             'id_cost_centers' => $validated['id_cost_centers'],
-            'id_entities' => $validated['id_entities'] ?? null, // Può essere null
+            'id_entities' => $validated['id_entities'] ?? null,
             'id_services' => $validated['id_services'],
-            'invoice_references' => $validated['invoice_references'] ?? null,
+            'invoice_references' => $validated['invoice_references'] ?? '',
             'imponibile' => $validated['imponibile'] ?? 0,
             'costi_mat' => $validated['costi_mat'] ?? 0,
             'note' => $validated['note'] ?? null,
@@ -86,13 +86,15 @@ class ActivityController extends Controller
         
         if (!empty($validated['staff'])) {
             foreach ($validated['staff'] as $staffItem) {
-                $activity->staffDetails()->create([
-                    'id_staff' => $staffItem['id_staff'],
-                    'n_ore' => $staffItem['n_ore'],
-                    'spese' => $staffItem['spese'] ?? 0,
-                    'note' => $staffItem['note'] ?? null,
-                    'data_att' => $validated['data_activities'] ?? null,
-                ]);
+                if (!empty($staffItem['id_staff']) && !empty($staffItem['n_ore'])) {
+                    $activity->staffDetails()->create([
+                        'id_staff' => $staffItem['id_staff'],
+                        'n_ore' => $staffItem['n_ore'],
+                        'spese' => $staffItem['spese'] ?? 0,
+                        'note' => $staffItem['note'] ?? null,
+                        'data_att' => $validated['data_activities'] ?? null,
+                    ]);
+                }
             }
         }
         
@@ -103,7 +105,7 @@ class ActivityController extends Controller
     public function store(Request $request)
     {
         // Log per debug
-        Log::info('=== STORE ACTIVITY ===');
+        Log::info('=== STORE ACTIVITY - INIZIO ===');
         Log::info('Request data:', $request->all());
         
         if (!Auth::guard('admin')->user()->hasPermission('create_activities')) {
@@ -111,87 +113,99 @@ class ActivityController extends Controller
                 ->with('error', 'Permessi insufficienti');
         }
         
-        // VALIDAZIONE CORRETTA - id_entities è NULLABLE, invoice_references è NULLABLE
+        // Prepara i dati dello staff - CONVERSIONE ESPLICITA DEI TIPI
+        $staffData = [];
+        if ($request->has('staff') && is_array($request->staff)) {
+            foreach ($request->staff as $index => $staffItem) {
+                // Salta righe vuote
+                if (empty($staffItem['id_staff'])) {
+                    continue;
+                }
+                
+                $staffData[] = [
+                    'id_staff' => $staffItem['id_staff'],
+                    'n_ore' => isset($staffItem['n_ore']) ? floatval(str_replace(',', '.', $staffItem['n_ore'])) : 0,
+                    'spese' => isset($staffItem['spese']) ? floatval(str_replace(',', '.', $staffItem['spese'])) : 0,
+                    'note' => $staffItem['note'] ?? null,
+                ];
+            }
+        }
+        
+        Log::info('Staff data preparato:', $staffData);
+        
+        // Validazione con i dati preparati
         $validated = $request->validate([
             'data_activities' => 'nullable|date',
             'id_cost_centers' => 'required|exists:cost_centers,id',
             'id_services' => 'required|exists:services,id',
-            'id_entities' => 'nullable|exists:entities,id_cliente', // NULLABLE
-            'invoice_references' => 'nullable|string|max:255', // NULLABLE
+            'id_entities' => 'nullable|exists:entities,id_cliente',
             'note' => 'nullable|string',
             'imponibile' => 'nullable|numeric|min:0',
             'costi_mat' => 'nullable|numeric|min:0',
-            'staff' => 'array',
-            'staff.*.id_staff' => 'required|exists:staff,id_personale',
-            'staff.*.n_ore' => 'required|numeric|min:0.5',
-            'staff.*.spese' => 'nullable|numeric|min:0',
-            'staff.*.note' => 'nullable|string',
         ]);
         
-        Log::info('Validazione superata:', $validated);
+        // Validazione personalizzata per lo staff
+        if (empty($staffData)) {
+            return back()->withInput()->with('error', 'Aggiungi almeno un membro del personale');
+        }
+        
+        foreach ($staffData as $index => $staffItem) {
+            if ($staffItem['n_ore'] <= 0) {
+                return back()->withInput()->with('error', "Il membro del personale " . ($index + 1) . " deve avere ore maggiori di zero");
+            }
+        }
         
         try {
             DB::beginTransaction();
             
-            // Creazione activity con campi opzionali
-            $activityData = [
+            // Creazione activity
+            $activity = Activity::create([
                 'id_cost_centers' => $validated['id_cost_centers'],
                 'id_services' => $validated['id_services'],
-                'id_entities' => $validated['id_entities'] ?? null, // Può essere null
+                'id_entities' => $validated['id_entities'] ?? null,
                 'data_activities' => $validated['data_activities'] ?? null,
                 'note' => $validated['note'] ?? null,
-                'invoice_references' => $validated['invoice_references'] ?? '', // Default vuoto se NOT NULL
+                'invoice_references' => '', // Default vuoto
                 'imponibile' => $validated['imponibile'] ?? 0,
                 'costi_mat' => $validated['costi_mat'] ?? 0,
                 'created_by' => Auth::guard('admin')->id(),
                 'updated_by' => Auth::guard('admin')->id(),
-            ];
-            
-            // Se invoice_references è NOT NULL in DB, assicurati che abbia un valore
-            if (!isset($activityData['invoice_references']) || $activityData['invoice_references'] === null) {
-                $activityData['invoice_references'] = '';
-            }
-            
-            Log::info('Dati per creazione activity:', $activityData);
-            
-            $activity = Activity::create($activityData);
+            ]);
             
             Log::info('Activity creata con ID: ' . $activity->id);
             
-            // Salva staff
-            if (!empty($validated['staff'])) {
-                foreach ($validated['staff'] as $staffItem) {
-                    if (!empty($staffItem['id_staff']) && !empty($staffItem['n_ore'])) {
-                        ActivityStaffLink::create([
-                            'id_activities' => $activity->id,
-                            'id_staff' => $staffItem['id_staff'],
-                            'n_ore' => $staffItem['n_ore'],
-                            'spese' => $staffItem['spese'] ?? 0,
-                            'note' => $staffItem['note'] ?? null,
-                            'data_att' => $validated['data_activities'] ?? null,
-                            'created_by' => Auth::guard('admin')->id(),
-                        ]);
-                        Log::info("Staff inserito: ID {$staffItem['id_staff']}, Ore {$staffItem['n_ore']}");
-                    }
-                }
+            // Salva STAFF
+            $staffInserted = 0;
+            foreach ($staffData as $staffItem) {
+                $staffLink = ActivityStaffLink::create([
+                    'id_activities' => $activity->id,
+                    'id_staff' => $staffItem['id_staff'],
+                    'n_ore' => $staffItem['n_ore'],
+                    'spese' => $staffItem['spese'],
+                    'note' => $staffItem['note'],
+                    'data_att' => $validated['data_activities'] ?? null,
+                    'created_by' => Auth::guard('admin')->id(),
+                ]);
+                $staffInserted++;
+                Log::info("Staff inserito: ID_staff={$staffItem['id_staff']}, Ore={$staffItem['n_ore']}");
             }
             
             DB::commit();
             
             return redirect()->route('admin.activities.index')
-                ->with('success', 'Attività creata con successo!');
+                ->with('success', "Attività creata con successo! ({$staffInserted} persone associate)");
                 
         } catch (\Exception $e) {
             DB::rollBack();
             
-            Log::error('ERRORE creazione attività: ' . $e->getMessage());
+            Log::error('ERRORE CREAZIONE ATTIVITA: ' . $e->getMessage());
             Log::error($e->getTraceAsString());
             
             return back()->withInput()
                 ->with('error', 'Errore durante la creazione: ' . $e->getMessage());
         }
     }
-
+    
     public function show($id)
     {
         if (!Auth::guard('admin')->user()->hasPermission('view_activities')) {

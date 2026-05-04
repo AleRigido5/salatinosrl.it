@@ -270,30 +270,25 @@
                         
                         <div class="md:col-span-1">
                             <label class="block text-xs font-medium text-gray-600 mb-1">N. Ore <span class="text-red-500">*</span></label>
-                            <input type="number" step="0.5" :name="'staff[' + index + '][n_ore]'" value="0" 
-                                   :class="{
-                                       'border-red-500 focus:ring-red-500': errorHours,
-                                       'border-gray-300 focus:ring-lime-500': !errorHours
-                                   }"
-                                   class="w-full px-2 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2"
-                                   min="0"
-                                   step="0.5">
-                            <p x-show="errorHours" class="text-xs text-red-500 mt-1" x-text="errorHoursMessage"></p>
+                            <input type="number" step="0.5" name="" value="0" 
+                                class="hours-input w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                                min="0"
+                                step="0.5">
                         </div>
                         
                         <div class="md:col-span-1">
                             <label class="block text-xs font-medium text-gray-600 mb-1">Spese (€)</label>
-                            <input type="number" step="0.01" :name="'staff[' + index + '][spese]'" value="0" 
-                                   class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
-                                   min="0"
-                                   step="0.01">
+                            <input type="number" step="0.01" name="" value="0" 
+                                class="expenses-input w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                                min="0"
+                                step="0.01">
                         </div>
                         
                         <div class="md:col-span-6">
                             <label class="block text-xs font-medium text-gray-600 mb-1">Note</label>
                             <div class="flex gap-2">
-                                <input type="text" :name="'staff[' + index + '][note]'" placeholder="Note aggiuntive" 
-                                    class="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500">
+                                <input type="text" name="" placeholder="Note aggiuntive" 
+                                    class="note-input flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500">
                                 <button type="button" class="remove-staff-btn text-red-500 hover:text-red-700 px-2 transition-colors">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
@@ -400,7 +395,7 @@
     </form>
 </div>
 
-@push('scripts')
+{{-- @push('scripts')
 <script>
 document.addEventListener('alpine:init', () => {
     // Store condiviso per ID
@@ -844,6 +839,464 @@ document.getElementById('staffContainer')?.addEventListener('click', function(e)
             const globalErrorEl = document.getElementById('staffGlobalError');
             if (globalErrorEl) globalErrorEl.classList.remove('hidden');
         }
+    }
+});
+</script>
+@endpush --}}
+
+@push('scripts')
+<script>
+document.addEventListener('alpine:init', () => {
+    // Store condiviso per ID
+    Alpine.store('costCenter', { selectedId: '' })
+    Alpine.store('client', { selectedId: '' })
+    
+    // Centro di Costo Autocomplete
+    Alpine.data('costCenterAutocomplete', () => ({
+        search: '',
+        selectedId: '',
+        results: [],
+        open: false,
+        loading: false,
+        highlightIndex: -1,
+        errorCostCenter: false,
+        errorCostCenterMessage: '',
+        
+        init() {
+            this.$watch('selectedId', val => {
+                Alpine.store('costCenter').selectedId = val
+                if (val) {
+                    this.fetchClientByCostCenter(val)
+                    this.errorCostCenter = false
+                    this.errorCostCenterMessage = ''
+                } else if (this.search.length > 0) {
+                    this.errorCostCenter = true
+                    this.errorCostCenterMessage = 'Seleziona un centro di costo valido'
+                }
+            })
+        },
+        
+        async searchItems() {
+            if (this.search.length < 2) {
+                this.results = [];
+                this.open = this.search.length > 0;
+                return;
+            }
+            
+            this.loading = true;
+            this.open = true;
+            
+            try {
+                const response = await fetch(`{{ route('admin.api.search-cost-centers') }}?q=${encodeURIComponent(this.search)}`);
+                this.results = await response.json();
+                this.highlightIndex = -1;
+            } catch (error) {
+                console.error('Errore:', error);
+                this.results = [];
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        async fetchClientByCostCenter(costCenterId) {
+            try {
+                const response = await fetch(`{{ route('admin.api.cost-center-client') }}?id=${costCenterId}`);
+                const data = await response.json();
+                if (data && data.id_cliente) {
+                    const clientEvent = new CustomEvent('set-client-data', {
+                        detail: { client: data }
+                    });
+                    window.dispatchEvent(clientEvent);
+                }
+            } catch (error) {
+                console.error('Errore nel recupero cliente:', error);
+            }
+        },
+        
+        selectItem(item) {
+            this.search = item.Nome;
+            this.selectedId = item.id;
+            this.open = false;
+            this.results = [];
+            Alpine.store('costCenter').selectedId = item.id;
+            this.errorCostCenter = false
+            this.errorCostCenterMessage = ''
+        },
+        
+        moveDown() { if (this.highlightIndex < this.results.length - 1) { this.highlightIndex++; this.scrollToHighlight(); } },
+        moveUp() { if (this.highlightIndex > 0) { this.highlightIndex--; this.scrollToHighlight(); } },
+        selectHighlighted() { if (this.highlightIndex >= 0 && this.results[this.highlightIndex]) { this.selectItem(this.results[this.highlightIndex]); } },
+        scrollToHighlight() { this.$nextTick(() => { const h = document.querySelector('.bg-lime-50'); if (h) h.scrollIntoView({ block: 'nearest' }); }); }
+    }));
+    
+    // Cliente Autocomplete (solo clienti)
+    Alpine.data('clientAutocomplete', () => ({
+        search: '',
+        selectedId: '',
+        results: [],
+        open: false,
+        loading: false,
+        highlightIndex: -1,
+        errorClient: false,
+        errorClientMessage: '',
+        
+        init() {
+            this.$watch('selectedId', val => {
+                Alpine.store('client').selectedId = val
+                if (val) {
+                    this.errorClient = false
+                    this.errorClientMessage = ''
+                } else if (this.search.length > 0) {
+                    this.errorClient = true
+                    this.errorClientMessage = 'Seleziona un cliente valido'
+                }
+            })
+            
+            window.addEventListener('set-client-data', (event) => {
+                if (event.detail.client) {
+                    const client = event.detail.client
+                    this.search = client.ragione_sociale || (client.nome + ' ' + (client.cognome || ''))
+                    this.selectedId = client.id_cliente
+                    this.open = false
+                }
+            })
+        },
+        
+        async searchItems() {
+            if (this.search.length < 2) {
+                this.results = [];
+                this.open = this.search.length > 0;
+                return;
+            }
+            
+            this.loading = true;
+            this.open = true;
+            
+            try {
+                const response = await fetch(`{{ route('admin.api.search-clients') }}?q=${encodeURIComponent(this.search)}`);
+                this.results = await response.json();
+                this.highlightIndex = -1;
+            } catch (error) {
+                console.error('Errore:', error);
+                this.results = [];
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        selectItem(item) {
+            this.search = item.ragione_sociale || (item.nome + ' ' + (item.cognome || ''));
+            this.selectedId = item.id_cliente;
+            this.open = false;
+            this.results = [];
+            Alpine.store('client').selectedId = item.id_cliente;
+            this.errorClient = false
+            this.errorClientMessage = ''
+        },
+        
+        moveDown() { if (this.highlightIndex < this.results.length - 1) this.highlightIndex++; this.scrollToHighlight(); },
+        moveUp() { if (this.highlightIndex > 0) this.highlightIndex--; this.scrollToHighlight(); },
+        selectHighlighted() { if (this.highlightIndex >= 0 && this.results[this.highlightIndex]) this.selectItem(this.results[this.highlightIndex]); },
+        scrollToHighlight() { this.$nextTick(() => { const h = document.querySelector('.bg-lime-50'); if (h) h.scrollIntoView({ block: 'nearest' }); }); }
+    }));
+    
+    // Servizio Autocomplete
+    Alpine.data('serviceAutocomplete', () => ({
+        search: '',
+        selectedId: '',
+        results: [],
+        open: false,
+        loading: false,
+        highlightIndex: -1,
+        errorService: false,
+        errorServiceMessage: '',
+        
+        init() {
+            this.$watch('selectedId', val => {
+                if (val) {
+                    this.errorService = false
+                    this.errorServiceMessage = ''
+                } else if (this.search.length > 0) {
+                    this.errorService = true
+                    this.errorServiceMessage = 'Seleziona un servizio valido'
+                }
+            })
+        },
+        
+        async searchItems() {
+            if (this.search.length < 2) {
+                this.results = [];
+                this.open = this.search.length > 0;
+                return;
+            }
+            
+            this.loading = true;
+            this.open = true;
+            
+            try {
+                const response = await fetch(`{{ route('admin.api.search-services') }}?q=${encodeURIComponent(this.search)}`);
+                this.results = await response.json();
+                this.highlightIndex = -1;
+            } catch (error) {
+                console.error('Errore:', error);
+                this.results = [];
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        selectItem(item) {
+            this.search = item.Titolo;
+            this.selectedId = item.id;
+            this.open = false;
+            this.results = [];
+            this.errorService = false
+            this.errorServiceMessage = ''
+        },
+        
+        moveDown() { if (this.highlightIndex < this.results.length - 1) this.highlightIndex++; this.scrollToHighlight(); },
+        moveUp() { if (this.highlightIndex > 0) this.highlightIndex--; this.scrollToHighlight(); },
+        selectHighlighted() { if (this.highlightIndex >= 0 && this.results[this.highlightIndex]) this.selectItem(this.results[this.highlightIndex]); },
+        scrollToHighlight() { this.$nextTick(() => { const h = document.querySelector('.bg-lime-50'); if (h) h.scrollIntoView({ block: 'nearest' }); }); }
+    }));
+    
+    // Staff Autocomplete - VERSIONE MIGLIORATA
+    Alpine.data('staffAutocomplete', (rowIndex) => ({
+        index: rowIndex,
+        search: '',
+        selectedId: '',
+        results: [],
+        open: false,
+        loading: false,
+        highlightIndex: -1,
+        errorStaff: false,
+        errorStaffMessage: '',
+        errorHours: false,
+        errorHoursMessage: '',
+        
+        init() {
+            this.$watch('selectedId', val => {
+                if (val) {
+                    this.errorStaff = false
+                    this.errorStaffMessage = ''
+                } else if (this.search.length > 0) {
+                    this.errorStaff = true
+                    this.errorStaffMessage = 'Seleziona un membro del personale'
+                }
+            })
+        },
+        
+        async searchItems() {
+            if (this.search.length < 2) {
+                this.results = [];
+                this.open = this.search.length > 0;
+                return;
+            }
+            
+            this.loading = true;
+            this.open = true;
+            
+            try {
+                const response = await fetch(`{{ route('admin.api.search-staff') }}?q=${encodeURIComponent(this.search)}`);
+                this.results = await response.json();
+                this.highlightIndex = -1;
+            } catch (error) {
+                console.error('Errore:', error);
+                this.results = [];
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        selectItem(item) {
+            this.search = item.full_name;
+            this.selectedId = item.id_personale;
+            this.open = false;
+            this.results = [];
+            this.errorStaff = false
+            this.errorStaffMessage = ''
+        },
+        
+        moveDown() { if (this.highlightIndex < this.results.length - 1) this.highlightIndex++; this.scrollToHighlight(); },
+        moveUp() { if (this.highlightIndex > 0) this.highlightIndex--; this.scrollToHighlight(); },
+        selectHighlighted() { if (this.highlightIndex >= 0 && this.results[this.highlightIndex]) this.selectItem(this.results[this.highlightIndex]); },
+        scrollToHighlight() { this.$nextTick(() => { const h = document.querySelector('.bg-lime-50'); if (h) h.scrollIntoView({ block: 'nearest' }); }); }
+    }));
+});
+
+// ========== GESTIONE RIGHE STAFF ==========
+let staffIndex = 1;
+
+function addStaffRow() {
+    const template = document.querySelector('.staff-row-template');
+    if (!template) {
+        console.error('Template non trovato!');
+        return;
+    }
+    
+    // Clona il template
+    const clone = template.cloneNode(true);
+    clone.classList.remove('staff-row-template', 'hidden');
+    clone.classList.add('staff-row');
+    
+    // Sostituisci __INDEX__ con l'indice corrente
+    let html = clone.outerHTML;
+    html = html.replace(/__INDEX__/g, staffIndex);
+    
+    // Correggi i nomi dei campi
+    html = html.replace(/name="staff\[__INDEX__\]\[n_ore\]"/g, `name="staff[${staffIndex}][n_ore]"`);
+    html = html.replace(/name="staff\[__INDEX__\]\[spese\]"/g, `name="staff[${staffIndex}][spese]"`);
+    html = html.replace(/name="staff\[__INDEX__\]\[note\]"/g, `name="staff[${staffIndex}][note]"`);
+    html = html.replace(/name="staff\[__INDEX__\]\[id_staff\]"/g, `name="staff[${staffIndex}][id_staff]"`);
+    
+    // Se ci sono placeholder, sostituiscili
+    html = html.replace(/staff\[__INDEX__\]/g, `staff[${staffIndex}]`);
+    
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    const newRow = tempDiv.firstElementChild;
+    
+    // Forza l'impostazione dei nomi
+    const hoursInput = newRow.querySelector('input[type="number"][step="0.5"]');
+    if (hoursInput && !hoursInput.getAttribute('name')) {
+        hoursInput.setAttribute('name', `staff[${staffIndex}][n_ore]`);
+        hoursInput.setAttribute('value', '0');
+    }
+    
+    const expensesInput = newRow.querySelectorAll('input[type="number"][step="0.01"]');
+    if (expensesInput[0] && !expensesInput[0].getAttribute('name')) {
+        expensesInput[0].setAttribute('name', `staff[${staffIndex}][spese]`);
+        expensesInput[0].setAttribute('value', '0');
+    }
+    
+    const noteInput = newRow.querySelector('input[placeholder="Note aggiuntive"]');
+    if (noteInput && !noteInput.getAttribute('name')) {
+        noteInput.setAttribute('name', `staff[${staffIndex}][note]`);
+    }
+    
+    // Mostra il pulsante remove
+    const removeBtn = newRow.querySelector('.remove-staff-btn');
+    if (removeBtn) {
+        removeBtn.style.display = 'block';
+    }
+    
+    // Aggiungi la riga al container
+    const container = document.getElementById('staffContainer');
+    container.appendChild(newRow);
+    
+    // Reinizializza Alpine per la nuova riga
+    if (window.Alpine && newRow) {
+        window.Alpine.initTree(newRow);
+    }
+    
+    staffIndex++;
+}
+
+function removeStaffRow(button) {
+    const row = button.closest('.staff-row');
+    const allRows = document.querySelectorAll('.staff-row:not(.staff-row-template)');
+    
+    if (allRows.length > 1) {
+        row.remove();
+        const globalErrorEl = document.getElementById('staffGlobalError');
+        if (globalErrorEl && document.querySelectorAll('.staff-row:not(.staff-row-template)').length > 0) {
+            globalErrorEl.classList.add('hidden');
+        }
+    } else {
+        // Non permettere di rimuovere l'ultima riga
+        const globalErrorEl = document.getElementById('staffGlobalError');
+        if (globalErrorEl) {
+            globalErrorEl.classList.remove('hidden');
+        }
+        alert('Devi avere almeno un membro del personale');
+    }
+}
+
+// Inizializzazione eventi
+document.addEventListener('DOMContentLoaded', function() {
+    // Pulsante aggiungi staff
+    const addBtn = document.getElementById('addStaffBtn');
+    if (addBtn) {
+        // Rimuovi vecchi listener
+        const newAddBtn = addBtn.cloneNode(true);
+        addBtn.parentNode.replaceChild(newAddBtn, addBtn);
+        newAddBtn.addEventListener('click', addStaffRow);
+    }
+    
+    // Delegazione eventi per pulsanti remove (per gestire anche le righe aggiunte dinamicamente)
+    document.getElementById('staffContainer')?.addEventListener('click', function(e) {
+        const removeBtn = e.target.closest('.remove-staff-btn');
+        if (removeBtn) {
+            e.preventDefault();
+            removeStaffRow(removeBtn);
+        }
+    });
+    
+    // Validazione form al submit
+    const submitBtn = document.getElementById('submitBtn');
+    const form = document.getElementById('activityForm');
+    
+    if (submitBtn) {
+        submitBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Validazione base
+            const costCenterId = document.querySelector('input[name="id_cost_centers"]')?.value;
+            const serviceId = document.querySelector('input[name="id_services"]')?.value;
+            
+            if (!costCenterId) {
+                alert('⚠️ Seleziona un Centro di Costo');
+                return;
+            }
+            if (!serviceId) {
+                alert('⚠️ Seleziona un Servizio');
+                return;
+            }
+            
+            // Validazione staff
+            const staffRows = document.querySelectorAll('.staff-row:not(.staff-row-template)');
+            let hasValidStaff = false;
+            let staffErrors = [];
+            
+            staffRows.forEach((row, idx) => {
+                const staffId = row.querySelector('input[name*="[id_staff]"]')?.value;
+                const hoursInput = row.querySelector('input[name*="[n_ore]"]');
+                const hours = parseFloat(hoursInput?.value || '0');
+                
+                if (!staffId || staffId === '') {
+                    staffErrors.push(`Riga ${idx + 1}: Personale non selezionato`);
+                } else if (hours <= 0) {
+                    staffErrors.push(`Riga ${idx + 1}: Ore deve essere maggiore di 0 (attuale: ${hours})`);
+                } else {
+                    hasValidStaff = true;
+                }
+            });
+            
+            if (!hasValidStaff) {
+                alert(`⚠️ Errori nello staff:\n${staffErrors.join('\n')}`);
+                return;
+            }
+            
+            // Submitting del form
+            console.log('Form valido, invio...');
+            form.submit();
+        });
+    }
+});
+
+// Debug per vedere quante righe staff vengono inviate
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('activityForm');
+    if (form) {
+        form.addEventListener('submit', function() {
+            const staffRows = document.querySelectorAll('.staff-row:not(.staff-row-template)');
+            console.log(`📊 Invio form con ${staffRows.length} righe staff`);
+            staffRows.forEach((row, idx) => {
+                const staffId = row.querySelector('input[name*="[id_staff]"]')?.value;
+                const hours = row.querySelector('input[name*="[n_ore]"]')?.value;
+                console.log(`  Staff ${idx + 1}: ID=${staffId}, Ore=${hours}`);
+            });
+        });
     }
 });
 </script>

@@ -172,11 +172,12 @@ class StaffTable extends Component
         ])->paginate($this->perPage);
     }
     
-    public function getLatestExpiration($staffId, $titoloPrefix)
+    public function getLatestExpiration($staffId, $idsettings)
     {
         return Expiration::where('table_references', 'staff')
             ->where('id_references', $staffId)
-            ->where('titolo', 'LIKE', $titoloPrefix . '%')
+            // ->where('titolo', 'LIKE', $titoloPrefix . '%')
+            ->where('id_settings', $idsettings)
             ->whereNotNull('data_fine')
             ->orderBy('data_fine', 'desc')
             ->first();

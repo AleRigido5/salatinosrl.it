@@ -117,8 +117,8 @@
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($staff as $person)
                     @php
-                        $assunzioneDate = $this->getLatestExpiration($person->id_personale, 'Assunzione');
-                        $visitaMedicaDate = $this->getLatestExpiration($person->id_personale, 'Visita medica');
+                        $assunzioneDate = $this->getLatestExpiration($person->id_personale, 7);
+                        $visitaMedicaDate = $this->getLatestExpiration($person->id_personale, 8);
                         
                         $assunzioneInfo = $assunzioneDate ? $this->formatExpirationDate($assunzioneDate->data_fine) : null;
                         $visitaMedicaInfo = $visitaMedicaDate ? $this->formatExpirationDate($visitaMedicaDate->data_fine) : null;

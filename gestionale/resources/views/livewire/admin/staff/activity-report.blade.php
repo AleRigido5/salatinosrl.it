@@ -236,9 +236,9 @@
                         </td>
                         <td class="px-4 py-3 text-sm">
                             <div class="flex flex-col">
-                                <span class="font-medium text-gray-800">{{ htmlspecialchars($clienteNome, ENT_QUOTES, 'UTF-8') }}</span>
+                                <span class="font-medium text-gray-800">{{ html_entity_decode($clienteNome, ENT_QUOTES, 'UTF-8') }}</span>
                                 @if($cantiereNome != '-')
-                                    <span class="text-xs text-gray-500">{{ htmlspecialchars($cantiereNome, ENT_QUOTES, 'UTF-8') }}</span>
+                                    <span class="text-xs text-gray-500">{{ html_entity_decode($cantiereNome, ENT_QUOTES, 'UTF-8') }}</span>
                                 @endif
                             </div>
                         </td>
@@ -247,12 +247,12 @@
                                 @if($displayLocalita != '-')
                                     <span class="text-gray-600">
                                         <i class="fas fa-map-marker-alt text-gray-400 mr-1 text-xs"></i>
-                                        {{ htmlspecialchars($displayLocalita, ENT_QUOTES, 'UTF-8') }}
+                                        {{ html_entity_decode($displayLocalita, ENT_QUOTES, 'UTF-8') }}
                                     </span>
                                 @endif
                                 <span class="text-gray-800 mt-1">
                                     <i class="fas fa-tag text-gray-400 mr-1 text-xs"></i>
-                                    {{ htmlspecialchars($serviceName, ENT_QUOTES, 'UTF-8') }}
+                                    {{ html_entity_decode($serviceName, ENT_QUOTES, 'UTF-8') }}
                                 </span>
                             </div>
                         </td>

@@ -658,7 +658,7 @@
         <div class="bg-white rounded-lg shadow p-4 border border-gray-200 bg-gradient-to-r from-lime-50 to-lime-100">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-600 uppercase font-semibold">Totale Generico</p>
+                    <p class="text-sm text-gray-600 uppercase font-semibold">Totale</p>
                     <p class="text-2xl font-bold text-lime-600">€ {{ number_format($totalMaturato + $totalSpese, 2) }}</p>
                 </div>
                 <div class="h-12 w-12 bg-lime-200 rounded-full flex items-center justify-center">

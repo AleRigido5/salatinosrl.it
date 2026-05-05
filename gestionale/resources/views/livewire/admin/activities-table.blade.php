@@ -926,7 +926,7 @@
                                         <!-- Solo per clienti esterni: mostra l'icona grande -->
                                         <div class="cursor-pointer hover:text-lime-600 inline-flex items-center justify-center" 
                                             x-on:click="showTooltip = true">
-                                            <i class="fa-solid fa-file-invoice-dollar text-red-500 text-xl"></i>
+                                            <i class="fa-solid fa-file-invoice-dollar bg-red-500 px-3.5 py-2 rounded-lg text-gray-100 text-xl"></i>
                                         </div>
                                     @else
                                         <!-- Clienti interni: lascia vuoto -->

@@ -604,30 +604,40 @@
                             @endif
                         </td>
                         
-                        <!-- Lat/Long con tooltip modificabile -->
+                        <!-- Lat/Long con tooltip modificabile - SENZA REFRESH -->
                         <td class="px-3 py-3 text-sm relative group">
                             @if($activity->Lat_Long)
                                 @php $useTextarea = substr_count($activity->Lat_Long, ',') > 1; @endphp
                                 <div x-data="{ 
-                                    latLong: '{{ $activity->Lat_Long }}',
+                                    latLong: '{{ addslashes($activity->Lat_Long) }}',
                                     showTooltip: false,
                                     isEditing: false,
-                                    editedValue: '{{ $activity->Lat_Long }}',
+                                    editedValue: '{{ addslashes($activity->Lat_Long) }}',
                                     
                                     saveLatLong() {
                                         this.isEditing = true;
                                         @this.call('updateLatLong', {{ $activity->id }}, this.editedValue)
                                             .then(() => {
-                                                window.location.reload();
+                                                this.isEditing = false;
+                                                this.showTooltip = false;
+                                                this.latLong = this.editedValue;
+                                                // Aggiorna il DOM senza reload
+                                                const div = this.$el.querySelector('.latlong-text');
+                                                if (div) {
+                                                    div.innerText = this.editedValue;
+                                                }
+                                                @this.dispatch('showSuccess', { message: 'Coordinate aggiornate con successo!' });
                                             })
                                             .catch(() => {
                                                 this.isEditing = false;
+                                                @this.dispatch('showError', { message: 'Errore durante l\'aggiornamento' });
                                             });
                                     }
                                 }">
-                                    <div class="font-mono text-xs text-gray-600 cursor-pointer hover:text-lime-600 hover:underline break-words whitespace-normal max-w-[120px]" 
+                                    <div class="font-mono text-xs text-gray-600 cursor-pointer hover:text-lime-600 hover:underline break-words whitespace-normal max-w-[120px] latlong-text" 
                                         title="Clicca per modificare"
-                                        x-on:click="showTooltip = true; editedValue = latLong">
+                                        x-on:click="showTooltip = true; editedValue = latLong"
+                                        x-text="latLong">
                                         {{ $activity->Lat_Long }}
                                     </div>
                                     
@@ -669,15 +679,22 @@
                                     </div>
                                 </div>
                             @else
-                                <div x-data="{ showTooltip: false, editedValue: '', isEditing: false,
+                                <div x-data="{ 
+                                    showTooltip: false, 
+                                    editedValue: '', 
+                                    isEditing: false,
                                     saveLatLong() {
                                         this.isEditing = true;
                                         @this.call('updateLatLong', {{ $activity->id }}, this.editedValue)
                                             .then(() => {
-                                                window.location.reload();
+                                                this.isEditing = false;
+                                                this.showTooltip = false;
+                                                @this.dispatch('refreshActivities');
+                                                @this.dispatch('showSuccess', { message: 'Coordinate aggiunte con successo!' });
                                             })
                                             .catch(() => {
                                                 this.isEditing = false;
+                                                @this.dispatch('showError', { message: 'Errore durante l\'aggiornamento' });
                                             });
                                     }
                                 }">
@@ -689,9 +706,9 @@
                                     <div x-show="showTooltip" 
                                         x-on:click.away="showTooltip = false"
                                         class="absolute z-[100] bg-white border border-gray-300 rounded-lg shadow-xl p-3 min-w-[280px]"
-                                        style="bottom: 100%; left: 0; margin-bottom: 10px;"
+                                        style="top: 100%; left: 0; margin-top: 10px;"
                                         x-cloak>
-                                        <div class="absolute -bottom-2 left-4 w-4 h-4 bg-white border-gray-300 transform rotate-45"></div>
+                                        <div class="absolute -top-2 left-4 w-4 h-4 bg-white border-l border-t border-gray-300 transform rotate-45"></div>
                                         <label class="block text-xs font-medium text-gray-700 mb-1">Latitudine / Longitudine</label>
                                         <input type="text" 
                                             x-model="editedValue" 
@@ -729,11 +746,11 @@
                             @endif
                         </td>
 
-                        <!-- Ettari (ha) con tooltip modificabile -->
+                        <!-- Ettari (ha) con tooltip modificabile - SENZA REFRESH -->
                         <td class="px-3 py-3 text-sm whitespace-nowrap relative group">
                             @if($activity->ha)
                                 <div x-data="{ 
-                                    ha: '{{ $activity->ha }}',
+                                    haValue: '{{ $activity->ha }}',
                                     showTooltip: false,
                                     isEditing: false,
                                     editedValue: '{{ $activity->ha }}',
@@ -742,16 +759,26 @@
                                         this.isEditing = true;
                                         @this.call('updateHa', {{ $activity->id }}, this.editedValue)
                                             .then(() => {
-                                                window.location.reload();
+                                                this.isEditing = false;
+                                                this.showTooltip = false;
+                                                this.haValue = this.editedValue;
+                                                // Aggiorna il DOM senza reload
+                                                const span = this.$el.querySelector('.ha-value');
+                                                if (span) {
+                                                    span.innerText = parseFloat(this.editedValue).toFixed(2);
+                                                }
+                                                @this.dispatch('showSuccess', { message: 'Ettari aggiornati con successo!' });
                                             })
                                             .catch(() => {
                                                 this.isEditing = false;
+                                                @this.dispatch('showError', { message: 'Errore durante l\'aggiornamento' });
                                             });
                                     }
                                 }">
-                                    <span class="font-medium cursor-pointer hover:text-lime-600 hover:underline" 
-                                        x-on:click="showTooltip = true; editedValue = ha">
-                                        {{ $activity->ha }}
+                                    <span class="font-medium cursor-pointer hover:text-lime-600 hover:underline ha-value" 
+                                        x-on:click="showTooltip = true; editedValue = haValue"
+                                        x-text="parseFloat(haValue).toFixed(2)">
+                                        {{ number_format(floatval($activity->ha), 2) }}
                                     </span>
                                     
                                     <div x-show="showTooltip" 
@@ -785,7 +812,25 @@
                                     </div>
                                 </div>
                             @else
-                                <div x-data="{ showTooltip: false, editedValue: '', isEditing: false }">
+                                <div x-data="{ 
+                                    showTooltip: false, 
+                                    editedValue: '', 
+                                    isEditing: false,
+                                    saveHa() {
+                                        this.isEditing = true;
+                                        @this.call('updateHa', {{ $activity->id }}, this.editedValue)
+                                            .then(() => {
+                                                this.isEditing = false;
+                                                this.showTooltip = false;
+                                                @this.dispatch('refreshActivities');
+                                                @this.dispatch('showSuccess', { message: 'Ettari aggiunti con successo!' });
+                                            })
+                                            .catch(() => {
+                                                this.isEditing = false;
+                                                @this.dispatch('showError', { message: 'Errore durante l\'aggiornamento' });
+                                            });
+                                    }
+                                }">
                                     <span class="text-gray-400 italic cursor-pointer hover:text-lime-600" 
                                         x-on:click="showTooltip = true">
                                         -
@@ -803,7 +848,7 @@
                                             x-model="editedValue" 
                                             class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
                                             placeholder="0.00"
-                                            x-on:keydown.enter="isEditing = true; @this.call('updateHa', {{ $activity->id }}, editedValue).then(() => { window.location.reload(); })">
+                                            x-on:keydown.enter="saveHa()">
                                         <div class="flex justify-end gap-2 mt-2">
                                             <button type="button" 
                                                     x-on:click="showTooltip = false"
@@ -811,7 +856,7 @@
                                                 <i class="fas fa-times"></i> Annulla
                                             </button>
                                             <button type="button" 
-                                                    x-on:click="isEditing = true; @this.call('updateHa', {{ $activity->id }}, editedValue).then(() => { window.location.reload(); })"
+                                                    x-on:click="saveHa()"
                                                     x-bind:disabled="isEditing"
                                                     class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
                                                 <i class="fas fa-check" x-show="!isEditing"></i>
@@ -926,7 +971,7 @@
                                         <!-- Solo per clienti esterni: mostra l'icona grande -->
                                         <div class="cursor-pointer hover:text-lime-600 inline-flex items-center justify-center" 
                                             x-on:click="showTooltip = true">
-                                            <i class="fa-solid fa-file-invoice-dollar bg-red-500 px-3.5 py-2 rounded-lg text-gray-100 text-xl"></i>
+                                            <i class="fa-solid fa-file-invoice-dollar bg-red-500 px-2.5 py-1.5 rounded-lg text-gray-100 text-md"></i>
                                         </div>
                                     @else
                                         <!-- Clienti interni: lascia vuoto -->

@@ -744,7 +744,7 @@ class StaffController extends Controller
         
         // Genera PDF direttamente dall'HTML
         $pdf = Pdf::loadHTML($html);
-        $pdf->setPaper('A4', 'landscape');
+        $pdf->setPaper('A4', 'portrait');
         
         // Download diretto
         return $pdf->download("report_{$staff->CognomePers}_{$staff->NomePers}_{$dateFrom->format('Y-m-d')}_{$dateTo->format('Y-m-d')}.pdf");

@@ -1,19 +1,62 @@
 <div>
     <!-- Filtri e Ricerca -->
     <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
-        <!-- Custom Date Range -->
-        <div class="flex flex-wrap items-center justify-center gap-3 mb-4 pb-3 border-b border-gray-200">
-            <input type="date" wire:model.live="dateFrom" class="text-sm px-3 py-1.5 border border-gray-300 rounded-md">
-            <span class="text-gray-500">→</span>
-            <input type="date" wire:model.live="dateTo" class="text-sm px-3 py-1.5 border border-gray-300 rounded-md">
-            @if($dateFrom || $dateTo)
-            <button wire:click="applyCustomDateRange" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-1.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
-                Applica
-            </button>
-            @endif
+        <!-- Filtri Data con navigazione mensile -->
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-200">
+            <!-- Range date personalizzato a sinistra -->
+            <div class="flex items-center gap-3">
+                <input type="date" id="date_from" value="{{ request('date_from', $dateFrom) }}" class="text-sm px-3 py-1.5 border border-gray-300 rounded-md">
+                <span class="text-gray-500">→</span>
+                <input type="date" id="date_to" value="{{ request('date_to', $dateTo) }}" class="text-sm px-3 py-1.5 border border-gray-300 rounded-md">
+                
+                <!-- Bottone Applica -->
+                <button type="button" id="applyDateRange" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-1.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                    Applica
+                </button>
+            </div>
+            
+            <!-- Navigazione mese a destra -->
+            <div class="flex items-center gap-3">      
+                <!-- Frecce navigazione mese -->
+                <button type="button" id="prevMonth" class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors" title="Mese precedente">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                
+                <!-- Freccia mese successivo -->
+                <button type="button" id="nextMonth" class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors" title="Mese successivo">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+                          
+                <!-- Select mese e anno -->
+                <div class="flex items-center gap-2">
+                    <select id="monthSelect" class="px-3 py-1.5 border border-gray-300 rounded-md text-sm">
+                        <option value="01">Gennaio</option>
+                        <option value="02">Febbraio</option>
+                        <option value="03">Marzo</option>
+                        <option value="04">Aprile</option>
+                        <option value="05">Maggio</option>
+                        <option value="06">Giugno</option>
+                        <option value="07">Luglio</option>
+                        <option value="08">Agosto</option>
+                        <option value="09">Settembre</option>
+                        <option value="10">Ottobre</option>
+                        <option value="11">Novembre</option>
+                        <option value="12">Dicembre</option>
+                    </select>
+                    
+                    <select id="yearSelect" class="px-3 py-1.5 border border-gray-300 rounded-md text-sm">
+                        @php
+                            $currentYear = date('Y');
+                            for($y = $currentYear - 10; $y <= $currentYear + 5; $y++):
+                        @endphp
+                            <option value="{{ $y }}" {{ $currentYear == $y ? 'selected' : '' }}>{{ $y }}</option>
+                        @php endfor; @endphp
+                    </select>
+                </div>
+            </div>
         </div>
         
-        <!-- Filtri Avanzati con Autocomplete -->
+        <!-- Filtri Avanzati con Autocomplete (invariati) -->
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3">
             <!-- Search -->
             <div class="relative">
@@ -46,7 +89,6 @@
                     @endif
                 </div>
                 
-                <!-- Dropdown risultati -->
                 <div x-show="open && @entangle('showCostCenterDropdown')" 
                     class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                     @if($filteredCostCenters && $filteredCostCenters->count() > 0)
@@ -98,7 +140,6 @@
                     @endif
                 </div>
                 
-                <!-- Dropdown risultati -->
                 <div x-show="open && @entangle('showServiceDropdown')" 
                     class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                     @if($filteredServices && $filteredServices->count() > 0)
@@ -150,7 +191,6 @@
                     @endif
                 </div>
                 
-                <!-- Dropdown risultati -->
                 <div x-show="open && @entangle('showEntityDropdown')" 
                     class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                     @if($filteredEntities && $filteredEntities->count() > 0)
@@ -183,36 +223,24 @@
                 </div>
             </div>
             
-            <!-- Per Page Selector -->
+            <!-- Per Page Selector con opzioni Tutti, 200, 100 -->
             <div class="flex items-center space-x-2">
                 <select wire:model.live="perPage" class="text-sm px-3 py-2 border border-gray-300 rounded-md">
-                    <option value="15">15 per pagina</option>
-                    <option value="25">25 per pagina</option>
-                    <option value="50">50 per pagina</option>
+                    <option value="10000">Tutti</option>
+                    <option value="200">200 per pagina</option>
                     <option value="100">100 per pagina</option>
                 </select>
                 
-                @if($search || $costCenterFilter || $serviceFilter || $entityFilter || !$useDateFilter)
-                <button type="button" wire:click="resetFilters" class="text-sm text-gray-500 hover:text-gray-700" title="Resetta tutti i filtri">
+                @if($search || $costCenterFilter || $serviceFilter || $entityFilter || request('date_from') || request('date_to'))
+                <a href="{{ route('admin.activities.index') }}" class="text-sm text-gray-500 hover:text-gray-700" title="Resetta tutti i filtri">
                     <i class="fas fa-sync-alt"></i>
-                </button>
+                </a>
                 @endif
             </div>
         </div>
         
-        <!-- JavaScript per chiudere i dropdown quando si clicca fuori -->
-        <script>
-            document.addEventListener('click', function(event) {
-                if (!event.target.closest('.relative')) {
-                    @this.set('showCostCenterDropdown', false);
-                    @this.set('showServiceDropdown', false);
-                    @this.set('showEntityDropdown', false);
-                }
-            });
-        </script>
-        
         <!-- Active Filters Tags -->
-        @if($search || $costCenterFilter || $serviceFilter || $entityFilter)
+        @if($search || $costCenterFilter || $serviceFilter || $entityFilter || request('date_from') || request('date_to'))
         <div class="mt-3 flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
             <span class="text-xs text-gray-500">Filtri attivi:</span>
             @if($search)
@@ -262,9 +290,185 @@
                 </button>
             </span>
             @endif
+
+            @if(request('date_from') || request('date_to'))
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-lime-100 text-lime-800">
+                <i class="fas fa-calendar mr-1 text-xs"></i>
+                {{ request('date_from', '...') }} → {{ request('date_to', '...') }}
+                <a href="{{ route('admin.activities.index') }}" class="ml-1 hover:text-lime-900">
+                    <i class="fas fa-times text-xs"></i>
+                </a>
+            </span>
+            @endif
         </div>
         @endif
     </div>
+
+    <!-- JavaScript per i filtri data con navigazione mensile -->
+    @push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dateFrom = document.getElementById('date_from');
+            const dateTo = document.getElementById('date_to');
+            const applyBtn = document.getElementById('applyDateRange');
+            const prevMonthBtn = document.getElementById('prevMonth');
+            const nextMonthBtn = document.getElementById('nextMonth');
+            const monthSelect = document.getElementById('monthSelect');
+            const yearSelect = document.getElementById('yearSelect');
+            const baseUrl = '{{ route("admin.activities.index") }}';
+            
+            // Funzione per ottenere il primo giorno del mese
+            function getFirstDayOfMonth(year, month) {
+                return `${year}-${month.toString().padStart(2, '0')}-01`;
+            }
+            
+            // Funzione per ottenere l'ultimo giorno del mese
+            function getLastDayOfMonth(year, month) {
+                const lastDay = new Date(year, month, 0).getDate();
+                return `${year}-${month.toString().padStart(2, '0')}-${lastDay}`;
+            }
+            
+            // Funzione per aggiornare i campi data con il mese selezionato
+            function updateDateFieldsWithMonth() {
+                const year = parseInt(yearSelect.value);
+                const month = parseInt(monthSelect.value);
+                
+                dateFrom.value = getFirstDayOfMonth(year, month);
+                dateTo.value = getLastDayOfMonth(year, month);
+            }
+            
+            // Funzione per sincronizzare i select con le date correnti
+            function syncSelectsWithDates() {
+                const fromDate = dateFrom.value;
+                const toDate = dateTo.value;
+                
+                if (fromDate && toDate) {
+                    const fromParts = fromDate.split('-');
+                    const toParts = toDate.split('-');
+                    
+                    if (fromParts.length === 3 && toParts.length === 3) {
+                        const fromYear = parseInt(fromParts[0]);
+                        const fromMonth = parseInt(fromParts[1]);
+                        const fromDay = parseInt(fromParts[2]);
+                        const toYear = parseInt(toParts[0]);
+                        const toMonth = parseInt(toParts[1]);
+                        const toDay = parseInt(toParts[2]);
+                        
+                        const lastDayOfMonth = new Date(fromYear, fromMonth, 0).getDate();
+                        
+                        // Verifica se è un mese intero
+                        if (fromYear === toYear && fromMonth === toMonth && fromDay === 1 && toDay === lastDayOfMonth) {
+                            monthSelect.value = fromMonth.toString().padStart(2, '0');
+                            yearSelect.value = fromYear;
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+            
+            // Naviga al mese precedente
+            if (prevMonthBtn) {
+                prevMonthBtn.addEventListener('click', function() {
+                    let year = parseInt(yearSelect.value);
+                    let month = parseInt(monthSelect.value);
+                    
+                    if (month === 1) {
+                        month = 12;
+                        year--;
+                    } else {
+                        month--;
+                    }
+                    
+                    monthSelect.value = month.toString().padStart(2, '0');
+                    yearSelect.value = year;
+                    updateDateFieldsWithMonth();
+                });
+            }
+            
+            // Naviga al mese successivo
+            if (nextMonthBtn) {
+                nextMonthBtn.addEventListener('click', function() {
+                    let year = parseInt(yearSelect.value);
+                    let month = parseInt(monthSelect.value);
+                    
+                    if (month === 12) {
+                        month = 1;
+                        year++;
+                    } else {
+                        month++;
+                    }
+                    
+                    monthSelect.value = month.toString().padStart(2, '0');
+                    yearSelect.value = year;
+                    updateDateFieldsWithMonth();
+                });
+            }
+            
+            // Quando si cambia mese o anno manualmente
+            if (monthSelect) {
+                monthSelect.addEventListener('change', updateDateFieldsWithMonth);
+            }
+            
+            if (yearSelect) {
+                yearSelect.addEventListener('change', updateDateFieldsWithMonth);
+            }
+            
+            // Applica i filtri data
+            if (applyBtn) {
+                applyBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    const params = new URLSearchParams(window.location.search);
+                    
+                    if (dateFrom.value) {
+                        params.set('date_from', dateFrom.value);
+                    } else {
+                        params.delete('date_from');
+                    }
+                    
+                    if (dateTo.value) {
+                        params.set('date_to', dateTo.value);
+                    } else {
+                        params.delete('date_to');
+                    }
+                    
+                    const queryString = params.toString();
+                    const url = queryString ? baseUrl + '?' + queryString : baseUrl;
+                    window.location.href = url;
+                });
+            }
+            
+            // Inizializzazione
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlDateFrom = urlParams.get('date_from');
+            const urlDateTo = urlParams.get('date_to');
+            
+            if (urlDateFrom && urlDateTo) {
+                dateFrom.value = urlDateFrom;
+                dateTo.value = urlDateTo;
+                const synced = syncSelectsWithDates();
+                if (!synced) {
+                    // Se non è un mese intero, resetta i select al mese corrente della data da
+                    const fromParts = urlDateFrom.split('-');
+                    if (fromParts.length === 3) {
+                        monthSelect.value = fromParts[1];
+                        yearSelect.value = fromParts[0];
+                    }
+                }
+            } else {
+                // Nessuna data nell'URL, inizializza con il mese corrente
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const currentMonth = now.getMonth() + 1;
+                
+                monthSelect.value = currentMonth.toString().padStart(2, '0');
+                yearSelect.value = currentYear;
+                updateDateFieldsWithMonth();
+            }
+        });
+    </script>
+    @endpush
 
     <!-- Tabella Attività -->
     <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
@@ -620,9 +824,24 @@
                             @endif
                         </td>
 
-                        <!-- Rif. Fattura -->
+                        <!-- Rif. Fattura con icona solo per clienti esterni E solo se fattura è vuota -->
                         <td class="px-3 py-3 text-sm relative group">
+                            @php
+                                $isExternal = false;
+                                if($activity->entity && $activity->costCenter) {
+                                    // Verifica se il cliente è esterno (non di proprietà)
+                                    $costCenterCheck = \App\Models\CostCenter::where('id', $activity->costCenter->id)
+                                        ->where('table_references', 'entities')
+                                        ->exists();
+                                    $isExternal = $costCenterCheck;
+                                }
+                                
+                                // Determina se mostrare l'icona (solo se esterno E fattura vuota)
+                                $showIcon = $isExternal && empty($activity->invoice_references);
+                            @endphp
+                            
                             @if($activity->invoice_references)
+                                <!-- Se c'è testo fattura, mostra solo il testo, nessuna icona -->
                                 <div x-data="{ 
                                     invoiceRef: '{{ $activity->invoice_references }}',
                                     showTooltip: false,
@@ -633,10 +852,19 @@
                                         this.isEditing = true;
                                         @this.call('updateInvoiceRef', {{ $activity->id }}, this.editedValue)
                                             .then(() => {
-                                                window.location.reload();
+                                                this.isEditing = false;
+                                                this.showTooltip = false;
+                                                this.invoiceRef = this.editedValue;
+                                                // Aggiorna il DOM senza reload
+                                                const span = this.$el.querySelector('span');
+                                                if (span) {
+                                                    span.innerText = this.editedValue.length > 20 ? this.editedValue.substring(0, 20) + '...' : this.editedValue;
+                                                }
+                                                @this.dispatch('showSuccess', { message: 'Riferimento fattura aggiornato con successo!' });
                                             })
                                             .catch(() => {
                                                 this.isEditing = false;
+                                                @this.dispatch('showError', { message: 'Errore durante l\'aggiornamento' });
                                             });
                                     }
                                 }">
@@ -676,11 +904,34 @@
                                     </div>
                                 </div>
                             @else
-                                <div x-data="{ showTooltip: false, editedValue: '', isEditing: false }">
-                                    <span class="text-gray-400 italic text-xs cursor-pointer hover:text-lime-600" 
-                                        x-on:click="showTooltip = true">
-                                        -
-                                    </span>
+                                <!-- Se fattura è vuota -->
+                                <div x-data="{ showTooltip: false, editedValue: '', isEditing: false,
+                                    saveInvoiceRef() {
+                                        this.isEditing = true;
+                                        @this.call('updateInvoiceRef', {{ $activity->id }}, this.editedValue)
+                                            .then(() => {
+                                                this.isEditing = false;
+                                                this.showTooltip = false;
+                                                // Ricarica solo il componente Livewire senza refresh pagina
+                                                @this.dispatch('refreshActivities');
+                                                @this.dispatch('showSuccess', { message: 'Riferimento fattura aggiunto con successo!' });
+                                            })
+                                            .catch(() => {
+                                                this.isEditing = false;
+                                                @this.dispatch('showError', { message: 'Errore durante l\'aggiornamento' });
+                                            });
+                                    }
+                                }">
+                                    @if($showIcon)
+                                        <!-- Solo per clienti esterni: mostra l'icona grande -->
+                                        <div class="cursor-pointer hover:text-lime-600 inline-flex items-center justify-center" 
+                                            x-on:click="showTooltip = true">
+                                            <i class="fa-solid fa-file-invoice-dollar text-red-500 text-xl"></i>
+                                        </div>
+                                    @else
+                                        <!-- Clienti interni: lascia vuoto -->
+                                        <span class="text-gray-400 italic text-xs"></span>
+                                    @endif
                                     
                                     <div x-show="showTooltip" 
                                         x-on:click.away="showTooltip = false"
@@ -693,7 +944,7 @@
                                             x-model="editedValue" 
                                             class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
                                             placeholder="es. FV-2024-001"
-                                            x-on:keydown.enter="isEditing = true; @this.call('updateInvoiceRef', {{ $activity->id }}, editedValue).then(() => { window.location.reload(); })">
+                                            x-on:keydown.enter="saveInvoiceRef()">
                                         <div class="flex justify-end gap-2 mt-2">
                                             <button type="button" 
                                                     x-on:click="showTooltip = false"
@@ -701,7 +952,7 @@
                                                 <i class="fas fa-times"></i> Annulla
                                             </button>
                                             <button type="button" 
-                                                    x-on:click="isEditing = true; @this.call('updateInvoiceRef', {{ $activity->id }}, editedValue).then(() => { window.location.reload(); })"
+                                                    x-on:click="saveInvoiceRef()"
                                                     x-bind:disabled="isEditing"
                                                     class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
                                                 <i class="fas fa-check" x-show="!isEditing"></i>

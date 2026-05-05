@@ -16,7 +16,7 @@ class ActivitiesTable extends Component
 {
     use WithPagination;
 
-    // Filtri
+    // Filtri (mantenuti originali)
     public $search = '';
     public $costCenterFilter = '';
     public $serviceFilter = '';
@@ -99,78 +99,70 @@ class ActivitiesTable extends Component
     
     protected $paginationTheme = 'tailwind';
     
-    // Query string parameters
+    // Query string parameters (solo per i filtri che rimangono Livewire)
     protected $queryString = [
         'search' => ['except' => ''],
         'costCenterFilter' => ['except' => ''],
         'serviceFilter' => ['except' => ''],
         'entityFilter' => ['except' => ''],
-        'dateFrom' => ['except' => ''],
-        'dateTo' => ['except' => ''],
-        'selectedMonth' => ['except' => ''],
-        'selectedYear' => ['except' => ''],
-        'useDateFilter' => ['except' => true],
+        'perPage' => ['except' => 15],
         'sortField' => ['except' => 'data_activities'],
         'sortDirection' => ['except' => 'desc'],
-        'perPage' => ['except' => 15],
+        // dateFrom e dateTo NON sono più in queryString perché gestiti via redirect
     ];
     
     protected $listeners = [
         'openCreateModal' => 'openCreateModal',
+        'refreshActivities' => 'refreshActivities',
         'refreshActivities' => '$refresh'
     ];
     
     public function mount()
     {
-        // Set current month and year
-        $now = Carbon::now();
-        $this->selectedMonth = $now->format('m');
-        $this->selectedYear = $now->format('Y');
-        
-        // Set current month range
-        $this->setCurrentMonthRange();
-        $this->updateMonthDisplay();
-        
-        // Load dropdown data
-        $this->loadDropdownData();
-        
-        // Load filters from session if exist
-        if (session()->has('activities_filters')) {
-            $filters = session('activities_filters');
-            $this->search = $filters['search'] ?? '';
-            $this->costCenterFilter = $filters['costCenterFilter'] ?? '';
-            $this->serviceFilter = $filters['serviceFilter'] ?? '';
-            $this->entityFilter = $filters['entityFilter'] ?? '';
-            $this->dateFrom = $filters['dateFrom'] ?? $this->dateFrom;
-            $this->dateTo = $filters['dateTo'] ?? $this->dateTo;
-            $this->selectedMonth = $filters['selectedMonth'] ?? $this->selectedMonth;
-            $this->selectedYear = $filters['selectedYear'] ?? $this->selectedYear;
-            $this->useDateFilter = $filters['useDateFilter'] ?? true;
-            $this->sortField = $filters['sortField'] ?? 'data_activities';
-            $this->sortDirection = $filters['sortDirection'] ?? 'desc';
-            $this->perPage = $filters['perPage'] ?? 15;
-            
-            // Set autocomplete search values from selected filters
-            if ($this->costCenterFilter) {
-                $cc = CostCenter::find($this->costCenterFilter);
-                if ($cc) $this->costCenterSearch = $cc->Nome;
-            }
-            if ($this->serviceFilter) {
-                $service = Service::find($this->serviceFilter);
-                if ($service) $this->serviceSearch = $service->Titolo;
-            }
-            if ($this->entityFilter) {
-                $entity = Entity::find($this->entityFilter);
-                if ($entity) {
-                    $this->entitySearch = $entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome);
-                }
-            }
-            
-            $this->updateMonthDisplay();
-            session()->forget('activities_filters');
+        // Leggi le date dalla request se presenti
+        if (request()->has('date_from')) {
+            $this->dateFrom = request('date_from');
         }
+        if (request()->has('date_to')) {
+            $this->dateTo = request('date_to');
+        }
+        
+        // Se non ci sono date nella request, usa il mese corrente
+        if (empty($this->dateFrom) && empty($this->dateTo)) {
+            $now = Carbon::now();
+            $this->selectedMonth = $now->format('m');
+            $this->selectedYear = $now->format('Y');
+            $this->dateFrom = $now->copy()->startOfMonth()->format('Y-m-d');
+            $this->dateTo = $now->copy()->endOfMonth()->format('Y-m-d');
+            $this->useDateFilter = true;
+        } else {
+            // Forza l'uso del filtro data
+            $this->useDateFilter = true;
+            
+            // Prova a estrarre mese e anno dalle date per i select
+            try {
+                $fromDate = Carbon::parse($this->dateFrom);
+                $toDate = Carbon::parse($this->dateTo);
+                
+                // Verifica se è un mese intero
+                if ($fromDate->day == 1 && $toDate->day == $toDate->daysInMonth && 
+                    $fromDate->format('Y-m') === $toDate->format('Y-m')) {
+                    $this->selectedMonth = $fromDate->format('m');
+                    $this->selectedYear = $fromDate->format('Y');
+                } else {
+                    $this->selectedMonth = '';
+                    $this->selectedYear = '';
+                }
+            } catch (\Exception $e) {
+                $this->selectedMonth = '';
+                $this->selectedYear = '';
+            }
+        }
+        
+        $this->updateMonthDisplay();
+        $this->loadDropdownData();
     }
-    
+        
     // ==================== DROPDOWN DATA METHODS ====================
     
     public function loadDropdownData()
@@ -571,46 +563,23 @@ class ActivitiesTable extends Component
         $this->resetPage();
     }
     
-    public function applyCustomDateRange()
+    // Metodo per resettare i filtri (incluso il redirect per le date)
+    public function resetFilters()
     {
-        $this->validate([
-            'dateFrom' => 'nullable|date',
-            'dateTo' => 'nullable|date|after_or_equal:dateFrom',
+        $this->reset([
+            'search', 
+            'costCenterFilter', 
+            'serviceFilter', 
+            'entityFilter',
+            'costCenterSearch',
+            'serviceSearch',
+            'entitySearch',
+            'costCenterName',  
+            'serviceName',     
+            'entityName' 
         ]);
-        
-        if ($this->dateFrom && $this->dateTo) {
-            $from = Carbon::parse($this->dateFrom);
-            $to = Carbon::parse($this->dateTo);
-            
-            if ($from->format('Y-m') === $to->format('Y-m') && 
-                $from->day == 1 && 
-                $to->day == $to->daysInMonth) {
-                $this->selectedMonth = $from->format('m');
-                $this->selectedYear = $from->format('Y');
-            }
-        }
-        
-        $this->useDateFilter = true;
-        $this->updateMonthDisplay();
+        $this->setCurrentMonthRange();
         $this->resetPage();
-    }
-    
-    public function saveFiltersToSession()
-    {
-        session(['activities_filters' => [
-            'search' => $this->search,
-            'costCenterFilter' => $this->costCenterFilter,
-            'serviceFilter' => $this->serviceFilter,
-            'entityFilter' => $this->entityFilter,
-            'dateFrom' => $this->dateFrom,
-            'dateTo' => $this->dateTo,
-            'selectedMonth' => $this->selectedMonth,
-            'selectedYear' => $this->selectedYear,
-            'useDateFilter' => $this->useDateFilter,
-            'sortField' => $this->sortField,
-            'sortDirection' => $this->sortDirection,
-            'perPage' => $this->perPage
-        ]]);
     }
     
     public function sortBy($field)
@@ -626,9 +595,10 @@ class ActivitiesTable extends Component
     
     // Reset page on filter changes
     public function updatingSearch() { $this->resetPage(); }
-    public function updatingDateFrom() { $this->resetPage(); $this->useDateFilter = true; $this->updateMonthDisplay(); }
-    public function updatingDateTo() { $this->resetPage(); $this->useDateFilter = true; $this->updateMonthDisplay(); }
     public function updatingPerPage() { $this->resetPage(); }
+    public function updatingCostCenterFilter() { $this->resetPage(); }
+    public function updatingServiceFilter() { $this->resetPage(); }
+    public function updatingEntityFilter() { $this->resetPage(); }
     
     /**
      * Get activities with optimized query
@@ -637,7 +607,7 @@ class ActivitiesTable extends Component
     {
         $query = Activity::query();
         
-        // Apply date filter ONLY if useDateFilter is true AND we have dates
+        // Date filter
         if ($this->useDateFilter && $this->dateFrom && $this->dateTo) {
             $query->whereBetween('data_activities', [$this->dateFrom, $this->dateTo]);
         } elseif ($this->useDateFilter && $this->dateFrom) {
@@ -667,7 +637,8 @@ class ActivitiesTable extends Component
             $query->where(function($q) use ($searchTerm) {
                 $q->where('invoice_references', 'like', $searchTerm)
                   ->orWhere('note', 'like', $searchTerm)
-                  ->orWhere('ordine', 'like', $searchTerm);
+                  ->orWhere('ha', 'like', $searchTerm)
+                  ->orWhere('Lat_Long', 'like', $searchTerm);
             });
         }
         
@@ -675,6 +646,18 @@ class ActivitiesTable extends Component
         $query->orderBy($this->sortField, $this->sortDirection);
         
         // Eager load relationships with limit for performance
+        // Gestione per page: se perPage è 0, prendi TUTTI i record (nessuna paginazione)
+        if ($this->perPage == 0) {
+            return $query->with([
+                'costCenter', 
+                'service', 
+                'entity',
+                'staffDetails' => function($q) {
+                    $q->with('staff')->limit(5);
+                }
+            ])->get();
+        }
+        
         return $query->with([
             'costCenter', 
             'service', 
@@ -698,7 +681,7 @@ class ActivitiesTable extends Component
     {
         $years = [];
         $currentYear = Carbon::now()->year;
-        for ($i = $currentYear - 10; $i <= $currentYear + 1; $i++) {
+        for ($i = $currentYear - 10; $i <= $currentYear + 5; $i++) {
             $years[] = $i;
         }
         return $years;
@@ -722,45 +705,7 @@ class ActivitiesTable extends Component
         ];
     }
     
-    public function getTotalCountProperty()
-    {
-        $query = Activity::query();
-        
-        if ($this->useDateFilter && $this->dateFrom && $this->dateTo) {
-            $query->whereBetween('data_activities', [$this->dateFrom, $this->dateTo]);
-        } elseif ($this->useDateFilter && $this->dateFrom) {
-            $query->whereDate('data_activities', '>=', $this->dateFrom);
-        } elseif ($this->useDateFilter && $this->dateTo) {
-            $query->whereDate('data_activities', '<=', $this->dateTo);
-        }
-        
-        if ($this->costCenterFilter) {
-            $query->where('id_cost_centers', $this->costCenterFilter);
-        }
-        
-        if ($this->serviceFilter) {
-            $query->where('id_services', $this->serviceFilter);
-        }
-        
-        if ($this->entityFilter) {
-            $query->where('id_entities', $this->entityFilter);
-        }
-        
-        if ($this->search) {
-            $searchTerm = '%' . $this->search . '%';
-            $query->where(function($q) use ($searchTerm) {
-                $q->where('invoice_references', 'like', $searchTerm)
-                  ->orWhere('note', 'like', $searchTerm)
-                  ->orWhere('ordine', 'like', $searchTerm);
-            });
-        }
-        
-        return $query->count();
-    }
-    
     // ==================== CRUD METHODS ====================
-    
-    // ==================== METODI PER AGGIORNAMENTO DIRETTO IN TABELLA ====================
     
     /**
      * Aggiorna Lat/Long direttamente dalla tabella
@@ -831,6 +776,31 @@ class ActivitiesTable extends Component
                     'updated_by' => Auth::guard('admin')->id()
                 ]);
                 $this->dispatch('showSuccess', message: 'Nota aggiornata con successo!');
+                $this->resetPage();
+            }
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Aggiorna Riferimento Fattura direttamente dalla tabella
+     */
+    public function updateInvoiceRef($id, $value)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            $this->dispatch('showError', message: 'Permessi insufficienti');
+            return;
+        }
+        
+        try {
+            $activity = Activity::find($id);
+            if ($activity) {
+                $activity->update([
+                    'invoice_references' => $value ?: null,
+                    'updated_by' => Auth::guard('admin')->id()
+                ]);
+                $this->dispatch('showSuccess', message: 'Riferimento fattura aggiornato con successo!');
                 $this->resetPage();
             }
         } catch (\Exception $e) {
@@ -996,6 +966,12 @@ class ActivitiesTable extends Component
         $this->showCreateServiceDropdown = false;
         $this->showCreateEntityDropdown = false;
     }
+
+    public function refreshActivities()
+    {
+        // Questo metodo forza il refresh del componente
+        $this->resetPage();
+    }
     
     public function saveActivity()
     {
@@ -1045,24 +1021,6 @@ class ActivitiesTable extends Component
         }
     }
     
-    public function resetFilters()
-    {
-        $this->reset([
-            'search', 
-            'costCenterFilter', 
-            'serviceFilter', 
-            'entityFilter',
-            'costCenterSearch',
-            'serviceSearch',
-            'entitySearch',
-            'costCenterName',  
-            'serviceName',     
-            'entityName' 
-        ]);
-        $this->setCurrentMonthRange();
-        $this->resetPage();
-    }
-    
     public function formatDate($date)
     {
         if (!$date) return '-';
@@ -1090,7 +1048,6 @@ class ActivitiesTable extends Component
             'filteredCreateEntities' => $this->filteredCreateEntities,
             'staffList' => $this->staffList,
             'availableYears' => $this->availableYears,
-            'totalCount' => $this->totalCount,
             'costCenterName' => $this->costCenterFilter ? optional(CostCenter::find($this->costCenterFilter))->Nome : null,
             'serviceName' => $this->serviceFilter ? optional(Service::find($this->serviceFilter))->Titolo : null,
             'entityName' => $this->entityFilter ? optional(Entity::find($this->entityFilter))->ragione_sociale : null,

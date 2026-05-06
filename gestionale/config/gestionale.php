@@ -1,0 +1,220 @@
+<?php
+
+return [
+    /*
+    |--------------------------------------------------------------------------
+    | Ore standard per giornata lavorativa
+    |--------------------------------------------------------------------------
+    */
+    'standard_hours_per_day' => env('STANDARD_HOURS_PER_DAY', 7),
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Arrotondamento giornate
+    |--------------------------------------------------------------------------
+    */
+    'round_decimals' => 1,
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Stato fatture (acquisto e vendita)
+    |--------------------------------------------------------------------------
+    */
+    'invoice_status' => [
+        'draft' => [
+            'label' => 'Bozza',
+            'color' => 'gray',
+            'badge_class' => 'bg-gray-100 text-gray-800',
+            'icon' => 'fa-pen'
+        ],
+        'sent' => [
+            'label' => 'Inviata',
+            'color' => 'blue',
+            'badge_class' => 'bg-blue-100 text-blue-800',
+            'icon' => 'fa-paper-plane'
+        ],
+        'rejected' => [
+            'label' => 'Scartata',
+            'color' => 'red',
+            'badge_class' => 'bg-red-100 text-red-800',
+            'icon' => 'fa-times-circle'
+        ],
+        'delivered' => [
+            'label' => 'Consegnata',
+            'color' => 'green',
+            'badge_class' => 'bg-green-100 text-green-800',
+            'icon' => 'fa-check-circle'
+        ],
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Divise
+    |--------------------------------------------------------------------------
+    */
+    'currencies' => [
+        'EUR' => 'Euro',
+        'USD' => 'Dollaro USA',
+        'GBP' => 'Sterlina Britannica',
+        'CHF' => 'Franco Svizzero',
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Regimi Fiscali (RF)
+    |--------------------------------------------------------------------------
+    */
+    'regime_fiscale' => [
+        'RF01' => 'Ordinario',
+        'RF02' => 'Contribuenti minimi (art.1, c.96-117, L. 244/07)',
+        'RF04' => 'Agricoltura e attività connesse e pesca (artt.34 e 34-bis, DPR 633/72)',
+        'RF05' => 'Vendita sali e tabacchi (art.74, c.1, DPR. 633/72)',
+        'RF06' => 'Commercio fiammiferi (art.74, c.1, DPR 633/72)',
+        'RF07' => 'Editoria (art.74, c.1, DPR 633/72)',
+        'RF08' => 'Gestione servizi telefonia (art.74, c.1, DPR 633/72)',
+        'RF09' => 'Rivendita documenti di trasporto pubblico e di sosta (art.74, c.1, DPR 633/72)',
+        'RF10' => 'Intrattenimenti, giochi e altre attività di cui alla tariffa allegata al DPR 640/72 (art.74, c.6, DPR 633/72)',
+        'RF11' => 'Agenzie viaggi e turismo (art.74-ter, DPR 633/72)',
+        'RF12' => 'Agriturismo (art.5, c.2, L. 413/91)',
+        'RF13' => 'Vendite a domicilio (art.25-bis, c.6, DPR 600/73)',
+        'RF14' => 'Rivendita beni usati, oggetti d\'arte, d\'antiquariato o da collezione (art.36, DL 41/95)',
+        'RF15' => 'Agenzie di vendite all\'asta di oggetti d\'arte, antiquariato o da collezione (art.40-bis, DL 41/95)',
+        'RF16' => 'IVA per cassa P.A. (art.6, c.5, DPR 633/72)',
+        'RF17' => 'IVA per cassa (art. 32-bis, DL 83/2012)',
+        'RF18' => 'Altro',
+        'RF19' => 'Regime forfettario (art.1, c.54-89, L. 190/2014)',
+        'RF20' => 'Regime transfrontaliero di Franchigia IVA (Direttiva UE 2020/285)',
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Tipo Cassa Previdenziale (TC)
+    |--------------------------------------------------------------------------
+    */
+    'tipo_cassa' => [
+        'TC01' => 'Cassa nazionale previdenza e assistenza avvocati e procuratori legali',
+        'TC02' => 'Cassa previdenza dottori commercialisti',
+        'TC03' => 'Cassa previdenza e assistenza geometri',
+        'TC04' => 'Cassa nazionale previdenza e assistenza ingegneri e architetti liberi professionisti',
+        'TC05' => 'Cassa nazionale del notariato',
+        'TC06' => 'Cassa nazionale previdenza e assistenza ragionieri e periti commerciali',
+        'TC07' => 'Ente nazionale assistenza agenti e rappresentanti di commercio (ENASARCO)',
+        'TC08' => 'Ente nazionale previdenza e assistenza consulenti del lavoro (ENPACL)',
+        'TC09' => 'Ente nazionale previdenza e assistenza medici (ENPAM)',
+        'TC10' => 'Ente nazionale previdenza e assistenza farmacisti (ENPAF)',
+        'TC11' => 'Ente nazionale previdenza e assistenza veterinari (ENPAV)',
+        'TC12' => 'Ente nazionale previdenza e assistenza impiegati dell\'agricoltura (ENPAIA)',
+        'TC13' => 'Fondo previdenza impiegati imprese di spedizione e agenzie marittime',
+        'TC14' => 'Istituto nazionale previdenza giornalisti italiani (INPGI)',
+        'TC15' => 'Opera nazionale assistenza orfani sanitari italiani (ONAOSI)',
+        'TC16' => 'Cassa autonoma assistenza integrativa giornalisti italiani (CASAGIT)',
+        'TC17' => 'Ente previdenza periti industriali e periti industriali laureati (EPPI)',
+        'TC18' => 'Ente previdenza e assistenza pluricategoriale (EPAP)',
+        'TC19' => 'Ente nazionale previdenza e assistenza biologi (ENPAB)',
+        'TC20' => 'Ente nazionale previdenza e assistenza professione infermieristica (ENPAPI)',
+        'TC21' => 'Ente nazionale previdenza e assistenza psicologi (ENPAP)',
+        'TC22' => 'INPS',
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Modalità di Pagamento (MP)
+    |--------------------------------------------------------------------------
+    */
+    'modalita_pagamento' => [
+        'MP01' => 'contanti',
+        'MP02' => 'assegno',
+        'MP03' => 'assegno circolare',
+        'MP04' => 'contanti presso Tesoreria',
+        'MP05' => 'bonifico',
+        'MP06' => 'vaglia cambiario',
+        'MP07' => 'bollettino bancario',
+        'MP08' => 'carta di pagamento',
+        'MP09' => 'RID',
+        'MP10' => 'RID utenze',
+        'MP11' => 'RID veloce',
+        'MP12' => 'RIBA',
+        'MP13' => 'MAV',
+        'MP14' => 'quietanza erario',
+        'MP15' => 'giroconto su conti di contabilità speciale',
+        'MP16' => 'domiciliazione bancaria',
+        'MP17' => 'domiciliazione postale',
+        'MP18' => 'bollettino di c/c postale',
+        'MP19' => 'SEPA Direct Debit',
+        'MP20' => 'SEPA Direct Debit CORE',
+        'MP21' => 'SEPA Direct Debit B2B',
+        'MP22' => 'Trattenuta su somme già riscosse',
+        'MP23' => 'PagoPA',
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Tipo Documento (TD)
+    |--------------------------------------------------------------------------
+    */
+    'tipo_documento' => [
+        'TD01' => 'fattura',
+        'TD02' => 'acconto/anticipo su fattura',
+        'TD03' => 'acconto/anticipo su parcella',
+        'TD04' => 'nota di credito',
+        'TD05' => 'nota di debito',
+        'TD06' => 'parcella',
+        'TD16' => 'integrazione fattura reverse charge interno',
+        'TD17' => 'integrazione/autofattura per acquisto servizi dall\'estero',
+        'TD18' => 'integrazione per acquisto di beni intracomunitari',
+        'TD19' => 'integrazione/autofattura per acquisto di beni ex art.17 c.2 DPR 633/72',
+        'TD20' => 'Autofattura per regolarizzazione e integrazione delle fatture (ex art. 6 c.9-bis d.lgs. 471/97 o art. 46 c.5 d.l. 331/93)',
+        'TD21' => 'autofattura per splafonamento',
+        'TD22' => 'estrazione beni da Deposito IVA',
+        'TD23' => 'estrazione beni da Deposito IVA con versamento dell\'IVA',
+        'TD24' => 'fattura differita di cui all\'art. 21, comma 4, terzo periodo lett. a) DPR 633/72',
+        'TD25' => 'fattura differita di cui all\'art. 21, comma 4, terzo periodo lett. b) DPR 633/72',
+        'TD26' => 'cessione di beni ammortizzabili e per passaggi interni (ex art.36 DPR 633/72)',
+        'TD27' => 'fattura per autoconsumo o per cessioni gratuite senza rivalsa',
+        'TD28' => 'acquisti da San Marino con IVA (fattura cartacea)',
+        'TD29' => 'Comunicazione per omessa o irregolare fatturazione (art. 6, comma 8, D.Lgs. 471/97)',
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Natura Operazione (N)
+    |--------------------------------------------------------------------------
+    */
+    'natura_operazione' => [
+        'N1' => 'escluse ex art. 15 del DPR 633/72',
+        'N2.1' => 'non soggette ad IVA ai sensi degli artt. da 7 a 7-septies del DPR 633/72',
+        'N2.2' => 'non soggette - altri casi',
+        'N3.1' => 'non imponibili - esportazioni',
+        'N3.2' => 'non imponibili - cessioni intracomunitarie',
+        'N3.3' => 'non imponibili - cessioni verso San Marino',
+        'N3.4' => 'non imponibili - operazioni assimilate alle cessioni all\'esportazione',
+        'N3.5' => 'non imponibili - a seguito di dichiarazioni d\'intento',
+        'N3.6' => 'non imponibili - altre operazioni che non concorrono alla formazione del plafond',
+        'N4' => 'esenti',
+        'N5' => 'regime del margine / IVA non esposta in fattura',
+        'N6.1' => 'inversione contabile - cessione di rottami e altri materiali di recupero',
+        'N6.2' => 'inversione contabile - cessione di oro e argento ai sensi della legge 7/2000 nonché di oreficeria usata ad OPO',
+        'N6.3' => 'inversione contabile - subappalto nel settore edile',
+        'N6.4' => 'inversione contabile - cessione di fabbricati',
+        'N6.5' => 'inversione contabile - cessione di telefoni cellulari',
+        'N6.6' => 'inversione contabile - cessione di prodotti elettronici',
+        'N6.7' => 'inversione contabile - prestazioni comparto edile e settori connessi',
+        'N6.8' => 'inversione contabile - operazioni settore energetico',
+        'N6.9' => 'inversione contabile - altri casi',
+        'N7' => 'IVA assolta in altro stato UE (prestazione di servizi di telecomunicazioni, tele-radiodiffusione ed elettronici ex art. 7-octies, comma 1 lett. a, b, art. 74-sexies DPR 633/72)',
+    ],
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Tipo Ritenuta (RT)
+    |--------------------------------------------------------------------------
+    */
+    'tipo_ritenuta' => [
+        'RT01' => 'ritenuta persone fisiche',
+        'RT02' => 'ritenuta persone giuridiche',
+        'RT03' => 'contributo INPS',
+        'RT04' => 'contributo ENASARCO',
+        'RT05' => 'contributo ENPAM',
+        'RT06' => 'altro contributo previdenziale',
+    ],
+];

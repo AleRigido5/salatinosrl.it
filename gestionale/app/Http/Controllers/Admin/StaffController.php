@@ -19,6 +19,24 @@ use Carbon\Carbon;
 class StaffController extends Controller
 {
     /**
+     * Get standard hours per day from config
+     */
+    protected function getHoursPerDay()
+    {
+        return config('gestionale.standard_hours_per_day', 7);
+    }
+
+    /**
+     * Calculate working days from total hours
+     */
+    protected function calculateWorkingDays($totalHours)
+    {
+        $hoursPerDay = $this->getHoursPerDay();
+        $decimals = config('gestionale.round_decimals', 1);
+        return round($totalHours / $hoursPerDay, $decimals);
+    }
+
+    /**
      * Display a listing of the staff.
      */
     public function index()
@@ -292,6 +310,9 @@ class StaffController extends Controller
         
         $staff = Staff::findOrFail($id);
         
+        // Leggi le ore giornaliere dalla configurazione
+        $hoursPerDay = $this->getHoursPerDay();
+        
         // Gestione mese/anno o range personalizzato
         $selectedMonth = $request->get('month', Carbon::now()->format('m'));
         $selectedYear = $request->get('year', Carbon::now()->format('Y'));
@@ -347,9 +368,8 @@ class StaffController extends Controller
             }
         }
         
-        // Giornate effettive calcolate con 7 ore giornaliere
-        $hoursPerDay = 7;
-        $totalWorkingDays = $totalHours / $hoursPerDay;
+        // Giornate effettive calcolate con le ore giornaliere dalla configurazione
+        $totalWorkingDays = $this->calculateWorkingDays($totalHours);
         $averageHourlyCost = $activityCount > 0 ? $totalCostoOrario / $activityCount : 0;
         
         // Mesi per navigazione
@@ -534,6 +554,9 @@ class StaffController extends Controller
         
         $staff = Staff::findOrFail($id);
         
+        // Leggi le ore giornaliere dalla configurazione
+        $hoursPerDay = $this->getHoursPerDay();
+        
         // Gestione date
         if ($request->has('date_from') && $request->has('date_to')) {
             $dateFrom = Carbon::parse($request->date_from)->startOfDay();
@@ -562,7 +585,7 @@ class StaffController extends Controller
         ->orderBy('data_activities', 'asc')
         ->get();
         
-        // Prepara i dati per il PDF (solo i campi richiesti)
+        // Prepara i dati per il PDF
         $reportData = [];
         $totalHours = 0;
         $totalMaturato = 0;
@@ -600,6 +623,9 @@ class StaffController extends Controller
                 $totalSpese += $spese;
             }
         }
+        
+        $totalWorkingDays = $this->calculateWorkingDays($totalHours);
+        $totalGenerico = $totalMaturato + $totalSpese;
         
         // Creazione HTML per il PDF
         $html = '
@@ -680,6 +706,7 @@ class StaffController extends Controller
             <div class="header">
                 <h1>Report Attività - ' . e($staff->NomePers) . ' ' . e($staff->CognomePers) . '</h1>
                 <p>Periodo: ' . $dateFrom->format('d/m/Y') . ' - ' . $dateTo->format('d/m/Y') . '</p>
+                <p>Base ore giornaliere: ' . $hoursPerDay . ' h/gg</p>
             </div>
             
             <table>
@@ -709,8 +736,6 @@ class StaffController extends Controller
             }
         }
         
-        $totalGenerico = $totalMaturato + $totalSpese;
-        
         $html .= '
                 </tbody>
             </table>
@@ -720,6 +745,11 @@ class StaffController extends Controller
                     <tr>
                         <td><strong>Totale Ore:</strong></td>
                         <td>' . number_format($totalHours, 1) . ' h</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Giornate Effettive:</strong></td>
+                        <td>' . number_format($totalWorkingDays, 1) . ' gg</td>
+                        <td style="font-size:8px;">(base ' . $hoursPerDay . ' h/gg)</td>
                     </tr>
                     <tr>
                         <td><strong>Totale Maturato:</strong></td>
@@ -742,11 +772,9 @@ class StaffController extends Controller
         </body>
         </html>';
         
-        // Genera PDF direttamente dall'HTML
         $pdf = Pdf::loadHTML($html);
         $pdf->setPaper('A4', 'portrait');
         
-        // Download diretto
         return $pdf->download("report_{$staff->CognomePers}_{$staff->NomePers}_{$dateFrom->format('Y-m-d')}_{$dateTo->format('Y-m-d')}.pdf");
     }
 
@@ -761,6 +789,9 @@ class StaffController extends Controller
         
         $staff = Staff::findOrFail($id);
         
+        // Leggi le ore giornaliere dalla configurazione
+        $hoursPerDay = $this->getHoursPerDay();
+        
         // Gestione date
         if ($request->has('date_from') && $request->has('date_to')) {
             $dateFrom = Carbon::parse($request->date_from)->startOfDay();
@@ -773,7 +804,7 @@ class StaffController extends Controller
             $dateTo = Carbon::now()->endOfMonth();
         }
         
-        // Query attività con tutti i dati
+        // Query attività
         $activities = Activity::whereHas('staffDetails', function($q) use ($staff) {
             $q->where('id_staff', $staff->id_personale);
         })
@@ -796,7 +827,7 @@ class StaffController extends Controller
         // Titolo del foglio
         $sheet->setTitle('Report Attività');
         
-        // Intestazioni (tutti i campi)
+        // Intestazioni
         $headers = [
             'A1' => 'Data',
             'B1' => 'Cliente',
@@ -873,44 +904,60 @@ class StaffController extends Controller
             }
         }
         
+        $totalWorkingDays = $this->calculateWorkingDays($totalHours);
+        $totalGenerico = $totalMaturato + $totalSpese;
+        
         // Riga totali
         $sheet->setCellValue('E' . $row, 'TOTALI:');
         $sheet->setCellValue('F' . $row, $totalHours);
         $sheet->setCellValue('H' . $row, $totalMaturato);
         $sheet->setCellValue('I' . $row, $totalSpese);
-        $sheet->setCellValue('J' . $row, $totalMaturato + $totalSpese);
+        $sheet->setCellValue('J' . $row, $totalGenerico);
         
-        // Stile riga totali
-        $sheet->getStyle('E' . $row . ':J' . $row)->applyFromArray([
+        // Riga giornate effettive
+        $row++;
+        $sheet->setCellValue('E' . $row, 'GIORNATE EFFETTIVE:');
+        $sheet->setCellValue('F' . $row, number_format($totalWorkingDays, 1) . ' gg');
+        $sheet->setCellValue('G' . $row, '(base ' . $hoursPerDay . ' h/gg)');
+        
+        // Stile righe totali
+        $sheet->getStyle('E' . ($row-1) . ':J' . ($row-1))->applyFromArray([
             'font' => ['bold' => true, 'size' => 11],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FEF3C7']],
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'DDDDDD']]],
         ]);
         
-        // Unisci celle per la riga totali
+        $sheet->getStyle('E' . $row . ':G' . $row)->applyFromArray([
+            'font' => ['bold' => true, 'size' => 11],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'DBEAFE']],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'DDDDDD']]],
+        ]);
+        
+        // Unisci celle per le righe totali
+        $sheet->mergeCells('A' . ($row-1) . ':D' . ($row-1));
+        $sheet->mergeCells('G' . ($row-1) . ':G' . ($row-1));
         $sheet->mergeCells('A' . $row . ':D' . $row);
-        $sheet->mergeCells('G' . $row . ':G' . $row);
         
         // Stile per i dati
         $dataStyle = [
             'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'DDDDDD']]],
             'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
         ];
-        $sheet->getStyle('A2:L' . ($row - 1))->applyFromArray($dataStyle);
+        $sheet->getStyle('A2:L' . ($row - 2))->applyFromArray($dataStyle);
         
         // Allineamento numeri a destra
-        $sheet->getStyle('F2:F' . ($row - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        $sheet->getStyle('G2:G' . ($row - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        $sheet->getStyle('H2:H' . ($row - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        $sheet->getStyle('I2:I' . ($row - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-        $sheet->getStyle('J2:J' . ($row - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('F2:F' . ($row - 2))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('G2:G' . ($row - 2))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('H2:H' . ($row - 2))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('I2:I' . ($row - 2))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        $sheet->getStyle('J2:J' . ($row - 2))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
         
         // Formatta i numeri
-        $sheet->getStyle('F2:F' . ($row - 1))->getNumberFormat()->setFormatCode('0.00');
-        $sheet->getStyle('G2:G' . ($row - 1))->getNumberFormat()->setFormatCode('€ #,##0.00');
-        $sheet->getStyle('H2:H' . ($row - 1))->getNumberFormat()->setFormatCode('€ #,##0.00');
-        $sheet->getStyle('I2:I' . ($row - 1))->getNumberFormat()->setFormatCode('€ #,##0.00');
-        $sheet->getStyle('J2:J' . ($row - 1))->getNumberFormat()->setFormatCode('€ #,##0.00');
+        $sheet->getStyle('F2:F' . ($row - 2))->getNumberFormat()->setFormatCode('0.00');
+        $sheet->getStyle('G2:G' . ($row - 2))->getNumberFormat()->setFormatCode('€ #,##0.00');
+        $sheet->getStyle('H2:H' . ($row - 2))->getNumberFormat()->setFormatCode('€ #,##0.00');
+        $sheet->getStyle('I2:I' . ($row - 2))->getNumberFormat()->setFormatCode('€ #,##0.00');
+        $sheet->getStyle('J2:J' . ($row - 2))->getNumberFormat()->setFormatCode('€ #,##0.00');
         
         // Auto-size delle colonne
         foreach (range('A', 'L') as $column) {
@@ -918,7 +965,7 @@ class StaffController extends Controller
         }
         
         // Aggiungi filtro
-        $sheet->setAutoFilter('A1:L' . ($row - 1));
+        $sheet->setAutoFilter('A1:L' . ($row - 2));
         
         // Blocca la prima riga
         $sheet->freezePane('A2');

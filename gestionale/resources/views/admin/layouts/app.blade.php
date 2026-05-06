@@ -416,18 +416,13 @@
                     @endif
 
                     <!-- Acquisti -->
-                    {{-- @if($currentAdmin && $currentAdmin->hasPermission('view_purchases'))
-                    <a href="{{ route('admin.purchases.index') }}" 
-                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.purchases.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
-                        <i class="fa-solid fa-dolly w-5 h-5 {{ request()->routeIs('admin.purchases.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                    @if($currentAdmin && $currentAdmin->hasPermission('view_purchases'))
+                    <a href="{{ route('admin.invoices-received.index') }}" 
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.invoices-received.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                        <i class="fa-solid fa-dolly w-5 h-5 {{ request()->routeIs('admin.invoices-received.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Acquisti</span>
                     </a>
-                    @endif --}}
-                    <a href="#" 
-                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.purchases.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
-                        <i class="fa-solid fa-dolly w-5 h-5 {{ request()->routeIs('admin.purchases.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
-                        <span class="sidebar-link-text text-sm font-medium ml-3">Acquisti</span>
-                    </a>
+                    @endif
 
                     <!-- Vendite -->
                     {{-- @if($currentAdmin && $currentAdmin->hasPermission('view_sales'))

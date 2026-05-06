@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\ExpirationVehicleController;
 use App\Http\Controllers\Admin\DocumentController;
 use App\Http\Controllers\Admin\VademecumController;
 use App\Http\Controllers\Admin\CostCenterController;
+use App\Http\Controllers\Admin\InvoiceReceivedController;
 use App\Http\Controllers\Admin\ServiceController;
 use App\Http\Controllers\Admin\ExpirationAllController;
 use App\Models\Ownership;
@@ -197,6 +198,20 @@ Route::prefix('admin')->name('admin.')->group(function () {
             }
             return response()->json([]);
         })->name('api.references');
+
+        // =============================================
+        // FATTURE DI ACQUISTO (INVOCES RECEIVED)
+        // =============================================
+        Route::prefix('invoices-received')->name('invoices-received.')->group(function () {
+            Route::get('/', [InvoiceReceivedController::class, 'index'])->name('index');
+            Route::get('/create', [InvoiceReceivedController::class, 'create'])->name('create');
+            Route::post('/', [InvoiceReceivedController::class, 'store'])->name('store');
+            Route::get('/{invoice}', [InvoiceReceivedController::class, 'show'])->name('show');
+            Route::get('/{invoice}/edit', [InvoiceReceivedController::class, 'edit'])->name('edit');
+            Route::put('/{invoice}', [InvoiceReceivedController::class, 'update'])->name('update');
+            Route::delete('/{invoice}', [InvoiceReceivedController::class, 'destroy'])->name('destroy');
+            Route::post('/{invoice}/update-status', [InvoiceReceivedController::class, 'updateStatus'])->name('update-status');
+        });
 
         // =============================================
         // GESTIONE SCADENZE (EXPIRATION)

@@ -72,16 +72,13 @@ class ActivityController extends Controller
         
         // Recupera i filtri dalla request
         $filters = $request->input('filters', []);
-        Log::info('Filtri da mantenere:', $filters);
         
         try {
-            // VALIDAZIONE
-            Log::info('Step 0: Validazione dati...');
-            
+            // VALIDAZIONE - Rendi id_entities nullable
             $validated = $request->validate([
                 'data_activities' => 'required|date',
                 'id_cost_centers' => 'required|exists:cost_centers,id',
-                'id_entities' => 'nullable|exists:entities,id_cliente',
+                'id_entities' => 'nullable|exists:entities,id_cliente', // CAMBIATO: nullable
                 'id_services' => 'required|exists:services,id',
                 'invoice_references' => 'nullable|string|max:255',
                 'note' => 'nullable|string',
@@ -92,19 +89,15 @@ class ActivityController extends Controller
                 'staff.*.note' => 'nullable|string',
             ]);
             
-            Log::info('Validazione passata con successo');
-            
             DB::beginTransaction();
-            Log::info('Transazione DB avviata');
             
             $activity = Activity::findOrFail($id);
-            Log::info('Activity trovata - ID: ' . $activity->id);
             
-            // 1. AGGIORNA I CAMPI BASE
+            // 1. AGGIORNA I CAMPI BASE - id_entities può essere null
             $activity->update([
                 'data_activities' => $validated['data_activities'],
                 'id_cost_centers' => $validated['id_cost_centers'],
-                'id_entities' => $validated['id_entities'] ?? null,
+                'id_entities' => !empty($validated['id_entities']) ? $validated['id_entities'] : null, // Permetti null
                 'id_services' => $validated['id_services'],
                 'invoice_references' => $validated['invoice_references'] ?? '',
                 'note' => $validated['note'] ?? null,
@@ -123,8 +116,6 @@ class ActivityController extends Controller
                 Log::info('Step 3: Inizio inserimento nuovi staff - Totale da inserire: ' . count($validated['staff']));
                 
                 foreach ($validated['staff'] as $index => $staffItem) {
-                    Log::info('Processo staff item ' . $index . ': ' . json_encode($staffItem));
-                    
                     if (!empty($staffItem['id_staff']) && !empty($staffItem['n_ore'])) {
                         $newStaff = $activity->staffDetails()->create([
                             'id_activities' => $activity->id,
@@ -138,12 +129,8 @@ class ActivityController extends Controller
                         ]);
                         $staffInserted++;
                         Log::info("Step 3: Staff inserito - ID_staff: {$staffItem['id_staff']}, Ore: {$staffItem['n_ore']}, Link ID: {$newStaff->id}");
-                    } else {
-                        Log::warning('Staff item ' . $index . ' saltato - dati mancanti');
                     }
                 }
-            } else {
-                Log::info('Step 3: Nessuno staff da inserire');
             }
             
             DB::commit();
@@ -151,7 +138,6 @@ class ActivityController extends Controller
             Log::info('=== UPDATE COMPLETATO CON SUCCESSO ===');
             Log::info("Activity ID: {$activity->id}, Staff inseriti: {$staffInserted}");
             
-            // Redirect alla pagina delle attività con i filtri
             return redirect()->route('admin.activities.index', $filters)
                 ->with('success', "Attività modificata con successo! ({$staffInserted} persone associate)");
                 
@@ -167,12 +153,11 @@ class ActivityController extends Controller
             Log::error('ERRORE UPDATE: ' . $e->getMessage());
             Log::error('Stack trace: ' . $e->getTraceAsString());
             
-            // Redirect alla pagina delle attività con l'errore
             return redirect()->route('admin.activities.index', $filters)
                 ->with('error', 'Errore durante l\'aggiornamento: ' . $e->getMessage());
         }
     }
-
+    
     public function store(Request $request)
     {
         Log::info('=== STORE ACTIVITY - INIZIO ===');

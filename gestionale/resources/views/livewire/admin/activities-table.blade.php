@@ -1054,13 +1054,20 @@
     </div>
 
     <!-- Paginazione -->
-    @if($activities->hasPages())
+    @if($perPage != 10000 && $activities instanceof \Illuminate\Pagination\AbstractPaginator && $activities->hasPages())
     <div class="mt-6">
         <div class="text-sm text-gray-500 mb-2">
             Mostrando {{ $activities->firstItem() ?? 0 }} - {{ $activities->lastItem() ?? 0 }} di {{ $activities->total() }} risultati
         </div>
         <div class="flex justify-center">
-            {{ $activities->links() }}
+            {{ $activities->appends(request()->query())->links() }}
+        </div>
+    </div>
+    @elseif($perPage == 10000 && $activities->count() > 0)
+    <div class="mt-6">
+        <div class="text-sm text-gray-500 mb-2 text-center bg-green-50 p-2 rounded-lg">
+            <i class="fas fa-database text-green-500 mr-1"></i> 
+            Mostrati tutti i <strong>{{ $activities->count() }}</strong> risultati
         </div>
     </div>
     @endif

@@ -26,7 +26,7 @@ class ActivitiesTable extends Component
     public $entityName = '';
     public $dateFrom = '';
     public $dateTo = '';
-    public $perPage = 15;
+    public $perPage = 10000;
     public $sortField = 'data_activities';
     public $sortDirection = 'desc';
     
@@ -119,6 +119,8 @@ class ActivitiesTable extends Component
     
     public function mount()
     {
+        $this->perPage = (int) $this->perPage;   
+
         // Leggi le date dalla request se presenti
         if (request()->has('date_from')) {
             $this->dateFrom = request('date_from');
@@ -636,36 +638,31 @@ class ActivitiesTable extends Component
             $searchTerm = '%' . $this->search . '%';
             $query->where(function($q) use ($searchTerm) {
                 $q->where('invoice_references', 'like', $searchTerm)
-                  ->orWhere('note', 'like', $searchTerm)
-                  ->orWhere('ha', 'like', $searchTerm)
-                  ->orWhere('Lat_Long', 'like', $searchTerm);
+                ->orWhere('note', 'like', $searchTerm)
+                ->orWhere('ha', 'like', $searchTerm)
+                ->orWhere('Lat_Long', 'like', $searchTerm);
             });
         }
         
         // Apply sorting
         $query->orderBy($this->sortField, $this->sortDirection);
         
-        // Eager load relationships with limit for performance
-        // Gestione per page: se perPage è 0, prendi TUTTI i record (nessuna paginazione)
-        if ($this->perPage == 0) {
-            return $query->with([
-                'costCenter', 
-                'service', 
-                'entity',
-                'staffDetails' => function($q) {
-                    $q->with('staff')->limit(5);
-                }
-            ])->get();
-        }
-        
-        return $query->with([
+        // Eager load relationships
+        $query->with([
             'costCenter', 
             'service', 
             'entity',
             'staffDetails' => function($q) {
                 $q->with('staff')->limit(5);
             }
-        ])->paginate($this->perPage);
+        ]);
+        
+        // Gestione "Tutti": se perPage è 10000, prendi TUTTI i record
+        if ($this->perPage == 10000) {
+            return $query->get();
+        }
+        
+        return $query->paginate($this->perPage);
     }
     
     public function getStaffListProperty()

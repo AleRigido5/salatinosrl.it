@@ -66,8 +66,8 @@ return [
 
     'providers' => [
         'users' => [
-        '   driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', App\Models\User::class),
+            'driver' => 'eloquent',
+            'model' => App\Models\User::class,
         ],
 
         'administrators' => [  // Provider per admin
@@ -103,8 +103,6 @@ return [
             'throttle' => 60,
         ],
 
-        App\Providers\PermissionServiceProvider::class,
-        
         'administrators' => [  // Reset password per admin
             'provider' => 'administrators',
             'table' => 'admin_password_reset_tokens',

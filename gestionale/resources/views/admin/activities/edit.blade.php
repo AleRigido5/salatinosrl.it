@@ -95,7 +95,7 @@
                 </label>
                 <div class="flex gap-2">
                     <div class="flex-1 relative" x-data="clientAutocomplete()" 
-                        x-init="initSelected('{{ $activity->id_entities ?? '' }}', '{{ addslashes($activity->entity ? ($activity->entity->ragione_sociale ?: ($activity->entity->nome . ' ' . $activity->entity->cognome)) : '') }}')">
+                        x-init="initSelected('{{ $activity->id_entities }}', '{{ addslashes($activity->entity ? ($activity->entity->ragione_sociale ?: ($activity->entity->nome . ' ' . $activity->entity->cognome)) : '') }}')">
                         <input type="hidden" name="id_entities" x-model="selectedId" :value="selectedId">
                         <input type="text" 
                             x-model="search"
@@ -110,27 +110,28 @@
                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 text-sm"
                             autocomplete="off">
                         
-                        <!-- Pulsante per cancellare il cliente -->
-                        <button type="button" 
-                                x-on:click="selectedId = ''; search = ''; open = false"
-                                class="absolute right-2 top-2 text-gray-400 hover:text-red-500 transition-colors"
-                                title="Rimuovi cliente">
-                            <i class="fas fa-times-circle"></i>
-                        </button>
-                        
-                        <div x-show="loading" class="absolute right-8 top-2.5">
-                            <svg class="animate-spin h-5 w-5 text-gray-500" ...>
+                        <div x-show="loading" class="absolute right-3 top-2.5">
+                            <svg class="animate-spin h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
                         </div>
                         
-                        <!-- Dropdown risultati -->
                         <div x-show="open && results.length > 0" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                            <!-- ... -->
+                            <template x-for="(item, index) in results" :key="item.id_cliente">
+                                <div @click="selectItem(item)"
+                                    :class="{'bg-lime-50': highlightIndex === index}"
+                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                    <div class="font-medium text-gray-800" x-text="item.ragione_sociale || item.nome + ' ' + (item.cognome || '')"></div>
+                                    <div class="text-xs text-gray-500" x-show="item.partita_iva" x-text="'P.IVA: ' + item.partita_iva"></div>
+                                </div>
+                            </template>
                         </div>
                     </div>
                     
                     <div class="w-16">
                         <input type="text" 
-                            x-data="{ clientId: '{{ $activity->id_entities ?? '' }}' }" 
+                            x-data="{ clientId: '{{ $activity->id_entities }}' }" 
                             x-init="$watch('$store.client.selectedId', val => clientId = val)"
                             x-model="clientId"
                             readonly

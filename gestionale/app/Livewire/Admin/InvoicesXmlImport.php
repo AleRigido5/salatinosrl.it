@@ -22,8 +22,9 @@ class InvoicesXmlImport extends Component
     public $xml_filename;
     public $file_hash;
     public $xml_parsed = false;
+    public $extracted_attachments = [];
     
-    // Dati fattura (tutti disabilitati, presi dall'XML)
+    // Dati fattura
     public $id_ownership;
     public $id_entities;
     public $type_invoice = '';
@@ -35,7 +36,7 @@ class InvoicesXmlImport extends Component
     public $status = 'bozza';
     public $sdi_id = '';
     
-    // Dati Committente (Cessionario) - XML
+    // Dati Committente
     public $committente_denominazione = '';
     public $committente_partita_iva = '';
     public $committente_codice_fiscale = '';
@@ -45,7 +46,7 @@ class InvoicesXmlImport extends Component
     public $committente_provincia = '';
     public $committente_nazione = '';
     
-    // Dati fornitore (Cedente) - XML
+    // Dati fornitore
     public $fornitore_denominazione = '';
     public $fornitore_partita_iva = '';
     public $fornitore_codice_fiscale = '';
@@ -57,24 +58,20 @@ class InvoicesXmlImport extends Component
     public $fornitore_telefono = '';
     public $fornitore_email = '';
     
-    // Corrispondenza fornitore nel DB
+    // Corrispondenze DB
     public $supplier_found = false;
     public $supplier_not_found = false;
     public $supplier_display = '';
     public $supplier_created_by_system = false;
-    
-    // Dati proprietà selezionata manualmente
     public $ownership_display = '';
 
     // Righe fattura
     public $rows = [];
     
-    // Autocomplete per Centro di Costo (su TUTTE le righe)
+    // Autocomplete
     public $cost_center_all_search = '';
     public $cost_center_all_results = [];
     public $show_cost_center_all_dropdown = false;
-    
-    // Autocomplete per Centro di Costo (per SINGOLA riga)
     public $row_cost_center_search = [];
     public $row_cost_center_results = [];
     public $show_row_cost_center_dropdown = [];
@@ -113,19 +110,14 @@ class InvoicesXmlImport extends Component
             ->get()
             ->toArray();
         
-        // Debug: controlla se ci sono risultati
         Log::info('Centri di costo caricati: ' . count($this->all_costCenters));
     }
 
     // ============================================
-    // AUTOCOMPLETE CENTRO DI COSTO (per TUTTE le righe)
+    // AUTOCOMPLETE CENTRO DI COSTO
     // ============================================
     public function updatedCostCenterAllSearch()
     {
-        Log::info('=== updatedCostCenterAllSearch chiamato ===', [
-            'search_value' => $this->cost_center_all_search
-        ]);
-        
         if (empty($this->cost_center_all_search)) {
             $this->cost_center_all_results = [];
             $this->show_cost_center_all_dropdown = false;
@@ -139,18 +131,13 @@ class InvoicesXmlImport extends Component
         
         $this->cost_center_all_results = array_values(array_slice($this->cost_center_all_results, 0, 10));
         $this->show_cost_center_all_dropdown = !empty($this->cost_center_all_results);
-        
-        Log::info('Risultati: ' . count($this->cost_center_all_results));
     }
 
     public function applyCostCenterToAllRows($id)
     {
-        Log::info('=== applyCostCenterToAllRows chiamato ===', ['id' => $id]);
-        
         $cc = collect($this->all_costCenters)->firstWhere('id', (int)$id);
         
         if ($cc) {
-            // Applica a tutte le righe
             foreach ($this->rows as $index => $row) {
                 $this->rows[$index]['id_cost_center'] = (int)$id;
                 $this->rows[$index]['cost_center_name'] = $cc['name'];
@@ -161,19 +148,10 @@ class InvoicesXmlImport extends Component
             $this->cost_center_all_results = [];
             $this->show_cost_center_all_dropdown = false;
             
-            // Dispatch dell'alert con la struttura corretta
             $this->dispatch('alert', type: 'success', message: "Centro di costo '{$cc['name']}' applicato a tutte le " . count($this->rows) . " righe");
-            
-            Log::info('Centro costo applicato a ' . count($this->rows) . ' righe');
-        } else {
-            Log::error('Centro costo non trovato per id: ' . $id);
-            $this->dispatch('alert', type: 'error', message: 'Centro di costo non trovato');
         }
     }
 
-    // ============================================
-    // AUTOCOMPLETE CENTRO DI COSTO (per SINGOLA riga)
-    // ============================================
     public function updatedRowCostCenterSearch($value, $index)
     {
         if (empty($value)) {
@@ -211,68 +189,71 @@ class InvoicesXmlImport extends Component
     // ============================================
     public function uploadXml()
     {
-        // 1. VALIDAZIONE: Controlla che il file sia presente, sia un XML e non superi i 10MB
         $this->validate([
             'xml_file' => 'required|file|mimes:xml|max:10240',
         ]);
 
         try {
-            // 2. LETTURA CONTENUTO: Estrae il contenuto testuale grezzo del file caricato
             $content = file_get_contents($this->xml_file->getRealPath());
-            
-            // 3. PARSING XML: Trasforma la stringa testuale in un oggetto SimpleXMLElement manipolabile
             $xml = simplexml_load_string($content);
             
-            // Verifica se la struttura XML è valida sintatticamente
             if ($xml === false) {
                 $this->addError('xml_file', 'File XML non valido');
                 return;
             }
 
-            // 4. METADATI: Salva il nome originale del file (es: "fattura_energia.xml")
             $this->xml_filename = $this->xml_file->getClientOriginalName();
-
-            // 5. GENERAZIONE HASH (IL CUORE DEL CONTROLLO):
-            // Genera una "impronta digitale" univoca di 64 caratteri basata sul CONTENUTO del file.
-            // Se il file viene rinominato ma il testo interno è identico, l'hash rimarrà lo stesso.
-            // Se viene modificata anche solo una virgola nell'XML, l'hash cambierà completamente.
             $this->file_hash = hash('sha256', $content);
             
-            // 6. ESTRAZIONE DATI: Metodo interno che popola le variabili della classe leggendo i tag XML
-            $this->parseXmlInvoiceRobusto($xml);
+            // ESTRAZIONE ALLEGATI
+            $attachments = $this->extractAndSaveAttachments($content);
+            $this->extracted_attachments = $attachments;
             
-            // 7. CONTROLLO DUPLICATI:
-            // Chiama checkInvoiceExists() che interroga il database cercando:
-            // A) Una fattura con lo stesso hash (file identico già caricato)
-            // B) Una fattura con stessa P.IVA Fornitore + Numero Fattura + Data (stessi dati fiscali)
+            // Pulisci l'XML dagli allegati
+            $cleanXmlContent = $this->removeAttachmentsFromXml($content);
+            $cleanXml = simplexml_load_string($cleanXmlContent);
+            
+            // Parsing dell'XML pulito
+            $this->parseXmlInvoiceRobusto($cleanXml);
+            
+            // Verifica duplicati
             if ($this->checkInvoiceExists()) {
+                if (!empty($attachments)) {
+                    foreach ($attachments as $attachment) {
+                        if (Storage::disk('local')->exists($attachment['path'])) {
+                            Storage::disk('local')->delete($attachment['path']);
+                        }
+                    }
+                }
                 $this->dispatch('alert', [
                     'type' => 'error', 
-                    'message' => "❌ FATTURA DUPLICATA! Questa fattura è già stata importata.\nFornitore: {$this->fornitore_partita_iva}\nNumero: {$this->n_invoice}\nData: {$this->data_invoice}"
+                    'message' => "❌ FATTURA DUPLICATA! Questa fattura è già stata importata."
                 ]);
                 return;
             }
             
-            // 8. SUCCESSO: Se i controlli passano, sblocca l'interfaccia per il salvataggio finale
             $this->xml_parsed = true;
+            
+            if (!empty($attachments)) {
+                $this->dispatch('alert', [
+                    'type' => 'info', 
+                    'message' => "📎 Estratti " . count($attachments) . " allegati dalla fattura"
+                ]);
+            }
+            
             $this->dispatch('alert', ['type' => 'success', 'message' => 'XML analizzato con successo!']);
             
         } catch (\Exception $e) {
-            // Gestione errori generici (es: file corrotti o problemi di permessi)
-            $this->addError('xml_file', 'Errore durante la lettura del file: ' . $e->getMessage());
+            $this->addError('xml_file', 'Errore: ' . $e->getMessage());
         }
     }
-
-    /**
-     * Verifica se la fattura è già stata importata (controllo su P.IVA + N.Fattura + Data)
-     */
+    
     private function checkInvoiceExists()
     {
         if (empty($this->fornitore_partita_iva) || empty($this->n_invoice) || empty($this->data_invoice)) {
             return false;
         }
         
-        // Cerca per partita IVA fornitore, numero fattura e data
         $exists = InvoiceReceived::whereHas('entity', function($query) {
             $query->where('partita_iva', $this->fornitore_partita_iva);
         })->where('n_invoice', $this->n_invoice)
@@ -280,23 +261,18 @@ class InvoicesXmlImport extends Component
           ->exists();
         
         if ($exists) {
-            Log::warning('Tentativo di importazione fattura duplicata', [
+            Log::warning('Tentativo fattura duplicata', [
                 'fornitore_piva' => $this->fornitore_partita_iva,
                 'n_fattura' => $this->n_invoice,
-                'data_fattura' => $this->data_invoice,
-                'filename' => $this->xml_filename
+                'data_fattura' => $this->data_invoice
             ]);
             return true;
         }
         
-        // Cerca anche per hash del file
         if (!empty($this->file_hash)) {
             $hashExists = InvoiceReceived::where('file_hash', $this->file_hash)->exists();
             if ($hashExists) {
-                Log::warning('Tentativo di importazione file duplicato', [
-                    'hash' => $this->file_hash,
-                    'filename' => $this->xml_filename
-                ]);
+                Log::warning('Tentativo file duplicato', ['hash' => $this->file_hash]);
                 return true;
             }
         }
@@ -304,16 +280,11 @@ class InvoicesXmlImport extends Component
         return false;
     }
 
-    /**
-     * Parsing XML robusto
-     */
     private function parseXmlInvoiceRobusto($xml)
     {
         $xmlString = $xml->asXML();
         
-        // ============================================
-        // 1. DATI COMMITTENTE (Cessionario)
-        // ============================================
+        // DATI COMMITTENTE
         if (preg_match('/<CessionarioCommittente>(.*?)<\/CessionarioCommittente>/is', $xmlString, $cessionarioMatch)) {
             $cessionarioXml = $cessionarioMatch[1];
             
@@ -337,9 +308,7 @@ class InvoicesXmlImport extends Component
             }
         }
         
-        // ============================================
-        // 2. DATI FORNITORE (Cedente)
-        // ============================================
+        // DATI FORNITORE
         if (preg_match('/<CedentePrestatore>(.*?)<\/CedentePrestatore>/is', $xmlString, $cedenteMatch)) {
             $cedenteXml = $cedenteMatch[1];
             
@@ -362,7 +331,6 @@ class InvoicesXmlImport extends Component
                 $this->fornitore_codice_fiscale = trim($match[1]);
             }
             
-            // Contatti
             if (preg_match('/<Contatti>(.*?)<\/Contatti>/is', $cedenteXml, $contattiMatch)) {
                 $contattiXml = $contattiMatch[1];
                 if (preg_match('/<Telefono>(.*?)<\/Telefono>/i', $contattiXml, $match)) $this->fornitore_telefono = trim($match[1]);
@@ -370,9 +338,7 @@ class InvoicesXmlImport extends Component
             }
         }
         
-        // ============================================
-        // 3. DATI FATTURA
-        // ============================================
+        // DATI FATTURA
         if (preg_match('/<DatiGeneraliDocumento>(.*?)<\/DatiGeneraliDocumento>/is', $xmlString, $datiGeneraliMatch)) {
             $datiGeneraliXml = $datiGeneraliMatch[1];
             
@@ -385,24 +351,7 @@ class InvoicesXmlImport extends Component
             }
         }
         
-        // Fallback su DatiFattura
-        if (empty($this->n_invoice) || empty($this->data_invoice)) {
-            if (preg_match('/<DatiFattura>(.*?)<\/DatiFattura>/is', $xmlString, $datiFatturaMatch)) {
-                $datiFatturaXml = $datiFatturaMatch[1];
-                
-                if (empty($this->type_invoice) && preg_match('/<TipoDocumento>(.*?)<\/TipoDocumento>/i', $datiFatturaXml, $match)) $this->type_invoice = trim($match[1]);
-                if (empty($this->n_invoice) && preg_match('/<NumeroFattura>(.*?)<\/NumeroFattura>/i', $datiFatturaXml, $match)) $this->n_invoice = trim($match[1]);
-                if (empty($this->data_invoice) && preg_match('/<DataFattura>(.*?)<\/DataFattura>/i', $datiFatturaXml, $match)) $this->data_invoice = trim($match[1]);
-                if ($this->importo_totale == 0 && preg_match('/<ImportoTotaleDocumento>(.*?)<\/ImportoTotaleDocumento>/i', $datiFatturaXml, $match)) $this->importo_totale = floatval(str_replace(',', '.', trim($match[1])));
-                if (empty($this->divisa) && preg_match('/<Divisa>(.*?)<\/Divisa>/i', $datiFatturaXml, $match)) $this->divisa = trim($match[1]);
-                if (preg_match('/<ProgressivoInvio>(.*?)<\/ProgressivoInvio>/i', $datiFatturaXml, $match)) $this->sdi_id = trim($match[1]);
-                if (preg_match('/<Causale>(.*?)<\/Causale>/i', $datiFatturaXml, $match)) $this->causale = trim($match[1]);
-            }
-        }
-        
-        // ============================================
-        // 4. RIGHE FATTURA
-        // ============================================
+        // RIGHE FATTURA
         $this->rows = [];
         if (preg_match_all('/<DettaglioLinee>(.*?)<\/DettaglioLinee>/is', $xmlString, $lineeMatches)) {
             foreach ($lineeMatches[1] as $index => $lineaXml) {
@@ -429,12 +378,9 @@ class InvoicesXmlImport extends Component
             }
         }
         
-        // ============================================
-        // 5. CERCA FORNITORE NEL DB
-        // ============================================
+        // CERCA FORNITORE NEL DB
         $this->supplier_found = false;
         $this->supplier_not_found = false;
-        $this->supplier_created_by_system = false;
         
         if (!empty($this->fornitore_partita_iva)) {
             $entity = Entity::where('partita_iva', $this->fornitore_partita_iva)->first();
@@ -467,58 +413,19 @@ class InvoicesXmlImport extends Component
             }
         }
         
-        // ============================================
-        // 6. CERCA PROPRIETÀ (COMMITTENTE) NEL DB
-        // ============================================
-        Log::info('Ricerca proprietà per committente', [
-            'partita_iva' => $this->committente_partita_iva,
-            'denominazione' => $this->committente_denominazione
-        ]);
-
+        // CERCA PROPRIETÀ
         if (!empty($this->committente_partita_iva)) {
             $ownership = Ownership::where('PivaPr', $this->committente_partita_iva)->first();
             if ($ownership) {
                 $this->id_ownership = $ownership->id_proprieta;
                 $this->ownership_display = $ownership->Rag_Soc_intest ?: $ownership->RagSocialePr;
-                Log::info('Proprietà trovata per P.IVA', [
-                    'id_ownership' => $this->id_ownership,
-                    'name' => $this->ownership_display
-                ]);
-            } else {
-                Log::warning('Nessuna proprietà trovata per P.IVA: ' . $this->committente_partita_iva);
-            }
-        }
-
-        // Se non trovato per partita IVA, cerca per denominazione (fallback)
-        if (empty($this->id_ownership) && !empty($this->committente_denominazione)) {
-            $ownership = Ownership::where('Rag_Soc_intest', 'like', '%' . $this->committente_denominazione . '%')
-                ->orWhere('RagSocialePr', 'like', '%' . $this->committente_denominazione . '%')
-                ->first();
-            if ($ownership) {
-                $this->id_ownership = $ownership->id_proprieta;
-                $this->ownership_display = $ownership->Rag_Soc_intest ?: $ownership->RagSocialePr;
-                Log::info('Proprietà trovata per denominazione simile', [
-                    'id_ownership' => $this->id_ownership,
-                    'name' => $this->ownership_display
-                ]);
-            } else {
-                Log::warning('Nessuna proprietà trovata per denominazione: ' . $this->committente_denominazione);
             }
         }
         
-        // ============================================
-        // 7. STATO: default "bozza"
-        // ============================================
         $this->status = 'bozza';
-        
-        // ============================================
-        // 8. CALCOLA TOTALE
-        // ============================================
         $this->calculateTotal();
         
-        // ============================================
-        // 9. INIZIALIZZA ARRAY PER AUTOCOMPLETE
-        // ============================================
+        // INIZIALIZZA ARRAY PER AUTOCOMPLETE
         $this->row_cost_center_search = [];
         $this->row_cost_center_results = [];
         $this->show_row_cost_center_dropdown = [];
@@ -535,12 +442,128 @@ class InvoicesXmlImport extends Component
         
         Log::info('XML Parsing completato', [
             'fornitore' => $this->fornitore_denominazione,
-            'fornitore_piva' => $this->fornitore_partita_iva,
             'n_fattura' => $this->n_invoice,
-            'data_fattura' => $this->data_invoice,
-            'totale' => $this->importo_totale,
             'num_rows' => count($this->rows)
         ]);
+    }
+
+    /**
+     * Estrae e salva gli allegati dal XML
+     */
+    private function extractAndSaveAttachments($xmlString)
+    {
+        $savedFiles = [];
+        
+        // Cerca il tag Allegati
+        if (preg_match('/<Allegati>(.*?)<\/Allegati>/is', $xmlString, $allegatiMatch)) {
+            $allegatiXml = $allegatiMatch[1];
+            
+            if (preg_match_all('/<Allegato>(.*?)<\/Allegato>/is', $allegatiXml, $allegatoMatches)) {
+                foreach ($allegatoMatches[1] as $index => $allegatoInnerXml) {
+                    $fileInfo = $this->processSingleAttachment($allegatoInnerXml, $index);
+                    if ($fileInfo) {
+                        $savedFiles[] = $fileInfo;
+                    }
+                }
+            }
+        }
+        
+        // Cerca FatturaFirmata
+        if (preg_match('/<FatturaFirmata>(.*?)<\/FatturaFirmata>/is', $xmlString, $firmaMatch)) {
+            $fileInfo = $this->processSingleAttachment($firmaMatch[1], 'firma');
+            if ($fileInfo) {
+                $savedFiles[] = $fileInfo;
+            }
+        }
+        
+        return $savedFiles;
+    }
+
+    /**
+     * Processa un singolo allegato
+     */
+    private function processSingleAttachment($allegatoXml, $identifier)
+    {
+        // Estrai nome file
+        $fileName = '';
+        if (preg_match('/<NomeAttachment>(.*?)<\/NomeAttachment>/i', $allegatoXml, $match)) {
+            $fileName = trim($match[1]);
+        }
+        
+        // Estrai Base64
+        $base64Content = '';
+        if (preg_match('/<Attachment>(.*?)<\/Attachment>/is', $allegatoXml, $match)) {
+            $base64Content = trim(preg_replace('/\s/', '', $match[1]));
+        }
+        
+        if (empty($base64Content)) {
+            return null;
+        }
+        
+        $decodedContent = base64_decode($base64Content);
+        if ($decodedContent === false) {
+            return null;
+        }
+        
+        if (empty($fileName)) {
+            $extension = $this->detectFileExtension($decodedContent);
+            $fileName = 'attachment_' . $identifier . '_' . date('Ymd_His') . '.' . $extension;
+        } else {
+            $fileName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $fileName);
+        }
+        
+        // Determina estensione finale
+        $finalFileName = $fileName;
+        if (strpos($decodedContent, '%PDF') === 0 && !str_ends_with($fileName, '.pdf')) {
+            $finalFileName = preg_replace('/\.[^.]+$/', '', $fileName) . '.pdf';
+        }
+        
+        // Crea cartella
+        $pivaFornitore = preg_replace('/[^A-Za-z0-9]/', '', $this->fornitore_partita_iva);
+        if (empty($pivaFornitore)) {
+            $pivaFornitore = 'piva_non_trovata';
+        }
+        
+        $attachmentsFolder = 'allegati_fattura/' . $pivaFornitore;
+        if (!Storage::disk('local')->exists($attachmentsFolder)) {
+            Storage::disk('local')->makeDirectory($attachmentsFolder);
+        }
+        
+        $filePath = $attachmentsFolder . '/' . $finalFileName;
+        Storage::disk('local')->put($filePath, $decodedContent);
+        
+        Log::info('Allegato salvato', [
+            'nome' => $fileName,
+            'percorso' => $filePath,
+            'size' => strlen($decodedContent)
+        ]);
+        
+        return [
+            'original_name' => $fileName,
+            'saved_name' => $finalFileName,
+            'path' => $filePath,
+            'size' => strlen($decodedContent)
+        ];
+    }
+
+    private function detectFileExtension($content)
+    {
+        if (strpos($content, '%PDF') === 0) return 'pdf';
+        if (strpos($content, 'PK') === 0) return 'zip';
+        if (strpos($content, '<?xml') === 0) return 'xml';
+        return 'bin';
+    }
+
+    /**
+     * Rimuove gli allegati dall'XML
+     */
+    private function removeAttachmentsFromXml($xmlString)
+    {
+        $xmlString = preg_replace('/<Allegati>.*?<\/Allegati>/is', '', $xmlString);
+        $xmlString = preg_replace('/<Allegato>.*?<\/Allegato>/is', '', $xmlString);
+        $xmlString = preg_replace('/<FatturaFirmata>.*?<\/FatturaFirmata>/is', '', $xmlString);
+        $xmlString = preg_replace('/\n\s*\n/', "\n", $xmlString);
+        return $xmlString;
     }
 
     private function checkVatAutomatically($vat)
@@ -583,9 +606,6 @@ class InvoicesXmlImport extends Component
         return $controlDigit == (int)$numbers[10];
     }
 
-    /**
-     * Crea fornitore automaticamente con flag created_by_system = 1
-     */
     public function createSupplierAutomatically()
     {
         if (empty($this->fornitore_denominazione)) {
@@ -594,7 +614,6 @@ class InvoicesXmlImport extends Component
         }
         
         try {
-            // Verifica se esiste già nel frattempo
             $existingEntity = Entity::where('partita_iva', $this->fornitore_partita_iva)->first();
             if ($existingEntity) {
                 $this->id_entities = $existingEntity->id_cliente;
@@ -648,45 +667,27 @@ class InvoicesXmlImport extends Component
         $this->importo_totale = round($total, 2);
     }
 
-    /**
-     * Salva solo il nome del file XML nel DB (non salva fisicamente il file)
-     * Formato: {PartitaIVA_fornitore}.xml
-     */
     private function saveXmlFile()
     {
         if (!$this->xml_file) {
             return null;
         }
         
-        // Pulisci la partita IVA (togli IT, spazi, etc.)
         $fornitorePiva = preg_replace('/[^A-Za-z0-9]/', '', $this->fornitore_partita_iva);
-        
-        // Se la partita IVA è vuota, usa un default con timestamp
         if (empty($fornitorePiva)) {
             $fornitorePiva = 'piva_non_trovata_' . time();
         }
         
-        $filename = $fornitorePiva . '.xml';
-        
-        Log::info('Nome file generato per il DB', [
-            'filename' => $filename,
-            'fornitore_piva' => $this->fornitore_partita_iva,
-            'originale' => $this->xml_file->getClientOriginalName()
-        ]);
-        
-        // Restituisci solo il nome del file (non il percorso)
-        return $filename;
+        return $fornitorePiva . '.xml';
     }
 
     public function save()
     {
-        // Verifica duplicati prima del salvataggio
         if ($this->checkInvoiceExists()) {
             $this->dispatch('alert', ['type' => 'error', 'message' => "❌ FATTURA DUPLICATA! Impossibile importare."]);
             return;
         }
         
-        // Se il fornitore non esiste, lo creiamo automaticamente
         if (!$this->supplier_found && $this->supplier_not_found && !$this->id_entities) {
             $this->createSupplierAutomatically();
         }
@@ -696,11 +697,10 @@ class InvoicesXmlImport extends Component
         try {
             DB::beginTransaction();
 
-            // Salva il file XML nella cartella storage
             $xmlStoragePath = $this->saveXmlFile();
 
             $invoice = InvoiceReceived::create([
-                'id_ownership' => $this->id_ownership,  // ← Questo deve avere un valore!
+                'id_ownership' => $this->id_ownership,
                 'id_entities' => $this->id_entities,
                 'type_invoice' => $this->type_invoice ?: 'TD01',
                 'n_invoice' => $this->n_invoice,
@@ -729,12 +729,20 @@ class InvoicesXmlImport extends Component
 
             DB::commit();
 
+            if (!empty($this->extracted_attachments)) {
+                Log::info('Allegati collegati alla fattura', [
+                    'invoice_id' => $invoice->id,
+                    'n_fattura' => $this->n_invoice,
+                    'allegati' => array_column($this->extracted_attachments, 'original_name')
+                ]);
+            }
+
             session()->flash('success', 'Fattura importata con successo!');
             return redirect()->route('admin.invoices-received.index');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Errore salvataggio fattura: ' . $e->getMessage());
+            Log::error('Errore salvataggio: ' . $e->getMessage());
             $this->dispatch('alert', ['type' => 'error', 'message' => 'Errore: ' . $e->getMessage()]);
         }
     }

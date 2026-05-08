@@ -1,13 +1,32 @@
 <div>
     <div class="flex justify-between items-center mb-4">
-        <h1 class="text-2xl font-bold">Fatture di Acquisto</h1>
+        <h1 class="text-2xl font-bold">
+            <i class="fa-solid fa-dolly w-5 h-5 mr-3 text-lime-600"></i>
+            Fatture di Acquisto
+        </h1>
         <div class="flex gap-2">
             <a href="{{ route('admin.invoices-received.xml-import') }}" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
-                </svg>
+                <i class="fas fa-upload"></i>
                 Importa XML
             </a>
+
+            <!-- Pulsante Cestino con badge contatore -->
+            <div class="relative group">
+                <button onclick="Livewire.dispatch('openTrashModal')"
+                        id="trashButton"
+                        class="relative px-5 py-2.5 rounded-lg shadow-md transition-all duration-200 bg-gray-200 text-gray-700 hover:bg-gray-300">
+                    <i class="fas fa-trash-alt"></i>
+                    <span id="trashCountBadge" 
+                          class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-md"
+                          style="{{ $trashCount == 0 ? 'display: none;' : '' }}">
+                        {{ $trashCount }}
+                    </span>
+                </button>
+                <div class="absolute bottom-full transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                    Cestino
+                    <div class="absolute top-full transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -54,9 +73,7 @@
                             <div class="flex items-center gap-1">
                                 Numero
                                 @if($sortField === 'n_invoice')
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $sortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7' }}"/>
-                                    </svg>
+                                    <i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }}"></i>
                                 @endif
                             </div>
                         </th>
@@ -64,9 +81,7 @@
                             <div class="flex items-center gap-1">
                                 Data
                                 @if($sortField === 'data_invoice')
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $sortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7' }}"/>
-                                    </svg>
+                                    <i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }}"></i>
                                 @endif
                             </div>
                         </th>
@@ -76,9 +91,7 @@
                             <div class="flex items-center justify-end gap-1">
                                 Totale
                                 @if($sortField === 'importo_totale')
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $sortDirection === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7' }}"/>
-                                    </svg>
+                                    <i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }}"></i>
                                 @endif
                             </div>
                         </th>
@@ -110,32 +123,25 @@
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div class="flex items-center justify-end gap-2">
+                            <div class="flex items-center justify-end space-x-3">
                                 <!-- Icona Vedi -->
                                 <button wire:click="showDetails({{ $invoice->id }})" 
-                                        class="text-indigo-600 hover:text-indigo-900 transition" 
+                                        class="text-blue-600 hover:text-blue-900 transition-colors" 
                                         title="Visualizza dettagli">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                    </svg>
+                                    <i class="fa-regular fa-eye text-blue-600 hover:text-blue-900"></i>
                                 </button>
                                 <!-- Icona Modifica -->
                                 <a href="{{ route('admin.invoices-received.edit', $invoice) }}" 
-                                   class="text-blue-600 hover:text-blue-900 transition" 
+                                   class="text-yellow-600 hover:text-yellow-900 transition-colors" 
                                    title="Modifica fattura">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                    </svg>
+                                    <i class="fa-solid fa-pen-to-square text-yellow-600 hover:text-yellow-900"></i>
                                 </a>
                                 <!-- Icona Elimina -->
                                 <button wire:click="deleteInvoice({{ $invoice->id }})" 
                                         onclick="return confirm('Sei sicuro di voler eliminare questa fattura?')"
-                                        class="text-red-600 hover:text-red-900 transition" 
+                                        class="text-red-600 hover:text-red-900 transition-colors" 
                                         title="Elimina fattura">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                    </svg>
+                                    <i class="fa-solid fa-trash-can text-red-600 hover:text-red-900"></i>
                                 </button>
                             </div>
                         </td>
@@ -143,10 +149,8 @@
                     @empty
                         <tr>
                             <td colspan="7" class="px-6 py-8 text-center text-gray-500">
-                                <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                </svg>
-                                Nessuna fattura trovata
+                                <i class="fas fa-file-invoice text-4xl text-gray-400 mb-3"></i>
+                                <p class="mt-2">Nessuna fattura trovata</p>
                             </td>
                         </tr>
                     @endforelse
@@ -162,19 +166,28 @@
 
     <!-- MODAL DETTAGLI FATTURA -->
     @if($showModal && $selectedInvoice)
-    <div class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div x-data="{ open: true }" 
+        x-show="open" 
+        x-init="$watch('open', value => { if (!value) $wire.closeModal() })"
+        class="fixed inset-0 z-50 overflow-y-auto" 
+        aria-labelledby="modal-title" 
+        role="dialog" 
+        aria-modal="true">
+        
         <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <!-- Overlay -->
-            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" wire:click="closeModal"></div>
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" 
+                x-on:click="open = false"></div>
 
             <!-- Centra il modal -->
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
             <!-- Modal content -->
             <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-                <div class="bg-white px-6 pt-5 pb-4">
-                    <!-- Header -->
-                    <div class="flex justify-between items-center pb-3 border-b">
+                
+                <!-- Header -->
+                <div class="bg-white px-6 pt-5 pb-4 border-b">
+                    <div class="flex justify-between items-center">
                         <div>
                             <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
                                 Dettaglio Fattura
@@ -183,102 +196,102 @@
                                 Fattura n. {{ $selectedInvoice->n_invoice }} del {{ $selectedInvoice->data_invoice->format('d/m/Y') }}
                             </p>
                         </div>
-                        <button wire:click="closeModal" class="text-gray-400 hover:text-gray-500">
+                        <button x-on:click="open = false" class="text-gray-400 hover:text-gray-500">
                             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                             </svg>
                         </button>
                     </div>
+                </div>
 
-                    <!-- Body -->
-                    <div class="mt-4 space-y-4">
-                        <!-- Badge stato -->
-                        <div class="flex justify-end">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $selectedInvoice->status_badge_class }}">
-                                {{ $selectedInvoice->status_label }}
-                            </span>
+                <!-- Body -->
+                <div class="px-6 py-4 max-h-[70vh] overflow-y-auto">
+                    <!-- Badge stato -->
+                    <div class="flex justify-end mb-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $selectedInvoice->status_badge_class }}">
+                            {{ $selectedInvoice->status_label }}
+                        </span>
+                    </div>
+
+                    <!-- Dati fattura -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Fornitore</label>
+                            <p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->supplier_name }}</p>
                         </div>
-
-                        <!-- Dati fattura -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="bg-gray-50 p-3 rounded-lg">
-                                <label class="block text-xs font-medium text-gray-500 uppercase">Fornitore</label>
-                                <p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->supplier_name }}</p>
-                            </div>
-                            <div class="bg-gray-50 p-3 rounded-lg">
-                                <label class="block text-xs font-medium text-gray-500 uppercase">Proprietà</label>
-                                <p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->ownership_name }}</p>
-                            </div>
-                            <div class="bg-gray-50 p-3 rounded-lg">
-                                <label class="block text-xs font-medium text-gray-500 uppercase">Tipo Documento</label>
-                                <p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->type_invoice_label }}</p>
-                            </div>
-                            <div class="bg-gray-50 p-3 rounded-lg">
-                                <label class="block text-xs font-medium text-gray-500 uppercase">Divisa</label>
-                                <p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->divisa }}</p>
-                            </div>
-                            @if($selectedInvoice->sdi_id)
-                            <div class="bg-gray-50 p-3 rounded-lg col-span-2">
-                                <label class="block text-xs font-medium text-gray-500 uppercase">SDI ID</label>
-                                <p class="text-sm font-mono text-gray-900 mt-1 break-all">{{ $selectedInvoice->sdi_id }}</p>
-                            </div>
-                            @endif
-                            @if($selectedInvoice->causale)
-                            <div class="bg-gray-50 p-3 rounded-lg col-span-2">
-                                <label class="block text-xs font-medium text-gray-500 uppercase">Causale / Note</label>
-                                <p class="text-sm text-gray-700 mt-1">{{ $selectedInvoice->causale }}</p>
-                            </div>
-                            @endif
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Proprietà</label>
+                            <p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->ownership_name }}</p>
                         </div>
-
-                        <!-- Righe fattura -->
-                        <div>
-                            <h4 class="font-medium text-gray-900 mb-3">Righe Fattura</h4>
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-200 border rounded-lg">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Descrizione</th>
-                                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Quantità</th>
-                                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Prezzo Unit.</th>
-                                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Sconto</th>
-                                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Totale</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-200">
-                                        @foreach($selectedInvoice->rows as $row)
-                                        <tr>
-                                            <td class="px-3 py-2 text-sm">{{ $row->description }}</td>
-                                            <td class="px-3 py-2 text-sm text-right">{{ number_format($row->quantity, 3, ',', '.') }}</td>
-                                            <td class="px-3 py-2 text-sm text-right">{{ number_format($row->unit_price, 4, ',', '.') }} €</td>
-                                            <td class="px-3 py-2 text-sm text-right">{{ $row->discount_percentage > 0 ? number_format($row->discount_percentage, 2, ',', '.') . '%' : '-' }}</td>
-                                            <td class="px-3 py-2 text-sm text-right font-medium">{{ number_format($row->total, 2, ',', '.') }} €</td>
-                                        </tr>
-                                        @endforeach
-                                    </tbody>
-                                    <tfoot class="bg-gray-50">
-                                        <tr>
-                                            <td colspan="4" class="px-3 py-2 text-right font-bold">TOTALE</td>
-                                            <td class="px-3 py-2 text-right font-bold text-lg">{{ number_format($selectedInvoice->importo_totale, 2, ',', '.') }} €</td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Tipo Documento</label>
+                            <p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->type_invoice_label }}</p>
                         </div>
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Divisa</label>
+                            <p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->divisa }}</p>
+                        </div>
+                        @if($selectedInvoice->sdi_id)
+                        <div class="bg-gray-50 p-3 rounded-lg col-span-2">
+                            <label class="block text-xs font-medium text-gray-500 uppercase">SDI ID</label>
+                            <p class="text-sm font-mono text-gray-900 mt-1 break-all">{{ $selectedInvoice->sdi_id }}</p>
+                        </div>
+                        @endif
+                        @if($selectedInvoice->causale)
+                        <div class="bg-gray-50 p-3 rounded-lg col-span-2">
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Causale / Note</label>
+                            <p class="text-sm text-gray-700 mt-1">{{ $selectedInvoice->causale }}</p>
+                        </div>
+                        @endif
+                    </div>
 
-                        <!-- Info importazione -->
-                        <div class="text-xs text-gray-400 border-t pt-3 mt-3">
-                            <div class="grid grid-cols-2 gap-2">
-                                <div>Importata il: {{ $selectedInvoice->imported_at ? $selectedInvoice->imported_at->format('d/m/Y H:i:s') : '-' }}</div>
-                                <div>File XML: {{ basename($selectedInvoice->xml_filename ?? '') }}</div>
-                            </div>
+                    <!-- Righe fattura -->
+                    <div>
+                        <h4 class="font-medium text-gray-900 mb-3">Righe Fattura</h4>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 border rounded-lg">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Descrizione</th>
+                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Quantità</th>
+                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Prezzo Unit.</th>
+                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Sconto</th>
+                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Totale</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    @foreach($selectedInvoice->rows as $row)
+                                    <tr>
+                                        <td class="px-3 py-2 text-sm">{{ $row->description }}</td>
+                                        <td class="px-3 py-2 text-sm text-right">{{ number_format($row->quantity, 3, ',', '.') }}</td>
+                                        <td class="px-3 py-2 text-sm text-right">{{ number_format($row->unit_price, 4, ',', '.') }} €</td>
+                                        <td class="px-3 py-2 text-sm text-right">{{ $row->discount_percentage > 0 ? number_format($row->discount_percentage, 2, ',', '.') . '%' : '-' }}</td>
+                                        <td class="px-3 py-2 text-sm text-right font-medium">{{ number_format($row->total, 2, ',', '.') }} €</td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot class="bg-gray-50">
+                                    <tr>
+                                        <td colspan="4" class="px-3 py-2 text-right font-bold">TOTALE</td>
+                                        <td class="px-3 py-2 text-right font-bold text-lg">{{ number_format($selectedInvoice->importo_totale, 2, ',', '.') }} €</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Info importazione -->
+                    <div class="text-xs text-gray-400 border-t pt-3 mt-4">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>Importata il: {{ $selectedInvoice->imported_at ? $selectedInvoice->imported_at->format('d/m/Y H:i:s') : '-' }}</div>
+                            <div>File XML: {{ basename($selectedInvoice->xml_filename ?? '') }}</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Footer -->
                 <div class="bg-gray-50 px-6 py-3 flex justify-end gap-3">
-                    <button wire:click="closeModal" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition">
+                    <button x-on:click="open = false" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition">
                         Chiudi
                     </button>
                     <a href="{{ route('admin.invoices-received.edit', $selectedInvoice) }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">

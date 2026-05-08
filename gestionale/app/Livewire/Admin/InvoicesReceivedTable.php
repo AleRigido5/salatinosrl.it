@@ -28,6 +28,9 @@ class InvoicesReceivedTable extends Component
     public $selectedInvoice = null;
     public $showModal = false;
 
+    // Contatore cestino
+    public $trashCount = 0;
+
     public function sortBy($field)
     {
         if ($this->sortField === $field) {
@@ -73,18 +76,27 @@ class InvoicesReceivedTable extends Component
      */
     public function showDetails($id)
     {
-        $this->selectedInvoice = InvoiceReceived::with(['ownership', 'entity', 'rows.costCenter'])
-            ->find($id);
+        $this->selectedInvoice = InvoiceReceived::with([
+            'ownership',
+            'entity',
+            'rows.costCenter'
+        ])->find($id);
+
         $this->showModal = true;
+
+        $this->dispatch('modal-opened');
     }
 
     /**
-     * Chiudi il modal
+     * Chiudi il modal e pulisci i dati
      */
     public function closeModal()
     {
         $this->showModal = false;
         $this->selectedInvoice = null;
+        
+        // Dispatch evento per reset JS
+        $this->dispatch('modal-closed');
     }
 
     public function deleteInvoice($id)

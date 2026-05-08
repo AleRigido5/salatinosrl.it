@@ -211,34 +211,54 @@ class InvoicesXmlImport extends Component
     // ============================================
     public function uploadXml()
     {
+        // 1. VALIDAZIONE: Controlla che il file sia presente, sia un XML e non superi i 10MB
         $this->validate([
             'xml_file' => 'required|file|mimes:xml|max:10240',
         ]);
 
         try {
+            // 2. LETTURA CONTENUTO: Estrae il contenuto testuale grezzo del file caricato
             $content = file_get_contents($this->xml_file->getRealPath());
+            
+            // 3. PARSING XML: Trasforma la stringa testuale in un oggetto SimpleXMLElement manipolabile
             $xml = simplexml_load_string($content);
             
+            // Verifica se la struttura XML è valida sintatticamente
             if ($xml === false) {
                 $this->addError('xml_file', 'File XML non valido');
                 return;
             }
 
+            // 4. METADATI: Salva il nome originale del file (es: "fattura_energia.xml")
             $this->xml_filename = $this->xml_file->getClientOriginalName();
+
+            // 5. GENERAZIONE HASH (IL CUORE DEL CONTROLLO):
+            // Genera una "impronta digitale" univoca di 64 caratteri basata sul CONTENUTO del file.
+            // Se il file viene rinominato ma il testo interno è identico, l'hash rimarrà lo stesso.
+            // Se viene modificata anche solo una virgola nell'XML, l'hash cambierà completamente.
             $this->file_hash = hash('sha256', $content);
             
+            // 6. ESTRAZIONE DATI: Metodo interno che popola le variabili della classe leggendo i tag XML
             $this->parseXmlInvoiceRobusto($xml);
             
-            // Verifica se fattura già esiste (duplicato)
+            // 7. CONTROLLO DUPLICATI:
+            // Chiama checkInvoiceExists() che interroga il database cercando:
+            // A) Una fattura con lo stesso hash (file identico già caricato)
+            // B) Una fattura con stessa P.IVA Fornitore + Numero Fattura + Data (stessi dati fiscali)
             if ($this->checkInvoiceExists()) {
-                $this->dispatch('alert', ['type' => 'error', 'message' => "❌ FATTURA DUPLICATA! Questa fattura è già stata importata.\nFornitore: {$this->fornitore_partita_iva}\nNumero: {$this->n_invoice}\nData: {$this->data_invoice}"]);
+                $this->dispatch('alert', [
+                    'type' => 'error', 
+                    'message' => "❌ FATTURA DUPLICATA! Questa fattura è già stata importata.\nFornitore: {$this->fornitore_partita_iva}\nNumero: {$this->n_invoice}\nData: {$this->data_invoice}"
+                ]);
                 return;
             }
             
+            // 8. SUCCESSO: Se i controlli passano, sblocca l'interfaccia per il salvataggio finale
             $this->xml_parsed = true;
             $this->dispatch('alert', ['type' => 'success', 'message' => 'XML analizzato con successo!']);
             
         } catch (\Exception $e) {
+            // Gestione errori generici (es: file corrotti o problemi di permessi)
             $this->addError('xml_file', 'Errore durante la lettura del file: ' . $e->getMessage());
         }
     }

@@ -176,9 +176,9 @@ class InvoiceReceivedController extends Controller
         }
     }
 
-    public function xmlUpdate()
+    public function xmlImport()
     {
-        return view('admin.invoices-received.xml-update');
+        return view('admin.invoices-received.xml-import');
     }
 
     public function exportPdf()

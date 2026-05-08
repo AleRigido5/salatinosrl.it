@@ -206,8 +206,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/create', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'create'])->name('create');
             Route::post('/', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'store'])->name('store');
             
-            // ⚠️ IMPORTANTE: /xml-update DEVE essere PRIMA di /{invoice} ⚠️
-            Route::get('/xml-update', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'xmlUpdate'])->name('xml-update');
+            // ⚠️ IMPORTANTE: /xml-import DEVE essere PRIMA di /{invoice} ⚠️
+            Route::get('/xml-import', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'xmlImport'])->name('xml-import');
             
             // Questa rotta con parametro {invoice} DEVE andare DOPO
             Route::get('/{invoice}', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'show'])->name('show');

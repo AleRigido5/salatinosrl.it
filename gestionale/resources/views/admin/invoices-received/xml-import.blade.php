@@ -4,6 +4,6 @@
 
 @section('content')
 <div class="container mx-auto px-4 py-6">
-    <livewire:admin.invoices-xml-update />
+    <livewire:admin.invoices-xml-import />
 </div>
 @endsection

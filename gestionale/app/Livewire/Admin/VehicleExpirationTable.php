@@ -47,12 +47,12 @@ class VehicleExpirationTable extends Component
     
     // Form fields per modifica
     public $editTitolo = '';
-    public $editTipologiaId = '';
+    // public $editTipologiaId = '';
     public $editDataInizio = '';
     public $editDataFine = '';
     public $editNote = '';
     public $editQualifica = '';
-    public $editOwnershipId = '';
+    // public $editOwnershipId = '';
     public $editCodice = '';
     public $editImporto = '';
     public $editEntityId = '';
@@ -261,12 +261,12 @@ class VehicleExpirationTable extends Component
             $this->editId = $id;
             $this->editingExpiration = $expiration;
             $this->editTitolo = $expiration->titolo;
-            $this->editTipologiaId = $expiration->id_settings;
+            // $this->editTipologiaId = $expiration->id_settings;
             $this->editDataInizio = $expiration->data_inizio ? $expiration->data_inizio->format('Y-m-d') : '';
             $this->editDataFine = $expiration->data_fine ? $expiration->data_fine->format('Y-m-d') : '';
             $this->editNote = $expiration->note;
             $this->editQualifica = $expiration->subtitolo;
-            $this->editOwnershipId = $expiration->id_ownership;
+            // $this->editOwnershipId = $expiration->id_ownership;
             $this->editCodice = $expiration->codice;
             $this->editImporto = $expiration->importo;
             
@@ -307,12 +307,12 @@ class VehicleExpirationTable extends Component
         $this->editId = null;
         $this->editingExpiration = null;
         $this->editTitolo = '';
-        $this->editTipologiaId = '';
+        // $this->editTipologiaId = '';
         $this->editDataInizio = '';
         $this->editDataFine = '';
         $this->editNote = '';
         $this->editQualifica = '';
-        $this->editOwnershipId = '';
+        // $this->editOwnershipId = '';
         $this->editCodice = '';
         $this->editImporto = '';
         $this->editEntityId = '';
@@ -325,7 +325,7 @@ class VehicleExpirationTable extends Component
     {
         $this->validate([
             'editTitolo' => 'required|string|max:255',
-            'editTipologiaId' => 'required|exists:settings,id',
+            // 'editTipologiaId' => 'required|exists:settings,id',
             'editDataInizio' => 'required|date',
             'editDataFine' => 'nullable|date|after_or_equal:editDataInizio',
         ]);
@@ -340,7 +340,7 @@ class VehicleExpirationTable extends Component
             
             $data = [
                 'titolo' => $this->editTitolo,
-                'id_settings' => $this->editTipologiaId,
+                // 'id_settings' => $this->editTipologiaId,
                 'data_inizio' => $this->editDataInizio,
                 'data_fine' => $this->editDataFine,
                 'subtitolo' => $this->editQualifica,
@@ -351,9 +351,9 @@ class VehicleExpirationTable extends Component
                 'updated_at' => now()
             ];
             
-            if ($this->editOwnershipId) {
-                $data['id_ownership'] = $this->editOwnershipId;
-            }
+            // if ($this->editOwnershipId) {
+            //     $data['id_ownership'] = $this->editOwnershipId;
+            // }
             
             if ($this->editEntityId) {
                 $data['id_entities'] = $this->editEntityId;

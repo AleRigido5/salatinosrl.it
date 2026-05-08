@@ -23,6 +23,10 @@ class InvoicesReceivedTable extends Component
     public $sortField = 'data_invoice';
     public $sortDirection = 'desc';
     public $perPage = 15;
+    
+    // Per il modal
+    public $selectedInvoice = null;
+    public $showModal = false;
 
     public function sortBy($field)
     {
@@ -49,7 +53,7 @@ class InvoicesReceivedTable extends Component
     public function getInvoicesProperty()
     {
         $query = InvoiceReceived::query()
-            ->with(['ownership', 'entity'])
+            ->with(['ownership', 'entity', 'rows'])
             ->when($this->search, function ($q) {
                 $q->where('n_invoice', 'like', '%' . $this->search . '%');
             })
@@ -64,6 +68,25 @@ class InvoicesReceivedTable extends Component
         return $query->paginate($this->perPage);
     }
 
+    /**
+     * Mostra il modal con i dettagli della fattura
+     */
+    public function showDetails($id)
+    {
+        $this->selectedInvoice = InvoiceReceived::with(['ownership', 'entity', 'rows.costCenter'])
+            ->find($id);
+        $this->showModal = true;
+    }
+
+    /**
+     * Chiudi il modal
+     */
+    public function closeModal()
+    {
+        $this->showModal = false;
+        $this->selectedInvoice = null;
+    }
+
     public function deleteInvoice($id)
     {
         $invoice = InvoiceReceived::find($id);
@@ -72,6 +95,7 @@ class InvoicesReceivedTable extends Component
             $invoice->delete();
             session()->flash('success', 'Fattura eliminata con successo.');
         }
+        $this->dispatch('refresh');
     }
 
     public function render()
@@ -92,7 +116,7 @@ class InvoicesReceivedTable extends Component
         ];
         
         $ownerships = Ownership::where('valid', 1)
-            ->select('id_proprieta as id', 'Rag_Soc_intest as label')
+            ->select('id_proprieta as id', DB::raw("COALESCE(Rag_Soc_intest, RagSocialePr) as label"))
             ->get();
             
         $suppliers = Entity::where('valid', 1)

@@ -16,8 +16,6 @@ class InvoiceReceived extends Model
     protected $fillable = [
         'id_ownership',
         'id_entities',
-        'data_ownership',
-        'data_entities',
         'type_invoice',
         'n_invoice',
         'data_invoice',
@@ -26,15 +24,15 @@ class InvoiceReceived extends Model
         'divisa',
         'status',
         'sdi_id',
-        'xml_content',
-        'xml_filename'
+        'xml_filename',
+        'file_hash',
+        'imported_at',
     ];
 
     protected $casts = [
-        'data_ownership' => 'array',
-        'data_entities' => 'array',
         'data_invoice' => 'date',
-        'importo_totale' => 'decimal:6',
+        'importo_totale' => 'decimal:2',
+        'imported_at' => 'datetime',
         'deleted_at' => 'datetime'
     ];
 
@@ -53,33 +51,49 @@ class InvoiceReceived extends Model
     const TYPE_TD05 = 'TD05';
     const TYPE_TD20 = 'TD20';
 
+    /**
+     * Relazione con la proprietà (ownership)
+     */
     public function ownership(): BelongsTo
     {
         return $this->belongsTo(Ownership::class, 'id_ownership', 'id_proprieta');
     }
 
+    /**
+     * Relazione con l'entità (fornitore)
+     */
     public function entity(): BelongsTo
     {
         return $this->belongsTo(Entity::class, 'id_entities', 'id_cliente');
     }
 
+    /**
+     * Relazione con le righe della fattura
+     */
     public function rows(): HasMany
     {
         return $this->hasMany(InvoiceRow::class, 'document_id')->where('document_type', 'invoice_received');
     }
 
+    /**
+     * Ottiene il nome del fornitore dalla relazione
+     */
     public function getSupplierNameAttribute(): string
     {
-        $data = $this->data_entities;
-        return $data['Denominazione'] ?? $data['Nome'] . ' ' . ($data['Cognome'] ?? '') ?? 'N/D';
+        return $this->entity?->ragione_sociale ?? $this->entity?->nome . ' ' . $this->entity?->cognome ?? 'N/D';
     }
 
+    /**
+     * Ottiene il nome della proprietà dalla relazione
+     */
     public function getOwnershipNameAttribute(): string
     {
-        $data = $this->data_ownership;
-        return $data['Denominazione'] ?? 'N/D';
+        return $this->ownership?->Rag_Soc_intest ?? $this->ownership?->RagSocialePr ?? 'N/D';
     }
 
+    /**
+     * Ottiene lo stato formattato
+     */
     public function getStatusLabelAttribute(): string
     {
         $labels = [
@@ -91,6 +105,9 @@ class InvoiceReceived extends Model
         return $labels[$this->status] ?? $this->status;
     }
 
+    /**
+     * Ottiene il tipo documento formattato
+     */
     public function getTypeInvoiceLabelAttribute(): string
     {
         $labels = [
@@ -100,5 +117,19 @@ class InvoiceReceived extends Model
             self::TYPE_TD20 => 'Autofattura',
         ];
         return $labels[$this->type_invoice] ?? $this->type_invoice;
+    }
+
+    /**
+     * Ottiene lo stato badge colorato
+     */
+    public function getStatusBadgeClassAttribute(): string
+    {
+        $badges = [
+            self::STATUS_BOZZA => 'bg-yellow-100 text-yellow-800',
+            self::STATUS_INVIATA => 'bg-blue-100 text-blue-800',
+            self::STATUS_SCARTATA => 'bg-red-100 text-red-800',
+            self::STATUS_CONSEGNATA => 'bg-green-100 text-green-800',
+        ];
+        return $badges[$this->status] ?? 'bg-gray-100 text-gray-800';
     }
 }

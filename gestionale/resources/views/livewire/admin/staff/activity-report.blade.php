@@ -692,6 +692,13 @@ function bulkUpdateCosto() {
         isUpdating: false,
         totalActivities: 0,
         
+        getCurrentDateRange() {
+            // Prende le date correnti dal filtro
+            const dateFrom = document.getElementById('date_from')?.value;
+            const dateTo = document.getElementById('date_to')?.value;
+            return { date_from: dateFrom, date_to: dateTo };
+        },
+        
         getStaffDetailIds() {
             const ids = [];
             document.querySelectorAll('td[data-staff-detail-id]').forEach(cell => {
@@ -711,7 +718,7 @@ function bulkUpdateCosto() {
         
         openConfirmModal() {
             const value = parseFloat(this.newCosto);
-            if (isNaN(value)) {
+            if (isNaN(value) || value <= 0) {
                 window.dispatchEvent(new CustomEvent('show-alert', {
                     detail: { type: 'error', message: '⚠️ Inserisci un valore valido per il costo orario' }
                 }));
@@ -731,11 +738,11 @@ function bulkUpdateCosto() {
         
         async confirmUpdate() {
             const newCostoValue = parseFloat(this.newCosto);
-            const staffDetailIds = this.getStaffDetailIds();
+            const dateRange = this.getCurrentDateRange();
             
-            if (staffDetailIds.length === 0) {
+            if (!dateRange.date_from || !dateRange.date_to) {
                 window.dispatchEvent(new CustomEvent('show-alert', {
-                    detail: { type: 'error', message: '⚠️ Nessuna attività trovata' }
+                    detail: { type: 'error', message: '⚠️ Periodo non valido' }
                 }));
                 this.showConfirmModal = false;
                 return;
@@ -744,6 +751,7 @@ function bulkUpdateCosto() {
             this.isUpdating = true;
             
             try {
+                // INVIA ANCHE LE DATE al backend
                 const response = await fetch('{{ route("admin.staff.bulk-update-costo", $staff->id_personale) }}', {
                     method: 'POST',
                     headers: {
@@ -751,8 +759,9 @@ function bulkUpdateCosto() {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}'
                     },
                     body: JSON.stringify({
-                        staffDetailIds: staffDetailIds,
-                        costo_orario: newCostoValue
+                        costo_orario: newCostoValue,
+                        date_from: dateRange.date_from,
+                        date_to: dateRange.date_to
                     })
                 });
                 
@@ -761,23 +770,21 @@ function bulkUpdateCosto() {
                 this.showConfirmModal = false;
                 
                 if (data.success) {
-                    // Invia evento a ogni componente
-                    staffDetailIds.forEach(id => {
-                        window.dispatchEvent(new CustomEvent('bulk-update-costo', {
-                            detail: {
-                                id: id,
-                                newValue: newCostoValue
-                            }
-                        }));
-                    });
-                    
-                    // Aggiorna il DOM per sicurezza
-                    staffDetailIds.forEach(id => {
-                        const cell = document.querySelector(`td[data-staff-detail-id="${id}"]`);
-                        if (cell) {
-                            const span = cell.querySelector('span[x-text*="costoOrario"]');
+                    // Aggiorna solo le celle visibili nella tabella corrente
+                    document.querySelectorAll('td[data-staff-detail-id]').forEach(cell => {
+                        const costoElement = cell.querySelector('[x-text*="costoOrario"]');
+                        if (costoElement) {
+                            // Aggiorna il testo visualizzato
+                            const span = costoElement.closest('span');
                             if (span) {
-                                span.textContent = newCostoValue.toFixed(2);
+                                const euroSpan = span.querySelector('span:last-child');
+                                if (euroSpan) {
+                                    euroSpan.textContent = newCostoValue.toFixed(2);
+                                }
+                            }
+                            // Aggiorna anche la variabile Alpine
+                            if (costoElement.__x) {
+                                costoElement.__x.$data.costoOrario = newCostoValue;
                             }
                         }
                     });
@@ -786,8 +793,11 @@ function bulkUpdateCosto() {
                     this.updateTotalsAfterBulkUpdate(newCostoValue);
                     
                     window.dispatchEvent(new CustomEvent('show-alert', {
-                        detail: { type: 'success', message: `✅ Costo orario aggiornato a € ${newCostoValue.toFixed(2)} per ${staffDetailIds.length} attività!` }
+                        detail: { type: 'success', message: `✅ Costo orario aggiornato a € ${newCostoValue.toFixed(2)} per ${data.updated || this.totalActivities} attività di questo periodo!` }
                     }));
+                    
+                    // Ricarica la pagina per sicurezza (opzionale)
+                    // location.reload();
                 } else {
                     window.dispatchEvent(new CustomEvent('show-alert', {
                         detail: { type: 'error', message: `❌ Errore: ${data.message || 'Operazione fallita'}` }
@@ -804,7 +814,8 @@ function bulkUpdateCosto() {
         },
         
         updateTotalsAfterBulkUpdate(newCostoValue) {
-            const rows = document.querySelectorAll('tbody tr');
+            // Aggiorna i totali nella pagina
+            const rows = document.querySelectorAll('tbody tr:not(:has(td[colspan]))');
             let totalMaturato = 0;
             let totalSpese = 0;
             
@@ -833,12 +844,9 @@ function bulkUpdateCosto() {
                 maturatoElement.textContent = `€ ${totalMaturato.toFixed(2)}`;
             }
             
-            const totaleGenericoElement = document.querySelector('.bg-gradient-to-r');
-            if (totaleGenericoElement) {
-                const totalElement = totaleGenericoElement.querySelector('.text-2xl');
-                if (totalElement) {
-                    totalElement.textContent = `€ ${(totalMaturato + totalSpese).toFixed(2)}`;
-                }
+            const totaleElement = document.querySelector('.bg-gradient-to-r.from-lime-50')?.querySelector('.text-2xl');
+            if (totaleElement) {
+                totaleElement.textContent = `€ ${(totalMaturato + totalSpese).toFixed(2)}`;
             }
         }
     }

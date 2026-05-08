@@ -14,6 +14,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class StaffController extends Controller
@@ -424,6 +425,8 @@ class StaffController extends Controller
             $staffDetail = ActivityStaffLink::findOrFail($staffDetailId);
             $value = $request->input('value');
             
+            // IMPORTANTE: Questo aggiorna SOLO questo specifico record
+            // Non influenza altre attività perché ogni attività ha il suo record unico
             $staffDetail->update([
                 'costo_orario' => floatval($value)
             ]);
@@ -448,26 +451,34 @@ class StaffController extends Controller
             $dateFrom = $request->input('date_from');
             $dateTo = $request->input('date_to');
             
-            // Prendi tutti gli staffDetail per questo staff nel periodo
-            $query = ActivityStaffLink::whereHas('activity', function($q) use ($dateFrom, $dateTo) {
-                if ($dateFrom && $dateTo) {
-                    $q->whereBetween('data_activities', [$dateFrom, $dateTo]);
-                }
-            })->where('id_staff', $staffId);
+            // VALIDAZIONE: le date sono obbligatorie
+            if (!$dateFrom || !$dateTo) {
+                return response()->json([
+                    'success' => false, 
+                    'message' => 'Specificare un periodo valido (date_from e date_to)'
+                ], 400);
+            }
             
-            $count = $query->count();
-            $query->update(['costo_orario' => $costoOrario]);
+            // AGGIORNAMENTO: solo le attività nel periodo specificato
+            $updated = ActivityStaffLink::where('id_staff', $staffId)
+                ->whereHas('activity', function($query) use ($dateFrom, $dateTo) {
+                    $query->whereBetween('data_activities', [$dateFrom, $dateTo]);
+                })
+                ->update(['costo_orario' => $costoOrario]);
             
             return response()->json([
                 'success' => true,
-                'updated' => $count,
-                'message' => "Aggiornati $count record"
+                'updated' => $updated,
+                'message' => "Aggiornati $updated record nel periodo " . 
+                            Carbon::parse($dateFrom)->format('d/m/Y') . " - " . 
+                            Carbon::parse($dateTo)->format('d/m/Y')
             ]);
             
         } catch (\Exception $e) {
+            Log::error('Bulk update costo error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => 'Errore: ' . $e->getMessage()
             ], 500);
         }
     }

@@ -130,15 +130,17 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('/{staff}/toggle-status', [StaffController::class, 'toggleStatus'])->name('toggle-status');
 
             // Report attività per staff
-            Route::get('/{staff}/activity-report', [StaffController::class, 'activityReport'])->name('activity-report');   
+            Route::get('/{staff}/activity-report', [StaffController::class, 'activityReport'])->name('activity-report');
             
-            // Routes per aggiornamenti tooltip
+            // Routes per aggiornamenti tooltip (parametri singoli)
             Route::post('/update-ore/{staffDetailId}', [StaffController::class, 'updateOre'])->name('update-ore');
             Route::post('/update-costo-orario/{staffDetailId}', [StaffController::class, 'updateCostoOrario'])->name('update-costo-orario');
             Route::post('/update-spese/{staffDetailId}', [StaffController::class, 'updateSpese'])->name('update-spese');
             Route::post('/update-activity-note/{activityId}', [StaffController::class, 'updateActivityNote'])->name('update-activity-note');
             Route::post('/update-staff-note/{staffDetailId}', [StaffController::class, 'updateStaffNote'])->name('update-staff-note');
-            Route::post('/staff/bulk-update-costo/{staffId}', [StaffController::class, 'bulkUpdateCosto'])->name('bulk-update-costo');
+            
+            // Bulk update - deve essere DOPO le route con parametri fissi e prima della route con {staff} generico
+            Route::post('/bulk-update-costo/{staffId}', [StaffController::class, 'bulkUpdateCosto'])->name('bulk-update-costo');
                 
             // Export Report PDF ed Excel
             Route::get('/{staff}/export-report-pdf', [StaffController::class, 'exportReportPdf'])->name('export-report-pdf');

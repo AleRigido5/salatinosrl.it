@@ -5,7 +5,7 @@
             Fatture di Acquisto
         </h1>
         <div class="flex gap-2">
-            <a href="{{ route('admin.invoices-received.xml-import') }}" class="px-4 py-2 bg-lime-600 text-white rounded-lg hover:bg-lime-700 transition flex items-center gap-2">
+            <a href="{{ route('admin.invoices-received.xml-import') }}" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
                 <i class="fas fa-upload"></i>
                 Importa XML
             </a>

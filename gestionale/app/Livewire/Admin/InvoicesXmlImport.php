@@ -629,8 +629,8 @@ class InvoicesXmlImport extends Component
     }
 
     /**
-     * Salva il file XML nella cartella storage con nome personalizzato
-     * Formato: {PartitaIVA_fornitore}_{ProgressivoInvio}.xml
+     * Salva solo il nome del file XML nel DB (non salva fisicamente il file)
+     * Formato: {PartitaIVA_fornitore}.xml
      */
     private function saveXmlFile()
     {
@@ -638,30 +638,24 @@ class InvoicesXmlImport extends Component
             return null;
         }
         
-        // Genera il nome del file
-        // Formato: IT02155160209_1865217.xml
+        // Pulisci la partita IVA (togli IT, spazi, etc.)
         $fornitorePiva = preg_replace('/[^A-Za-z0-9]/', '', $this->fornitore_partita_iva);
-        $progressivoInvio = $this->sdi_id ?: 'no_progressivo';
         
-        $filename = $fornitorePiva . '_' . $progressivoInvio . '.xml';
+        // Se la partita IVA è vuota, usa un default con timestamp
+        if (empty($fornitorePiva)) {
+            $fornitorePiva = 'piva_non_trovata_' . time();
+        }
         
-        // Crea la cartella se non esiste: storage/app/invoices_xml/YYYY/MM/
-        $folder = 'invoices_xml/' . date('Y') . '/' . date('m');
+        $filename = $fornitorePiva . '.xml';
         
-        // Leggi il contenuto del file XML
-        $content = file_get_contents($this->xml_file->getRealPath());
-        
-        // Salva il file con il nome personalizzato
-        $path = $folder . '/' . $filename;
-        Storage::disk('local')->put($path, $content);
-        
-        Log::info('XML salvato in: ' . $path, [
+        Log::info('Nome file generato per il DB', [
             'filename' => $filename,
             'fornitore_piva' => $this->fornitore_partita_iva,
-            'progressivo_invio' => $this->sdi_id
+            'originale' => $this->xml_file->getClientOriginalName()
         ]);
         
-        return $path;
+        // Restituisci solo il nome del file (non il percorso)
+        return $filename;
     }
 
     public function save()

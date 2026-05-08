@@ -204,7 +204,7 @@ class VehicleExpirationTable extends Component
     {
         $this->validate([
             'createTitolo' => 'required|string|max:255',
-            'createTipologiaId' => 'required|exists:settings,id',
+            // 'createTipologiaId' => 'required|exists:settings,id',
             'createDataInizio' => 'required|date',
             'createDataFine' => 'nullable|date|after_or_equal:createDataInizio',
         ]);
@@ -214,7 +214,7 @@ class VehicleExpirationTable extends Component
             
             $data = [
                 'titolo' => $this->createTitolo,
-                'id_settings' => $this->createTipologiaId,
+                // 'id_settings' => $this->createTipologiaId,
                 'data_inizio' => $this->createDataInizio,
                 'data_fine' => $this->createDataFine,
                 'subtitolo' => $this->createQualifica,

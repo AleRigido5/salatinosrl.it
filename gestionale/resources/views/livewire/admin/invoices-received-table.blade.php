@@ -8,12 +8,6 @@
                 </svg>
                 Importa XML
             </a>
-            <a href="{{ route('admin.invoices-received.create') }}" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                </svg>
-                Nuova Fattura
-            </a>
         </div>
     </div>
 
@@ -40,14 +34,14 @@
                 @endforeach
             </select>
         </div>
-        <div class="flex justify-between items-center mt-3">
+        {{-- <div class="flex justify-between items-center mt-3">
             <button wire:click="resetFilters" class="text-sm text-indigo-600 hover:text-indigo-800">
                 Reset filtri
             </button>
             <div class="text-sm text-gray-500">
                 Totale: <span class="font-semibold">{{ number_format($totalImporto, 2, ',', '.') }} €</span>
             </div>
-        </div>
+        </div> --}}
     </div>
 
     <!-- Tabella -->

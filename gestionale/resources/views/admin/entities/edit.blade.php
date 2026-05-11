@@ -3,6 +3,60 @@
 @section('title', 'Modifica Cliente / Fornitore')
 
 @section('content')
+<style>
+    /* Tooltip personalizzato per l'email - CON Z-INDEX PIU' ALTO */
+    .email-tooltip {
+        position: relative;
+        display: inline-block;
+        cursor: help;
+        margin-left: 5px;
+    }
+    
+    .email-tooltip .tooltip-text {
+        visibility: hidden;
+        background-color: #1f2937;
+        color: #fff;
+        text-align: center;
+        padding: 6px 12px;
+        border-radius: 6px;
+        position: absolute;
+        z-index: 9999;  /* <-- CAMBIATO: da 1000 a 9999 per stare sopra tutto */
+        bottom: 125%;
+        left: 0;
+        transform: translateX(0%);
+        white-space: nowrap;
+        font-size: 12px;
+        font-weight: normal;
+        font-family: system-ui, -apple-system, sans-serif;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Aggiunto shadow per visibilità */
+    }
+    
+    .email-tooltip .tooltip-text::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 5%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: #1f2937 transparent transparent transparent;
+    }
+    
+    .email-tooltip:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
+    
+    /* Assicura che la card abbia uno z-index inferiore */
+    .bg-white.rounded-xl {
+        position: relative;
+        z-index: 1;  /* <-- AGGIUNTO: imposta z-index basso per la card */
+    }
+</style>
+
 <div class="p-6">
     <div class="flex justify-between items-center mb-6">
         <div>
@@ -23,7 +77,7 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+    <div class="bg-white rounded-xl shadow-lg border border-gray-200">
         <form method="POST" action="{{ route('admin.entities.update', $entity->id_cliente) }}" id="entityForm">
             @csrf
             @method('PUT')
@@ -107,9 +161,25 @@
                     </div>
                 </div>
 
-                <!-- RIGA 3: Partita IVA (col 6) e Codice Fiscale (col 6) -->
+                <!-- RIGA 3: Email (4) con tooltip, Partita IVA (4), Codice Fiscale (4) -->
                 <div class="grid grid-cols-12 gap-4 mb-8">
-                    <div class="col-span-12 md:col-span-6">
+                    <div class="col-span-12 md:col-span-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Email
+                            <div class="email-tooltip inline-block">
+                                <i class="fas fa-info-circle text-gray-400 hover:text-gray-600"></i>
+                                <span class="tooltip-text">Email per comunicazioni automatiche da gestionale</span>
+                            </div>
+                        </label>
+                        <input type="email" 
+                               name="email"
+                               id="email"
+                               value="{{ old('email', $entity->email) }}"
+                               oninput="enableUpdateButton()"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div class="col-span-12 md:col-span-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Partita IVA</label>
                         <input type="text" 
                                name="partita_iva"
@@ -119,7 +189,7 @@
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     
-                    <div class="col-span-12 md:col-span-6">
+                    <div class="col-span-12 md:col-span-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
                         <input type="text" 
                                name="codice_fiscale"
@@ -206,6 +276,7 @@ const originalValues = {
     persona_riferimento: document.getElementById('persona_riferimento')?.value || '',
     partita_iva: document.getElementById('partita_iva')?.value || '',
     codice_fiscale: document.getElementById('codice_fiscale')?.value || '',
+    email: document.getElementById('email')?.value || '',
     pec: document.getElementById('pec')?.value || '',
     codice_sdi: document.getElementById('codice_sdi')?.value || '',
     valid: document.getElementById('valid')?.checked || false
@@ -222,6 +293,7 @@ function enableUpdateButton() {
         document.getElementById('persona_riferimento')?.value !== originalValues.persona_riferimento ||
         document.getElementById('partita_iva')?.value !== originalValues.partita_iva ||
         document.getElementById('codice_fiscale')?.value !== originalValues.codice_fiscale ||
+        document.getElementById('email')?.value !== originalValues.email ||
         document.getElementById('pec')?.value !== originalValues.pec ||
         document.getElementById('codice_sdi')?.value !== originalValues.codice_sdi ||
         document.getElementById('valid')?.checked !== originalValues.valid;

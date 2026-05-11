@@ -17,14 +17,12 @@ class InvoicesXmlImport extends Component
 {
     use WithFileUploads;
 
-    // File XML
     public $xml_file;
     public $xml_filename;
     public $file_hash;
     public $xml_parsed = false;
     public $extracted_attachments = [];
     
-    // Dati fattura
     public $id_ownership;
     public $id_entities;
     public $type_invoice = '';
@@ -36,7 +34,6 @@ class InvoicesXmlImport extends Component
     public $status = 'bozza';
     public $sdi_id = '';
     
-    // Dati Committente
     public $committente_denominazione = '';
     public $committente_partita_iva = '';
     public $committente_codice_fiscale = '';
@@ -46,7 +43,6 @@ class InvoicesXmlImport extends Component
     public $committente_provincia = '';
     public $committente_nazione = '';
     
-    // Dati fornitore
     public $fornitore_denominazione = '';
     public $fornitore_partita_iva = '';
     public $fornitore_codice_fiscale = '';
@@ -58,17 +54,14 @@ class InvoicesXmlImport extends Component
     public $fornitore_telefono = '';
     public $fornitore_email = '';
     
-    // Corrispondenze DB
     public $supplier_found = false;
     public $supplier_not_found = false;
     public $supplier_display = '';
     public $supplier_created_by_system = false;
     public $ownership_display = '';
 
-    // Righe fattura
     public $rows = [];
     
-    // Autocomplete
     public $cost_center_all_search = '';
     public $cost_center_all_results = [];
     public $show_cost_center_all_dropdown = false;
@@ -76,7 +69,6 @@ class InvoicesXmlImport extends Component
     public $row_cost_center_results = [];
     public $show_row_cost_center_dropdown = [];
     
-    // Liste complete
     public $all_ownerships = [];
     public $all_costCenters = [];
 
@@ -109,12 +101,10 @@ class InvoicesXmlImport extends Component
             ->orderBy('Nome')
             ->get()
             ->toArray();
-        
-        Log::info('Centri di costo caricati: ' . count($this->all_costCenters));
     }
 
     // ============================================
-    // AUTOCOMPLETE CENTRO DI COSTO
+    // AUTOCOMPLETE CENTRO DI COSTO GLOBALE
     // ============================================
     public function updatedCostCenterAllSearch()
     {
@@ -125,11 +115,10 @@ class InvoicesXmlImport extends Component
         }
 
         $search = strtolower($this->cost_center_all_search);
-        $this->cost_center_all_results = array_filter($this->all_costCenters, function($cc) use ($search) {
-            return str_contains(strtolower($cc['name']), $search);
-        });
-        
-        $this->cost_center_all_results = array_values(array_slice($this->cost_center_all_results, 0, 10));
+        $this->cost_center_all_results = array_values(array_slice(
+            array_filter($this->all_costCenters, fn($cc) => str_contains(strtolower($cc['name']), $search)),
+            0, 10
+        ));
         $this->show_cost_center_all_dropdown = !empty($this->cost_center_all_results);
     }
 
@@ -142,6 +131,8 @@ class InvoicesXmlImport extends Component
                 $this->rows[$index]['id_cost_center'] = (int)$id;
                 $this->rows[$index]['cost_center_name'] = $cc['name'];
                 $this->row_cost_center_search[$index] = $cc['name'];
+                $this->row_cost_center_results[$index] = [];
+                $this->show_row_cost_center_dropdown[$index] = false;
             }
             
             $this->cost_center_all_search = $cc['name'];
@@ -152,6 +143,9 @@ class InvoicesXmlImport extends Component
         }
     }
 
+    // ============================================
+    // AUTOCOMPLETE CENTRO DI COSTO PER RIGA
+    // ============================================
     public function updatedRowCostCenterSearch($value, $index)
     {
         if (empty($value)) {
@@ -161,11 +155,10 @@ class InvoicesXmlImport extends Component
         }
 
         $search = strtolower($value);
-        $this->row_cost_center_results[$index] = array_filter($this->all_costCenters, function($cc) use ($search) {
-            return str_contains(strtolower($cc['name']), $search);
-        });
-        
-        $this->row_cost_center_results[$index] = array_values(array_slice($this->row_cost_center_results[$index], 0, 10));
+        $this->row_cost_center_results[$index] = array_values(array_slice(
+            array_filter($this->all_costCenters, fn($cc) => str_contains(strtolower($cc['name']), $search)),
+            0, 10
+        ));
         $this->show_row_cost_center_dropdown[$index] = !empty($this->row_cost_center_results[$index]);
     }
 
@@ -205,26 +198,24 @@ class InvoicesXmlImport extends Component
             $this->xml_filename = $this->xml_file->getClientOriginalName();
             $this->file_hash = hash('sha256', $content);
             
-            // ESTRAZIONE ALLEGATI
-            $attachments = $this->extractAndSaveAttachments($content);
+            // PASSO 1: Estrai gli allegati usando SimpleXML
+            $attachments = $this->extractAttachmentsUsingSimpleXML($xml);
             $this->extracted_attachments = $attachments;
             
-            // Pulisci l'XML dagli allegati
+            // PASSO 2: Pulisci l'XML per il parsing
             $cleanXmlContent = $this->removeAttachmentsFromXml($content);
             $cleanXml = simplexml_load_string($cleanXmlContent);
             
-            // Parsing dell'XML pulito
+            // PASSO 3: Parsing dell'XML pulito
             $this->parseXmlInvoiceRobusto($cleanXml);
+            
+            // PASSO 4: Rinomina la cartella con il nome del fornitore
+            if (!empty($attachments) && !empty($this->fornitore_denominazione)) {
+                $this->renameAttachmentsFolderFinal($attachments);
+            }
             
             // Verifica duplicati
             if ($this->checkInvoiceExists()) {
-                if (!empty($attachments)) {
-                    foreach ($attachments as $attachment) {
-                        if (Storage::disk('local')->exists($attachment['path'])) {
-                            Storage::disk('local')->delete($attachment['path']);
-                        }
-                    }
-                }
                 $this->dispatch('alert', [
                     'type' => 'error', 
                     'message' => "❌ FATTURA DUPLICATA! Questa fattura è già stata importata."
@@ -244,10 +235,244 @@ class InvoicesXmlImport extends Component
             $this->dispatch('alert', ['type' => 'success', 'message' => 'XML analizzato con successo!']);
             
         } catch (\Exception $e) {
+            Log::error('Errore upload XML: ' . $e->getMessage());
             $this->addError('xml_file', 'Errore: ' . $e->getMessage());
         }
     }
-    
+
+    /**
+     * Estrae gli allegati usando SimpleXML
+     */
+    private function extractAttachmentsUsingSimpleXML($xml)
+    {
+        $savedFiles = [];
+        
+        // Crea una cartella temporanea
+        $tempFolder = 'allegati_fatture/temp_' . $this->file_hash;
+        
+        // Assicurati che la directory esista (usa public disk)
+        if (!Storage::disk('public')->exists($tempFolder)) {
+            Storage::disk('public')->makeDirectory($tempFolder, 0755, true);
+        }
+        
+        // Cerca il nodo Allegati (potrebbe essere in FatturaElettronicaBody)
+        $allegati = null;
+        
+        if (isset($xml->FatturaElettronicaBody->Allegati)) {
+            $allegati = $xml->FatturaElettronicaBody->Allegati;
+        } elseif (isset($xml->FatturaElettronicaBody->Allegato)) {
+            // Caso in cui c'è un solo allegato diretto
+            $allegati = $xml->FatturaElettronicaBody;
+        }
+        
+        if (!$allegati) {
+            Log::warning('Nodo Allegati non trovato nell\'XML');
+            return $savedFiles;
+        }
+        
+        // Itera su ogni Allegato
+        $allegatoNodes = isset($allegati->Allegato) ? $allegati->Allegato : [$allegati];
+        
+        foreach ($allegatoNodes as $index => $allegato) {
+            try {
+                // Estrai nome file
+                $fileName = (string)$allegato->NomeAttachment;
+                
+                // Estrai contenuto Base64
+                $base64Content = (string)$allegato->Attachment;
+                
+                if (empty($base64Content)) {
+                    Log::warning('Contenuto Base64 vuoto per allegato', ['fileName' => $fileName]);
+                    continue;
+                }
+                
+                // Rimuovi spazi bianchi dal Base64
+                $base64Content = preg_replace('/\s+/', '', $base64Content);
+                
+                Log::info('Decodifica Base64 in corso', [
+                    'fileName' => $fileName,
+                    'base64_length' => strlen($base64Content)
+                ]);
+                
+                // Decodifica Base64
+                $decodedContent = base64_decode($base64Content);
+                
+                if ($decodedContent === false || strlen($decodedContent) === 0) {
+                    Log::error('Decodifica Base64 fallita', ['fileName' => $fileName]);
+                    continue;
+                }
+                
+                Log::info('Allegato decodificato', [
+                    'fileName' => $fileName,
+                    'decoded_size' => strlen($decodedContent)
+                ]);
+                
+                // Genera nome file sicuro
+                $safeFileName = $this->getSafeFileName($fileName, $decodedContent, $index);
+                
+                $filePath = $tempFolder . '/' . $safeFileName;
+                
+                // Salva il file
+                $saved = Storage::disk('public')->put($filePath, $decodedContent);
+                
+                if ($saved) {
+                    // URL pubblico (richiede php artisan storage:link)
+                    $publicUrl = Storage::url($filePath);
+                    
+                    Log::info('Allegato salvato con successo', [
+                        'path' => $filePath,
+                        'url' => $publicUrl,
+                        'size' => strlen($decodedContent)
+                    ]);
+                    
+                    $savedFiles[] = [
+                        'original_name' => $fileName,
+                        'saved_name' => $safeFileName,
+                        'temp_path' => $filePath,
+                        'url' => $publicUrl,
+                        'size' => strlen($decodedContent),
+                        'temp_folder' => $tempFolder
+                    ];
+                } else {
+                    Log::error('Salvataggio allegato fallito', ['path' => $filePath]);
+                }
+                
+            } catch (\Exception $e) {
+                Log::error('Errore processamento allegato: ' . $e->getMessage());
+            }
+        }
+        
+        return $savedFiles;
+    }
+
+    /**
+     * Genera un nome file sicuro
+     */
+    private function getSafeFileName($originalName, $content, $index)
+    {
+        // Se c'è un nome originale, puliscilo
+        if (!empty($originalName)) {
+            $name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
+            $extension = pathinfo($name, PATHINFO_EXTENSION);
+            
+            // Se l'estensione non corrisponde al contenuto, correggila
+            if (strpos($content, '%PDF') === 0 && strtolower($extension) !== 'pdf') {
+                $name = pathinfo($name, PATHINFO_FILENAME) . '.pdf';
+            }
+            
+            return $name;
+        }
+        
+        // Nome generico basato sul contenuto
+        if (strpos($content, '%PDF') === 0) {
+            return 'allegato_' . ($index + 1) . '.pdf';
+        }
+        
+        if (strpos($content, 'PK') === 0) {
+            return 'allegato_' . ($index + 1) . '.zip';
+        }
+        
+        return 'allegato_' . ($index + 1) . '.bin';
+    }
+
+    /**
+     * Rinomina la cartella temporanea con il nome del fornitore
+     */
+    private function renameAttachmentsFolderFinal($attachments)
+    {
+        if (empty($attachments)) {
+            return;
+        }
+        
+        // Crea un nome cartella basato sul nome del fornitore
+        $fornitoreSlug = $this->slugify($this->fornitore_denominazione);
+        $pivaFornitore = preg_replace('/[^A-Za-z0-9]/', '', $this->fornitore_partita_iva);
+        
+        if (!empty($pivaFornitore)) {
+            $finalFolderName = $fornitoreSlug . '_' . $pivaFornitore;
+        } else {
+            $finalFolderName = $fornitoreSlug;
+        }
+        
+        // Cartella definitiva
+        $finalFolder = 'allegati_fatture/' . $finalFolderName;
+        
+        // Ottieni la cartella temporanea dal primo allegato
+        $tempFolder = $attachments[0]['temp_folder'] ?? null;
+        
+        if (!$tempFolder || !Storage::disk('public')->exists($tempFolder)) {
+            Log::warning('Cartella temporanea non trovata', ['folder' => $tempFolder]);
+            return;
+        }
+        
+        // Crea la cartella finale se non esiste
+        if (!Storage::disk('public')->exists($finalFolder)) {
+            Storage::disk('public')->makeDirectory($finalFolder, 0755, true);
+        }
+        
+        // Sposta tutti i file dalla cartella temp a quella finale
+        $files = Storage::disk('public')->files($tempFolder);
+        
+        foreach ($files as $file) {
+            $fileName = basename($file);
+            $newPath = $finalFolder . '/' . $fileName;
+            
+            // Copia il file
+            $copied = Storage::disk('public')->copy($file, $newPath);
+            
+            if ($copied) {
+                Log::info('Allegato spostato', [
+                    'from' => $file,
+                    'to' => $newPath
+                ]);
+                
+                // Aggiorna il percorso e URL nell'array degli attachments
+                foreach ($this->extracted_attachments as &$attachment) {
+                    if (isset($attachment['temp_path']) && $attachment['temp_path'] === $file) {
+                        $attachment['path'] = $newPath;
+                        $attachment['url'] = Storage::url($newPath);
+                    }
+                }
+            } else {
+                Log::error('Copia allegato fallita', ['from' => $file, 'to' => $newPath]);
+            }
+        }
+        
+        // Elimina la cartella temporanea
+        Storage::disk('public')->deleteDirectory($tempFolder);
+        Log::info('Cartella temporanea eliminata', ['folder' => $tempFolder]);
+    }
+
+    /**
+     * Converte una stringa in slug
+     */
+    private function slugify($text)
+    {
+        // Replace non letter or digits by _
+        $text = preg_replace('~[^\pL\d]+~u', '_', $text);
+        
+        // Transliterate
+        $text = iconv('utf-8', 'us-ascii//TRANSLIT', $text);
+        
+        // Remove unwanted characters
+        $text = preg_replace('~[^-\w]+~', '', $text);
+        
+        // Trim
+        $text = trim($text, '_');
+        
+        // Remove duplicate _
+        $text = preg_replace('~-+~', '_', $text);
+        
+        // Lowercase
+        $text = strtolower($text);
+        
+        if (empty($text)) {
+            $text = 'fornitore';
+        }
+        
+        return $text;
+    }
+
     private function checkInvoiceExists()
     {
         if (empty($this->fornitore_partita_iva) || empty($this->n_invoice) || empty($this->data_invoice)) {
@@ -416,6 +641,12 @@ class InvoicesXmlImport extends Component
         // CERCA PROPRIETÀ
         if (!empty($this->committente_partita_iva)) {
             $ownership = Ownership::where('PivaPr', $this->committente_partita_iva)->first();
+            
+            if (!$ownership) {
+                $pivaNoPrefix = preg_replace('/^[A-Z]{2}/i', '', $this->committente_partita_iva);
+                $ownership = Ownership::where('PivaPr', $pivaNoPrefix)->first();
+            }
+            
             if ($ownership) {
                 $this->id_ownership = $ownership->id_proprieta;
                 $this->ownership_display = $ownership->Rag_Soc_intest ?: $ownership->RagSocialePr;
@@ -439,171 +670,16 @@ class InvoicesXmlImport extends Component
         $this->cost_center_all_search = '';
         $this->cost_center_all_results = [];
         $this->show_cost_center_all_dropdown = false;
-        
-        Log::info('XML Parsing completato', [
-            'fornitore' => $this->fornitore_denominazione,
-            'n_fattura' => $this->n_invoice,
-            'num_rows' => count($this->rows)
-        ]);
     }
 
-    /**
-     * Estrae e salva gli allegati dal XML
-     */
-    private function extractAndSaveAttachments($xmlString)
-    {
-        $savedFiles = [];
-        
-        // Cerca il tag Allegati
-        if (preg_match('/<Allegati>(.*?)<\/Allegati>/is', $xmlString, $allegatiMatch)) {
-            $allegatiXml = $allegatiMatch[1];
-            
-            if (preg_match_all('/<Allegato>(.*?)<\/Allegato>/is', $allegatiXml, $allegatoMatches)) {
-                foreach ($allegatoMatches[1] as $index => $allegatoInnerXml) {
-                    $fileInfo = $this->processSingleAttachment($allegatoInnerXml, $index);
-                    if ($fileInfo) {
-                        $savedFiles[] = $fileInfo;
-                    }
-                }
-            }
-        }
-        
-        // Cerca FatturaFirmata
-        if (preg_match('/<FatturaFirmata>(.*?)<\/FatturaFirmata>/is', $xmlString, $firmaMatch)) {
-            $fileInfo = $this->processSingleAttachment($firmaMatch[1], 'firma');
-            if ($fileInfo) {
-                $savedFiles[] = $fileInfo;
-            }
-        }
-        
-        return $savedFiles;
-    }
-
-    /**
-     * Processa un singolo allegato
-     */
-    private function processSingleAttachment($allegatoXml, $identifier)
-    {
-        // Estrai nome file
-        $fileName = '';
-        if (preg_match('/<NomeAttachment>(.*?)<\/NomeAttachment>/i', $allegatoXml, $match)) {
-            $fileName = trim($match[1]);
-        }
-        
-        // Estrai Base64
-        $base64Content = '';
-        if (preg_match('/<Attachment>(.*?)<\/Attachment>/is', $allegatoXml, $match)) {
-            $base64Content = trim(preg_replace('/\s/', '', $match[1]));
-        }
-        
-        if (empty($base64Content)) {
-            return null;
-        }
-        
-        $decodedContent = base64_decode($base64Content);
-        if ($decodedContent === false) {
-            return null;
-        }
-        
-        if (empty($fileName)) {
-            $extension = $this->detectFileExtension($decodedContent);
-            $fileName = 'attachment_' . $identifier . '_' . date('Ymd_His') . '.' . $extension;
-        } else {
-            $fileName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $fileName);
-        }
-        
-        // Determina estensione finale
-        $finalFileName = $fileName;
-        if (strpos($decodedContent, '%PDF') === 0 && !str_ends_with($fileName, '.pdf')) {
-            $finalFileName = preg_replace('/\.[^.]+$/', '', $fileName) . '.pdf';
-        }
-        
-        // Crea cartella
-        $pivaFornitore = preg_replace('/[^A-Za-z0-9]/', '', $this->fornitore_partita_iva);
-        if (empty($pivaFornitore)) {
-            $pivaFornitore = 'piva_non_trovata';
-        }
-        
-        $attachmentsFolder = 'allegati_fattura/' . $pivaFornitore;
-        if (!Storage::disk('local')->exists($attachmentsFolder)) {
-            Storage::disk('local')->makeDirectory($attachmentsFolder);
-        }
-        
-        $filePath = $attachmentsFolder . '/' . $finalFileName;
-        Storage::disk('local')->put($filePath, $decodedContent);
-        
-        Log::info('Allegato salvato', [
-            'nome' => $fileName,
-            'percorso' => $filePath,
-            'size' => strlen($decodedContent)
-        ]);
-        
-        return [
-            'original_name' => $fileName,
-            'saved_name' => $finalFileName,
-            'path' => $filePath,
-            'size' => strlen($decodedContent)
-        ];
-    }
-
-    private function detectFileExtension($content)
-    {
-        if (strpos($content, '%PDF') === 0) return 'pdf';
-        if (strpos($content, 'PK') === 0) return 'zip';
-        if (strpos($content, '<?xml') === 0) return 'xml';
-        return 'bin';
-    }
-
-    /**
-     * Rimuove gli allegati dall'XML
-     */
     private function removeAttachmentsFromXml($xmlString)
     {
+        // Rimuovi il nodo Allegati con tutto il suo contenuto
         $xmlString = preg_replace('/<Allegati>.*?<\/Allegati>/is', '', $xmlString);
         $xmlString = preg_replace('/<Allegato>.*?<\/Allegato>/is', '', $xmlString);
         $xmlString = preg_replace('/<FatturaFirmata>.*?<\/FatturaFirmata>/is', '', $xmlString);
         $xmlString = preg_replace('/\n\s*\n/', "\n", $xmlString);
         return $xmlString;
-    }
-
-    private function checkVatAutomatically($vat)
-    {
-        $vat = preg_replace('/[^A-Za-z0-9]/', '', $vat);
-        if (empty($vat)) return;
-        
-        if (preg_match('/^\d{11}$/', $vat)) {
-            $isValid = $this->validateItalianVat($vat);
-            if (!$isValid) {
-                $this->dispatch('alert', ['type' => 'error', 'message' => "❌ Partita IVA fornitore {$vat} NON valida!"]);
-            } else {
-                $this->dispatch('alert', ['type' => 'success', 'message' => "✅ Partita IVA fornitore {$vat} valida"]);
-            }
-        }
-    }
-
-    private function validateItalianVat($vat)
-    {
-        if (strlen($vat) != 11 || !is_numeric($vat)) return false;
-        
-        $numbers = str_split($vat);
-        $evenSum = 0;
-        $oddSum = 0;
-        
-        for ($i = 0; $i < 10; $i++) {
-            $digit = (int)$numbers[$i];
-            if ($i % 2 == 0) {
-                $oddSum += $digit;
-            } else {
-                $double = $digit * 2;
-                $evenSum += $double > 9 ? $double - 9 : $double;
-            }
-        }
-        
-        $total = $oddSum + $evenSum;
-        $remainder = $total % 10;
-        $controlDigit = $remainder == 0 ? 0 : 10 - $remainder;
-        
-        return $controlDigit == (int)$numbers[10];
     }
 
     public function createSupplierAutomatically()
@@ -669,14 +745,10 @@ class InvoicesXmlImport extends Component
 
     private function saveXmlFile()
     {
-        if (!$this->xml_file) {
-            return null;
-        }
+        if (!$this->xml_file) return null;
         
         $fornitorePiva = preg_replace('/[^A-Za-z0-9]/', '', $this->fornitore_partita_iva);
-        if (empty($fornitorePiva)) {
-            $fornitorePiva = 'piva_non_trovata_' . time();
-        }
+        if (empty($fornitorePiva)) $fornitorePiva = 'piva_non_trovata_' . time();
         
         return $fornitorePiva . '.xml';
     }

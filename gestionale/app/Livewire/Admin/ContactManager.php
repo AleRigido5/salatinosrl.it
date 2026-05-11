@@ -18,6 +18,7 @@ class ContactManager extends Component
     // Form fields
     public $id_settings = '';
     public $valore = '';
+    public $note = '';
     public $principale = false;
     
     // Modal di conferma per creazione/modifica
@@ -68,9 +69,10 @@ class ContactManager extends Component
     public function resetForm()
     {
         $this->reset([
-            'id_settings', 'valore', 'principale', 'editingContactId'
+            'id_settings', 'valore', 'note', 'principale', 'editingContactId'
         ]);
         $this->principale = false;
+        $this->note = '';
         $this->showForm = false;
     }
     
@@ -90,6 +92,7 @@ class ContactManager extends Component
             $this->editingContactId = $id;
             $this->id_settings = $contact->id_settings;
             $this->valore = $contact->valore;
+            $this->note = $contact->note ?? '';
             $this->principale = $contact->principale == 1;
             $this->showForm = true;
         }
@@ -105,12 +108,14 @@ class ContactManager extends Component
         $this->validate([
             'id_settings' => 'required|exists:settings,id',
             'valore' => 'required|string|max:255',
+            'note' => 'nullable|string|max:500',
         ]);
         
         $this->confirmAction = $this->editingContactId ? 'update' : 'create';
         $this->confirmData = [
             'id_settings' => $this->id_settings,
             'valore' => $this->valore,
+            'note' => $this->note,
             'principale' => $this->principale,
         ];
         $this->showConfirmModal = true;
@@ -123,6 +128,7 @@ class ContactManager extends Component
                 'id_entities' => $this->entityId,
                 'id_settings' => $this->confirmData['id_settings'],
                 'valore' => $this->confirmData['valore'],
+                'note' => $this->confirmData['note'] ?? null,
                 'principale' => $this->confirmData['principale'] ? 1 : 0,
             ];
             
@@ -219,6 +225,48 @@ class ContactManager extends Component
     {
         $this->showNotification = false;
         $this->notificationMessage = '';
+    }
+    
+    public function updateNote($contactId, $newNote)
+    {
+        try {
+            $contact = Contact::where('id_entities', $this->entityId)
+                ->where('id', $contactId)
+                ->first();
+                
+            if ($contact) {
+                $contact->update(['note' => $newNote ?: null]);
+                $this->loadContacts();
+                $this->showNotificationMessage('Nota aggiornata con successo!', 'success');
+            }
+        } catch (\Exception $e) {
+            $this->showNotificationMessage('Errore durante l\'aggiornamento della nota', 'error');
+        }
+    }
+    
+    public function togglePrimary($contactId, $isPrimary)
+    {
+        try {
+            $contact = Contact::where('id_entities', $this->entityId)
+                ->where('id', $contactId)
+                ->first();
+                
+            if ($contact) {
+                // Se stiamo impostando come principale, rimuovi principale dagli altri dello stesso tipo
+                if ($isPrimary) {
+                    Contact::where('id_entities', $this->entityId)
+                        ->where('id_settings', $contact->id_settings)
+                        ->where('id', '!=', $contactId)
+                        ->update(['principale' => 0]);
+                }
+                
+                $contact->update(['principale' => $isPrimary ? 1 : 0]);
+                $this->loadContacts();
+                $this->showNotificationMessage('Contatto principale ' . ($isPrimary ? 'impostato' : 'rimosso') . ' con successo!', 'success');
+            }
+        } catch (\Exception $e) {
+            $this->showNotificationMessage('Errore durante l\'aggiornamento del contatto principale', 'error');
+        }
     }
     
     public function render()

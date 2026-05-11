@@ -43,7 +43,7 @@
         }
     </style>
 
-    <div class="flex justify-between items-center mb-4 relative group">
+    <div class="flex justify-end items-center mb-4 relative group">
         <a href="{{ route('admin.invoices-received.index') }}" 
         class="bg-gray-600 hover:bg-gray-900 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
             <i class="fas fa-arrow-left"></i>
@@ -65,7 +65,7 @@
                     @error('xml_file') <span class="text-red-600 text-sm">{{ $message }}</span> @enderror
                 </div>
                 <button type="button" wire:click="uploadXml" wire:loading.attr="disabled" 
-                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                        class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
                     <span wire:loading.remove>Analizza XML</span>
                     <span wire:loading>Analisi...</span>
                 </button>
@@ -200,7 +200,8 @@
                                 </thead>
                                 <tbody>
                                     @foreach($rows as $index => $row)
-                                    <tr class="border-b hover:bg-gray-50" wire:key="row-{{ $index }}">
+                                    {{-- FIX: wire:key include id_cost_center così cambiando CC Livewire re-renderizza il DOM --}}
+                                    <tr class="border-b hover:bg-gray-50" wire:key="row-{{ $index }}-{{ $row['id_cost_center'] ?? 'none' }}">
                                         <td class="px-3 py-2">
                                             <div class="relative">
                                                 <input type="text" 
@@ -275,11 +276,8 @@
     <script>
         document.addEventListener('livewire:initialized', () => {
             Livewire.on('alert', (data) => {
-                // Gestione sia del formato nuovo che vecchio
                 const type = data.type || (data[0]?.type);
                 const message = data.message || (data[0]?.message);
-                
-                console.log('Alert ricevuto:', {type, message});
                 
                 if (!message) return;
                 

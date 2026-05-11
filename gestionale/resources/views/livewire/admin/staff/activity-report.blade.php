@@ -42,6 +42,49 @@
         border-left: 4px solid #1e40af;
     }
     
+    /* Tooltip per Giornate Effettive */
+    .info-tooltip {
+        position: relative;
+        display: inline-block;
+        cursor: help;
+        margin-left: 5px;
+    }
+    
+    .info-tooltip .tooltip-text {
+        visibility: hidden;
+        background-color: #1f2937;
+        color: #fff;
+        text-align: center;
+        padding: 8px 12px;
+        border-radius: 6px;
+        position: fixed;
+        z-index: 99999;
+        font-size: 12px;
+        font-weight: normal;
+        font-family: system-ui, -apple-system, sans-serif;
+        white-space: nowrap;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+    }
+    
+    .info-tooltip .tooltip-text::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: #1f2937 transparent transparent transparent;
+    }
+    
+    .info-tooltip:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
+    
     [x-cloak] {
         display: none !important;
     }
@@ -199,7 +242,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Note</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="bg-white divide-y divide-gray-200" id="activitiesTableBody">
                     @forelse($activities as $activity)
                     @php
                         $entity = $activity->entity;
@@ -230,7 +273,7 @@
                             $displayLocalita = $clienteCitta;
                         }
                     @endphp
-                    <tr class="hover:bg-gray-50 transition-colors">
+                    <tr class="hover:bg-gray-50 transition-colors" data-ore="{{ $ore }}">
                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                             {{ Carbon\Carbon::parse($activity->data_activities)->format('d/m/Y') }}
                         </td>
@@ -283,6 +326,8 @@
                                             window.dispatchEvent(new CustomEvent('show-alert', {
                                                 detail: { type: 'success', message: 'Ore aggiornate con successo!' }
                                             }));
+                                            window.dispatchEvent(new CustomEvent('update-totals'));
+                                            window.dispatchEvent(new CustomEvent('update-giornate'));
                                         }
                                         this.isEditing = false;
                                     })
@@ -475,6 +520,7 @@
                                             window.dispatchEvent(new CustomEvent('show-alert', {
                                                 detail: { type: 'success', message: 'Spese aggiornate con successo!' }
                                             }));
+                                            window.dispatchEvent(new CustomEvent('update-totals'));
                                         }
                                         this.isEditing = false;
                                     })
@@ -610,7 +656,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-500 uppercase">Totale Ore</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ number_format($totalHours, 1) }} h</p>
+                    <p class="text-2xl font-bold text-gray-800" id="totalHoursDisplay">{{ number_format($totalHours, 1) }} h</p>
                 </div>
                 <div class="h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
                     <i class="fas fa-clock text-blue-500 text-xl"></i>
@@ -618,12 +664,24 @@
             </div>
         </div>
 
+        <!-- Giornate Effettive con tooltip informativo e arrotondamento 0.5 -->
         <div class="bg-white rounded-lg shadow p-4 border border-gray-200">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-sm text-gray-500 uppercase">Giornate Effettive</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ number_format($totalWorkingDays, 1) }} gg</p>
-                    <p class="text-xs text-gray-400 mt-1">Base {{ $hoursPerDay }} h/gg</p>
+                    <p class="text-sm text-gray-500 uppercase flex items-center gap-1">
+                        Giornate Effettive
+                        <span class="info-tooltip">
+                            <span class="tooltip-text" id="giornateTooltipText">
+                                Calcolo in corso...
+                            </span>
+                        </span>
+                    </p>
+                    <p class="text-2xl font-bold text-gray-800" id="giornateEffettiveDisplay">
+                        {{ number_format($totalWorkingDays, 1) }} gg
+                    </p>
+                    <p class="text-xs text-gray-400 mt-1">
+                        Base {{ $hoursPerDay }} h/gg
+                    </p>
                 </div>
                 <div class="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
                     <i class="fas fa-calendar-day text-purple-500 text-xl"></i>
@@ -635,7 +693,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-500 uppercase">Maturato</p>
-                    <p class="text-2xl font-bold text-green-600">€ {{ number_format($totalMaturato, 2) }}</p>
+                    <p class="text-2xl font-bold text-green-600" id="totalMaturatoDisplay">€ {{ number_format($totalMaturato, 2) }}</p>
                 </div>
                 <div class="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
                     <i class="fas fa-chart-line text-green-500 text-xl"></i>
@@ -647,7 +705,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-500 uppercase">Spese</p>
-                    <p class="text-2xl font-bold text-orange-600">€ {{ number_format($totalSpese, 2) }}</p>
+                    <p class="text-2xl font-bold text-orange-600" id="totalSpeseDisplay">€ {{ number_format($totalSpese, 2) }}</p>
                 </div>
                 <div class="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center">
                     <i class="fas fa-receipt text-orange-500 text-xl"></i>
@@ -659,7 +717,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <p class="text-sm text-gray-600 uppercase font-semibold">Totale</p>
-                    <p class="text-2xl font-bold text-lime-600">€ {{ number_format($totalMaturato + $totalSpese, 2) }}</p>
+                    <p class="text-2xl font-bold text-lime-600" id="totalTotaleDisplay">€ {{ number_format($totalMaturato + $totalSpese, 2) }}</p>
                 </div>
                 <div class="h-12 w-12 bg-lime-200 rounded-full flex items-center justify-center">
                     <i class="fas fa-euro-sign text-lime-600 text-xl"></i>
@@ -684,6 +742,110 @@
 </div>
 
 <script>
+// Funzione per calcolare e aggiornare le Giornate Effettive con arrotondamento soglia 0.5
+function updateGiornateEffettive() {
+    const hoursPerDay = {{ $hoursPerDay }};
+    let totalOre = 0;
+    
+    // Somma tutte le ore dalla tabella (colonna N. Ore)
+    document.querySelectorAll('#activitiesTableBody tr:not(:has(td[colspan])) td:nth-child(4) span[x-text*="ore"]').forEach(span => {
+        let ore = parseFloat(span.innerText);
+        if (!isNaN(ore)) totalOre += ore;
+    });
+    
+    // Calcolo giornate effettive non arrotondate
+    const giornateRaw = totalOre / hoursPerDay;
+    
+    // Arrotondamento con soglia 0.5 (Math.round prende già soglia 0.5)
+    // Ma per avere mezzo giorno (0.5) corretto: Math.round(numero * 2) / 2
+    const giornateArrotondate = Math.round(giornateRaw * 2) / 2;
+    
+    // Aggiorna il display principale
+    const displayElement = document.getElementById('giornateEffettiveDisplay');
+    if (displayElement) {
+        displayElement.textContent = giornateArrotondate.toFixed(1) + ' gg';
+    }
+    
+    // Aggiorna il tooltip con il dettaglio del calcolo
+    const tooltipElement = document.getElementById('giornateTooltipText');
+    if (tooltipElement) {
+        tooltipElement.innerHTML = `
+            Calcolo dettagliato:<br>
+            📊 Ore totali: ${totalOre.toFixed(1)} h<br>
+            ➗ Divisione: ${totalOre.toFixed(1)} / ${hoursPerDay} = ${giornateRaw.toFixed(4)} gg<br>
+            🎯 Arrotondamento (soglia 0.5): <strong>${giornateArrotondate.toFixed(1)} gg</strong><br>
+            <span class="text-xs text-gray-300">↑ da 0.5 sale, &lt;0.5 scende</span>
+        `;
+    }
+    
+    // Log in console per debug
+    console.log(`Giornate Effettive: ${totalOre.toFixed(1)}h / ${hoursPerDay}h = ${giornateRaw.toFixed(4)}gg → arrotondato: ${giornateArrotondate.toFixed(1)}gg`);
+    
+    return giornateArrotondate;
+}
+
+// Funzione per aggiornare tutti i totali (Ore, Maturato, Spese, Totale)
+function updateAllTotals() {
+    const rows = document.querySelectorAll('#activitiesTableBody tr:not(:has(td[colspan]))');
+    let totalOre = 0;
+    let totalMaturato = 0;
+    let totalSpese = 0;
+    
+    rows.forEach(row => {
+        // Estrai ore (colonna 4)
+        const oreCell = row.querySelector('td:nth-child(4) span[x-text*="ore"]');
+        let ore = 0;
+        if (oreCell) {
+            ore = parseFloat(oreCell.innerText);
+            if (isNaN(ore)) ore = 0;
+        }
+        totalOre += ore;
+        
+        // Estrai costo orario (colonna 5)
+        const costoCells = row.querySelectorAll('td:nth-child(5) span[x-text*="costoOrario"]');
+        let costoOrario = 0;
+        if (costoCells.length > 0) {
+            // Cerca il secondo span che contiene il valore numerico
+            for (let span of costoCells) {
+                const text = span.innerText;
+                if (text && !isNaN(parseFloat(text))) {
+                    costoOrario = parseFloat(text);
+                    break;
+                }
+            }
+        }
+        
+        // Estrai spese (colonna 6)
+        const speseCell = row.querySelector('td:nth-child(6) span[x-text*="spese"]');
+        let spese = 0;
+        if (speseCell) {
+            spese = parseFloat(speseCell.innerText);
+            if (isNaN(spese)) spese = 0;
+        }
+        
+        totalMaturato += ore * costoOrario;
+        totalSpese += spese;
+    });
+    
+    // Aggiorna i display
+    const totalOreDisplay = document.getElementById('totalHoursDisplay');
+    if (totalOreDisplay) totalOreDisplay.textContent = totalOre.toFixed(1) + ' h';
+    
+    const totalMaturatoDisplay = document.getElementById('totalMaturatoDisplay');
+    if (totalMaturatoDisplay) totalMaturatoDisplay.textContent = '€ ' + totalMaturato.toFixed(2);
+    
+    const totalSpeseDisplay = document.getElementById('totalSpeseDisplay');
+    if (totalSpeseDisplay) totalSpeseDisplay.textContent = '€ ' + totalSpese.toFixed(2);
+    
+    const totalTotaleDisplay = document.getElementById('totalTotaleDisplay');
+    if (totalTotaleDisplay) totalTotaleDisplay.textContent = '€ ' + (totalMaturato + totalSpese).toFixed(2);
+    
+    // Aggiorna anche le giornate effettive
+    updateGiornateEffettive();
+    
+    return { totalOre, totalMaturato, totalSpese };
+}
+
 // Alpine.js component per il bulk update costo orario
 function bulkUpdateCosto() {
     return {
@@ -693,7 +855,6 @@ function bulkUpdateCosto() {
         totalActivities: 0,
         
         getCurrentDateRange() {
-            // Prende le date correnti dal filtro
             const dateFrom = document.getElementById('date_from')?.value;
             const dateTo = document.getElementById('date_to')?.value;
             return { date_from: dateFrom, date_to: dateTo };
@@ -751,7 +912,6 @@ function bulkUpdateCosto() {
             this.isUpdating = true;
             
             try {
-                // INVIA ANCHE LE DATE al backend
                 const response = await fetch('{{ route("admin.staff.bulk-update-costo", $staff->id_personale) }}', {
                     method: 'POST',
                     headers: {
@@ -770,34 +930,20 @@ function bulkUpdateCosto() {
                 this.showConfirmModal = false;
                 
                 if (data.success) {
-                    // Aggiorna solo le celle visibili nella tabella corrente
+                    // Aggiorna le celle
                     document.querySelectorAll('td[data-staff-detail-id]').forEach(cell => {
                         const costoElement = cell.querySelector('[x-text*="costoOrario"]');
-                        if (costoElement) {
-                            // Aggiorna il testo visualizzato
-                            const span = costoElement.closest('span');
-                            if (span) {
-                                const euroSpan = span.querySelector('span:last-child');
-                                if (euroSpan) {
-                                    euroSpan.textContent = newCostoValue.toFixed(2);
-                                }
-                            }
-                            // Aggiorna anche la variabile Alpine
-                            if (costoElement.__x) {
-                                costoElement.__x.$data.costoOrario = newCostoValue;
-                            }
+                        if (costoElement && costoElement.__x) {
+                            costoElement.__x.$data.costoOrario = newCostoValue;
                         }
                     });
                     
                     // Aggiorna i totali
-                    this.updateTotalsAfterBulkUpdate(newCostoValue);
+                    updateAllTotals();
                     
                     window.dispatchEvent(new CustomEvent('show-alert', {
                         detail: { type: 'success', message: `✅ Costo orario aggiornato a € ${newCostoValue.toFixed(2)} per ${data.updated || this.totalActivities} attività di questo periodo!` }
                     }));
-                    
-                    // Ricarica la pagina per sicurezza (opzionale)
-                    // location.reload();
                 } else {
                     window.dispatchEvent(new CustomEvent('show-alert', {
                         detail: { type: 'error', message: `❌ Errore: ${data.message || 'Operazione fallita'}` }
@@ -810,43 +956,6 @@ function bulkUpdateCosto() {
                 }));
             } finally {
                 this.isUpdating = false;
-            }
-        },
-        
-        updateTotalsAfterBulkUpdate(newCostoValue) {
-            // Aggiorna i totali nella pagina
-            const rows = document.querySelectorAll('tbody tr:not(:has(td[colspan]))');
-            let totalMaturato = 0;
-            let totalSpese = 0;
-            
-            rows.forEach(row => {
-                const oreCell = row.querySelector('td:nth-child(4)');
-                const speseCell = row.querySelector('td:nth-child(6)');
-                
-                let ore = 0;
-                if (oreCell) {
-                    const oreMatch = oreCell.innerText.match(/(\d+(?:\.\d+)?)/);
-                    ore = oreMatch ? parseFloat(oreMatch[1]) : 0;
-                }
-                
-                let spese = 0;
-                if (speseCell) {
-                    const speseMatch = speseCell.innerText.match(/(\d+(?:\.\d+)?)/);
-                    spese = speseMatch ? parseFloat(speseMatch[1]) : 0;
-                }
-                
-                totalMaturato += ore * newCostoValue;
-                totalSpese += spese;
-            });
-            
-            const maturatoElement = document.querySelector('.bg-green-100')?.parentElement?.querySelector('.text-2xl');
-            if (maturatoElement) {
-                maturatoElement.textContent = `€ ${totalMaturato.toFixed(2)}`;
-            }
-            
-            const totaleElement = document.querySelector('.bg-gradient-to-r.from-lime-50')?.querySelector('.text-2xl');
-            if (totaleElement) {
-                totaleElement.textContent = `€ ${(totalMaturato + totalSpese).toFixed(2)}`;
             }
         }
     }
@@ -899,6 +1008,15 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = currentUrl + '?month=' + monthSelect.value + '&year=' + yearSelect.value;
         });
     }
+    
+    // Aggiorna i totali iniziali dopo il caricamento
+    setTimeout(() => {
+        updateAllTotals();
+    }, 100);
+    
+    // Ascolta eventi di aggiornamento
+    window.addEventListener('update-totals', updateAllTotals);
+    window.addEventListener('update-giornate', updateGiornateEffettive);
 });
 </script>
 @endsection

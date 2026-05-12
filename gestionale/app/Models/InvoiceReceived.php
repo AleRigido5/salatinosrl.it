@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
@@ -79,20 +80,67 @@ class InvoiceReceived extends Model
     }
 
     /**
+     * Relazione polimorfica con i pagamenti
+     */
+    public function payments(): MorphMany
+    {
+        return $this->morphMany(InvoicePayment::class, 'payable');
+    }
+
+    /**
+     * Relazione con i riepiloghi IVA
+     */
+    public function vatSummaries(): HasMany
+    {
+        return $this->hasMany(InvoiceVatSummary::class, 'invoice_id');
+    }
+
+    /**
+     * Ottiene il totale pagato
+     */
+    public function getTotalPaidAttribute(): float
+    {
+        return $this->payments()->where('status', InvoicePayment::STATUS_PAID)->sum('amount');
+    }
+
+    /**
+     * Ottiene il residuo da pagare
+     */
+    public function getRemainingAmountAttribute(): float
+    {
+        return $this->importo_totale - $this->total_paid;
+    }
+
+    /**
+     * Ottiene lo stato pagamento complessivo
+     */
+    public function getPaymentStatusAttribute(): string
+    {
+        if ($this->remaining_amount <= 0) {
+            return 'paid';
+        }
+        if ($this->payments()->where('status', InvoicePayment::STATUS_PENDING)
+                ->where('due_date', '<', now())->exists()) {
+            return 'overdue';
+        }
+        return 'pending';
+    }
+
+    /**
      * Ottiene il contenuto XML della fattura (senza allegati)
      */
     public function getXmlContentAttribute(): ?string
     {
-        // Usa attributes invece di accedere direttamente alla proprietà
-        if (isset($this->attributes['xml_content']) && !empty($this->attributes['xml_content'])) {
-            // Rimuovi gli allegati per la visualizzazione
-            return $this->removeAttachmentsFromXml($this->attributes['xml_content']);
+        $content = $this->getAttribute('xml_content');
+        
+        if (!empty($content)) {
+            return $this->removeAttachmentsFromXml($content);
         }
         
         Log::warning('Nessun xml_content per fattura ID: ' . $this->id);
         return null;
     }
-
+    
     /**
      * Rimuove gli allegati dall'XML per la visualizzazione
      */

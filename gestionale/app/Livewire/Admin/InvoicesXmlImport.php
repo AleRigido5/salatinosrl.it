@@ -21,6 +21,8 @@ class InvoicesXmlImport extends Component
     public $xml_filename;
     public $xml_content;
     public $file_hash;
+    public $payments = [];
+    public $vatSummaries = [];
     public $xml_parsed = false;
     public $extracted_attachments = [];
     
@@ -758,6 +760,74 @@ class InvoicesXmlImport extends Component
             }
         }
 
+        // ============================================
+        // ESTRAZIONE PAGAMENTI
+        // ============================================
+        $this->payments = [];
+        if (preg_match_all('/<DettaglioPagamento>(.*?)<\/DettaglioPagamento>/is', $cleanXml, $dettaglioMatches)) {
+            foreach ($dettaglioMatches[1] as $dettaglioXml) {
+                $payment = [
+                    'due_date' => null,
+                    'amount' => 0,
+                    'payment_method' => null,
+                    'iban' => null,
+                ];
+                
+                if (preg_match('/<DataScadenzaPagamento>(.*?)<\/DataScadenzaPagamento>/i', $dettaglioXml, $match)) {
+                    $payment['due_date'] = trim($match[1]);
+                }
+                if (preg_match('/<ImportoPagamento>(.*?)<\/ImportoPagamento>/i', $dettaglioXml, $match)) {
+                    $payment['amount'] = floatval(str_replace(',', '.', trim($match[1])));
+                }
+                if (preg_match('/<ModalitaPagamento>(.*?)<\/ModalitaPagamento>/i', $dettaglioXml, $match)) {
+                    $payment['payment_method'] = trim($match[1]);
+                }
+                if (preg_match('/<IBAN>(.*?)<\/IBAN>/i', $dettaglioXml, $match)) {
+                    $payment['iban'] = trim($match[1]);
+                }
+                
+                $this->payments[] = $payment;
+            }
+        }
+
+        // ============================================
+        // ESTRAZIONE RIEPILOGO IVA
+        // ============================================
+        $this->vatSummaries = [];
+        if (preg_match_all('/<DatiRiepilogo>(.*?)<\/DatiRiepilogo>/is', $cleanXml, $riepilogoMatches)) {
+            foreach ($riepilogoMatches[1] as $riepilogoXml) {
+                $summary = [
+                    'tax_rate' => 0,
+                    'sdi_nature' => null,
+                    'taxable_amount' => 0,
+                    'tax_amount' => 0,
+                    'vat_law_reference' => null,
+                    'esigibilita_iva' => 'I',
+                ];
+                
+                if (preg_match('/<AliquotaIVA>(.*?)<\/AliquotaIVA>/i', $riepilogoXml, $match)) {
+                    $summary['tax_rate'] = floatval(str_replace(',', '.', trim($match[1])));
+                }
+                if (preg_match('/<Natura>(.*?)<\/Natura>/i', $riepilogoXml, $match)) {
+                    $summary['sdi_nature'] = trim($match[1]);
+                }
+                if (preg_match('/<ImponibileImporto>(.*?)<\/ImponibileImporto>/i', $riepilogoXml, $match)) {
+                    $summary['taxable_amount'] = floatval(str_replace(',', '.', trim($match[1])));
+                }
+                if (preg_match('/<Imposta>(.*?)<\/Imposta>/i', $riepilogoXml, $match)) {
+                    $summary['tax_amount'] = floatval(str_replace(',', '.', trim($match[1])));
+                }
+                if (preg_match('/<RiferimentoNormativo>(.*?)<\/RiferimentoNormativo>/i', $riepilogoXml, $match)) {
+                    $summary['vat_law_reference'] = trim($match[1]);
+                }
+                if (preg_match('/<EsigibilitaIVA>(.*?)<\/EsigibilitaIVA>/i', $riepilogoXml, $match)) {
+                    $summary['esigibilita_iva'] = trim($match[1]);
+                }
+                
+                $this->vatSummaries[] = $summary;
+            }
+        }
+
         $this->status = 'bozza';
 
         // Non ricalcolare il totale dalle righe: lo abbiamo già preso da ImportoPagamento
@@ -917,6 +987,7 @@ class InvoicesXmlImport extends Component
                 'imported_at' => now(),
             ]);
 
+            // SALVA LE RIGHE
             foreach ($this->rows as $row) {
                 InvoiceRow::create([
                     'document_id' => $invoice->id,
@@ -926,6 +997,29 @@ class InvoicesXmlImport extends Component
                     'quantity' => $row['quantity'],
                     'unit_price' => $row['unit_price'],
                     'discount_percentage' => $row['discount_percentage'] ?? 0,
+                ]);
+            }
+            
+            // SALVA I PAGAMENTI
+            foreach ($this->payments as $payment) {
+                $invoice->payments()->create([
+                    'due_date' => $payment['due_date'],
+                    'amount' => $payment['amount'],
+                    'payment_method' => $payment['payment_method'],
+                    'iban' => $payment['iban'] ?? null,
+                    'status' => 'pending',
+                ]);
+            }
+            
+            // SALVA IL RIEPILOGO IVA
+            foreach ($this->vatSummaries as $summary) {
+                $invoice->vatSummaries()->create([
+                    'tax_rate' => $summary['tax_rate'],
+                    'sdi_nature' => $summary['sdi_nature'],
+                    'taxable_amount' => $summary['taxable_amount'],
+                    'tax_amount' => $summary['tax_amount'],
+                    'vat_law_reference' => $summary['vat_law_reference'],
+                    'esigibilita_iva' => $summary['esigibilita_iva'],
                 ]);
             }
 

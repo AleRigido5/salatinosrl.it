@@ -507,92 +507,135 @@ class InvoicesXmlImport extends Component
 
     private function parseXmlInvoiceRobusto($xml)
     {
+        // -------------------------------------------------------
+        // Strategia: lavoriamo sull'XML grezzo PRIMA che SimpleXML
+        // applichi i namespace, così le regex funzionano sempre.
+        // -------------------------------------------------------
         $xmlString = $xml->asXML();
-        
+
+        // Rimuovi tutti i prefissi di namespace dai tag (es. ns0:Tag -> Tag)
+        // e rimuovi le dichiarazioni xmlns dai tag di apertura
+        $cleanXml = preg_replace('/(<\/?)[\w]+:/', '$1', $xmlString);
+        $cleanXml = preg_replace('/\s+xmlns(?::\w+)?="[^"]*"/', '', $cleanXml);
+
+        // Da questo momento lavoriamo su $cleanXml per tutte le regex
+        // -------------------------------------------------------
+
         // DATI COMMITTENTE
-        if (preg_match('/<CessionarioCommittente>(.*?)<\/CessionarioCommittente>/is', $xmlString, $cessionarioMatch)) {
+        if (preg_match('/<CessionarioCommittente>(.*?)<\/CessionarioCommittente>/is', $cleanXml, $cessionarioMatch)) {
             $cessionarioXml = $cessionarioMatch[1];
-            
+
             if (preg_match('/<Denominazione>(.*?)<\/Denominazione>/i', $cessionarioXml, $match)) {
                 $this->committente_denominazione = trim($match[1]);
             }
             if (empty($this->committente_denominazione)) {
-                $nome = '';
-                $cognome = '';
+                $nome = $cognome = '';
                 if (preg_match('/<Nome>(.*?)<\/Nome>/i', $cessionarioXml, $match)) $nome = trim($match[1]);
                 if (preg_match('/<Cognome>(.*?)<\/Cognome>/i', $cessionarioXml, $match)) $cognome = trim($match[1]);
-                $this->committente_denominazione = trim($nome . ' ' . $cognome);
+                $this->committente_denominazione = trim("$nome $cognome");
             }
-            
+
             $this->committente_partita_iva = '';
-            if (preg_match('/<IdPaese>(.*?)<\/IdPaese>/i', $cessionarioXml, $match)) $this->committente_partita_iva = trim($match[1]);
-            if (preg_match('/<IdCodice>(.*?)<\/IdCodice>/i', $cessionarioXml, $match)) $this->committente_partita_iva .= trim($match[1]);
-            
+            if (preg_match('/<IdFiscaleIVA>(.*?)<\/IdFiscaleIVA>/is', $cessionarioXml, $idMatch)) {
+                $idXml = $idMatch[1];
+                $paese = $codice = '';
+                if (preg_match('/<IdPaese>(.*?)<\/IdPaese>/i', $idXml, $m)) $paese = trim($m[1]);
+                if (preg_match('/<IdCodice>(.*?)<\/IdCodice>/i', $idXml, $m)) $codice = trim($m[1]);
+                $this->committente_partita_iva = $paese . $codice;
+            }
+
             if (preg_match('/<CodiceFiscale>(.*?)<\/CodiceFiscale>/i', $cessionarioXml, $match)) {
                 $this->committente_codice_fiscale = trim($match[1]);
             }
+
+            if (preg_match('/<Indirizzo>(.*?)<\/Indirizzo>/i', $cessionarioXml, $match)) $this->committente_indirizzo = trim($match[1]);
+            if (preg_match('/<CAP>(.*?)<\/CAP>/i', $cessionarioXml, $match)) $this->committente_cap = trim($match[1]);
+            if (preg_match('/<Comune>(.*?)<\/Comune>/i', $cessionarioXml, $match)) $this->committente_comune = trim($match[1]);
+            if (preg_match('/<Provincia>(.*?)<\/Provincia>/i', $cessionarioXml, $match)) $this->committente_provincia = trim($match[1]);
+            if (preg_match('/<Nazione>(.*?)<\/Nazione>/i', $cessionarioXml, $match)) $this->committente_nazione = trim($match[1]);
         }
-        
+
         // DATI FORNITORE
-        if (preg_match('/<CedentePrestatore>(.*?)<\/CedentePrestatore>/is', $xmlString, $cedenteMatch)) {
+        if (preg_match('/<CedentePrestatore>(.*?)<\/CedentePrestatore>/is', $cleanXml, $cedenteMatch)) {
             $cedenteXml = $cedenteMatch[1];
-            
+
             if (preg_match('/<Denominazione>(.*?)<\/Denominazione>/i', $cedenteXml, $match)) {
                 $this->fornitore_denominazione = trim($match[1]);
             }
             if (empty($this->fornitore_denominazione)) {
-                $nome = '';
-                $cognome = '';
+                $nome = $cognome = '';
                 if (preg_match('/<Nome>(.*?)<\/Nome>/i', $cedenteXml, $match)) $nome = trim($match[1]);
                 if (preg_match('/<Cognome>(.*?)<\/Cognome>/i', $cedenteXml, $match)) $cognome = trim($match[1]);
-                $this->fornitore_denominazione = trim($nome . ' ' . $cognome);
+                $this->fornitore_denominazione = trim("$nome $cognome");
             }
-            
+
             $this->fornitore_partita_iva = '';
-            if (preg_match('/<IdPaese>(.*?)<\/IdPaese>/i', $cedenteXml, $match)) $this->fornitore_partita_iva = trim($match[1]);
-            if (preg_match('/<IdCodice>(.*?)<\/IdCodice>/i', $cedenteXml, $match)) $this->fornitore_partita_iva .= trim($match[1]);
-            
+            if (preg_match('/<IdFiscaleIVA>(.*?)<\/IdFiscaleIVA>/is', $cedenteXml, $idMatch)) {
+                $idXml = $idMatch[1];
+                $paese = $codice = '';
+                if (preg_match('/<IdPaese>(.*?)<\/IdPaese>/i', $idXml, $m)) $paese = trim($m[1]);
+                if (preg_match('/<IdCodice>(.*?)<\/IdCodice>/i', $idXml, $m)) $codice = trim($m[1]);
+                $this->fornitore_partita_iva = $paese . $codice;
+            }
+
             if (preg_match('/<CodiceFiscale>(.*?)<\/CodiceFiscale>/i', $cedenteXml, $match)) {
                 $this->fornitore_codice_fiscale = trim($match[1]);
             }
-            
+
+            if (preg_match('/<Indirizzo>(.*?)<\/Indirizzo>/i', $cedenteXml, $match)) $this->fornitore_indirizzo = trim($match[1]);
+            if (preg_match('/<CAP>(.*?)<\/CAP>/i', $cedenteXml, $match)) $this->fornitore_cap = trim($match[1]);
+            if (preg_match('/<Comune>(.*?)<\/Comune>/i', $cedenteXml, $match)) $this->fornitore_comune = trim($match[1]);
+            if (preg_match('/<Provincia>(.*?)<\/Provincia>/i', $cedenteXml, $match)) $this->fornitore_provincia = trim($match[1]);
+            if (preg_match('/<Nazione>(.*?)<\/Nazione>/i', $cedenteXml, $match)) $this->fornitore_nazione = trim($match[1]);
+
             if (preg_match('/<Contatti>(.*?)<\/Contatti>/is', $cedenteXml, $contattiMatch)) {
                 $contattiXml = $contattiMatch[1];
                 if (preg_match('/<Telefono>(.*?)<\/Telefono>/i', $contattiXml, $match)) $this->fornitore_telefono = trim($match[1]);
                 if (preg_match('/<Email>(.*?)<\/Email>/i', $contattiXml, $match)) $this->fornitore_email = trim($match[1]);
             }
         }
-        
+
         // DATI FATTURA
-        if (preg_match('/<DatiGeneraliDocumento>(.*?)<\/DatiGeneraliDocumento>/is', $xmlString, $datiGeneraliMatch)) {
+        if (preg_match('/<DatiGeneraliDocumento>(.*?)<\/DatiGeneraliDocumento>/is', $cleanXml, $datiGeneraliMatch)) {
             $datiGeneraliXml = $datiGeneraliMatch[1];
-            
+
             if (preg_match('/<TipoDocumento>(.*?)<\/TipoDocumento>/i', $datiGeneraliXml, $match)) $this->type_invoice = trim($match[1]);
             if (preg_match('/<Divisa>(.*?)<\/Divisa>/i', $datiGeneraliXml, $match)) $this->divisa = trim($match[1]);
             if (preg_match('/<Data>(.*?)<\/Data>/i', $datiGeneraliXml, $match)) $this->data_invoice = trim($match[1]);
             if (preg_match('/<Numero>(.*?)<\/Numero>/i', $datiGeneraliXml, $match)) $this->n_invoice = trim($match[1]);
-            if (preg_match('/<ImportoTotaleDocumento>(.*?)<\/ImportoTotaleDocumento>/i', $datiGeneraliXml, $match)) {
-                $this->importo_totale = floatval(str_replace(',', '.', trim($match[1])));
+        }
+
+        // TOTALE: prende ImportoPagamento (somma di tutti i DettaglioPagamento)
+        // Fallback su ImportoTotaleDocumento se non trovato
+        $importoPagamentoTotale = 0;
+        if (preg_match_all('/<ImportoPagamento>(.*?)<\/ImportoPagamento>/i', $cleanXml, $pagMatches)) {
+            foreach ($pagMatches[1] as $val) {
+                $importoPagamentoTotale += floatval(str_replace(',', '.', trim($val)));
             }
         }
-        
+        if ($importoPagamentoTotale > 0) {
+            $this->importo_totale = round($importoPagamentoTotale, 2);
+        } elseif (preg_match('/<ImportoTotaleDocumento>(.*?)<\/ImportoTotaleDocumento>/i', $cleanXml, $match)) {
+            $this->importo_totale = floatval(str_replace(',', '.', trim($match[1])));
+        }
+
         // RIGHE FATTURA
         $this->rows = [];
-        if (preg_match_all('/<DettaglioLinee>(.*?)<\/DettaglioLinee>/is', $xmlString, $lineeMatches)) {
+        if (preg_match_all('/<DettaglioLinee>(.*?)<\/DettaglioLinee>/is', $cleanXml, $lineeMatches)) {
             foreach ($lineeMatches[1] as $index => $lineaXml) {
                 $row = [
-                    'description' => '',
-                    'quantity' => 1,
-                    'unit_price' => 0,
+                    'description'         => '',
+                    'quantity'            => 1,
+                    'unit_price'          => 0,
                     'discount_percentage' => 0,
-                    'id_cost_center' => null,
-                    'cost_center_name' => '',
+                    'id_cost_center'      => null,
+                    'cost_center_name'    => '',
                 ];
-                
+
                 if (preg_match('/<Descrizione>(.*?)<\/Descrizione>/i', $lineaXml, $match)) $row['description'] = trim($match[1]);
                 if (preg_match('/<Quantita>(.*?)<\/Quantita>/i', $lineaXml, $match)) $row['quantity'] = floatval(str_replace(',', '.', trim($match[1])));
                 if (preg_match('/<PrezzoUnitario>(.*?)<\/PrezzoUnitario>/i', $lineaXml, $match)) $row['unit_price'] = floatval(str_replace(',', '.', trim($match[1])));
-                
+
                 if (preg_match('/<ScontoMaggiorazione>(.*?)<\/ScontoMaggiorazione>/is', $lineaXml, $scontoMatch)) {
                     if (preg_match('/<Percentuale>(.*?)<\/Percentuale>/i', $scontoMatch[1], $percMatch)) {
                         $row['discount_percentage'] = floatval(str_replace(',', '.', trim($percMatch[1])));
@@ -602,13 +645,17 @@ class InvoicesXmlImport extends Component
                 $this->rows[] = $row;
             }
         }
-        
+
         // CERCA FORNITORE NEL DB
         $this->supplier_found = false;
         $this->supplier_not_found = false;
-        
+
         if (!empty($this->fornitore_partita_iva)) {
-            $entity = Entity::where('partita_iva', $this->fornitore_partita_iva)->first();
+            // Cerca con e senza prefisso paese (es. "IT02701740108" o "02701740108")
+            $entity = Entity::where('partita_iva', $this->fornitore_partita_iva)
+                ->orWhere('partita_iva', preg_replace('/^[A-Z]{2}/i', '', $this->fornitore_partita_iva))
+                ->first();
+
             if ($entity) {
                 $this->supplier_found = true;
                 $this->id_entities = $entity->id_cliente;
@@ -619,7 +666,7 @@ class InvoicesXmlImport extends Component
                 }
             }
         }
-        
+
         if (!$this->supplier_found && !empty($this->fornitore_codice_fiscale)) {
             $entity = Entity::where('codice_fiscale', $this->fornitore_codice_fiscale)->first();
             if ($entity) {
@@ -629,7 +676,7 @@ class InvoicesXmlImport extends Component
                 $this->supplier_created_by_system = $entity->created_by_system ?? false;
             }
         }
-        
+
         if (!$this->supplier_found) {
             $this->supplier_not_found = true;
             $this->supplier_display = $this->fornitore_denominazione;
@@ -637,36 +684,38 @@ class InvoicesXmlImport extends Component
                 $this->supplier_display .= ' (P.IVA: ' . $this->fornitore_partita_iva . ')';
             }
         }
-        
+
         // CERCA PROPRIETÀ
         if (!empty($this->committente_partita_iva)) {
             $ownership = Ownership::where('PivaPr', $this->committente_partita_iva)->first();
-            
+
             if (!$ownership) {
                 $pivaNoPrefix = preg_replace('/^[A-Z]{2}/i', '', $this->committente_partita_iva);
                 $ownership = Ownership::where('PivaPr', $pivaNoPrefix)->first();
             }
-            
+
             if ($ownership) {
                 $this->id_ownership = $ownership->id_proprieta;
                 $this->ownership_display = $ownership->Rag_Soc_intest ?: $ownership->RagSocialePr;
             }
         }
-        
+
         $this->status = 'bozza';
-        $this->calculateTotal();
-        
+
+        // Non ricalcolare il totale dalle righe: lo abbiamo già preso da ImportoPagamento
+        // $this->calculateTotal(); // <-- commentato intenzionalmente
+
         // INIZIALIZZA ARRAY PER AUTOCOMPLETE
         $this->row_cost_center_search = [];
         $this->row_cost_center_results = [];
         $this->show_row_cost_center_dropdown = [];
-        
+
         foreach ($this->rows as $index => $row) {
             $this->row_cost_center_search[$index] = $row['cost_center_name'] ?? '';
             $this->row_cost_center_results[$index] = [];
             $this->show_row_cost_center_dropdown[$index] = false;
         }
-        
+
         $this->cost_center_all_search = '';
         $this->cost_center_all_results = [];
         $this->show_cost_center_all_dropdown = false;

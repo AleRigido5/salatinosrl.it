@@ -580,7 +580,14 @@
                                         @php
                                             $staff = $staffDetail->staff;
                                             $staffName = $staff ? ($staff->CognomePers . ' ' . $staff->NomePers) : '-';
-                                            $ore = $staffDetail->n_ore ?: 0;
+                                            
+                                            // Gestione sicura del valore n_ore con virgola
+                                            $oreRaw = $staffDetail->getRawOriginal('n_ore') ?? $staffDetail->n_ore ?? 0;
+                                            if (is_string($oreRaw)) {
+                                                $oreRaw = str_replace(',', '.', $oreRaw);
+                                            }
+                                            $ore = floatval($oreRaw);
+                                            if (is_nan($ore)) $ore = 0;
                                         @endphp
                                         <div class="text-xs text-gray-500 whitespace-nowrap">
                                             <span>{{ $staffName }}</span>

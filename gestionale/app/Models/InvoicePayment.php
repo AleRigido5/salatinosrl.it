@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Facades\Config;
 
 class InvoicePayment extends Model
 {
@@ -48,11 +49,20 @@ class InvoicePayment extends Model
     }
     
     /**
-     * Ottiene l'etichetta della modalità di pagamento dal config
+     * Ottiene l'etichetta della modalità di pagamento DAL CONFIG
      */
     public function getPaymentMethodLabelAttribute(): string
     {
-        return config('gestionale.modalita_pagamento.' . $this->payment_method, $this->payment_method);
+        // Forza il caricamento della configurazione
+        $modalita = Config::get('gestionale.modalita_pagamento');
+        
+        // Se la configurazione non è caricata, caricala manualmente
+        if (!$modalita) {
+            $modalita = include config_path('gestionale.php');
+            $modalita = $modalita['modalita_pagamento'] ?? [];
+        }
+        
+        return $modalita[$this->payment_method] ?? $this->payment_method;
     }
     
     /**

@@ -30,11 +30,17 @@ class InvoiceVatSummary extends Model
         return $this->belongsTo(InvoiceReceived::class, 'invoice_id');
     }
     
+    /**
+     * Ottiene l'etichetta della natura dal config
+     */
     public function getNatureLabelAttribute(): string
     {
         return config('gestionale.natura_operazione.' . $this->sdi_nature, $this->sdi_nature);
     }
     
+    /**
+     * Ottiene l'etichetta dell'esigibilità IVA
+     */
     public function getEsigibilitaLabelAttribute(): string
     {
         $labels = [

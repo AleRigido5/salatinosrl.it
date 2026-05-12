@@ -123,32 +123,70 @@
         @endif
 
         <!-- DATI PAGAMENTO -->
-        @if($invoice->payments->count() > 0 || !empty($xmlData['payments_list']))
+        @if($invoice->payments->count() > 0)
         <div class="section">
             <div class="section-title">DATI PAGAMENTO</div>
             <table class="payment-table">
                 <thead>
                     <tr>
-                        <th>Modalità</th>
-                        <th>IBAN</th>
-                        <th class="text-center">Data Scadenza</th>
-                        <th class="text-right">Importo (€)</th>
-                        <th>Stato</th>
+                        <th style="width: 25%">Modalità pagamento</th>
+                        <th style="width: 30%">IBAN</th>
+                        <th style="width: 20%">Data scadenza</th>
+                        <th style="width: 25%" class="text-right">Importo</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @php $payments = $xmlData['payments_list'] ?? $invoice->payments; @endphp
-                    @forelse($payments as $payment)
+                    @foreach($invoice->payments as $payment)
                     <tr>
-                        <td>{{ $payment->payment_method_label }}</td>
-                        <td>{{ $payment->iban ?? '-' }}</td>
+                        <td class="text-left">
+                            {{ $payment->payment_method_label }}
+                            <br>
+                            <small class="text-gray-500">({{ $payment->payment_method }})</small>
+                        </td>
+                        <td class="text-left">{{ $payment->iban ?? '-' }}</td>
                         <td class="text-center">{{ $payment->due_date ? $payment->due_date->format('d/m/Y') : '-' }}</td>
-                        <td class="text-right">{{ number_format($payment->amount, 2, ',', '.') }}</td>
-                        <td class="text-center"><span style="background: #f0f0f0; padding: 2px 5px; border-radius: 3px;">{{ $payment->status_label }}</span></td>
+                        <td class="text-right">{{ number_format($payment->amount, 2, ',', '.') }} €</td>
                     </tr>
-                    @empty
-                    <tr><td colspan="5" class="text-center">Nessun pagamento disponibile</td></tr>
-                    @endforelse
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @endif
+
+        <!-- RIEPILOGO IVA -->
+        @if($invoice->vatSummaries->count() > 0)
+        <div class="section">
+            <div class="section-title">RIEPILOGO IVA</div>
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>Aliquota IVA</th>
+                        <th>Natura</th>
+                        <th class="text-right">Imponibile (€)</th>
+                        <th class="text-right">Imposta (€)</th>
+                        <th>Riferimento Normativo</th>
+                        <th>Esigibilità</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($invoice->vatSummaries as $summary)
+                    <tr>
+                        <td class="text-center">{{ number_format($summary->tax_rate, 2, ',', '.') }}%</td>
+                        <td class="text-left">
+                            @if($summary->sdi_nature)
+                                <strong>{{ $summary->sdi_nature }}</strong>
+                                <br>
+                                <small class="text-gray-500">{{ $summary->nature_label }}</small>
+                            @else
+                                -
+                            @endif
+                        </td>
+                        <td class="text-right">{{ number_format($summary->taxable_amount, 2, ',', '.') }}</td>
+                        <td class="text-right">{{ number_format($summary->tax_amount, 2, ',', '.') }}</td>
+                        <td class="text-left">{{ $summary->vat_law_reference ?? '-' }}</td>
+                        <td class="text-center">{{ $summary->esigibilita_label }}</td>
+                    </tr>
+                    @endforeach
                 </tbody>
             </table>
         </div>

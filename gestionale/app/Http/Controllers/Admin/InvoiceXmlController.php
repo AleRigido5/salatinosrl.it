@@ -5,71 +5,131 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\InvoiceReceived;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class InvoiceXmlController extends Controller
 {
-    /**
-     * Visualizza l'XML della fattura come PDF
-     */
     public function showAsPdf($id)
     {
-        $invoice = InvoiceReceived::with(['entity', 'ownership', 'rows.costCenter'])->findOrFail($id);
+        Log::info('=== PDF GENERATION START ===', ['invoice_id' => $id]);
         
-        $xmlContent = $invoice->xml_content;
+        ini_set('memory_limit', '4096M');
+        ini_set('max_execution_time', 300);
         
-        if (!$xmlContent) {
-            abort(404, 'Contenuto XML non trovato per la fattura ID: ' . $invoice->id);
+        try {
+            // Recupera fattura con tutte le relazioni
+            $invoice = InvoiceReceived::with([
+                'entity', 
+                'ownership', 
+                'rows.costCenter',
+                'payments',
+                'vatSummaries'
+            ])->findOrFail($id);
+            
+            Log::info('Fattura trovata', [
+                'id' => $invoice->id,
+                'numero' => $invoice->n_invoice,
+                'rows' => $invoice->rows->count(),
+                'payments' => $invoice->payments->count(),
+                'vat_summaries' => $invoice->vatSummaries->count()
+            ]);
+            
+            // Recupera XML content
+            $xmlContent = $this->getXmlContentSafely($invoice);
+            
+            if ($xmlContent) {
+                $xmlData = $this->parseXmlForDisplay($xmlContent);
+            } else {
+                // Usa dati dal database
+                $xmlData = $this->buildXmlDataFromDatabase($invoice);
+            }
+            
+            // Aggiungi pagamenti e riepilogo IVA ai dati
+            $xmlData['payments_list'] = $invoice->payments;
+            $xmlData['vat_summaries_list'] = $invoice->vatSummaries;
+            
+            // Genera PDF
+            $pdf = Pdf::loadView('admin.invoices-received.xml-pdf', [
+                'invoice' => $invoice,
+                'xmlData' => $xmlData,
+            ]);
+            $pdf->setPaper('a4', 'portrait');
+            
+            Log::info('=== PDF GENERATION END ===');
+            return $pdf->stream('fattura_' . $invoice->n_invoice . '.pdf');
+            
+        } catch (\Exception $e) {
+            Log::error('ERRORE generazione PDF', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
+            if (isset($invoice) && $invoice) {
+                return $this->generatePdfFromDatabase($invoice);
+            }
+            
+            abort(500, 'Errore generazione PDF: ' . $e->getMessage());
         }
-        
-        // Parsing XML per estrarre i dati formattati
-        $xmlData = $this->parseXmlForDisplay($xmlContent);
-        
-        // Genera il PDF
-        $pdf = Pdf::loadView('admin.invoices-received.xml-pdf', [
-            'invoice' => $invoice,
-            'xmlData' => $xmlData,
-            'xmlContent' => $xmlContent
-        ]);
-        
-        $pdf->setPaper('a4', 'portrait');
-        
-        return $pdf->stream('fattura_' . $invoice->n_invoice . '.pdf');
     }
     
-    /**
-     * Visualizza l'XML in formato HTML (alternativa al PDF)
-     */
-    public function showAsHtml($id)
+    private function getXmlContentSafely($invoice): ?string
     {
-        $invoice = InvoiceReceived::with(['entity', 'ownership', 'rows.costCenter'])->findOrFail($id);
+        $xmlContent = DB::table('invoices_received')
+            ->where('id', $invoice->id)
+            ->value('xml_content');
         
-        $xmlContent = $invoice->xml_content;
-        
-        if (!$xmlContent) {
-            abort(404, 'File XML non trovato');
+        if ($xmlContent) {
+            return $this->removeAttachmentsFromXml($xmlContent);
         }
         
-        $xmlData = $this->parseXmlForDisplay($xmlContent);
-        
-        return view('admin.invoices-received.xml-view', [
-            'invoice' => $invoice,
-            'xmlData' => $xmlData,
-            'xmlContent' => htmlspecialchars($xmlContent)
-        ]);
+        return null;
     }
     
-    /**
-     * Parsing XML per estrarre dati formattati
-     */
-    private function parseXmlForDisplay($xmlString)
+    private function removeAttachmentsFromXml(string $xmlString): string
     {
-        // Rimuovi i namespace per semplificare il parsing
+        $xmlString = preg_replace('/<Allegati>.*?<\/Allegati>/is', '', $xmlString);
+        $xmlString = preg_replace('/<Allegato>.*?<\/Allegato>/is', '', $xmlString);
+        $xmlString = preg_replace('/<FatturaFirmata>.*?<\/FatturaFirmata>/is', '', $xmlString);
+        return $xmlString;
+    }
+    
+    private function buildXmlDataFromDatabase($invoice): array
+    {
+        return [
+            'cedente' => [
+                'denominazione' => $invoice->supplier_name,
+                'id_paese' => 'IT',
+                'id_codice' => $invoice->entity?->partita_iva ?? '',
+                'indirizzo' => $invoice->entity?->indirizzo,
+                'cap' => $invoice->entity?->cap,
+                'comune' => $invoice->entity?->comune,
+                'provincia' => $invoice->entity?->provincia,
+            ],
+            'cessionario' => [
+                'denominazione' => $invoice->ownership_name,
+                'indirizzo' => $invoice->ownership?->Indirizzo,
+                'cap' => $invoice->ownership?->CAP,
+                'comune' => $invoice->ownership?->Comune,
+                'provincia' => $invoice->ownership?->Provincia,
+            ],
+            'documento' => [
+                'tipo' => $invoice->type_invoice,
+                'tipo_label' => $invoice->type_invoice_label,
+                'numero' => $invoice->n_invoice,
+                'data' => $invoice->data_invoice->format('Y-m-d'),
+                'divisa' => $invoice->divisa,
+            ],
+            'righe' => [],
+            'pagamenti' => [],
+        ];
+    }
+    
+    private function parseXmlForDisplay(string $xmlString): array
+    {
         $cleanXml = preg_replace('/(<\/?)[\w]+:/', '$1', $xmlString);
         $cleanXml = preg_replace('/\s+xmlns(?::\w+)?="[^"]*"/', '', $cleanXml);
-        
-        $naturaConfig = config('gestionale.natura_operazione', []);
         
         $data = [
             'cedente' => [],
@@ -77,95 +137,47 @@ class InvoiceXmlController extends Controller
             'documento' => [],
             'righe' => [],
             'pagamenti' => [],
-            'bollo' => 0,
-            'arrotondamento' => 0
         ];
         
-        // DATI FORNITORE (CedentePrestatore)
+        // DATI FORNITORE
         if (preg_match('/<CedentePrestatore>(.*?)<\/CedentePrestatore>/is', $cleanXml, $cedenteMatch)) {
             $cedenteXml = $cedenteMatch[1];
-            
-            // Denominazione
             if (preg_match('/<Denominazione>(.*?)<\/Denominazione>/i', $cedenteXml, $match)) {
                 $data['cedente']['denominazione'] = trim($match[1]);
             }
-            
-            // Partita IVA
-            $idPaese = '';
-            $idCodice = '';
-            if (preg_match('/<IdPaese>(.*?)<\/IdPaese>/i', $cedenteXml, $match)) $idPaese = trim($match[1]);
-            if (preg_match('/<IdCodice>(.*?)<\/IdCodice>/i', $cedenteXml, $match)) $idCodice = trim($match[1]);
-            if (!empty($idPaese) && !empty($idCodice)) {
-                $data['cedente']['id_paese'] = $idPaese;
-                $data['cedente']['id_codice'] = $idCodice;
+            if (preg_match('/<IdPaese>(.*?)<\/IdPaese>/i', $cedenteXml, $match)) {
+                $data['cedente']['id_paese'] = trim($match[1]);
             }
-            
-            // Codice Fiscale
-            if (preg_match('/<CodiceFiscale>(.*?)<\/CodiceFiscale>/i', $cedenteXml, $match)) {
-                $data['cedente']['codice_fiscale'] = trim($match[1]);
+            if (preg_match('/<IdCodice>(.*?)<\/IdCodice>/i', $cedenteXml, $match)) {
+                $data['cedente']['id_codice'] = trim($match[1]);
             }
-            
-            // Sede
-            if (preg_match('/<Sede>(.*?)<\/Sede>/is', $cedenteXml, $sedeMatch)) {
-                $sedeXml = $sedeMatch[1];
-                if (preg_match('/<Indirizzo>(.*?)<\/Indirizzo>/i', $sedeXml, $match)) $data['cedente']['indirizzo'] = trim($match[1]);
-                if (preg_match('/<CAP>(.*?)<\/CAP>/i', $sedeXml, $match)) $data['cedente']['cap'] = trim($match[1]);
-                if (preg_match('/<Comune>(.*?)<\/Comune>/i', $sedeXml, $match)) $data['cedente']['comune'] = trim($match[1]);
-                if (preg_match('/<Provincia>(.*?)<\/Provincia>/i', $sedeXml, $match)) $data['cedente']['provincia'] = trim($match[1]);
-            }
-            
-            // Contatti
-            if (preg_match('/<Contatti>(.*?)<\/Contatti>/is', $cedenteXml, $contattiMatch)) {
-                $contattiXml = $contattiMatch[1];
-                if (preg_match('/<Telefono>(.*?)<\/Telefono>/i', $contattiXml, $match)) $data['cedente']['telefono'] = trim($match[1]);
-                if (preg_match('/<Email>(.*?)<\/Email>/i', $contattiXml, $match)) $data['cedente']['email'] = trim($match[1]);
+            if (preg_match('/<Indirizzo>(.*?)<\/Indirizzo>/i', $cedenteXml, $match)) {
+                $data['cedente']['indirizzo'] = trim($match[1]);
             }
         }
         
-        // DATI COMMITTENTE (CessionarioCommittente)
+        // DATI COMMITTENTE
         if (preg_match('/<CessionarioCommittente>(.*?)<\/CessionarioCommittente>/is', $cleanXml, $cessionarioMatch)) {
             $cessionarioXml = $cessionarioMatch[1];
-            
             if (preg_match('/<Denominazione>(.*?)<\/Denominazione>/i', $cessionarioXml, $match)) {
                 $data['cessionario']['denominazione'] = trim($match[1]);
             }
-            
-            $idPaese = '';
-            $idCodice = '';
-            if (preg_match('/<IdPaese>(.*?)<\/IdPaese>/i', $cessionarioXml, $match)) $idPaese = trim($match[1]);
-            if (preg_match('/<IdCodice>(.*?)<\/IdCodice>/i', $cessionarioXml, $match)) $idCodice = trim($match[1]);
-            if (!empty($idPaese) && !empty($idCodice)) {
-                $data['cessionario']['id_paese'] = $idPaese;
-                $data['cessionario']['id_codice'] = $idCodice;
-            }
-            
-            if (preg_match('/<CodiceFiscale>(.*?)<\/CodiceFiscale>/i', $cessionarioXml, $match)) {
-                $data['cessionario']['codice_fiscale'] = trim($match[1]);
-            }
-            
-            if (preg_match('/<Sede>(.*?)<\/Sede>/is', $cessionarioXml, $sedeMatch)) {
-                $sedeXml = $sedeMatch[1];
-                if (preg_match('/<Indirizzo>(.*?)<\/Indirizzo>/i', $sedeXml, $match)) $data['cessionario']['indirizzo'] = trim($match[1]);
-                if (preg_match('/<CAP>(.*?)<\/CAP>/i', $sedeXml, $match)) $data['cessionario']['cap'] = trim($match[1]);
-                if (preg_match('/<Comune>(.*?)<\/Comune>/i', $sedeXml, $match)) $data['cessionario']['comune'] = trim($match[1]);
-                if (preg_match('/<Provincia>(.*?)<\/Provincia>/i', $sedeXml, $match)) $data['cessionario']['provincia'] = trim($match[1]);
+            if (preg_match('/<Indirizzo>(.*?)<\/Indirizzo>/i', $cessionarioXml, $match)) {
+                $data['cessionario']['indirizzo'] = trim($match[1]);
             }
         }
         
         // DATI DOCUMENTO
         if (preg_match('/<DatiGeneraliDocumento>(.*?)<\/DatiGeneraliDocumento>/is', $cleanXml, $datiGeneraliMatch)) {
             $datiGeneraliXml = $datiGeneraliMatch[1];
-            
-            if (preg_match('/<TipoDocumento>(.*?)<\/TipoDocumento>/i', $datiGeneraliXml, $match)) {
-                $data['documento']['tipo'] = trim($match[1]);
-                $data['documento']['tipo_label'] = config('gestionale.tipo_documento.' . $data['documento']['tipo'], $data['documento']['tipo']);
+            if (preg_match('/<Numero>(.*?)<\/Numero>/i', $datiGeneraliXml, $match)) {
+                $data['documento']['numero'] = trim($match[1]);
             }
-            if (preg_match('/<Divisa>(.*?)<\/Divisa>/i', $datiGeneraliXml, $match)) $data['documento']['divisa'] = trim($match[1]);
-            if (preg_match('/<Data>(.*?)<\/Data>/i', $datiGeneraliXml, $match)) $data['documento']['data'] = trim($match[1]);
-            if (preg_match('/<Numero>(.*?)<\/Numero>/i', $datiGeneraliXml, $match)) $data['documento']['numero'] = trim($match[1]);
-            if (preg_match('/<Causale>(.*?)<\/Causale>/i', $datiGeneraliXml, $match)) $data['documento']['causale'] = trim($match[1]);
-            if (preg_match('/<Arrotondamento>(.*?)<\/Arrotondamento>/i', $datiGeneraliXml, $match)) {
-                $data['arrotondamento'] = floatval(str_replace(',', '.', trim($match[1])));
+            if (preg_match('/<Data>(.*?)<\/Data>/i', $datiGeneraliXml, $match)) {
+                $data['documento']['data'] = trim($match[1]);
+            }
+            if (preg_match('/<Divisa>(.*?)<\/Divisa>/i', $datiGeneraliXml, $match)) {
+                $data['documento']['divisa'] = trim($match[1]);
             }
         }
         
@@ -173,78 +185,42 @@ class InvoiceXmlController extends Controller
         if (preg_match_all('/<DettaglioLinee>(.*?)<\/DettaglioLinee>/is', $cleanXml, $lineeMatches)) {
             foreach ($lineeMatches[1] as $lineaXml) {
                 $riga = [];
-                
-                // Codice Articolo
-                if (preg_match_all('/<CodiceArticolo>(.*?)<\/CodiceArticolo>/is', $lineaXml, $codiceMatches)) {
-                    $riga['codice_articolo'] = [];
-                    foreach ($codiceMatches[1] as $codiceXml) {
-                        $codiceTipo = '';
-                        $codiceValore = '';
-                        if (preg_match('/<CodiceTipo>(.*?)<\/CodiceTipo>/i', $codiceXml, $tipoMatch)) $codiceTipo = trim($tipoMatch[1]);
-                        if (preg_match('/<CodiceValore>(.*?)<\/CodiceValore>/i', $codiceXml, $valoreMatch)) $codiceValore = trim($valoreMatch[1]);
-                        if (!empty($codiceTipo) || !empty($codiceValore)) {
-                            $riga['codice_articolo'][] = ['tipo' => $codiceTipo, 'valore' => $codiceValore];
-                        }
-                    }
+                if (preg_match('/<Descrizione>(.*?)<\/Descrizione>/i', $lineaXml, $match)) {
+                    $riga['descrizione'] = trim($match[1]);
                 }
-                
-                // Descrizione
-                if (preg_match('/<Descrizione>(.*?)<\/Descrizione>/i', $lineaXml, $match)) $riga['descrizione'] = trim($match[1]);
-                
-                // Quantità
-                if (preg_match('/<Quantita>(.*?)<\/Quantita>/i', $lineaXml, $match)) $riga['quantita'] = trim($match[1]);
-                
-                // Unità di Misura
-                if (preg_match('/<UnitaMisura>(.*?)<\/UnitaMisura>/i', $lineaXml, $match)) $riga['unita_misura'] = trim($match[1]);
-                
-                // Prezzo Unitario
-                if (preg_match('/<PrezzoUnitario>(.*?)<\/PrezzoUnitario>/i', $lineaXml, $match)) $riga['prezzo_unitario'] = trim($match[1]);
-                
-                // Prezzo Totale
-                if (preg_match('/<PrezzoTotale>(.*?)<\/PrezzoTotale>/i', $lineaXml, $match)) $riga['prezzo_totale'] = trim($match[1]);
-                
-                // Aliquota IVA
-                if (preg_match('/<AliquotaIVA>(.*?)<\/AliquotaIVA>/i', $lineaXml, $match)) $riga['aliquota_iva'] = trim($match[1]);
-                
-                // Sconto
-                if (preg_match('/<Sconto>(.*?)<\/Sconto>/i', $lineaXml, $match)) $riga['sconto'] = trim($match[1]);
-                
-                // Natura
-                if (preg_match('/<Natura>(.*?)<\/Natura>/i', $lineaXml, $match)) {
-                    $naturaCode = trim($match[1]);
-                    $riga['natura'] = $naturaCode;
-                    $riga['natura_label'] = $naturaConfig[$naturaCode] ?? '';
+                if (preg_match('/<Quantita>(.*?)<\/Quantita>/i', $lineaXml, $match)) {
+                    $riga['quantita'] = trim($match[1]);
                 }
-                
-                // Riferimento Amministrativo
-                if (preg_match('/<RiferimentoAmministrativo>(.*?)<\/RiferimentoAmministrativo>/i', $lineaXml, $match)) {
-                    $riga['riferimento_amministrativo'] = trim($match[1]);
+                if (preg_match('/<PrezzoUnitario>(.*?)<\/PrezzoUnitario>/i', $lineaXml, $match)) {
+                    $riga['prezzo_unitario'] = trim($match[1]);
                 }
-                
+                if (preg_match('/<PrezzoTotale>(.*?)<\/PrezzoTotale>/i', $lineaXml, $match)) {
+                    $riga['prezzo_totale'] = trim($match[1]);
+                }
+                if (preg_match('/<AliquotaIVA>(.*?)<\/AliquotaIVA>/i', $lineaXml, $match)) {
+                    $riga['aliquota_iva'] = trim($match[1]);
+                }
                 if (!empty($riga)) {
                     $data['righe'][] = $riga;
                 }
             }
         }
         
-        // PAGAMENTI
-        if (preg_match('/<DatiPagamento>(.*?)<\/DatiPagamento>/is', $cleanXml, $pagamentoMatch)) {
-            $pagamentoXml = $pagamentoMatch[1];
-            
-            if (preg_match('/<CondizioniPagamento>(.*?)<\/CondizioniPagamento>/i', $pagamentoXml, $match)) {
-                $data['pagamenti']['condizioni'] = trim($match[1]);
-            }
-            if (preg_match('/<ModalitaPagamento>(.*?)<\/ModalitaPagamento>/i', $pagamentoXml, $match)) {
-                $modalita = trim($match[1]);
-                $data['pagamenti']['modalita'] = $modalita;
-                $data['pagamenti']['modalita_label'] = config('gestionale.modalita_pagamento.' . $modalita, $modalita);
-            }
-            if (preg_match('/<IBAN>(.*?)<\/IBAN>/i', $pagamentoXml, $match)) $data['pagamenti']['iban'] = trim($match[1]);
-            if (preg_match('/<IstitutoFinanziario>(.*?)<\/IstitutoFinanziario>/i', $pagamentoXml, $match)) $data['pagamenti']['istituto'] = trim($match[1]);
-            if (preg_match('/<ImportoPagamento>(.*?)<\/ImportoPagamento>/i', $pagamentoXml, $match)) $data['pagamenti']['importo'] = trim($match[1]);
-            if (preg_match('/<DataScadenzaPagamento>(.*?)<\/DataScadenzaPagamento>/i', $pagamentoXml, $match)) $data['pagamenti']['scadenza'] = trim($match[1]);
-        }
-        
         return $data;
+    }
+    
+    private function generatePdfFromDatabase($invoice)
+    {
+        $xmlData = $this->buildXmlDataFromDatabase($invoice);
+        $xmlData['payments_list'] = $invoice->payments;
+        $xmlData['vat_summaries_list'] = $invoice->vatSummaries;
+        
+        $pdf = Pdf::loadView('admin.invoices-received.xml-pdf', [
+            'invoice' => $invoice,
+            'xmlData' => $xmlData,
+        ]);
+        $pdf->setPaper('a4', 'portrait');
+        
+        return $pdf->stream('fattura_' . $invoice->n_invoice . '.pdf');
     }
 }

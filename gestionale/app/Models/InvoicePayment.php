@@ -31,17 +31,11 @@ class InvoicePayment extends Model
     const STATUS_OVERDUE = 'overdue';
     const STATUS_CANCELLED = 'cancelled';
     
-    /**
-     * Relazione polimorfica con la fattura
-     */
     public function payable(): MorphTo
     {
         return $this->morphTo();
     }
     
-    /**
-     * Ottiene l'etichetta dello stato
-     */
     public function getStatusLabelAttribute(): string
     {
         $labels = [
@@ -53,46 +47,8 @@ class InvoicePayment extends Model
         return $labels[$this->status] ?? $this->status;
     }
     
-    /**
-     * Ottiene il badge dello stato
-     */
-    public function getStatusBadgeClassAttribute(): string
-    {
-        $badges = [
-            self::STATUS_PENDING => 'bg-yellow-100 text-yellow-800',
-            self::STATUS_PAID => 'bg-green-100 text-green-800',
-            self::STATUS_OVERDUE => 'bg-red-100 text-red-800',
-            self::STATUS_CANCELLED => 'bg-gray-100 text-gray-800',
-        ];
-        return $badges[$this->status] ?? 'bg-gray-100 text-gray-800';
-    }
-    
-    /**
-     * Ottiene l'etichetta della modalità di pagamento
-     */
     public function getPaymentMethodLabelAttribute(): string
     {
         return config('gestionale.modalita_pagamento.' . $this->payment_method, $this->payment_method);
-    }
-    
-    /**
-     * Marca come pagato
-     */
-    public function markAsPaid($paidAt = null)
-    {
-        $this->paid_at = $paidAt ?? now();
-        $this->status = self::STATUS_PAID;
-        $this->save();
-    }
-    
-    /**
-     * Marca come scaduto
-     */
-    public function markAsOverdue()
-    {
-        if ($this->status === self::STATUS_PENDING && $this->due_date < now()) {
-            $this->status = self::STATUS_OVERDUE;
-            $this->save();
-        }
     }
 }

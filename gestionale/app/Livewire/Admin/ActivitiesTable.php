@@ -149,7 +149,7 @@ class ActivitiesTable extends Component
         // Usa select specifiche per ridurre il carico
         $query->select([
             'activities.*',
-            DB::raw('(SELECT SUM(n_ore) FROM activities_staff_lnk WHERE activities_staff_lnk.id_attivita = activities.id) as total_ore')
+            DB::raw('(SELECT SUM(n_ore) FROM activities_staff_lnk WHERE activities_staff_lnk.id_activities = activities.id) as total_ore')
         ]);
         
         $query->orderBy($this->sortField, $this->sortDirection);

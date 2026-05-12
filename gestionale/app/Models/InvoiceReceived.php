@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class InvoiceReceived extends Model
 {
@@ -25,6 +27,7 @@ class InvoiceReceived extends Model
         'status',
         'sdi_id',
         'xml_filename',
+        'xml_content', 
         'file_hash',
         'imported_at',
     ];
@@ -73,6 +76,33 @@ class InvoiceReceived extends Model
     public function rows(): HasMany
     {
         return $this->hasMany(InvoiceRow::class, 'document_id')->where('document_type', 'invoice_received');
+    }
+
+    /**
+     * Ottiene il contenuto XML della fattura (senza allegati)
+     */
+    public function getXmlContentAttribute(): ?string
+    {
+        // Usa attributes invece di accedere direttamente alla proprietà
+        if (isset($this->attributes['xml_content']) && !empty($this->attributes['xml_content'])) {
+            // Rimuovi gli allegati per la visualizzazione
+            return $this->removeAttachmentsFromXml($this->attributes['xml_content']);
+        }
+        
+        Log::warning('Nessun xml_content per fattura ID: ' . $this->id);
+        return null;
+    }
+
+    /**
+     * Rimuove gli allegati dall'XML per la visualizzazione
+     */
+    private function removeAttachmentsFromXml($xmlString)
+    {
+        $xmlString = preg_replace('/<Allegati>.*?<\/Allegati>/is', '', $xmlString);
+        $xmlString = preg_replace('/<Allegato>.*?<\/Allegato>/is', '', $xmlString);
+        $xmlString = preg_replace('/<FatturaFirmata>.*?<\/FatturaFirmata>/is', '', $xmlString);
+        $xmlString = preg_replace('/\n\s*\n/', "\n", $xmlString);
+        return $xmlString;
     }
 
     /**

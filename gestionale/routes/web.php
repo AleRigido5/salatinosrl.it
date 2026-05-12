@@ -211,10 +211,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
             // ⚠️ IMPORTANTE: /xml-import DEVE essere PRIMA di /{invoice} ⚠️
             Route::get('/xml-import', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'xmlImport'])->name('xml-import');
             
+            // Visualizzazione XML fattura (DEVE essere PRIMA di /{invoice})
+            Route::get('/{id}/xml-pdf', [App\Http\Controllers\Admin\InvoiceXmlController::class, 'showAsPdf'])->name('xml-pdf');
+            Route::get('/{id}/xml-view', [App\Http\Controllers\Admin\InvoiceXmlController::class, 'showAsHtml'])->name('xml-view');
+            
             // Questa rotta con parametro {invoice} DEVE andare DOPO
             Route::get('/{invoice}', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'show'])->name('show');
-            Route::get('/{invoice}/edit', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'edit'])->name('edit');
-            Route::put('/{invoice}', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'update'])->name('update');
             Route::delete('/{invoice}', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'destroy'])->name('destroy');
             
             Route::get('/export/pdf', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'exportPdf'])->name('export.pdf');

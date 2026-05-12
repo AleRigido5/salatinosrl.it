@@ -187,21 +187,97 @@
                     <h3 class="font-bold mb-4">Righe Fattura ({{ count($rows) }})</h3>
                     @if(count($rows) > 0)
                         <div class="overflow-x-auto">
-                            <table class="min-w-full border rounded-lg">
+                            <table class="table-fixed w-full border rounded-lg">
                                 <thead class="bg-gray-50">
                                     <tr>
+                                        <th class="px-3 py-2 text-left w-32">Codice Art.</th>
+                                        <th class="px-3 py-2 text-left w-80">Descrizione</th>
+                                        <th class="px-3 py-2 text-right w-20">Q.ta</th>
+                                        <th class="px-3 py-2 text-center w-16">U.M.</th>
+                                        <th class="px-3 py-2 text-right w-32">Prezzo Unit.</th>
+                                        <th class="px-3 py-2 text-right w-20">Sconto</th>
+                                        <th class="px-3 py-2 text-right w-32">Prezzo Tot.</th>
+                                        <th class="px-3 py-2 text-center w-16">Iva%</th>
+                                        <th class="px-3 py-2 text-left w-40">Natura</th>
                                         <th class="px-3 py-2 text-left w-64">Centro Costo</th>
-                                        <th class="px-3 py-2 text-left">Descrizione</th>
-                                        <th class="px-3 py-2 text-right w-24">Qtà</th>
-                                        <th class="px-3 py-2 text-right w-28">Prezzo Unit.</th>
-                                        <th class="px-3 py-2 text-right w-20">Sconto %</th>
-                                        <th class="px-3 py-2 text-right w-28">Totale</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($rows as $index => $row)
-                                    {{-- FIX: wire:key include id_cost_center così cambiando CC Livewire re-renderizza il DOM --}}
                                     <tr class="border-b hover:bg-gray-50" wire:key="row-{{ $index }}-{{ $row['id_cost_center'] ?? 'none' }}">
+
+                                        <!-- Codice Articolo -->
+                                        <td class="px-3 py-2 align-top">
+                                            @if(!empty($row['codice_articolo']))
+                                                @foreach($row['codice_articolo'] as $codice)
+                                                    <div class="text-xs">
+                                                        <span class="font-medium">{{ $codice['tipo'] }}:</span>
+                                                        <span class="text-gray-600">{{ $codice['valore'] }}</span>
+                                                    </div>
+                                                @endforeach
+                                            @else
+                                                <span class="text-gray-400 text-xs">-</span>
+                                            @endif
+                                        </td>
+
+                                        <!-- Descrizione -->
+                                        <td class="px-3 py-2">
+                                            <span class="text-sm">{{ $row['description'] ?: 'Descrizione non disponibile' }}</span>
+                                        </td>
+
+                                        <!-- Quantità -->
+                                        <td class="px-3 py-2 text-right">
+                                            <span class="text-sm">{{ number_format($row['quantity'], 3, ',', '.') }}</span>
+                                        </td>
+
+                                        <!-- Unità di Misura -->
+                                        <td class="px-3 py-2 text-center">
+                                            <span class="text-xs">{{ $row['unita_misura'] ?: '-' }}</span>
+                                        </td>
+
+                                        <!-- Prezzo Unitario -->
+                                        <td class="px-3 py-2 text-right">
+                                            <span class="text-sm">{{ number_format($row['unit_price'], 4, ',', '.') }} €</span>
+                                        </td>
+
+                                        <!-- Sconto -->
+                                        <td class="px-3 py-2 text-right">
+                                            <span class="text-sm">{{ $row['discount_percentage'] > 0 ? number_format($row['discount_percentage'], 2, ',', '.') . '%' : '-' }}</span>
+                                        </td>
+
+                                        <!-- Prezzo Totale -->
+                                        <td class="px-3 py-2 text-right">
+                                            <span class="text-sm font-medium">
+                                                {{ number_format(($row['quantity'] * $row['unit_price']) * (1 - ($row['discount_percentage'] / 100)), 2, ',', '.') }} €
+                                            </span>
+                                        </td>
+
+                                        <!-- Iva % -->
+                                        <td class="px-3 py-2 text-center">
+                                            <span class="text-sm">{{ $row['aliquota_iva'] ?? '-' }}%</span>
+                                        </td>
+
+                                        <!-- Natura -->
+                                        <td class="px-3 py-2 align-top">
+                                            @if(!empty($row['natura']))
+                                                <div class="text-xs">
+                                                    <span class="font-medium">{{ $row['natura'] }}</span>
+                                                    @php
+                                                        $naturaLabel = $this->getNaturaLabel($row['natura']);
+                                                    @endphp
+                                                    @if($naturaLabel)
+                                                        <div class="text-gray-500 text-xs">{{ $naturaLabel }}</div>
+                                                    @endif
+                                                    @if(!empty($row['riferimento_amministrativo']))
+                                                        <div class="text-gray-400 text-xs mt-1">Rif. Amm.: {{ $row['riferimento_amministrativo'] }}</div>
+                                                    @endif
+                                                </div>
+                                            @else
+                                                <span class="text-gray-400 text-xs">-</span>
+                                            @endif
+                                        </td>
+
+                                        <!-- Centro di Costo -->
                                         <td class="px-3 py-2">
                                             <div class="relative">
                                                 <input type="text" 
@@ -225,29 +301,12 @@
                                                 <div class="text-xs text-gray-400 mt-1">Non assegnato</div>
                                             @endif
                                         </td>
-                                        <td class="px-3 py-2">
-                                            <span class="text-sm">{{ $row['description'] ?: 'Descrizione non disponibile' }}</span>
-                                        </td>
-                                        <td class="px-3 py-2 text-right">
-                                            <span class="text-sm">{{ number_format($row['quantity'], 3, ',', '.') }}</span>
-                                        </td>
-                                        <td class="px-3 py-2 text-right">
-                                            <span class="text-sm">{{ number_format($row['unit_price'], 4, ',', '.') }} €</span>
-                                        </td>
-                                        <td class="px-3 py-2 text-right">
-                                            <span class="text-sm">{{ $row['discount_percentage'] > 0 ? number_format($row['discount_percentage'], 2, ',', '.') . '%' : '-' }}</span>
-                                        </td>
-                                        <td class="px-3 py-2 text-right">
-                                            <span class="text-sm font-medium">
-                                                {{ number_format(($row['quantity'] * $row['unit_price']) * (1 - ($row['discount_percentage'] / 100)), 2, ',', '.') }} €
-                                            </span>
-                                        </td>
                                     </tr>
                                     @endforeach
                                 </tbody>
                                 <tfoot class="bg-gray-50">
                                     <tr>
-                                        <td colspan="5" class="px-3 py-3 text-right font-bold">TOTALE DOCUMENTO</td>
+                                        <td colspan="9" class="px-3 py-3 text-right font-bold">TOTALE DOCUMENTO</td>
                                         <td class="px-3 py-3 text-right font-bold text-lg">
                                             {{ number_format($importo_totale, 2, ',', '.') }} €
                                         </td>

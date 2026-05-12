@@ -19,6 +19,7 @@ class InvoicesXmlImport extends Component
 
     public $xml_file;
     public $xml_filename;
+    public $xml_content;
     public $file_hash;
     public $xml_parsed = false;
     public $extracted_attachments = [];
@@ -619,7 +620,7 @@ class InvoicesXmlImport extends Component
             $this->importo_totale = floatval(str_replace(',', '.', trim($match[1])));
         }
 
-        // RIGHE FATTURA
+        // RIGHE FATTURA - Versione aggiornata con nuovi campi
         $this->rows = [];
         if (preg_match_all('/<DettaglioLinee>(.*?)<\/DettaglioLinee>/is', $cleanXml, $lineeMatches)) {
             foreach ($lineeMatches[1] as $index => $lineaXml) {
@@ -628,17 +629,74 @@ class InvoicesXmlImport extends Component
                     'quantity'            => 1,
                     'unit_price'          => 0,
                     'discount_percentage' => 0,
+                    'aliquota_iva'        => 0,
                     'id_cost_center'      => null,
                     'cost_center_name'    => '',
+                    'codice_articolo'     => [],
+                    'unita_misura'        => '',
+                    'natura'              => '',
+                    'riferimento_amministrativo' => '',
                 ];
 
-                if (preg_match('/<Descrizione>(.*?)<\/Descrizione>/i', $lineaXml, $match)) $row['description'] = trim($match[1]);
-                if (preg_match('/<Quantita>(.*?)<\/Quantita>/i', $lineaXml, $match)) $row['quantity'] = floatval(str_replace(',', '.', trim($match[1])));
-                if (preg_match('/<PrezzoUnitario>(.*?)<\/PrezzoUnitario>/i', $lineaXml, $match)) $row['unit_price'] = floatval(str_replace(',', '.', trim($match[1])));
+                // Descrizione
+                if (preg_match('/<Descrizione>(.*?)<\/Descrizione>/i', $lineaXml, $match)) {
+                    $row['description'] = trim($match[1]);
+                }
+                
+                // Quantità
+                if (preg_match('/<Quantita>(.*?)<\/Quantita>/i', $lineaXml, $match)) {
+                    $row['quantity'] = floatval(str_replace(',', '.', trim($match[1])));
+                }
+                
+                // Prezzo Unitario
+                if (preg_match('/<PrezzoUnitario>(.*?)<\/PrezzoUnitario>/i', $lineaXml, $match)) {
+                    $row['unit_price'] = floatval(str_replace(',', '.', trim($match[1])));
+                }
+                
+                // Unità di Misura
+                if (preg_match('/<UnitaMisura>(.*?)<\/UnitaMisura>/i', $lineaXml, $match)) {
+                    $row['unita_misura'] = trim($match[1]);
+                }
+                
+                // ALIQUOTA IVA - AGGIUNGI QUESTA PARTE
+                if (preg_match('/<AliquotaIVA>(.*?)<\/AliquotaIVA>/i', $lineaXml, $match)) {
+                    $row['aliquota_iva'] = floatval(str_replace(',', '.', trim($match[1])));
+                }
 
+                // Sconto
                 if (preg_match('/<ScontoMaggiorazione>(.*?)<\/ScontoMaggiorazione>/is', $lineaXml, $scontoMatch)) {
                     if (preg_match('/<Percentuale>(.*?)<\/Percentuale>/i', $scontoMatch[1], $percMatch)) {
                         $row['discount_percentage'] = floatval(str_replace(',', '.', trim($percMatch[1])));
+                    }
+                }
+                
+                // Natura (es. N1, N2, N3, N4, N5, N6, N7)
+                if (preg_match('/<Natura>(.*?)<\/Natura>/i', $lineaXml, $match)) {
+                    $row['natura'] = trim($match[1]);
+                }
+                
+                // Riferimento Amministrativo
+                if (preg_match('/<RiferimentoAmministrativo>(.*?)<\/RiferimentoAmministrativo>/i', $lineaXml, $match)) {
+                    $row['riferimento_amministrativo'] = trim($match[1]);
+                }
+                
+                // Codice Articolo (codice tipo e valore)
+                if (preg_match_all('/<CodiceArticolo>(.*?)<\/CodiceArticolo>/is', $lineaXml, $codiceMatches)) {
+                    foreach ($codiceMatches[1] as $codiceXml) {
+                        $codiceTipo = '';
+                        $codiceValore = '';
+                        if (preg_match('/<CodiceTipo>(.*?)<\/CodiceTipo>/i', $codiceXml, $tipoMatch)) {
+                            $codiceTipo = trim($tipoMatch[1]);
+                        }
+                        if (preg_match('/<CodiceValore>(.*?)<\/CodiceValore>/i', $codiceXml, $valoreMatch)) {
+                            $codiceValore = trim($valoreMatch[1]);
+                        }
+                        if (!empty($codiceTipo) || !empty($codiceValore)) {
+                            $row['codice_articolo'][] = [
+                                'tipo' => $codiceTipo,
+                                'valore' => $codiceValore
+                            ];
+                        }
                     }
                 }
 
@@ -721,6 +779,14 @@ class InvoicesXmlImport extends Component
         $this->show_cost_center_all_dropdown = false;
     }
 
+    /**
+     * Ottiene l'etichetta della natura operazione
+     */
+    public function getNaturaLabel($natura)
+    {
+        return config('gestionale.natura_operazione.' . $natura, '');
+    }
+
     private function removeAttachmentsFromXml($xmlString)
     {
         // Rimuovi il nodo Allegati con tutto il suo contenuto
@@ -794,10 +860,24 @@ class InvoicesXmlImport extends Component
 
     private function saveXmlFile()
     {
-        if (!$this->xml_file) return null;
+        if (!$this->xml_file) {
+            return null;
+        }
         
+        // Leggi il contenuto del file XML caricato
+        $content = file_get_contents($this->xml_file->getRealPath());
+        
+        // Pulisci l'XML dagli allegati
+        $cleanContent = $this->removeAttachmentsFromXml($content);
+        
+        // Salva il contenuto XML nella proprietà per essere salvato nel database
+        $this->xml_content = $cleanContent;
+        
+        // Genera solo un nome per il file (opzionale, per riferimento)
         $fornitorePiva = preg_replace('/[^A-Za-z0-9]/', '', $this->fornitore_partita_iva);
-        if (empty($fornitorePiva)) $fornitorePiva = 'piva_non_trovata_' . time();
+        if (empty($fornitorePiva)) {
+            $fornitorePiva = 'piva_non_trovata_' . time();
+        }
         
         return $fornitorePiva . '.xml';
     }
@@ -832,6 +912,7 @@ class InvoicesXmlImport extends Component
                 'status' => $this->status,
                 'sdi_id' => $this->sdi_id,
                 'xml_filename' => $xmlStoragePath,
+                'xml_content' => $this->xml_content ?? null,
                 'file_hash' => $this->file_hash,
                 'imported_at' => now(),
             ]);

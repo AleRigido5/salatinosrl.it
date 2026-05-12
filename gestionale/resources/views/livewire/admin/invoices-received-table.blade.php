@@ -116,17 +116,20 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div class="flex items-center justify-end space-x-3">
+                                <!-- Icona Lente di ingrandimento per visualizzare XML come PDF -->
+                                <a href="{{ route('admin.invoices-received.xml-pdf', $invoice->id) }}" 
+                                target="_blank"
+                                class="text-purple-600 hover:text-purple-900 transition-colors"
+                                title="Visualizza XML come PDF">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                </a>
+                                
                                 <button wire:click="showDetails({{ $invoice->id }})"
                                         class="text-blue-600 hover:text-blue-900 transition-colors"
                                         title="Visualizza dettagli">
                                     <i class="fa-regular fa-eye"></i>
                                 </button>
-                                <a href="{{ route('admin.invoices-received.edit', $invoice) }}"
-                                   class="text-yellow-600 hover:text-yellow-900 transition-colors"
-                                   title="Modifica fattura">
-                                    <i class="fa-solid fa-pen-to-square"></i>
-                                </a>
-                                {{-- FIX: ora apre modal di conferma invece di confirm() JS --}}
+                                
                                 <button wire:click="confirmDelete({{ $invoice->id }})"
                                         class="text-red-600 hover:text-red-900 transition-colors"
                                         title="Elimina fattura">
@@ -267,15 +270,6 @@
                             <div>File XML: {{ basename($selectedInvoice->xml_filename ?? '') }}</div>
                         </div>
                     </div>
-                </div>
-
-                <div class="bg-gray-50 px-6 py-3 flex justify-end gap-3">
-                    <button x-on:click="open = false" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition">
-                        Chiudi
-                    </button>
-                    <a href="{{ route('admin.invoices-received.edit', $selectedInvoice) }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                        Modifica fattura
-                    </a>
                 </div>
             </div>
         </div>

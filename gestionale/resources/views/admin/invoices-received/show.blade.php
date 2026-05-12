@@ -8,7 +8,6 @@
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold">Dettaglio Fattura</h1>
             <div class="flex gap-2">
-                <a href="{{ route('admin.invoices-received.edit', $invoice) }}" class="px-4 py-2 bg-blue-600 text-white rounded">✏️ Modifica</a>
                 <a href="{{ route('admin.invoices-received.index') }}" class="px-4 py-2 bg-gray-600 text-white rounded">← Torna</a>
             </div>
         </div>

@@ -39,7 +39,9 @@ class InvoiceXmlController extends Controller
             $xmlContent = $this->getXmlContentSafely($invoice);
             
             if ($xmlContent) {
-                $xmlData = $this->parseXmlForDisplay($xmlContent);
+                // Pulisci i namespace prima del parsing
+                $cleanXml = $this->cleanXmlFromNamespaces($xmlContent);
+                $xmlData = $this->parseXmlForDisplay($cleanXml);
             } else {
                 // Usa dati dal database
                 $xmlData = $this->buildXmlDataFromDatabase($invoice);
@@ -56,7 +58,7 @@ class InvoiceXmlController extends Controller
             ]);
             $pdf->setPaper('a4', 'portrait');
             
-            // Sanitizza il nome del file (rimuove caratteri non validi come / \ : * ? " < > |)
+            // Sanitizza il nome del file
             $safeFilename = $this->sanitizeFilename('fattura_' . $invoice->n_invoice . '.pdf');
             
             Log::info('=== PDF GENERATION END ===', ['filename' => $safeFilename]);
@@ -76,6 +78,27 @@ class InvoiceXmlController extends Controller
             
             abort(500, 'Errore generazione PDF: ' . $e->getMessage());
         }
+    }
+    
+    /**
+     * Rimuove TUTTI i namespace dall'XML in modo universale
+     * Gestisce: ns0:Tag, ns1:Tag, ns2:Tag, ns3:Tag, p:Tag, ecc.
+     */
+    private function cleanXmlFromNamespaces(string $xmlString): string
+    {
+        // Rimuovi tutte le dichiarazioni xmlns (con apici doppi)
+        $xmlString = preg_replace('/\s+xmlns(?::\w+)?="[^"]*"/', '', $xmlString);
+        
+        // Rimuovi dichiarazioni xmlns (con apici singoli)
+        $xmlString = preg_replace("/\s+xmlns(?::\w+)?='[^']*'/", '', $xmlString);
+        
+        // Rimuovi prefissi dai tag di apertura e chiusura (es. ns0:Tag -> Tag)
+        $xmlString = preg_replace('/(<\/?)[a-zA-Z0-9]+:/', '$1', $xmlString);
+        
+        // Rimuovi eventuali spazi doppi rimasti
+        $xmlString = preg_replace('/\s+/', ' ', $xmlString);
+        
+        return $xmlString;
     }
     
     /**
@@ -161,10 +184,7 @@ class InvoiceXmlController extends Controller
     
     private function parseXmlForDisplay(string $xmlString): array
     {
-        // Rimuovi namespace per semplificare il parsing
-        $cleanXml = preg_replace('/(<\/?)[\w]+:/', '$1', $xmlString);
-        $cleanXml = preg_replace('/\s+xmlns(?::\w+)?="[^"]*"/', '', $cleanXml);
-        
+        // L'XML è già stato pulito dai namespace, possiamo usare le regex normalmente
         $data = [
             'cedente' => [],
             'cessionario' => [],
@@ -174,8 +194,9 @@ class InvoiceXmlController extends Controller
         ];
         
         // DATI FORNITORE (CedentePrestatore)
-        if (preg_match('/<CedentePrestatore>(.*?)<\/CedentePrestatore>/is', $cleanXml, $cedenteMatch)) {
+        if (preg_match('/<CedentePrestatore>(.*?)<\/CedentePrestatore>/is', $xmlString, $cedenteMatch)) {
             $cedenteXml = $cedenteMatch[1];
+            
             if (preg_match('/<Denominazione>(.*?)<\/Denominazione>/i', $cedenteXml, $match)) {
                 $data['cedente']['denominazione'] = trim($match[1]);
             }
@@ -191,8 +212,9 @@ class InvoiceXmlController extends Controller
         }
         
         // DATI COMMITTENTE (CessionarioCommittente)
-        if (preg_match('/<CessionarioCommittente>(.*?)<\/CessionarioCommittente>/is', $cleanXml, $cessionarioMatch)) {
+        if (preg_match('/<CessionarioCommittente>(.*?)<\/CessionarioCommittente>/is', $xmlString, $cessionarioMatch)) {
             $cessionarioXml = $cessionarioMatch[1];
+            
             if (preg_match('/<Denominazione>(.*?)<\/Denominazione>/i', $cessionarioXml, $match)) {
                 $data['cessionario']['denominazione'] = trim($match[1]);
             }
@@ -201,9 +223,14 @@ class InvoiceXmlController extends Controller
             }
         }
         
-        // DATI DOCUMENTO
-        if (preg_match('/<DatiGeneraliDocumento>(.*?)<\/DatiGeneraliDocumento>/is', $cleanXml, $datiGeneraliMatch)) {
+        // DATI DOCUMENTO (DatiGeneraliDocumento)
+        if (preg_match('/<DatiGeneraliDocumento>(.*?)<\/DatiGeneraliDocumento>/is', $xmlString, $datiGeneraliMatch)) {
             $datiGeneraliXml = $datiGeneraliMatch[1];
+            
+            if (preg_match('/<TipoDocumento>(.*?)<\/TipoDocumento>/i', $datiGeneraliXml, $match)) {
+                $data['documento']['tipo'] = trim($match[1]);
+                $data['documento']['tipo_label'] = config('gestionale.tipo_documento.' . $data['documento']['tipo'], $data['documento']['tipo']);
+            }
             if (preg_match('/<Numero>(.*?)<\/Numero>/i', $datiGeneraliXml, $match)) {
                 $data['documento']['numero'] = trim($match[1]);
             }
@@ -213,12 +240,16 @@ class InvoiceXmlController extends Controller
             if (preg_match('/<Divisa>(.*?)<\/Divisa>/i', $datiGeneraliXml, $match)) {
                 $data['documento']['divisa'] = trim($match[1]);
             }
+            if (preg_match('/<ImportoTotaleDocumento>(.*?)<\/ImportoTotaleDocumento>/i', $datiGeneraliXml, $match)) {
+                $data['documento']['importo_totale'] = trim($match[1]);
+            }
         }
         
-        // RIGHE FATTURA
-        if (preg_match_all('/<DettaglioLinee>(.*?)<\/DettaglioLinee>/is', $cleanXml, $lineeMatches)) {
+        // RIGHE FATTURA (DettaglioLinee)
+        if (preg_match_all('/<DettaglioLinee>(.*?)<\/DettaglioLinee>/is', $xmlString, $lineeMatches)) {
             foreach ($lineeMatches[1] as $lineaXml) {
                 $riga = [];
+                
                 if (preg_match('/<Descrizione>(.*?)<\/Descrizione>/i', $lineaXml, $match)) {
                     $riga['descrizione'] = trim($match[1]);
                 }
@@ -234,9 +265,30 @@ class InvoiceXmlController extends Controller
                 if (preg_match('/<AliquotaIVA>(.*?)<\/AliquotaIVA>/i', $lineaXml, $match)) {
                     $riga['aliquota_iva'] = trim($match[1]);
                 }
+                
                 if (!empty($riga)) {
                     $data['righe'][] = $riga;
                 }
+            }
+        }
+        
+        // DATI PAGAMENTO (DatiPagamento)
+        if (preg_match('/<DatiPagamento>(.*?)<\/DatiPagamento>/is', $xmlString, $pagamentoMatch)) {
+            $pagamentoXml = $pagamentoMatch[1];
+            
+            if (preg_match('/<ModalitaPagamento>(.*?)<\/ModalitaPagamento>/i', $pagamentoXml, $match)) {
+                $modalitaCode = trim($match[1]);
+                $data['pagamenti']['modalita'] = $modalitaCode;
+                $data['pagamenti']['modalita_label'] = config('gestionale.modalita_pagamento.' . $modalitaCode, $modalitaCode);
+            }
+            if (preg_match('/<ImportoPagamento>(.*?)<\/ImportoPagamento>/i', $pagamentoXml, $match)) {
+                $data['pagamenti']['importo'] = trim($match[1]);
+            }
+            if (preg_match('/<DataScadenzaPagamento>(.*?)<\/DataScadenzaPagamento>/i', $pagamentoXml, $match)) {
+                $data['pagamenti']['scadenza'] = trim($match[1]);
+            }
+            if (preg_match('/<IBAN>(.*?)<\/IBAN>/i', $pagamentoXml, $match)) {
+                $data['pagamenti']['iban'] = trim($match[1]);
             }
         }
         
@@ -255,10 +307,8 @@ class InvoiceXmlController extends Controller
         ]);
         $pdf->setPaper('a4', 'portrait');
         
-        // Sanitizza il nome del file
         $safeFilename = $this->sanitizeFilename('fattura_' . $invoice->n_invoice . '.pdf');
         
         return $pdf->stream($safeFilename);
-        
     }
 }

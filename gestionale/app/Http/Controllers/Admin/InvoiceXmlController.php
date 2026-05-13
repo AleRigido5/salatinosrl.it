@@ -259,5 +259,6 @@ class InvoiceXmlController extends Controller
         $safeFilename = $this->sanitizeFilename('fattura_' . $invoice->n_invoice . '.pdf');
         
         return $pdf->stream($safeFilename);
+        
     }
 }

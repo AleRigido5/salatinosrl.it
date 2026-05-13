@@ -120,7 +120,7 @@ return [
 
     'temporary_file_upload' => [
         'disk' => 'local',
-        'rules' => ['file', 'mimes:xml,text/xml,application/xml', 'max:5120'],
+        'rules' => ['file', 'max:5120'],
         'directory' => 'livewire-tmp',
         'middleware' => null,
         'preview_mimes' => ['xml'],

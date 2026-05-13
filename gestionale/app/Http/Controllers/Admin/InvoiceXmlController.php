@@ -398,6 +398,7 @@ class InvoiceXmlController extends Controller
         ];
     }
     
+    
     /**
      * Genera PDF dai dati del database (fallback)
      */

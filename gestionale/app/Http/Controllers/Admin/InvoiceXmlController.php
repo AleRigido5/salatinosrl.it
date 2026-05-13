@@ -58,7 +58,7 @@ class InvoiceXmlController extends Controller
             $xmlData['vat_summaries_list'] = $invoice->vatSummaries;
             
             // Genera PDF
-            $pdf = Pdf::loadView('admin.invoices-received.xml-pdf', [
+            $pdf = Pdf::loadView('admin.invoices-received.xml-view', [
                 'invoice' => $invoice,
                 'xmlData' => $xmlData,
             ]);
@@ -408,7 +408,7 @@ class InvoiceXmlController extends Controller
         $xmlData['payments_list'] = $invoice->payments;
         $xmlData['vat_summaries_list'] = $invoice->vatSummaries;
         
-        $pdf = Pdf::loadView('admin.invoices-received.xml-pdf', [
+        $pdf = Pdf::loadView('admin.invoices-received.xml-view', [
             'invoice' => $invoice,
             'xmlData' => $xmlData,
         ]);

@@ -56,8 +56,12 @@ class InvoiceXmlController extends Controller
             ]);
             $pdf->setPaper('a4', 'portrait');
             
-            Log::info('=== PDF GENERATION END ===');
-            return $pdf->stream('fattura_' . $invoice->n_invoice . '.pdf');
+            // Sanitizza il nome del file (rimuove caratteri non validi come / \ : * ? " < > |)
+            $safeFilename = $this->sanitizeFilename('fattura_' . $invoice->n_invoice . '.pdf');
+            
+            Log::info('=== PDF GENERATION END ===', ['filename' => $safeFilename]);
+            
+            return $pdf->stream($safeFilename);
             
         } catch (\Exception $e) {
             Log::error('ERRORE generazione PDF', [
@@ -72,6 +76,35 @@ class InvoiceXmlController extends Controller
             
             abort(500, 'Errore generazione PDF: ' . $e->getMessage());
         }
+    }
+    
+    /**
+     * Sanitizza il nome del file rimuovendo caratteri non validi
+     */
+    private function sanitizeFilename(string $filename): string
+    {
+        // Caratteri non validi per i nomi file su Windows/Linux
+        $invalidChars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|', ' ', "\n", "\r", "\t"];
+        
+        // Sostituisci caratteri non validi con underscore
+        $filename = str_replace($invalidChars, '_', $filename);
+        
+        // Rimuovi eventuali caratteri speciali rimasti
+        $filename = preg_replace('/[^a-zA-Z0-9_.-]/', '_', $filename);
+        
+        // Evita nomi vuoti o con solo punti
+        if (empty($filename) || $filename === '.' || $filename === '..') {
+            $filename = 'fattura.pdf';
+        }
+        
+        // Limita la lunghezza (max 200 caratteri)
+        if (strlen($filename) > 200) {
+            $ext = pathinfo($filename, PATHINFO_EXTENSION);
+            $name = pathinfo($filename, PATHINFO_FILENAME);
+            $filename = substr($name, 0, 200 - strlen($ext) - 1) . '.' . $ext;
+        }
+        
+        return $filename;
     }
     
     private function getXmlContentSafely($invoice): ?string
@@ -128,6 +161,7 @@ class InvoiceXmlController extends Controller
     
     private function parseXmlForDisplay(string $xmlString): array
     {
+        // Rimuovi namespace per semplificare il parsing
         $cleanXml = preg_replace('/(<\/?)[\w]+:/', '$1', $xmlString);
         $cleanXml = preg_replace('/\s+xmlns(?::\w+)?="[^"]*"/', '', $cleanXml);
         
@@ -139,7 +173,7 @@ class InvoiceXmlController extends Controller
             'pagamenti' => [],
         ];
         
-        // DATI FORNITORE
+        // DATI FORNITORE (CedentePrestatore)
         if (preg_match('/<CedentePrestatore>(.*?)<\/CedentePrestatore>/is', $cleanXml, $cedenteMatch)) {
             $cedenteXml = $cedenteMatch[1];
             if (preg_match('/<Denominazione>(.*?)<\/Denominazione>/i', $cedenteXml, $match)) {
@@ -156,7 +190,7 @@ class InvoiceXmlController extends Controller
             }
         }
         
-        // DATI COMMITTENTE
+        // DATI COMMITTENTE (CessionarioCommittente)
         if (preg_match('/<CessionarioCommittente>(.*?)<\/CessionarioCommittente>/is', $cleanXml, $cessionarioMatch)) {
             $cessionarioXml = $cessionarioMatch[1];
             if (preg_match('/<Denominazione>(.*?)<\/Denominazione>/i', $cessionarioXml, $match)) {
@@ -221,6 +255,9 @@ class InvoiceXmlController extends Controller
         ]);
         $pdf->setPaper('a4', 'portrait');
         
-        return $pdf->stream('fattura_' . $invoice->n_invoice . '.pdf');
+        // Sanitizza il nome del file
+        $safeFilename = $this->sanitizeFilename('fattura_' . $invoice->n_invoice . '.pdf');
+        
+        return $pdf->stream($safeFilename);
     }
 }

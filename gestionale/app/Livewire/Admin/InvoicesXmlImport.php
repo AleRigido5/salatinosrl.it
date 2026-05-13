@@ -609,18 +609,26 @@ class InvoicesXmlImport extends Component
         }
 
         // TOTALE: prende ImportoPagamento (somma di tutti i DettaglioPagamento)
-        // Fallback su ImportoTotaleDocumento se non trovato
+        // Se ImportoPagamento è 0 o non trovato, usa ImportoTotaleDocumento
         $importoPagamentoTotale = 0;
         if (preg_match_all('/<ImportoPagamento>(.*?)<\/ImportoPagamento>/i', $cleanXml, $pagMatches)) {
             foreach ($pagMatches[1] as $val) {
                 $importoPagamentoTotale += floatval(str_replace(',', '.', trim($val)));
             }
         }
+
+        // Se l'importo pagamento è 0, usa ImportoTotaleDocumento
         if ($importoPagamentoTotale > 0) {
             $this->importo_totale = round($importoPagamentoTotale, 2);
         } elseif (preg_match('/<ImportoTotaleDocumento>(.*?)<\/ImportoTotaleDocumento>/i', $cleanXml, $match)) {
             $this->importo_totale = floatval(str_replace(',', '.', trim($match[1])));
         }
+
+        // Log per debug
+        Log::info('Importo totale rilevato', [
+            'importo_pagamento' => $importoPagamentoTotale,
+            'importo_totale_finale' => $this->importo_totale
+        ]);
 
         // RIGHE FATTURA - Versione aggiornata con nuovi campi
         $this->rows = [];

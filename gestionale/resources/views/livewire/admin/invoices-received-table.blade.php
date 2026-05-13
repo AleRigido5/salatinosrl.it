@@ -117,7 +117,7 @@
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div class="flex items-center justify-end space-x-3">
                                 <!-- Icona Lente di ingrandimento per visualizzare XML come PDF -->
-                                <a href="{{ route('admin.invoices-received.pdf-ministeriale', $invoice->id) }}" 
+                                <a href="{{ route('admin.invoices-received.xml-view', $invoice->id) }}" 
                                 target="_blank"
                                 class="text-purple-600 hover:text-purple-900 transition-colors"
                                 title="Visualizza XML come PDF">

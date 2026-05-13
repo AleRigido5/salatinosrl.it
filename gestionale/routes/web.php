@@ -212,8 +212,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/xml-import', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'xmlImport'])->name('xml-import');
             
             // Visualizzazione XML fattura (DEVE essere PRIMA di /{invoice})
-            Route::get('/admin/invoices-received/{id}/pdf-ministeriale', [App\Http\Controllers\Admin\InvoicePdfController::class, 'showMinisteriale'])->name('pdf-ministeriale');
-            Route::get('/{id}/xml-pdf', [App\Http\Controllers\Admin\InvoiceXmlController::class, 'showAsPdf'])->name('xml-pdf');
             Route::get('/{id}/xml-view', [App\Http\Controllers\Admin\InvoiceXmlController::class, 'showAsHtml'])->name('xml-view');
             
             // Questa rotta con parametro {invoice} DEVE andare DOPO

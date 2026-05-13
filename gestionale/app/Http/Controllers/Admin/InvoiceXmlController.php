@@ -57,34 +57,40 @@ class InvoiceXmlController extends Controller
             $xmlData['payments_list'] = $invoice->payments;
             $xmlData['vat_summaries_list'] = $invoice->vatSummaries;
             
-            // Genera PDF
-            $pdf = Pdf::loadView('admin.invoices-received.xml-view', [
+            // RESTITUISCI LA VISTA HTML INVECE DEL PDF
+            return view('admin.invoices-received.xml-view', [
                 'invoice' => $invoice,
                 'xmlData' => $xmlData,
             ]);
-            $pdf->setPaper('a4', 'portrait');
-            
-            // Sanitizza il nome del file
-            $safeFilename = $this->sanitizeFilename('fattura_' . $invoice->n_invoice . '.pdf');
-            
-            Log::info('=== PDF GENERATION END ===', ['filename' => $safeFilename]);
-            
-            $safeFilename = $this->sanitizeFilename('fattura_' . $invoice->n_invoice . '.pdf');
-            return $pdf->stream($safeFilename);   
 
         } catch (\Exception $e) {
-            Log::error('ERRORE generazione PDF', [
+            Log::error('ERRORE generazione HTML', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine()
             ]);
             
             if (isset($invoice) && $invoice) {
-                return $this->generatePdfFromDatabase($invoice);
+                return $this->generateHtmlFromDatabase($invoice);
             }
             
-            abort(500, 'Errore generazione PDF: ' . $e->getMessage());
+            abort(500, 'Errore generazione HTML: ' . $e->getMessage());
         }
+    }
+    
+    /**
+     * Genera HTML dai dati del database (fallback)
+     */
+    private function generateHtmlFromDatabase($invoice)
+    {
+        $xmlData = $this->buildXmlDataFromDatabase($invoice);
+        $xmlData['payments_list'] = $invoice->payments;
+        $xmlData['vat_summaries_list'] = $invoice->vatSummaries;
+        
+        return view('admin.invoices-received.xml-view', [
+            'invoice' => $invoice,
+            'xmlData' => $xmlData,
+        ]);
     }
     
     /**

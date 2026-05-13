@@ -10,9 +10,9 @@ use Illuminate\Support\Facades\Log;
 
 class InvoiceXmlController extends Controller
 {
-    public function showAsPdf($id)
+    public function showAsHtml($id)
     {
-        Log::info('=== PDF GENERATION START ===', ['invoice_id' => $id]);
+        Log::info('=== HTML GENERATION START ===', ['invoice_id' => $id]);
         
         ini_set('memory_limit', '4096M');
         ini_set('max_execution_time', 300);
@@ -398,7 +398,7 @@ class InvoiceXmlController extends Controller
         ];
     }
     
-    
+
     /**
      * Genera PDF dai dati del database (fallback)
      */

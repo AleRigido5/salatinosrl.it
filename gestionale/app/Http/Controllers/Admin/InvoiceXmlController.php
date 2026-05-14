@@ -233,6 +233,12 @@ class InvoiceXmlController extends Controller
             Log::warning('XML vuoto dopo la pulizia');
             return $this->getEmptyData();
         }
+
+        // ============================================
+        // RIMUOVI I MARKER CDATA PRIMA DEL PARSING
+        // ============================================
+        // Sostituisce <![CDATA[contenuto]]> con 'contenuto' (senza i marker)
+        $xmlString = preg_replace('/<!\[CDATA\[(.*?)\]\]>/s', '$1', $xmlString);
         
         $data = $this->getEmptyData();
         

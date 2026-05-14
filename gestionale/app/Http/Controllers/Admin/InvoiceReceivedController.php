@@ -11,6 +11,7 @@ use App\Models\CostCenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class InvoiceReceivedController extends Controller
 {
@@ -87,6 +88,8 @@ class InvoiceReceivedController extends Controller
 
     public function xmlImport()
     {
+        Log::info('xmlImport - Auth check: ' . (Auth::guard('admin')->check() ? 'true' : 'false'));
+        Log::info('xmlImport - User ID: ' . (Auth::guard('admin')->id() ?? 'null'));
         return view('admin.invoices-received.xml-import');
     }
 

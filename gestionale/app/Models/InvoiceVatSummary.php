@@ -10,7 +10,7 @@ class InvoiceVatSummary extends Model
     protected $table = 'invoice_vat_summaries';
     
     protected $fillable = [
-        'invoice_id',
+        'invoice_id',  // <-- Tieni questa colonna
         'tax_rate',
         'sdi_nature',
         'taxable_amount',
@@ -25,29 +25,27 @@ class InvoiceVatSummary extends Model
         'tax_amount' => 'decimal:2',
     ];
     
+    // Relazione semplice con la fattura
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(InvoiceReceived::class, 'invoice_id');
     }
     
-    /**
-     * Ottiene l'etichetta della natura dal config
-     */
+    // Accessor per la natura operazione
     public function getNatureLabelAttribute(): string
     {
-        return config('gestionale.natura_operazione.' . $this->sdi_nature, $this->sdi_nature);
+        $naturaOperazione = config('gestionale.natura_operazione', []);
+        return $naturaOperazione[$this->sdi_nature] ?? $this->sdi_nature;
     }
     
-    /**
-     * Ottiene l'etichetta dell'esigibilità IVA
-     */
+    // Accessor per l'esigibilità IVA
     public function getEsigibilitaLabelAttribute(): string
     {
-        $labels = [
+        $esigibilita = [
             'I' => 'Immediata',
             'D' => 'Differita',
             'S' => 'Scissione dei pagamenti',
         ];
-        return $labels[$this->esigibilita_iva] ?? $this->esigibilita_iva;
+        return $esigibilita[$this->esigibilita_iva] ?? $this->esigibilita_iva;
     }
 }

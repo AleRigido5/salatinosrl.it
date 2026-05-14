@@ -32,6 +32,8 @@ class InvoiceReceived extends Model
         'xml_content',
         'file_hash',
         'imported_at',
+        'created_by',  
+        'updated_by',
     ];
 
     protected $casts = [
@@ -71,14 +73,36 @@ class InvoiceReceived extends Model
         return $this->hasMany(InvoiceRow::class, 'document_id')->where('document_type', 'invoice_received');
     }
 
+    /**
+     * Relazione polimorfica pagamenti
+     */
     public function payments(): MorphMany
     {
         return $this->morphMany(InvoicePayment::class, 'payable');
     }
 
-    public function vatSummaries(): HasMany
+    /**
+     * Relazione polimorfica con i riepiloghi IVA
+     */
+    public function vatSummaries(): MorphMany
     {
-        return $this->hasMany(InvoiceVatSummary::class, 'invoice_id');
+        return $this->morphMany(InvoiceVatSummary::class, 'vatable');
+    }
+
+    /**
+     * Relazione con l'amministratore che ha creato la fattura
+     */
+    public function creator()
+    {
+        return $this->belongsTo(Administrator::class, 'created_by');
+    }
+
+    /**
+     * Relazione con l'amministratore che ha modificato la fattura
+     */
+    public function updater()
+    {
+        return $this->belongsTo(Administrator::class, 'updated_by');
     }
 
     public function getSupplierNameAttribute(): string

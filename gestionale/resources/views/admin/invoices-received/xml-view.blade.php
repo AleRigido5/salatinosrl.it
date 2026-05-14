@@ -322,36 +322,66 @@
 <table class="vat-table">
     <thead>
         <tr>
-            <th style="width:35%; text-align:left; padding-left:6px">esigibilità iva / riferimenti normativi</th>
-            <th style="width:8%">%IVA</th>
-            <th style="width:12%">Spese accessorie</th>
-            <th style="width:8%">Arr.</th>
-            <th style="width:18%">Totale imponibile</th>
-            <th style="width:19%">Totale imposta</th>
+            <th style="width:35%; text-align:left; padding-left:6px">Aliquota / Natura</th>
+            <th style="width:10%">%IVA</th>
+            <th style="width:20%">Totale imponibile</th>
+            <th style="width:20%">Totale imposta</th>
+            <th style="width:15%">Totale riga</th>
         </tr>
     </thead>
     <tbody>
         @forelse($summaries as $summary)
         <tr>
             <td>
-                {{ $summary->esigibilita_label ?? $summary->esigibilita_iva ?? '' }}
                 @if($summary->sdi_nature ?? null)
-                    <br><small>{{ $summary->nature_label ?? $summary->sdi_nature }}</small>
+                    <span class="inline-block px-2 py-0.5 text-xs rounded bg-gray-100">
+                        {{ $summary->sdi_nature }}
+                    </span>
+                    <br>
+                    <small class="text-gray-500">{{ $summary->nature_label ?? $summary->sdi_nature }}</small>
+                @else
+                    IVA Ordinaria
                 @endif
-                @if($summary->vat_law_reference ?? null)
-                    <br><small>{{ $summary->vat_law_reference }}</small>
+                
+                @if($summary->esigibilita_label ?? false)
+                    <br><small class="text-gray-400">{{ $summary->esigibilita_label }}</small>
                 @endif
             </td>
-            <td class="num">{{ number_format($summary->tax_rate, 2, ',', '.') }}</td>
-            <td></td>
-            <td></td>
-            <td class="num">{{ number_format($summary->taxable_amount, 2, ',', '.') }}</td>
-            <td class="num">{{ number_format($summary->tax_amount, 2, ',', '.') }}</td>
+            
+            <td class="num">
+                <strong>{{ number_format($summary->tax_rate, 2, ',', '.') }}%</strong>
+            </td>
+            
+            <td class="num">
+                {{ number_format($summary->taxable_amount, 2, ',', '.') }} €
+            </td>
+            
+            <td class="num">
+                {{ number_format($summary->tax_amount, 2, ',', '.') }} €
+            </td>
+            
+            <td class="num">
+                <strong>{{ number_format($summary->taxable_amount + $summary->tax_amount, 2, ',', '.') }} €</strong>
+            </td>
         </tr>
         @empty
-        <tr><td colspan="6" style="text-align:center; padding:8px; color:#666;">Nessun riepilogo IVA</td></tr>
+        <tr>
+            <td colspan="5" style="text-align:center; padding:12px; color:#999;">
+                Nessun riepilogo IVA
+            </td>
+        </tr>
         @endforelse
     </tbody>
+    @if($summaries->count() > 0)
+    <tfoot class="bg-gray-50">
+        <tr>
+            <td class="text-right font-bold" colspan="2">TOTALI</td>
+            <td class="num font-bold">{{ number_format($summaries->sum('taxable_amount'), 2, ',', '.') }} €</td>
+            <td class="num font-bold">{{ number_format($summaries->sum('tax_amount'), 2, ',', '.') }} €</td>
+            <td class="num font-bold text-lg">{{ number_format($summaries->sum('taxable_amount') + $summaries->sum('tax_amount'), 2, ',', '.') }} €</td>
+        </tr>
+    </tfoot>
+    @endif
 </table>
 
 {{-- Riga importo bollo / sconto / valuta / totale documento --}}

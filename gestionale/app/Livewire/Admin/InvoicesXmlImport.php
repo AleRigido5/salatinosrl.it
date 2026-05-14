@@ -12,6 +12,7 @@ use App\Models\CostCenter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 
 class InvoicesXmlImport extends Component
 {
@@ -186,7 +187,7 @@ class InvoicesXmlImport extends Component
     public function uploadXml()
     {
         $this->validate([
-            'xml_file' => 'required|file|mimes:xml|max:10240',
+            'xml_file' => 'required|file|max:10240',
         ]);
 
         try {
@@ -521,6 +522,9 @@ class InvoicesXmlImport extends Component
         $cleanXml = preg_replace('/(<\/?)[\w]+:/', '$1', $xmlString);
         $cleanXml = preg_replace('/\s+xmlns(?::\w+)?="[^"]*"/', '', $cleanXml);
 
+        // RIMUOVI I MARKER CDATA
+        $cleanXml = $this->removeCdataFromXml($cleanXml);
+
         // Da questo momento lavoriamo su $cleanXml per tutte le regex
         // -------------------------------------------------------
 
@@ -769,9 +773,11 @@ class InvoicesXmlImport extends Component
         }
 
         // ============================================
-        // ESTRAZIONE PAGAMENTI
+        // ESTRAZIONE PAGAMENTI (supporto rate multiple)
         // ============================================
         $this->payments = [];
+
+        // Verifica se ci sono più DettaglioPagamento (rate)
         if (preg_match_all('/<DettaglioPagamento>(.*?)<\/DettaglioPagamento>/is', $cleanXml, $dettaglioMatches)) {
             foreach ($dettaglioMatches[1] as $dettaglioXml) {
                 $payment = [
@@ -781,15 +787,22 @@ class InvoicesXmlImport extends Component
                     'iban' => null,
                 ];
                 
+                // Data scadenza (se presente)
                 if (preg_match('/<DataScadenzaPagamento>(.*?)<\/DataScadenzaPagamento>/i', $dettaglioXml, $match)) {
                     $payment['due_date'] = trim($match[1]);
                 }
+                
+                // Importo pagamento
                 if (preg_match('/<ImportoPagamento>(.*?)<\/ImportoPagamento>/i', $dettaglioXml, $match)) {
                     $payment['amount'] = floatval(str_replace(',', '.', trim($match[1])));
                 }
+                
+                // Modalità pagamento
                 if (preg_match('/<ModalitaPagamento>(.*?)<\/ModalitaPagamento>/i', $dettaglioXml, $match)) {
                     $payment['payment_method'] = trim($match[1]);
                 }
+                
+                // IBAN
                 if (preg_match('/<IBAN>(.*?)<\/IBAN>/i', $dettaglioXml, $match)) {
                     $payment['iban'] = trim($match[1]);
                 }
@@ -797,6 +810,32 @@ class InvoicesXmlImport extends Component
                 $this->payments[] = $payment;
             }
         }
+
+        // ============================================
+        // POST-ELABORAZIONE PAGAMENTI
+        // ============================================
+        // Se non ci sono pagamenti trovati, crea un pagamento unico con la data fattura
+        if (empty($this->payments)) {
+            Log::info('Nessun pagamento trovato nell\'XML, utilizzo data fattura come scadenza');
+            
+            $this->payments[] = [
+                'due_date' => $this->data_invoice, // Usa la data della fattura
+                'amount' => $this->importo_totale,
+                'payment_method' => null,
+                'iban' => null,
+            ];
+        } else {
+            // Per ogni pagamento, se non ha una data scadenza, usa la data della fattura
+            foreach ($this->payments as &$payment) {
+                if (empty($payment['due_date']) && !empty($this->data_invoice)) {
+                    $payment['due_date'] = $this->data_invoice;
+                    Log::info('Pagamento senza data scadenza, impostata data fattura: ' . $this->data_invoice);
+                }
+            }
+        }
+
+        // Log dei pagamenti trovati
+        Log::info('Pagamenti estratti', ['count' => count($this->payments), 'payments' => $this->payments]);
 
         // ============================================
         // ESTRAZIONE RIEPILOGO IVA
@@ -873,6 +912,15 @@ class InvoicesXmlImport extends Component
         $xmlString = preg_replace('/<FatturaFirmata>.*?<\/FatturaFirmata>/is', '', $xmlString);
         $xmlString = preg_replace('/\n\s*\n/', "\n", $xmlString);
         return $xmlString;
+    }
+
+    /**
+     * Rimuove i marker CDATA dal contenuto XML
+     */
+    private function removeCdataFromXml($xmlString)
+    {
+        // Sostituisce <![CDATA[contenuto]]> con 'contenuto' (senza i marker)
+        return preg_replace('/<!\[CDATA\[(.*?)\]\]>/s', '$1', $xmlString);
     }
 
     public function createSupplierAutomatically()
@@ -962,6 +1010,28 @@ class InvoicesXmlImport extends Component
 
     public function save()
     {
+        // DEBUG: log dei dati prima del salvataggio
+        Log::info('Tentativo salvataggio fattura', [
+            'fornitore_partita_iva' => $this->fornitore_partita_iva,
+            'n_invoice' => $this->n_invoice,
+            'data_invoice' => $this->data_invoice,
+            'importo_totale' => $this->importo_totale,
+            'rows_count' => count($this->rows),
+            'payments_count' => count($this->payments),
+            'vatSummaries_count' => count($this->vatSummaries),
+            'supplier_found' => $this->supplier_found,
+            'id_entities' => $this->id_entities,
+        ]);
+
+        // Usa la guardia admin esplicitamente
+        $adminId = null;
+        if (Auth::guard('admin')->check()) {
+            $adminId = Auth::guard('admin')->id();
+            Log::info('Admin autenticato ID: ' . $adminId);
+        } else {
+            Log::warning('Admin NON autenticato!');
+        }
+        
         if ($this->checkInvoiceExists()) {
             $this->dispatch('alert', ['type' => 'error', 'message' => "❌ FATTURA DUPLICATA! Impossibile importare."]);
             return;
@@ -971,7 +1041,20 @@ class InvoicesXmlImport extends Component
             $this->createSupplierAutomatically();
         }
         
-        $this->validate();
+        // Validazione solo dei campi obbligatori
+        try {
+            $this->validate([
+                'id_entities' => 'required|exists:entities,id_cliente',
+                'type_invoice' => 'required|string|max:10',
+                'n_invoice' => 'required|string|max:100',
+                'data_invoice' => 'required|date',
+                'divisa' => 'required|string|size:3',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Validazione fallita', ['errors' => $e->getMessage()]);
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Dati mancanti: ' . $e->getMessage()]);
+            return;
+        }
 
         try {
             DB::beginTransaction();
@@ -984,7 +1067,7 @@ class InvoicesXmlImport extends Component
                 'type_invoice' => $this->type_invoice ?: 'TD01',
                 'n_invoice' => $this->n_invoice,
                 'data_invoice' => $this->data_invoice,
-                'importo_totale' => $this->importo_totale,
+                'importo_totale' => $this->importo_totale ?: 0,
                 'causale' => $this->causale,
                 'divisa' => $this->divisa,
                 'status' => $this->status,
@@ -993,43 +1076,64 @@ class InvoicesXmlImport extends Component
                 'xml_content' => $this->xml_content ?? null,
                 'file_hash' => $this->file_hash,
                 'imported_at' => now(),
+                'created_by' => $adminId,
+                'updated_by' => $adminId,
             ]);
 
+            Log::info('Fattura creata con ID: ' . $invoice->id);
+
             // SALVA LE RIGHE
-            foreach ($this->rows as $row) {
+            foreach ($this->rows as $index => $row) {
+                Log::info('Salvataggio riga ' . $index, ['description' => $row['description']]);
+                
                 InvoiceRow::create([
                     'document_id' => $invoice->id,
                     'document_type' => 'invoice_received',
                     'id_cost_center' => $row['id_cost_center'] ?? null,
-                    'description' => $row['description'],
-                    'quantity' => $row['quantity'],
-                    'unit_price' => $row['unit_price'],
+                    'description' => $row['description'] ?? '',
+                    'quantity' => $row['quantity'] ?? 1,
+                    'unit_price' => $row['unit_price'] ?? 0,
                     'discount_percentage' => $row['discount_percentage'] ?? 0,
                 ]);
             }
             
-            // SALVA I PAGAMENTI
-            foreach ($this->payments as $payment) {
-                $invoice->payments()->create([
-                    'due_date' => $payment['due_date'],
+            // SALVA I PAGAMENTI (supporto rate multiple)
+            $defaultStatus = config('gestionale.invoice_status.issued.code', 'issued');
+
+            foreach ($this->payments as $index => $payment) {
+                // Se la data scadenza è vuota, usa la data fattura
+                $dueDate = !empty($payment['due_date']) 
+                    ? $payment['due_date'] 
+                    : $this->data_invoice;
+                
+                Log::info('Salvataggio pagamento ' . ($index + 1), [
+                    'due_date' => $dueDate,
                     'amount' => $payment['amount'],
-                    'payment_method' => $payment['payment_method'],
+                    'payment_method' => $payment['payment_method'] ?? 'Non specificato',
+                    'has_iban' => !empty($payment['iban'])
+                ]);
+                
+                $invoice->payments()->create([
+                    'due_date' => $dueDate,
+                    'amount' => $payment['amount'] ?? $this->importo_totale,
+                    'payment_method' => $payment['payment_method'] ?? null,
                     'iban' => $payment['iban'] ?? null,
-                    'status' => 'pending',
+                    'status' => $defaultStatus,
                 ]);
             }
             
             // SALVA IL RIEPILOGO IVA
             foreach ($this->vatSummaries as $summary) {
                 $invoice->vatSummaries()->create([
-                    'tax_rate' => $summary['tax_rate'],
-                    'sdi_nature' => $summary['sdi_nature'],
-                    'taxable_amount' => $summary['taxable_amount'],
-                    'tax_amount' => $summary['tax_amount'],
-                    'vat_law_reference' => $summary['vat_law_reference'],
-                    'esigibilita_iva' => $summary['esigibilita_iva'],
+                    'tax_rate' => $summary['tax_rate'] ?? 0,
+                    'sdi_nature' => $summary['sdi_nature'] ?? null,
+                    'taxable_amount' => $summary['taxable_amount'] ?? 0,
+                    'tax_amount' => $summary['tax_amount'] ?? 0,
+                    'vat_law_reference' => $summary['vat_law_reference'] ?? null,
+                    'esigibilita_iva' => $summary['esigibilita_iva'] ?? 'I',
                 ]);
             }
+
 
             DB::commit();
 
@@ -1046,7 +1150,9 @@ class InvoicesXmlImport extends Component
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Errore salvataggio: ' . $e->getMessage());
+            Log::error('Errore salvataggio: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             $this->dispatch('alert', ['type' => 'error', 'message' => 'Errore: ' . $e->getMessage()]);
         }
     }

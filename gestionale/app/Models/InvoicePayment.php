@@ -53,6 +53,11 @@ class InvoicePayment extends Model
     {
         $modalita = Config::get('gestionale.modalita_pagamento', []);
         
+        // Se payment_method è null, restituisci un valore di default
+        if ($this->payment_method === null) {
+            return 'Non specificato';
+        }
+        
         return $modalita[$this->payment_method] ?? $this->payment_method;
     }
     

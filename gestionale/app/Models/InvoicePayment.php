@@ -27,6 +27,10 @@ class InvoicePayment extends Model
         'amount' => 'decimal:2',
     ];
     
+    protected $attributes = [
+        'status' => 'issued', // Stato di default "Emessa"
+    ];
+    
     public function payable(): MorphTo
     {
         return $this->morphTo();

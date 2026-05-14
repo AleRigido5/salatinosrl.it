@@ -27,25 +27,19 @@ class InvoicePayment extends Model
         'amount' => 'decimal:2',
     ];
     
-    const STATUS_PENDING = 'pending';
-    const STATUS_PAID = 'paid';
-    const STATUS_OVERDUE = 'overdue';
-    const STATUS_CANCELLED = 'cancelled';
-    
     public function payable(): MorphTo
     {
         return $this->morphTo();
     }
     
+    /**
+     * Ottiene l'etichetta dello stato DAL CONFIG
+     */
     public function getStatusLabelAttribute(): string
     {
-        $labels = [
-            self::STATUS_PENDING => 'In attesa',
-            self::STATUS_PAID => 'Pagato',
-            self::STATUS_OVERDUE => 'Scaduto',
-            self::STATUS_CANCELLED => 'Annullato',
-        ];
-        return $labels[$this->status] ?? $this->status;
+        $invoiceStatuses = Config::get('gestionale.invoice_status', []);
+        
+        return $invoiceStatuses[$this->status]['label'] ?? $this->status;
     }
     
     /**
@@ -53,29 +47,18 @@ class InvoicePayment extends Model
      */
     public function getPaymentMethodLabelAttribute(): string
     {
-        // Forza il caricamento della configurazione
-        $modalita = Config::get('gestionale.modalita_pagamento');
-        
-        // Se la configurazione non è caricata, caricala manualmente
-        if (!$modalita) {
-            $modalita = include config_path('gestionale.php');
-            $modalita = $modalita['modalita_pagamento'] ?? [];
-        }
+        $modalita = Config::get('gestionale.modalita_pagamento', []);
         
         return $modalita[$this->payment_method] ?? $this->payment_method;
     }
     
     /**
-     * Ottiene il badge dello stato
+     * Ottiene il badge dello stato DAL CONFIG
      */
     public function getStatusBadgeClassAttribute(): string
     {
-        $badges = [
-            self::STATUS_PENDING => 'bg-yellow-100 text-yellow-800',
-            self::STATUS_PAID => 'bg-green-100 text-green-800',
-            self::STATUS_OVERDUE => 'bg-red-100 text-red-800',
-            self::STATUS_CANCELLED => 'bg-gray-100 text-gray-800',
-        ];
-        return $badges[$this->status] ?? 'bg-gray-100 text-gray-800';
+        $invoiceStatuses = Config::get('gestionale.invoice_status', []);
+        
+        return $invoiceStatuses[$this->status]['badge_class'] ?? 'bg-gray-100 text-gray-800';
     }
 }

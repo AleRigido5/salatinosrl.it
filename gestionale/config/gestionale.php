@@ -20,27 +20,27 @@ return [
     | Stato fatture (acquisto e vendita)
     |--------------------------------------------------------------------------
     */
-    'invoice_status' => [
-        'draft' => [
-            'label' => 'Bozza',
-            'color' => 'gray',
-            'badge_class' => 'bg-gray-100 text-gray-800',
+     'invoice_status' => [
+        'issued' => [
+            'label' => 'Emessa',
+            'color' => 'red',
+            'badge_class' => 'bg-gray-100 text-red-800',
             'icon' => 'fa-pen'
         ],
-        'sent' => [
-            'label' => 'Inviata',
+        'viewed' => [
+            'label' => 'Visionata',
             'color' => 'blue',
             'badge_class' => 'bg-blue-100 text-blue-800',
             'icon' => 'fa-paper-plane'
         ],
-        'rejected' => [
-            'label' => 'Scartata',
-            'color' => 'red',
-            'badge_class' => 'bg-red-100 text-red-800',
+        'partially_paid' => [
+            'label' => 'Parzialmente pagata',
+            'color' => 'orange',
+            'badge_class' => 'bg-orange-100 text-red-800',
             'icon' => 'fa-times-circle'
         ],
-        'delivered' => [
-            'label' => 'Consegnata',
+        'paid' => [
+            'label' => 'Pagata',
             'color' => 'green',
             'badge_class' => 'bg-green-100 text-green-800',
             'icon' => 'fa-check-circle'

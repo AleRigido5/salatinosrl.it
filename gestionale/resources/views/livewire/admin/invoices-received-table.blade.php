@@ -5,9 +5,18 @@
             Fatture di Acquisto
         </h1>
         <div class="flex gap-2">
+            <!-- Pulsante per creazione manuale -->
+            <a href="{{ route('admin.invoices-received.create') }}" 
+            class="bg-gradient-to-r from-blue-400 to-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                <i class="fas fa-plus"></i>
+            </a>
+
+            <!-- Pulsante per Import XML -->
             <a href="{{ route('admin.invoices-received.xml-import') }}" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
                 <i class="fas fa-upload"></i> Importa XML
             </a>
+
+            <!-- Pulsante per cestino -->
             <div class="relative group">
                 <button wire:click="openTrashModal" class="relative px-5 py-2.5 rounded-lg shadow-md bg-gray-200 text-gray-700 hover:bg-gray-300">
                     <i class="fas fa-trash-alt"></i>
@@ -149,40 +158,66 @@
         <div class="mt-4 pt-3 border-t border-gray-200">
             <div class="flex flex-wrap items-center gap-2">
                 <span class="text-xs text-gray-500">Filtri attivi:</span>
+                
                 @if($selectedOwnershipId && $selectedOwnershipName)
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
                     <i class="fas fa-building mr-1 text-xs"></i> {{ $selectedOwnershipName }}
-                    <button wire:click="clearOwnership" class="ml-1 hover:text-lime-900"><i class="fas fa-times text-xs"></i></button>
+                    <button wire:click="clearOwnership" class="ml-1 hover:text-lime-900">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
                 </span>
                 @endif
+                
                 @if($selectedSupplierId && $selectedSupplierName)
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
                     <i class="fas fa-user mr-1 text-xs"></i> {{ $selectedSupplierName }}
-                    <button wire:click="clearSupplier" class="ml-1 hover:text-lime-900"><i class="fas fa-times text-xs"></i></button>
+                    <button wire:click="clearSupplier" class="ml-1 hover:text-lime-900">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
                 </span>
                 @endif
+                
                 @if($status)
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
                     <i class="fas fa-tag mr-1 text-xs"></i> {{ collect($statuses)->firstWhere('value', $status)['label'] ?? $status }}
-                    <button wire:click="$set('status', '')" class="ml-1 hover:text-lime-900"><i class="fas fa-times text-xs"></i></button>
+                    <button wire:click="clearStatus" class="ml-1 hover:text-lime-900">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
                 </span>
                 @endif
+                
                 @if($type_invoice)
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
                     <i class="fas fa-file-alt mr-1 text-xs"></i> {{ $typeDocuments[$type_invoice] ?? $type_invoice }}
-                    <button wire:click="$set('type_invoice', '')" class="ml-1 hover:text-lime-900"><i class="fas fa-times text-xs"></i></button>
+                    <button wire:click="clearTypeInvoice" class="ml-1 hover:text-lime-900">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
                 </span>
                 @endif
+                
                 @if($search)
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
                     <i class="fas fa-file-invoice mr-1 text-xs"></i> N. Fattura: "{{ $search }}"
-                    <button wire:click="$set('search', '')" class="ml-1 hover:text-lime-900"><i class="fas fa-times text-xs"></i></button>
+                    <button wire:click="clearSearch" class="ml-1 hover:text-lime-900">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
                 </span>
                 @endif
+                
                 @if($dateFrom || $dateTo)
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
                     <i class="fas fa-calendar mr-1 text-xs"></i> {{ $dateFrom ?: '...' }} → {{ $dateTo ?: '...' }}
-                    <button wire:click="$set('dateFrom', ''); $set('dateTo', '')" class="ml-1 hover:text-lime-900"><i class="fas fa-times text-xs"></i></button>
+                    <button wire:click="clearDates" class="ml-1 hover:text-lime-900">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
+                </span>
+                @endif
+                
+                @if($selectedOwnershipId || $selectedSupplierId || $status || $type_invoice || $search || $dateFrom || $dateTo)
+                <span class="text-xs text-gray-400 ml-2">
+                    <button wire:click="resetFilters" class="hover:text-red-500">
+                        <i class="fas fa-trash-alt mr-1 text-xs"></i> Rimuovi tutti
+                    </button>
                 </span>
                 @endif
             </div>
@@ -196,26 +231,52 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('data_invoice')">Data @if($sortField === 'data_invoice')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('n_invoice')">N. Fattura @if($sortField === 'n_invoice')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Fornitore</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Proprietà</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Tipo Doc.</th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('importo_totale')">Totale @if($sortField === 'importo_totale')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Stato</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('id_ownership')">
+                            Cliente 
+                            @if($sortField === 'id_ownership')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('type_invoice')">
+                            Tipo Doc. 
+                            @if($sortField === 'type_invoice')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('data_invoice')">
+                            Data 
+                            @if($sortField === 'data_invoice')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('n_invoice')">
+                            N. Fattura 
+                            @if($sortField === 'n_invoice')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('id_entities')">
+                            Fornitore 
+                            @if($sortField === 'id_entities')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Centro di Costo</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('status')">
+                            Stato 
+                            @if($sortField === 'status')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
+                        </th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('importo_totale')">
+                            Totale 
+                            @if($sortField === 'importo_totale')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
+                        </th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500">Azioni</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($invoices as $invoice)
+                    @php
+                        $costCenterNames = $invoice->rows->pluck('costCenter.Nome')->filter()->unique()->implode(', ');
+                    @endphp
                     <tr class="hover:bg-gray-50" wire:key="invoice-{{ $invoice->id }}">
+                        <td class="px-4 py-3 text-sm">{{ $invoice->ownership->RagAbbrev ?? $invoice->ownership_name }}</td>
+                        <td class="px-4 py-3 text-sm">{{ $typeDocuments[$invoice->type_invoice] ?? $invoice->type_invoice }}</td>
                         <td class="px-4 py-3 text-sm">{{ $invoice->data_invoice->format('d/m/Y') }}</td>
                         <td class="px-4 py-3 text-sm font-medium">{{ $invoice->n_invoice }}</td>
                         <td class="px-4 py-3 text-sm">{{ $invoice->supplier_name }}</td>
-                        <td class="px-4 py-3 text-sm">{{ $invoice->ownership->RagAbbrev ?? $invoice->ownership_name }}</td>
-                        <td class="px-4 py-3 text-sm">{{ $typeDocuments[$invoice->type_invoice] ?? $invoice->type_invoice }}</td>
-                        <td class="px-4 py-3 text-right font-medium">{{ number_format($invoice->importo_totale, 2, ',', '.') }} €</td>
+                        <td class="px-4 py-3 text-sm max-w-[200px] truncate" title="{{ $costCenterNames }}">{{ $costCenterNames ?: '-' }}</td>
                         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-medium {{ $invoice->status_badge_class }}">{{ $invoice->status_label }}</span></td>
+                        <td class="px-4 py-3 text-right font-medium">{{ number_format($invoice->importo_totale, 2, ',', '.') }} €</td>
                         <td class="px-4 py-3 text-center">
                             <div class="flex items-center justify-center space-x-2">
                                 <a href="{{ route('admin.invoices-received.xml-view', $invoice->id) }}" target="_blank" class="text-purple-600 hover:text-purple-900" title="Visualizza XML"><i class="fa-solid fa-magnifying-glass"></i></a>
@@ -225,7 +286,7 @@
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="8" class="text-center py-8 text-gray-500">Nessuna fattura trovata</td></tr>
+                    <tr><td colspan="9" class="text-center py-8 text-gray-500">Nessuna fattura trovata</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -408,12 +469,31 @@
 
 <script>
     document.addEventListener('livewire:initialized', () => {
+        // Evento per pulire l'input della proprietà
+        Livewire.on('clearOwnershipInput', () => {
+            const input = document.getElementById('ownership_input');
+            if (input) input.value = '';
+        });
+        
+        Livewire.on('clearSupplierInput', () => {
+            const input = document.getElementById('supplier_input');
+            if (input) input.value = '';
+        });
+        
+        Livewire.on('resetAllFilters', () => {
+            // Pulisce tutti gli input
+            const ownershipInput = document.getElementById('ownership_input');
+            if (ownershipInput) ownershipInput.value = '';
+            
+            const supplierInput = document.getElementById('supplier_input');
+            if (supplierInput) supplierInput.value = '';
+        });
+        
         Livewire.on('showSuccess', (event) => {
-            // Implementa il tuo toast di successo
             console.log('Success:', event.message);
         });
+        
         Livewire.on('showError', (event) => {
-            // Implementa il tuo toast di errore
             console.error('Error:', event.message);
         });
     });

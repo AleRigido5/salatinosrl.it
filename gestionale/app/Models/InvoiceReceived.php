@@ -117,35 +117,23 @@ class InvoiceReceived extends Model
 
     public function getStatusLabelAttribute(): string
     {
-        $labels = [
-            self::STATUS_BOZZA => 'Bozza',
-            self::STATUS_INVIATA => 'Inviata',
-            self::STATUS_SCARTATA => 'Scartata',
-            self::STATUS_CONSEGNATA => 'Consegnata',
-        ];
-        return $labels[$this->status] ?? $this->status;
+        $statuses = config('gestionale.invoice_status', []);
+        
+        return $statuses[$this->status]['label'] ?? $this->status;
     }
 
     public function getTypeInvoiceLabelAttribute(): string
     {
-        $labels = [
-            self::TYPE_TD01 => 'Fattura',
-            self::TYPE_TD04 => 'Nota di Credito',
-            self::TYPE_TD05 => 'Nota di Debito',
-            self::TYPE_TD20 => 'Autofattura',
-        ];
-        return $labels[$this->type_invoice] ?? $this->type_invoice;
+        $tipoDocumento = config('gestionale.tipo_documento', []);
+        
+        return $tipoDocumento[$this->type_invoice] ?? $this->type_invoice;
     }
 
     public function getStatusBadgeClassAttribute(): string
     {
-        $badges = [
-            self::STATUS_BOZZA => 'bg-yellow-100 text-yellow-800',
-            self::STATUS_INVIATA => 'bg-blue-100 text-blue-800',
-            self::STATUS_SCARTATA => 'bg-red-100 text-red-800',
-            self::STATUS_CONSEGNATA => 'bg-green-100 text-green-800',
-        ];
-        return $badges[$this->status] ?? 'bg-gray-100 text-gray-800';
+        $statuses = config('gestionale.invoice_status', []);
+        
+        return $statuses[$this->status]['badge_class'] ?? 'bg-gray-100 text-gray-800';
     }
 
     public function getXmlContentSafe(): ?string

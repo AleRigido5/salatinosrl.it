@@ -35,13 +35,11 @@
             </div>
         </div>
 
-        <!-- DESTRA: valore scritto direttamente da PHP, niente wire:model -->
+        <!-- DESTRA: range date con wire:model -->
         <div class="flex items-center gap-3">
-
             <input type="date"
                 value="{{ $dateFrom }}"
-                readonly
-                class="text-sm px-3 py-1.5 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-default focus:outline-none">
+                class="text-sm px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
 
             <span class="text-gray-400">
                 <i class="fas fa-arrow-right text-xs"></i>
@@ -49,8 +47,7 @@
 
             <input type="date"
                 value="{{ $dateTo }}"
-                readonly
-                class="text-sm px-3 py-1.5 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-default focus:outline-none">
+                class="text-sm px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
 
             <button type="button"
                 wire:click="applyFilters"
@@ -62,7 +59,6 @@
                     <i class="fas fa-spinner fa-spin text-sm"></i>
                 </span>
             </button>
-
         </div>
     </div>
 </div>

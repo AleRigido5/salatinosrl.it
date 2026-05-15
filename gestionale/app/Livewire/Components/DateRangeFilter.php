@@ -12,7 +12,7 @@ class DateRangeFilter extends Component
     public int $selectedMonth;
     public int $selectedYear;
 
-    protected $listeners = ['resetDates' => 'resetDates'];
+    protected $listeners = ['resetDates' => 'resetDates', 'resetDateRangeFilterWithoutApply' => 'resetDateRangeFilterWithoutApply'];
 
     public function mount(): void
     {
@@ -76,6 +76,29 @@ class DateRangeFilter extends Component
         $this->selectedMonth = Carbon::now()->month;
         $this->selectedYear  = Carbon::now()->year;
         $this->syncDatesFromSelects();
+        $this->applyFilters();
+    }
+
+    public function resetDateRangeFilterWithoutApply(): void
+    {
+        // Resetta al mese corrente
+        $this->selectedMonth = Carbon::now()->month;
+        $this->selectedYear = Carbon::now()->year;
+        $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
+        $this->dateTo = Carbon::now()->endOfMonth()->format('Y-m-d');
+        
+        // NON chiamare applyFilters() per non riattivare il filtro!
+        // Invia comunque le date vuote alla tabella principale
+        $this->dispatch('dateRangeUpdated', [
+            'date_from' => '',
+            'date_to' => '',
+        ]);
+    }
+
+    public function clearDates(): void
+    {
+        $this->dateFrom = '';
+        $this->dateTo = '';
         $this->applyFilters();
     }
 

@@ -76,6 +76,18 @@ class InvoicesXmlImport extends Component
     public $all_ownerships = [];
     public $all_costCenters = [];
 
+    // Mezzo globale
+    public $vehicle_all_search = '';
+    public $vehicle_all_results = [];
+    public $show_vehicle_all_dropdown = false;
+
+    // Mezzo per riga
+    public $row_vehicle_search = [];
+    public $row_vehicle_results = [];
+    public $show_row_vehicle_dropdown = [];
+
+    public $all_vehicles = [];
+
     protected $rules = [
         'id_entities' => 'required|exists:entities,id_cliente',
         'id_ownership' => 'nullable|exists:ownership,id_proprieta',
@@ -100,10 +112,25 @@ class InvoicesXmlImport extends Component
 
     public function loadAllData()
     {
+        // Carica i centri di costo
         $this->all_costCenters = CostCenter::where('valid', 1)
             ->select('id', 'Nome as name')
             ->orderBy('Nome')
             ->get()
+            ->toArray();
+        
+        // Carica i veicoli
+        $this->all_vehicles = DB::table('vehicles')
+            ->where('valid', 1)
+            ->select('id', 'marca', 'modello', 'targa', 'tipologia')
+            ->get()
+            ->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'name' => trim($item->marca . ' ' . $item->modello . ' (' . $item->targa . ')'),
+                    'details' => $item->tipologia . ' - ' . $item->targa
+                ];
+            })
             ->toArray();
     }
 
@@ -148,6 +175,46 @@ class InvoicesXmlImport extends Component
     }
 
     // ============================================
+    // AUTOCOMPLETE MEZZO GLOBALE
+    // ============================================
+    public function updatedVehicleAllSearch()
+    {
+        if (empty($this->vehicle_all_search)) {
+            $this->vehicle_all_results = [];
+            $this->show_vehicle_all_dropdown = false;
+            return;
+        }
+
+        $search = strtolower($this->vehicle_all_search);
+        $this->vehicle_all_results = array_values(array_slice(
+            array_filter($this->all_vehicles, fn($vehicle) => str_contains(strtolower($vehicle['name']), $search)),
+            0, 10
+        ));
+        $this->show_vehicle_all_dropdown = !empty($this->vehicle_all_results);
+    }
+
+    public function applyVehicleToAllRows($id)
+    {
+        $vehicle = collect($this->all_vehicles)->firstWhere('id', (int)$id);
+        
+        if ($vehicle) {
+            foreach ($this->rows as $index => $row) {
+                $this->rows[$index]['id_vehicle'] = (int)$id;
+                $this->rows[$index]['vehicle_name'] = $vehicle['name'];
+                $this->row_vehicle_search[$index] = $vehicle['name'];
+                $this->row_vehicle_results[$index] = [];
+                $this->show_row_vehicle_dropdown[$index] = false;
+            }
+            
+            $this->vehicle_all_search = $vehicle['name'];
+            $this->vehicle_all_results = [];
+            $this->show_vehicle_all_dropdown = false;
+            
+            $this->dispatch('alert', type: 'success', message: "Mezzo '{$vehicle['name']}' applicato a tutte le " . count($this->rows) . " righe");
+        }
+    }
+
+    // ============================================
     // AUTOCOMPLETE CENTRO DI COSTO PER RIGA
     // ============================================
     public function updatedRowCostCenterSearch($value, $index)
@@ -179,6 +246,50 @@ class InvoicesXmlImport extends Component
             
             $this->dispatch('alert', type: 'success', message: "Centro di costo '{$cc['name']}' applicato alla riga " . ($index + 1));
         }
+    }
+
+    // ============================================
+    // AUTOCOMPLETE MEZZO PER RIGA
+    // ============================================
+    public function updatedRowVehicleSearch($value, $index)
+    {
+        if (empty($value)) {
+            $this->row_vehicle_results[$index] = [];
+            $this->show_row_vehicle_dropdown[$index] = false;
+            return;
+        }
+
+        $search = strtolower($value);
+        $this->row_vehicle_results[$index] = array_values(array_slice(
+            array_filter($this->all_vehicles, fn($vehicle) => str_contains(strtolower($vehicle['name']), $search)),
+            0, 10
+        ));
+        $this->show_row_vehicle_dropdown[$index] = !empty($this->row_vehicle_results[$index]);
+    }
+
+    public function selectVehicleForRow($id, $index)
+    {
+        $vehicle = collect($this->all_vehicles)->firstWhere('id', (int)$id);
+        
+        if ($vehicle) {
+            $this->rows[$index]['id_vehicle'] = (int)$id;
+            $this->rows[$index]['vehicle_name'] = $vehicle['name'];
+            $this->row_vehicle_search[$index] = $vehicle['name'];
+            $this->row_vehicle_results[$index] = [];
+            $this->show_row_vehicle_dropdown[$index] = false;
+            
+            // Forza l'aggiornamento della UI
+            $this->dispatch('refreshVehicleAutocomplete');
+            
+            $this->dispatch('alert', type: 'success', message: "Mezzo '{$vehicle['name']}' applicato alla riga " . ($index + 1));
+        }
+    }
+
+    public function clearVehicleForRow($index)
+    {
+        $this->rows[$index]['id_vehicle'] = null;
+        $this->rows[$index]['vehicle_name'] = '';
+        $this->row_vehicle_search[$index] = '';
     }
 
     // ============================================
@@ -646,6 +757,8 @@ class InvoicesXmlImport extends Component
                     'aliquota_iva'        => 0,
                     'id_cost_center'      => null,
                     'cost_center_name'    => '',
+                    'id_vehicle'          => null,   
+                    'vehicle_name'        => '', 
                     'codice_articolo'     => [],
                     'unita_misura'        => '',
                     'natura'              => '',
@@ -875,7 +988,7 @@ class InvoicesXmlImport extends Component
             }
         }
 
-        $this->status = 'bozza';
+        $this->status = 'issued';
 
         // Non ricalcolare il totale dalle righe: lo abbiamo già preso da ImportoPagamento
         // $this->calculateTotal(); // <-- commentato intenzionalmente
@@ -884,17 +997,26 @@ class InvoicesXmlImport extends Component
         $this->row_cost_center_search = [];
         $this->row_cost_center_results = [];
         $this->show_row_cost_center_dropdown = [];
+        $this->row_vehicle_search = [];           
+        $this->row_vehicle_results = [];          
+        $this->show_row_vehicle_dropdown = [];
 
         foreach ($this->rows as $index => $row) {
             $this->row_cost_center_search[$index] = $row['cost_center_name'] ?? '';
             $this->row_cost_center_results[$index] = [];
             $this->show_row_cost_center_dropdown[$index] = false;
+            $this->row_vehicle_search[$index] = $row['vehicle_name'] ?? '';      
+            $this->row_vehicle_results[$index] = [];                              
+            $this->show_row_vehicle_dropdown[$index] = false; 
         }
 
         $this->cost_center_all_search = '';
         $this->cost_center_all_results = [];
         $this->show_cost_center_all_dropdown = false;
-    }
+        $this->vehicle_all_search = '';        
+        $this->vehicle_all_results = [];       
+        $this->show_vehicle_all_dropdown = false;
+    }       
 
     /**
      * Ottiene l'etichetta della natura operazione
@@ -1090,6 +1212,7 @@ class InvoicesXmlImport extends Component
                     'document_id' => $invoice->id,
                     'document_type' => 'invoice_received',
                     'id_cost_center' => $row['id_cost_center'] ?? null,
+                    'id_vehicle' => $row['id_vehicle'] ?? null,
                     'description' => $row['description'] ?? '',
                     'quantity' => $row['quantity'] ?? 1,
                     'unit_price' => $row['unit_price'] ?? 0,

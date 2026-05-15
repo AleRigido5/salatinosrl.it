@@ -23,13 +23,9 @@ class InvoiceReceivedController extends Controller
     public function create()
     {
         $ownerships = Ownership::where('valid', 1)->get();
-        $entities = Entity::where('valid', 1)
-            ->whereIn('entity_type', ['fornitore', 'entrambi'])
-            ->orderBy('ragione_sociale')
-            ->get();
-        $costCenters = CostCenter::where('valid', 1)->orderBy('Nome')->get();
+        $tipoDocumento = config('gestionale.tipo_documento', []);
         
-        return view('admin.invoices-received.create', compact('ownerships', 'entities', 'costCenters'));
+        return view('admin.invoices-received.create', compact('ownerships', 'tipoDocumento'));
     }
 
     public function store(Request $request)

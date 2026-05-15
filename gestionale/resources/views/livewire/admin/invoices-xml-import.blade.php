@@ -153,9 +153,9 @@
                 <!-- ============================================ -->
                 <!-- CENTRO DI COSTO - Applica a TUTTE le righe -->
                 <!-- ============================================ -->
-                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200" wire:key="cost-center-all-{{ $cost_center_all_search }}>
                     <label class="block text-sm font-medium mb-2 text-blue-800">
-                        🏷️ Applica Centro di Costo a TUTTE le {{ count($rows) }} righe
+                        Applica Centro di Costo a TUTTE le {{ count($rows) }} righe
                     </label>
                     <div class="relative">
                         <input type="text" 
@@ -181,6 +181,36 @@
                 </div>
 
                 <!-- ============================================ -->
+                <!-- MEZZO - Applica a TUTTE le righe -->
+                <!-- ============================================ -->
+                <div class="bg-green-50 p-4 rounded-lg border border-green-200" wire:key="vehicle-all-{{ $vehicle_all_search }}">
+                    <label class="block text-sm font-medium mb-2 text-green-800">
+                        Applica Mezzo a TUTTE le {{ count($rows) }} righe
+                    </label>
+                    <div class="relative">
+                        <input type="text" 
+                            wire:model.live.debounce.300ms="vehicle_all_search"
+                            class="w-full border rounded-lg px-3 py-2"
+                            placeholder="Cerca mezzo (targa, marca, modello)..."
+                            autocomplete="off">
+                        @if(!empty($vehicle_all_results))
+                            <div class="autocomplete-dropdown">
+                                @foreach($vehicle_all_results as $vehicle)
+                                    <div class="autocomplete-item" wire:click="applyVehicleToAllRows({{ $vehicle['id'] }})">
+                                        {{ $vehicle['name'] }}
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                    @if($vehicle_all_search)
+                        <div class="text-xs text-green-600 mt-2">
+                            ✅ Selezionato: "{{ $vehicle_all_search }}"
+                        </div>
+                    @endif
+                </div>
+
+                <!-- ============================================ -->
                 <!-- RIGHE FATTURA -->
                 <!-- ============================================ -->
                 <div>
@@ -200,11 +230,12 @@
                                         <th class="px-3 py-2 text-center w-16">Iva%</th>
                                         <th class="px-3 py-2 text-left w-40">Natura</th>
                                         <th class="px-3 py-2 text-left w-64">Centro Costo</th>
+                                        <th class="px-3 py-2 text-left w-64">Mezzo</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach($rows as $index => $row)
-                                    <tr class="border-b hover:bg-gray-50" wire:key="row-{{ $index }}-{{ $row['id_cost_center'] ?? 'none' }}">
+                                    <tr class="border-b hover:bg-gray-50" wire:key="row-{{ $index }}-{{ $row['id_cost_center'] ?? 'none' }}-{{ $row['id_vehicle'] ?? 'none' }}">
 
                                         <!-- Codice Articolo -->
                                         <td class="px-3 py-2 align-top">
@@ -297,6 +328,31 @@
                                             </div>
                                             @if($row['cost_center_name'])
                                                 <div class="text-xs text-green-600 mt-1">✓ {{ $row['cost_center_name'] }}</div>
+                                            @else
+                                                <div class="text-xs text-gray-400 mt-1">Non assegnato</div>
+                                            @endif
+                                        </td>
+
+                                        <!-- Mezzo -->
+                                        <td class="px-3 py-2">
+                                            <div class="relative">
+                                                <input type="text" 
+                                                    wire:model.live.debounce.300ms="row_vehicle_search.{{ $index }}"
+                                                    placeholder="Cerca mezzo (targa, marca, modello)..."
+                                                    class="w-full border rounded-lg px-2 py-1 text-sm"
+                                                    autocomplete="off">
+                                                @if(!empty($row_vehicle_results[$index] ?? []))
+                                                    <div class="autocomplete-dropdown" style="z-index: 9999;">
+                                                        @foreach($row_vehicle_results[$index] as $vehicle)
+                                                            <div class="autocomplete-item" wire:click="selectVehicleForRow({{ $vehicle['id'] }}, {{ $index }})">
+                                                                {{ $vehicle['name'] }}
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                @endif
+                                            </div>
+                                            @if($row['vehicle_name'] ?? false)
+                                                <div class="text-xs text-green-600 mt-1">✓ {{ $row['vehicle_name'] }}</div>
                                             @else
                                                 <div class="text-xs text-gray-400 mt-1">Non assegnato</div>
                                             @endif

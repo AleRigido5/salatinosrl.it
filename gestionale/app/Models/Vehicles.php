@@ -59,6 +59,12 @@ class Vehicles extends Model
         return $this->belongsTo(Ownership::class, 'id_ownership', 'id_proprieta');
     }
 
+    public function invoiceRows()
+    {
+        return $this->hasMany(InvoiceRow::class, 'id_vehicle');
+    }
+
+
     // Relazione many-to-many con le scadenze
     public function expirations()
     {

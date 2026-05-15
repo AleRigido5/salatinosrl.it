@@ -121,6 +121,7 @@ class InvoicesReceivedTable extends Component
         $this->selectedOwnershipName = '';
         $this->ownershipSearch = '';  // Questo svuota l'input
         $this->resetPage();
+        $this->dispatch('clearOwnershipInput');
     }
 
     // ==================== AUTOCOMPLETE FORNITORE ====================
@@ -174,6 +175,7 @@ class InvoicesReceivedTable extends Component
         $this->selectedSupplierName = '';
         $this->supplierSearch = '';  // Questo svuota l'input
         $this->resetPage();
+        $this->dispatch('clearSupplierInput');
     }
 
     // ==================== FILTRI E QUERY ====================
@@ -200,7 +202,42 @@ class InvoicesReceivedTable extends Component
         $this->dateTo = '';
         $this->resetPage();
         $this->dispatch('resetDates');
-        $this->dispatch('resetAutocompleteInputs'); 
+        $this->dispatch('resetDateRangeFilterWithoutApply');  
+        $this->dispatch('resetAllFilters');
+    }
+
+    // Metodo per pulire lo stato
+    public function clearStatus(): void
+    {
+        $this->status = '';
+        $this->resetPage();
+        $this->dispatch('clearStatusFilter');
+    }
+
+    // Metodo per pulire il tipo documento
+    public function clearTypeInvoice(): void
+    {
+        $this->type_invoice = '';
+        $this->resetPage();
+        $this->dispatch('clearTypeInvoiceFilter');
+    }
+
+    // Metodo per pulire la ricerca
+    public function clearSearch(): void
+    {
+        $this->search = '';
+        $this->resetPage();
+        $this->dispatch('clearSearchFilter');
+    }
+
+    // Metodo per pulire la data
+    public function clearDates(): void
+    {
+        $this->dateFrom = '';
+        $this->dateTo = '';
+        $this->resetPage();
+        // Questo evento resetta anche il componente date-range-filter
+        $this->dispatch('resetDateRangeFilterWithoutApply');
     }
 
     public function getInvoicesProperty()

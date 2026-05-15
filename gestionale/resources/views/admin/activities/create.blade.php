@@ -213,7 +213,7 @@
                 <h3 class="text-lg font-semibold text-gray-800">
                     <i class="fas fa-users text-blue-500 mr-2"></i> Personale Associato
                 </h3>
-                <button type="button" id="addStaffBtn" class="px-3 py-1 bg-lime-500 text-white rounded-md hover:bg-lime-600 text-sm transition-colors">
+                <button type="button" id="addStaffBtn" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-3 py-1 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
                     <i class="fas fa-plus"></i> Aggiungi personale
                 </button>
             </div>
@@ -388,7 +388,7 @@
             <a href="{{ route('admin.activities.index') }}" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
                 Annulla
             </a>
-            <button type="submit" id="submitBtn" class="px-4 py-2 bg-lime-500 text-white rounded-md hover:bg-lime-600 transition-colors">
+            <button type="submit" id="submitBtn" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
                 <i class="fas fa-save mr-2"></i> Salva
             </button>
         </div>

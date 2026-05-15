@@ -18,6 +18,62 @@ class InvoicesXmlImport extends Component
 {
     use WithFileUploads;
 
+    // ============================================
+    // TRAIT PER PULIZIA UTF-8 (integrato direttamente)
+    // ============================================
+    
+    /**
+     * Pulisce una stringa da caratteri UTF-8 malformati
+     */
+    private function cleanUtf8String($string)
+    {
+        if (is_null($string) || $string === '') {
+            return $string;
+        }
+        
+        // Se non è una stringa, restituisci così com'è
+        if (!is_string($string)) {
+            return $string;
+        }
+        
+        // Forza la conversione a UTF-8
+        if (!mb_check_encoding($string, 'UTF-8')) {
+            $string = mb_convert_encoding($string, 'UTF-8', 'auto');
+        }
+        
+        // Rimuovi caratteri di controllo non validi
+        $string = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $string);
+        
+        // Decodifica e ricodifica per rimuovere caratteri non validi
+        $string = iconv('UTF-8', 'UTF-8//IGNORE', $string);
+        
+        return $string;
+    }
+    
+    /**
+     * Pulisce un array ricorsivamente
+     */
+    private function cleanArrayUtf8($data)
+    {
+        if (is_array($data)) {
+            foreach ($data as $key => $value) {
+                if (is_string($value)) {
+                    $data[$key] = $this->cleanUtf8String($value);
+                } elseif (is_array($value)) {
+                    $data[$key] = $this->cleanArrayUtf8($value);
+                }
+            }
+        } elseif (is_string($data)) {
+            $data = $this->cleanUtf8String($data);
+        }
+        
+        return $data;
+    }
+
+    // ============================================
+    // PROPRIETÀ
+    // ============================================
+    
     public $xml_file;
     public $xml_filename;
     public $xml_content;
@@ -105,6 +161,10 @@ class InvoicesXmlImport extends Component
         'rows.*.discount_percentage' => 'nullable|numeric|min:0|max:100',
     ];
 
+    // ============================================
+    // METODI BASE
+    // ============================================
+    
     public function mount()
     {
         $this->loadAllData();
@@ -117,6 +177,12 @@ class InvoicesXmlImport extends Component
             ->select('id', 'Nome as name')
             ->orderBy('Nome')
             ->get()
+            ->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'name' => $this->cleanUtf8String($item->name)
+                ];
+            })
             ->toArray();
         
         // Carica i veicoli
@@ -127,8 +193,8 @@ class InvoicesXmlImport extends Component
             ->map(function($item) {
                 return [
                     'id' => $item->id,
-                    'name' => trim($item->marca . ' ' . $item->modello . ' (' . $item->targa . ')'),
-                    'details' => $item->tipologia . ' - ' . $item->targa
+                    'name' => $this->cleanUtf8String(trim($item->marca . ' ' . $item->modello . ' (' . $item->targa . ')')),
+                    'details' => $this->cleanUtf8String($item->tipologia . ' - ' . $item->targa)
                 ];
             })
             ->toArray();
@@ -278,9 +344,6 @@ class InvoicesXmlImport extends Component
             $this->row_vehicle_results[$index] = [];
             $this->show_row_vehicle_dropdown[$index] = false;
             
-            // Forza l'aggiornamento della UI
-            $this->dispatch('refreshVehicleAutocomplete');
-            
             $this->dispatch('alert', type: 'success', message: "Mezzo '{$vehicle['name']}' applicato alla riga " . ($index + 1));
         }
     }
@@ -303,6 +366,10 @@ class InvoicesXmlImport extends Component
 
         try {
             $content = file_get_contents($this->xml_file->getRealPath());
+            
+            // Pulisci il contenuto prima di tutto
+            $content = $this->cleanUtf8String($content);
+            
             $xml = simplexml_load_string($content);
             
             if ($xml === false) {
@@ -391,7 +458,7 @@ class InvoicesXmlImport extends Component
         foreach ($allegatoNodes as $index => $allegato) {
             try {
                 // Estrai nome file
-                $fileName = (string)$allegato->NomeAttachment;
+                $fileName = $this->cleanUtf8String((string)$allegato->NomeAttachment);
                 
                 // Estrai contenuto Base64
                 $base64Content = (string)$allegato->Attachment;
@@ -563,6 +630,8 @@ class InvoicesXmlImport extends Component
      */
     private function slugify($text)
     {
+        $text = $this->cleanUtf8String($text);
+        
         // Replace non letter or digits by _
         $text = preg_replace('~[^\pL\d]+~u', '_', $text);
         
@@ -628,6 +697,9 @@ class InvoicesXmlImport extends Component
         // -------------------------------------------------------
         $xmlString = $xml->asXML();
 
+        // Pulisci i caratteri UTF-8 malformati
+        $xmlString = $this->cleanUtf8String($xmlString);
+
         // Rimuovi tutti i prefissi di namespace dai tag (es. ns0:Tag -> Tag)
         // e rimuovi le dichiarazioni xmlns dai tag di apertura
         $cleanXml = preg_replace('/(<\/?)[\w]+:/', '$1', $xmlString);
@@ -644,12 +716,12 @@ class InvoicesXmlImport extends Component
             $cessionarioXml = $cessionarioMatch[1];
 
             if (preg_match('/<Denominazione>(.*?)<\/Denominazione>/i', $cessionarioXml, $match)) {
-                $this->committente_denominazione = trim($match[1]);
+                $this->committente_denominazione = $this->cleanUtf8String(trim($match[1]));
             }
             if (empty($this->committente_denominazione)) {
                 $nome = $cognome = '';
-                if (preg_match('/<Nome>(.*?)<\/Nome>/i', $cessionarioXml, $match)) $nome = trim($match[1]);
-                if (preg_match('/<Cognome>(.*?)<\/Cognome>/i', $cessionarioXml, $match)) $cognome = trim($match[1]);
+                if (preg_match('/<Nome>(.*?)<\/Nome>/i', $cessionarioXml, $match)) $nome = $this->cleanUtf8String(trim($match[1]));
+                if (preg_match('/<Cognome>(.*?)<\/Cognome>/i', $cessionarioXml, $match)) $cognome = $this->cleanUtf8String(trim($match[1]));
                 $this->committente_denominazione = trim("$nome $cognome");
             }
 
@@ -657,20 +729,20 @@ class InvoicesXmlImport extends Component
             if (preg_match('/<IdFiscaleIVA>(.*?)<\/IdFiscaleIVA>/is', $cessionarioXml, $idMatch)) {
                 $idXml = $idMatch[1];
                 $paese = $codice = '';
-                if (preg_match('/<IdPaese>(.*?)<\/IdPaese>/i', $idXml, $m)) $paese = trim($m[1]);
-                if (preg_match('/<IdCodice>(.*?)<\/IdCodice>/i', $idXml, $m)) $codice = trim($m[1]);
+                if (preg_match('/<IdPaese>(.*?)<\/IdPaese>/i', $idXml, $m)) $paese = $this->cleanUtf8String(trim($m[1]));
+                if (preg_match('/<IdCodice>(.*?)<\/IdCodice>/i', $idXml, $m)) $codice = $this->cleanUtf8String(trim($m[1]));
                 $this->committente_partita_iva = $paese . $codice;
             }
 
             if (preg_match('/<CodiceFiscale>(.*?)<\/CodiceFiscale>/i', $cessionarioXml, $match)) {
-                $this->committente_codice_fiscale = trim($match[1]);
+                $this->committente_codice_fiscale = $this->cleanUtf8String(trim($match[1]));
             }
 
-            if (preg_match('/<Indirizzo>(.*?)<\/Indirizzo>/i', $cessionarioXml, $match)) $this->committente_indirizzo = trim($match[1]);
-            if (preg_match('/<CAP>(.*?)<\/CAP>/i', $cessionarioXml, $match)) $this->committente_cap = trim($match[1]);
-            if (preg_match('/<Comune>(.*?)<\/Comune>/i', $cessionarioXml, $match)) $this->committente_comune = trim($match[1]);
-            if (preg_match('/<Provincia>(.*?)<\/Provincia>/i', $cessionarioXml, $match)) $this->committente_provincia = trim($match[1]);
-            if (preg_match('/<Nazione>(.*?)<\/Nazione>/i', $cessionarioXml, $match)) $this->committente_nazione = trim($match[1]);
+            if (preg_match('/<Indirizzo>(.*?)<\/Indirizzo>/i', $cessionarioXml, $match)) $this->committente_indirizzo = $this->cleanUtf8String(trim($match[1]));
+            if (preg_match('/<CAP>(.*?)<\/CAP>/i', $cessionarioXml, $match)) $this->committente_cap = $this->cleanUtf8String(trim($match[1]));
+            if (preg_match('/<Comune>(.*?)<\/Comune>/i', $cessionarioXml, $match)) $this->committente_comune = $this->cleanUtf8String(trim($match[1]));
+            if (preg_match('/<Provincia>(.*?)<\/Provincia>/i', $cessionarioXml, $match)) $this->committente_provincia = $this->cleanUtf8String(trim($match[1]));
+            if (preg_match('/<Nazione>(.*?)<\/Nazione>/i', $cessionarioXml, $match)) $this->committente_nazione = $this->cleanUtf8String(trim($match[1]));
         }
 
         // DATI FORNITORE
@@ -678,12 +750,12 @@ class InvoicesXmlImport extends Component
             $cedenteXml = $cedenteMatch[1];
 
             if (preg_match('/<Denominazione>(.*?)<\/Denominazione>/i', $cedenteXml, $match)) {
-                $this->fornitore_denominazione = trim($match[1]);
+                $this->fornitore_denominazione = $this->cleanUtf8String(trim($match[1]));
             }
             if (empty($this->fornitore_denominazione)) {
                 $nome = $cognome = '';
-                if (preg_match('/<Nome>(.*?)<\/Nome>/i', $cedenteXml, $match)) $nome = trim($match[1]);
-                if (preg_match('/<Cognome>(.*?)<\/Cognome>/i', $cedenteXml, $match)) $cognome = trim($match[1]);
+                if (preg_match('/<Nome>(.*?)<\/Nome>/i', $cedenteXml, $match)) $nome = $this->cleanUtf8String(trim($match[1]));
+                if (preg_match('/<Cognome>(.*?)<\/Cognome>/i', $cedenteXml, $match)) $cognome = $this->cleanUtf8String(trim($match[1]));
                 $this->fornitore_denominazione = trim("$nome $cognome");
             }
 
@@ -691,25 +763,25 @@ class InvoicesXmlImport extends Component
             if (preg_match('/<IdFiscaleIVA>(.*?)<\/IdFiscaleIVA>/is', $cedenteXml, $idMatch)) {
                 $idXml = $idMatch[1];
                 $paese = $codice = '';
-                if (preg_match('/<IdPaese>(.*?)<\/IdPaese>/i', $idXml, $m)) $paese = trim($m[1]);
-                if (preg_match('/<IdCodice>(.*?)<\/IdCodice>/i', $idXml, $m)) $codice = trim($m[1]);
+                if (preg_match('/<IdPaese>(.*?)<\/IdPaese>/i', $idXml, $m)) $paese = $this->cleanUtf8String(trim($m[1]));
+                if (preg_match('/<IdCodice>(.*?)<\/IdCodice>/i', $idXml, $m)) $codice = $this->cleanUtf8String(trim($m[1]));
                 $this->fornitore_partita_iva = $paese . $codice;
             }
 
             if (preg_match('/<CodiceFiscale>(.*?)<\/CodiceFiscale>/i', $cedenteXml, $match)) {
-                $this->fornitore_codice_fiscale = trim($match[1]);
+                $this->fornitore_codice_fiscale = $this->cleanUtf8String(trim($match[1]));
             }
 
-            if (preg_match('/<Indirizzo>(.*?)<\/Indirizzo>/i', $cedenteXml, $match)) $this->fornitore_indirizzo = trim($match[1]);
-            if (preg_match('/<CAP>(.*?)<\/CAP>/i', $cedenteXml, $match)) $this->fornitore_cap = trim($match[1]);
-            if (preg_match('/<Comune>(.*?)<\/Comune>/i', $cedenteXml, $match)) $this->fornitore_comune = trim($match[1]);
-            if (preg_match('/<Provincia>(.*?)<\/Provincia>/i', $cedenteXml, $match)) $this->fornitore_provincia = trim($match[1]);
-            if (preg_match('/<Nazione>(.*?)<\/Nazione>/i', $cedenteXml, $match)) $this->fornitore_nazione = trim($match[1]);
+            if (preg_match('/<Indirizzo>(.*?)<\/Indirizzo>/i', $cedenteXml, $match)) $this->fornitore_indirizzo = $this->cleanUtf8String(trim($match[1]));
+            if (preg_match('/<CAP>(.*?)<\/CAP>/i', $cedenteXml, $match)) $this->fornitore_cap = $this->cleanUtf8String(trim($match[1]));
+            if (preg_match('/<Comune>(.*?)<\/Comune>/i', $cedenteXml, $match)) $this->fornitore_comune = $this->cleanUtf8String(trim($match[1]));
+            if (preg_match('/<Provincia>(.*?)<\/Provincia>/i', $cedenteXml, $match)) $this->fornitore_provincia = $this->cleanUtf8String(trim($match[1]));
+            if (preg_match('/<Nazione>(.*?)<\/Nazione>/i', $cedenteXml, $match)) $this->fornitore_nazione = $this->cleanUtf8String(trim($match[1]));
 
             if (preg_match('/<Contatti>(.*?)<\/Contatti>/is', $cedenteXml, $contattiMatch)) {
                 $contattiXml = $contattiMatch[1];
-                if (preg_match('/<Telefono>(.*?)<\/Telefono>/i', $contattiXml, $match)) $this->fornitore_telefono = trim($match[1]);
-                if (preg_match('/<Email>(.*?)<\/Email>/i', $contattiXml, $match)) $this->fornitore_email = trim($match[1]);
+                if (preg_match('/<Telefono>(.*?)<\/Telefono>/i', $contattiXml, $match)) $this->fornitore_telefono = $this->cleanUtf8String(trim($match[1]));
+                if (preg_match('/<Email>(.*?)<\/Email>/i', $contattiXml, $match)) $this->fornitore_email = $this->cleanUtf8String(trim($match[1]));
             }
         }
 
@@ -717,14 +789,13 @@ class InvoicesXmlImport extends Component
         if (preg_match('/<DatiGeneraliDocumento>(.*?)<\/DatiGeneraliDocumento>/is', $cleanXml, $datiGeneraliMatch)) {
             $datiGeneraliXml = $datiGeneraliMatch[1];
 
-            if (preg_match('/<TipoDocumento>(.*?)<\/TipoDocumento>/i', $datiGeneraliXml, $match)) $this->type_invoice = trim($match[1]);
-            if (preg_match('/<Divisa>(.*?)<\/Divisa>/i', $datiGeneraliXml, $match)) $this->divisa = trim($match[1]);
-            if (preg_match('/<Data>(.*?)<\/Data>/i', $datiGeneraliXml, $match)) $this->data_invoice = trim($match[1]);
-            if (preg_match('/<Numero>(.*?)<\/Numero>/i', $datiGeneraliXml, $match)) $this->n_invoice = trim($match[1]);
+            if (preg_match('/<TipoDocumento>(.*?)<\/TipoDocumento>/i', $datiGeneraliXml, $match)) $this->type_invoice = $this->cleanUtf8String(trim($match[1]));
+            if (preg_match('/<Divisa>(.*?)<\/Divisa>/i', $datiGeneraliXml, $match)) $this->divisa = $this->cleanUtf8String(trim($match[1]));
+            if (preg_match('/<Data>(.*?)<\/Data>/i', $datiGeneraliXml, $match)) $this->data_invoice = $this->cleanUtf8String(trim($match[1]));
+            if (preg_match('/<Numero>(.*?)<\/Numero>/i', $datiGeneraliXml, $match)) $this->n_invoice = $this->cleanUtf8String(trim($match[1]));
         }
 
         // TOTALE: prende ImportoPagamento (somma di tutti i DettaglioPagamento)
-        // Se ImportoPagamento è 0 o non trovato, usa ImportoTotaleDocumento
         $importoPagamentoTotale = 0;
         if (preg_match_all('/<ImportoPagamento>(.*?)<\/ImportoPagamento>/i', $cleanXml, $pagMatches)) {
             foreach ($pagMatches[1] as $val) {
@@ -739,13 +810,12 @@ class InvoicesXmlImport extends Component
             $this->importo_totale = floatval(str_replace(',', '.', trim($match[1])));
         }
 
-        // Log per debug
         Log::info('Importo totale rilevato', [
             'importo_pagamento' => $importoPagamentoTotale,
             'importo_totale_finale' => $this->importo_totale
         ]);
 
-        // RIGHE FATTURA - Versione aggiornata con nuovi campi
+        // RIGHE FATTURA
         $this->rows = [];
         if (preg_match_all('/<DettaglioLinee>(.*?)<\/DettaglioLinee>/is', $cleanXml, $lineeMatches)) {
             foreach ($lineeMatches[1] as $index => $lineaXml) {
@@ -765,58 +835,49 @@ class InvoicesXmlImport extends Component
                     'riferimento_amministrativo' => '',
                 ];
 
-                // Descrizione
                 if (preg_match('/<Descrizione>(.*?)<\/Descrizione>/i', $lineaXml, $match)) {
-                    $row['description'] = trim($match[1]);
+                    $row['description'] = $this->cleanUtf8String(trim($match[1]));
                 }
                 
-                // Quantità
                 if (preg_match('/<Quantita>(.*?)<\/Quantita>/i', $lineaXml, $match)) {
                     $row['quantity'] = floatval(str_replace(',', '.', trim($match[1])));
                 }
                 
-                // Prezzo Unitario
                 if (preg_match('/<PrezzoUnitario>(.*?)<\/PrezzoUnitario>/i', $lineaXml, $match)) {
                     $row['unit_price'] = floatval(str_replace(',', '.', trim($match[1])));
                 }
                 
-                // Unità di Misura
                 if (preg_match('/<UnitaMisura>(.*?)<\/UnitaMisura>/i', $lineaXml, $match)) {
-                    $row['unita_misura'] = trim($match[1]);
+                    $row['unita_misura'] = $this->cleanUtf8String(trim($match[1]));
                 }
                 
-                // ALIQUOTA IVA - AGGIUNGI QUESTA PARTE
                 if (preg_match('/<AliquotaIVA>(.*?)<\/AliquotaIVA>/i', $lineaXml, $match)) {
                     $row['aliquota_iva'] = floatval(str_replace(',', '.', trim($match[1])));
                 }
 
-                // Sconto
                 if (preg_match('/<ScontoMaggiorazione>(.*?)<\/ScontoMaggiorazione>/is', $lineaXml, $scontoMatch)) {
                     if (preg_match('/<Percentuale>(.*?)<\/Percentuale>/i', $scontoMatch[1], $percMatch)) {
                         $row['discount_percentage'] = floatval(str_replace(',', '.', trim($percMatch[1])));
                     }
                 }
                 
-                // Natura (es. N1, N2, N3, N4, N5, N6, N7)
                 if (preg_match('/<Natura>(.*?)<\/Natura>/i', $lineaXml, $match)) {
-                    $row['natura'] = trim($match[1]);
+                    $row['natura'] = $this->cleanUtf8String(trim($match[1]));
                 }
                 
-                // Riferimento Amministrativo
                 if (preg_match('/<RiferimentoAmministrativo>(.*?)<\/RiferimentoAmministrativo>/i', $lineaXml, $match)) {
-                    $row['riferimento_amministrativo'] = trim($match[1]);
+                    $row['riferimento_amministrativo'] = $this->cleanUtf8String(trim($match[1]));
                 }
                 
-                // Codice Articolo (codice tipo e valore)
                 if (preg_match_all('/<CodiceArticolo>(.*?)<\/CodiceArticolo>/is', $lineaXml, $codiceMatches)) {
                     foreach ($codiceMatches[1] as $codiceXml) {
                         $codiceTipo = '';
                         $codiceValore = '';
                         if (preg_match('/<CodiceTipo>(.*?)<\/CodiceTipo>/i', $codiceXml, $tipoMatch)) {
-                            $codiceTipo = trim($tipoMatch[1]);
+                            $codiceTipo = $this->cleanUtf8String(trim($tipoMatch[1]));
                         }
                         if (preg_match('/<CodiceValore>(.*?)<\/CodiceValore>/i', $codiceXml, $valoreMatch)) {
-                            $codiceValore = trim($valoreMatch[1]);
+                            $codiceValore = $this->cleanUtf8String(trim($valoreMatch[1]));
                         }
                         if (!empty($codiceTipo) || !empty($codiceValore)) {
                             $row['codice_articolo'][] = [
@@ -836,15 +897,17 @@ class InvoicesXmlImport extends Component
         $this->supplier_not_found = false;
 
         if (!empty($this->fornitore_partita_iva)) {
-            // Cerca con e senza prefisso paese (es. "IT02701740108" o "02701740108")
-            $entity = Entity::where('partita_iva', $this->fornitore_partita_iva)
-                ->orWhere('partita_iva', preg_replace('/^[A-Z]{2}/i', '', $this->fornitore_partita_iva))
+            $pulitaPiva = $this->cleanUtf8String($this->fornitore_partita_iva);
+            $pivaNoPrefix = preg_replace('/^[A-Z]{2}/i', '', $pulitaPiva);
+            
+            $entity = Entity::where('partita_iva', $pulitaPiva)
+                ->orWhere('partita_iva', $pivaNoPrefix)
                 ->first();
 
             if ($entity) {
                 $this->supplier_found = true;
                 $this->id_entities = $entity->id_cliente;
-                $this->supplier_display = $entity->ragione_sociale ?? ($entity->nome . ' ' . $entity->cognome);
+                $this->supplier_display = $this->cleanUtf8String($entity->ragione_sociale ?? ($entity->nome . ' ' . $entity->cognome));
                 $this->supplier_created_by_system = $entity->created_by_system ?? false;
                 if (!empty($entity->partita_iva)) {
                     $this->supplier_display .= ' (P.IVA: ' . $entity->partita_iva . ')';
@@ -853,11 +916,11 @@ class InvoicesXmlImport extends Component
         }
 
         if (!$this->supplier_found && !empty($this->fornitore_codice_fiscale)) {
-            $entity = Entity::where('codice_fiscale', $this->fornitore_codice_fiscale)->first();
+            $entity = Entity::where('codice_fiscale', $this->cleanUtf8String($this->fornitore_codice_fiscale))->first();
             if ($entity) {
                 $this->supplier_found = true;
                 $this->id_entities = $entity->id_cliente;
-                $this->supplier_display = $entity->ragione_sociale ?? ($entity->nome . ' ' . $entity->cognome);
+                $this->supplier_display = $this->cleanUtf8String($entity->ragione_sociale ?? ($entity->nome . ' ' . $entity->cognome));
                 $this->supplier_created_by_system = $entity->created_by_system ?? false;
             }
         }
@@ -872,25 +935,23 @@ class InvoicesXmlImport extends Component
 
         // CERCA PROPRIETÀ
         if (!empty($this->committente_partita_iva)) {
-            $ownership = Ownership::where('PivaPr', $this->committente_partita_iva)->first();
+            $pulitaPivaComm = $this->cleanUtf8String($this->committente_partita_iva);
+            $ownership = Ownership::where('PivaPr', $pulitaPivaComm)->first();
 
             if (!$ownership) {
-                $pivaNoPrefix = preg_replace('/^[A-Z]{2}/i', '', $this->committente_partita_iva);
+                $pivaNoPrefix = preg_replace('/^[A-Z]{2}/i', '', $pulitaPivaComm);
                 $ownership = Ownership::where('PivaPr', $pivaNoPrefix)->first();
             }
 
             if ($ownership) {
                 $this->id_ownership = $ownership->id_proprieta;
-                $this->ownership_display = $ownership->Rag_Soc_intest ?: $ownership->RagSocialePr;
+                $this->ownership_display = $this->cleanUtf8String($ownership->Rag_Soc_intest ?: $ownership->RagSocialePr);
             }
         }
 
-        // ============================================
-        // ESTRAZIONE PAGAMENTI (supporto rate multiple)
-        // ============================================
+        // ESTRAZIONE PAGAMENTI
         $this->payments = [];
 
-        // Verifica se ci sono più DettaglioPagamento (rate)
         if (preg_match_all('/<DettaglioPagamento>(.*?)<\/DettaglioPagamento>/is', $cleanXml, $dettaglioMatches)) {
             foreach ($dettaglioMatches[1] as $dettaglioXml) {
                 $payment = [
@@ -900,45 +961,37 @@ class InvoicesXmlImport extends Component
                     'iban' => null,
                 ];
                 
-                // Data scadenza (se presente)
                 if (preg_match('/<DataScadenzaPagamento>(.*?)<\/DataScadenzaPagamento>/i', $dettaglioXml, $match)) {
-                    $payment['due_date'] = trim($match[1]);
+                    $payment['due_date'] = $this->cleanUtf8String(trim($match[1]));
                 }
                 
-                // Importo pagamento
                 if (preg_match('/<ImportoPagamento>(.*?)<\/ImportoPagamento>/i', $dettaglioXml, $match)) {
                     $payment['amount'] = floatval(str_replace(',', '.', trim($match[1])));
                 }
                 
-                // Modalità pagamento
                 if (preg_match('/<ModalitaPagamento>(.*?)<\/ModalitaPagamento>/i', $dettaglioXml, $match)) {
-                    $payment['payment_method'] = trim($match[1]);
+                    $payment['payment_method'] = $this->cleanUtf8String(trim($match[1]));
                 }
                 
-                // IBAN
                 if (preg_match('/<IBAN>(.*?)<\/IBAN>/i', $dettaglioXml, $match)) {
-                    $payment['iban'] = trim($match[1]);
+                    $payment['iban'] = $this->cleanUtf8String(trim($match[1]));
                 }
                 
                 $this->payments[] = $payment;
             }
         }
 
-        // ============================================
         // POST-ELABORAZIONE PAGAMENTI
-        // ============================================
-        // Se non ci sono pagamenti trovati, crea un pagamento unico con la data fattura
         if (empty($this->payments)) {
             Log::info('Nessun pagamento trovato nell\'XML, utilizzo data fattura come scadenza');
             
             $this->payments[] = [
-                'due_date' => $this->data_invoice, // Usa la data della fattura
+                'due_date' => $this->data_invoice,
                 'amount' => $this->importo_totale,
                 'payment_method' => null,
                 'iban' => null,
             ];
         } else {
-            // Per ogni pagamento, se non ha una data scadenza, usa la data della fattura
             foreach ($this->payments as &$payment) {
                 if (empty($payment['due_date']) && !empty($this->data_invoice)) {
                     $payment['due_date'] = $this->data_invoice;
@@ -947,12 +1000,9 @@ class InvoicesXmlImport extends Component
             }
         }
 
-        // Log dei pagamenti trovati
-        Log::info('Pagamenti estratti', ['count' => count($this->payments), 'payments' => $this->payments]);
+        Log::info('Pagamenti estratti', ['count' => count($this->payments)]);
 
-        // ============================================
         // ESTRAZIONE RIEPILOGO IVA
-        // ============================================
         $this->vatSummaries = [];
         if (preg_match_all('/<DatiRiepilogo>(.*?)<\/DatiRiepilogo>/is', $cleanXml, $riepilogoMatches)) {
             foreach ($riepilogoMatches[1] as $riepilogoXml) {
@@ -969,7 +1019,7 @@ class InvoicesXmlImport extends Component
                     $summary['tax_rate'] = floatval(str_replace(',', '.', trim($match[1])));
                 }
                 if (preg_match('/<Natura>(.*?)<\/Natura>/i', $riepilogoXml, $match)) {
-                    $summary['sdi_nature'] = trim($match[1]);
+                    $summary['sdi_nature'] = $this->cleanUtf8String(trim($match[1]));
                 }
                 if (preg_match('/<ImponibileImporto>(.*?)<\/ImponibileImporto>/i', $riepilogoXml, $match)) {
                     $summary['taxable_amount'] = floatval(str_replace(',', '.', trim($match[1])));
@@ -978,10 +1028,10 @@ class InvoicesXmlImport extends Component
                     $summary['tax_amount'] = floatval(str_replace(',', '.', trim($match[1])));
                 }
                 if (preg_match('/<RiferimentoNormativo>(.*?)<\/RiferimentoNormativo>/i', $riepilogoXml, $match)) {
-                    $summary['vat_law_reference'] = trim($match[1]);
+                    $summary['vat_law_reference'] = $this->cleanUtf8String(trim($match[1]));
                 }
                 if (preg_match('/<EsigibilitaIVA>(.*?)<\/EsigibilitaIVA>/i', $riepilogoXml, $match)) {
-                    $summary['esigibilita_iva'] = trim($match[1]);
+                    $summary['esigibilita_iva'] = $this->cleanUtf8String(trim($match[1]));
                 }
                 
                 $this->vatSummaries[] = $summary;
@@ -989,9 +1039,6 @@ class InvoicesXmlImport extends Component
         }
 
         $this->status = 'issued';
-
-        // Non ricalcolare il totale dalle righe: lo abbiamo già preso da ImportoPagamento
-        // $this->calculateTotal(); // <-- commentato intenzionalmente
 
         // INIZIALIZZA ARRAY PER AUTOCOMPLETE
         $this->row_cost_center_search = [];
@@ -1018,9 +1065,6 @@ class InvoicesXmlImport extends Component
         $this->show_vehicle_all_dropdown = false;
     }       
 
-    /**
-     * Ottiene l'etichetta della natura operazione
-     */
     public function getNaturaLabel($natura)
     {
         return config('gestionale.natura_operazione.' . $natura, '');
@@ -1028,7 +1072,6 @@ class InvoicesXmlImport extends Component
 
     private function removeAttachmentsFromXml($xmlString)
     {
-        // Rimuovi il nodo Allegati con tutto il suo contenuto
         $xmlString = preg_replace('/<Allegati>.*?<\/Allegati>/is', '', $xmlString);
         $xmlString = preg_replace('/<Allegato>.*?<\/Allegato>/is', '', $xmlString);
         $xmlString = preg_replace('/<FatturaFirmata>.*?<\/FatturaFirmata>/is', '', $xmlString);
@@ -1036,12 +1079,8 @@ class InvoicesXmlImport extends Component
         return $xmlString;
     }
 
-    /**
-     * Rimuove i marker CDATA dal contenuto XML
-     */
     private function removeCdataFromXml($xmlString)
     {
-        // Sostituisce <![CDATA[contenuto]]> con 'contenuto' (senza i marker)
         return preg_replace('/<!\[CDATA\[(.*?)\]\]>/s', '$1', $xmlString);
     }
 
@@ -1053,7 +1092,7 @@ class InvoicesXmlImport extends Component
         }
         
         try {
-            $existingEntity = Entity::where('partita_iva', $this->fornitore_partita_iva)->first();
+            $existingEntity = Entity::where('partita_iva', $this->cleanUtf8String($this->fornitore_partita_iva))->first();
             if ($existingEntity) {
                 $this->id_entities = $existingEntity->id_cliente;
                 $this->supplier_found = true;
@@ -1064,16 +1103,16 @@ class InvoicesXmlImport extends Component
             
             $newEntity = Entity::create([
                 'entity_type' => 'fornitore',
-                'ragione_sociale' => $this->fornitore_denominazione,
-                'nome' => $this->fornitore_denominazione,
-                'indirizzo' => $this->fornitore_indirizzo,
-                'cap' => $this->fornitore_cap,
-                'comune' => $this->fornitore_comune,
-                'provincia' => $this->fornitore_provincia,
-                'partita_iva' => $this->fornitore_partita_iva,
-                'codice_fiscale' => $this->fornitore_codice_fiscale,
-                'telefono' => $this->fornitore_telefono,
-                'email' => $this->fornitore_email,
+                'ragione_sociale' => $this->cleanUtf8String($this->fornitore_denominazione),
+                'nome' => $this->cleanUtf8String($this->fornitore_denominazione),
+                'indirizzo' => $this->cleanUtf8String($this->fornitore_indirizzo),
+                'cap' => $this->cleanUtf8String($this->fornitore_cap),
+                'comune' => $this->cleanUtf8String($this->fornitore_comune),
+                'provincia' => $this->cleanUtf8String($this->fornitore_provincia),
+                'partita_iva' => $this->cleanUtf8String($this->fornitore_partita_iva),
+                'codice_fiscale' => $this->cleanUtf8String($this->fornitore_codice_fiscale),
+                'telefono' => $this->cleanUtf8String($this->fornitore_telefono),
+                'email' => $this->cleanUtf8String($this->fornitore_email),
                 'valid' => 1,
                 'created_by_system' => 1,
             ]);
@@ -1112,16 +1151,10 @@ class InvoicesXmlImport extends Component
             return null;
         }
         
-        // Leggi il contenuto del file XML caricato
         $content = file_get_contents($this->xml_file->getRealPath());
-        
-        // Pulisci l'XML dagli allegati
         $cleanContent = $this->removeAttachmentsFromXml($content);
+        $this->xml_content = $this->cleanUtf8String($cleanContent);
         
-        // Salva il contenuto XML nella proprietà per essere salvato nel database
-        $this->xml_content = $cleanContent;
-        
-        // Genera solo un nome per il file (opzionale, per riferimento)
         $fornitorePiva = preg_replace('/[^A-Za-z0-9]/', '', $this->fornitore_partita_iva);
         if (empty($fornitorePiva)) {
             $fornitorePiva = 'piva_non_trovata_' . time();
@@ -1132,7 +1165,6 @@ class InvoicesXmlImport extends Component
 
     public function save()
     {
-        // DEBUG: log dei dati prima del salvataggio
         Log::info('Tentativo salvataggio fattura', [
             'fornitore_partita_iva' => $this->fornitore_partita_iva,
             'n_invoice' => $this->n_invoice,
@@ -1145,7 +1177,6 @@ class InvoicesXmlImport extends Component
             'id_entities' => $this->id_entities,
         ]);
 
-        // Usa la guardia admin esplicitamente
         $adminId = null;
         if (Auth::guard('admin')->check()) {
             $adminId = Auth::guard('admin')->id();
@@ -1163,7 +1194,6 @@ class InvoicesXmlImport extends Component
             $this->createSupplierAutomatically();
         }
         
-        // Validazione solo dei campi obbligatori
         try {
             $this->validate([
                 'id_entities' => 'required|exists:entities,id_cliente',
@@ -1187,13 +1217,13 @@ class InvoicesXmlImport extends Component
                 'id_ownership' => $this->id_ownership,
                 'id_entities' => $this->id_entities,
                 'type_invoice' => $this->type_invoice ?: 'TD01',
-                'n_invoice' => $this->n_invoice,
+                'n_invoice' => $this->cleanUtf8String($this->n_invoice),
                 'data_invoice' => $this->data_invoice,
                 'importo_totale' => $this->importo_totale ?: 0,
-                'causale' => $this->causale,
-                'divisa' => $this->divisa,
+                'causale' => $this->cleanUtf8String($this->causale),
+                'divisa' => $this->cleanUtf8String($this->divisa),
                 'status' => $this->status,
-                'sdi_id' => $this->sdi_id,
+                'sdi_id' => $this->cleanUtf8String($this->sdi_id),
                 'xml_filename' => $xmlStoragePath,
                 'xml_content' => $this->xml_content ?? null,
                 'file_hash' => $this->file_hash,
@@ -1204,7 +1234,6 @@ class InvoicesXmlImport extends Component
 
             Log::info('Fattura creata con ID: ' . $invoice->id);
 
-            // SALVA LE RIGHE
             foreach ($this->rows as $index => $row) {
                 Log::info('Salvataggio riga ' . $index, ['description' => $row['description']]);
                 
@@ -1213,18 +1242,16 @@ class InvoicesXmlImport extends Component
                     'document_type' => 'invoice_received',
                     'id_cost_center' => $row['id_cost_center'] ?? null,
                     'id_vehicle' => $row['id_vehicle'] ?? null,
-                    'description' => $row['description'] ?? '',
+                    'description' => $this->cleanUtf8String($row['description'] ?? ''),
                     'quantity' => $row['quantity'] ?? 1,
                     'unit_price' => $row['unit_price'] ?? 0,
                     'discount_percentage' => $row['discount_percentage'] ?? 0,
                 ]);
             }
             
-            // SALVA I PAGAMENTI (supporto rate multiple)
             $defaultStatus = config('gestionale.invoice_status.issued.code', 'issued');
 
             foreach ($this->payments as $index => $payment) {
-                // Se la data scadenza è vuota, usa la data fattura
                 $dueDate = !empty($payment['due_date']) 
                     ? $payment['due_date'] 
                     : $this->data_invoice;
@@ -1239,24 +1266,22 @@ class InvoicesXmlImport extends Component
                 $invoice->payments()->create([
                     'due_date' => $dueDate,
                     'amount' => $payment['amount'] ?? $this->importo_totale,
-                    'payment_method' => $payment['payment_method'] ?? null,
-                    'iban' => $payment['iban'] ?? null,
+                    'payment_method' => $this->cleanUtf8String($payment['payment_method'] ?? null),
+                    'iban' => $this->cleanUtf8String($payment['iban'] ?? null),
                     'status' => $defaultStatus,
                 ]);
             }
             
-            // SALVA IL RIEPILOGO IVA
             foreach ($this->vatSummaries as $summary) {
                 $invoice->vatSummaries()->create([
                     'tax_rate' => $summary['tax_rate'] ?? 0,
-                    'sdi_nature' => $summary['sdi_nature'] ?? null,
+                    'sdi_nature' => $this->cleanUtf8String($summary['sdi_nature'] ?? null),
                     'taxable_amount' => $summary['taxable_amount'] ?? 0,
                     'tax_amount' => $summary['tax_amount'] ?? 0,
-                    'vat_law_reference' => $summary['vat_law_reference'] ?? null,
-                    'esigibilita_iva' => $summary['esigibilita_iva'] ?? 'I',
+                    'vat_law_reference' => $this->cleanUtf8String($summary['vat_law_reference'] ?? null),
+                    'esigibilita_iva' => $this->cleanUtf8String($summary['esigibilita_iva'] ?? 'I'),
                 ]);
             }
-
 
             DB::commit();
 
@@ -1276,7 +1301,7 @@ class InvoicesXmlImport extends Component
             Log::error('Errore salvataggio: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
             ]);
-            $this->dispatch('alert', ['type' => 'error', 'message' => 'Errore: ' . $e->getMessage()]);
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Errore: ' . $this->cleanUtf8String($e->getMessage())]);
         }
     }
 

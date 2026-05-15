@@ -27,7 +27,7 @@ class ActivitiesTable extends Component
     public $entityName = '';
     public $dateFrom = '';
     public $dateTo = '';
-    public $perPage = 50; // Ridotto a 50 per performance, ma l'utente può cambiare
+    public $perPage = 50;
     public $sortField = 'data_activities';
     public $sortDirection = 'desc';
     
@@ -38,11 +38,6 @@ class ActivitiesTable extends Component
     public $showCostCenterDropdown = false;
     public $showServiceDropdown = false;
     public $showEntityDropdown = false;
-    
-    // Calendar management
-    public $selectedMonth = '';
-    public $selectedYear = '';
-    public $useDateFilter = true;
     
     // Modal
     public $showViewModal = false;
@@ -67,45 +62,29 @@ class ActivitiesTable extends Component
     
     protected $listeners = [
         'refreshActivities' => 'refreshActivities',
-        'loadMore' => 'loadMore'
+        'loadMore' => 'loadMore',
+        'dateRangeUpdated' => 'updateDateRange',  // AGGIUNGI QUESTO
     ];
     
     public function mount()
     {
         $this->perPage = (int) $this->perPage;
         
-        // Leggi le date dalla request se presenti
-        if (request()->has('date_from')) {
-            $this->dateFrom = request('date_from');
-        }
-        if (request()->has('date_to')) {
-            $this->dateTo = request('date_to');
-        }
-        
-        // Se non ci sono date nella request, usa il mese corrente
+        // Non impostare date qui se vengono dal componente
+        // Se vuoi solo valori iniziali, fallo solo se non ci sono date dalla request
         if (empty($this->dateFrom) && empty($this->dateTo)) {
             $now = Carbon::now();
-            $this->selectedMonth = $now->format('m');
-            $this->selectedYear = $now->format('Y');
             $this->dateFrom = $now->copy()->startOfMonth()->format('Y-m-d');
             $this->dateTo = $now->copy()->endOfMonth()->format('Y-m-d');
-            $this->useDateFilter = true;
-        } else {
-            $this->useDateFilter = true;
-            
-            try {
-                $fromDate = Carbon::parse($this->dateFrom);
-                $toDate = Carbon::parse($this->dateTo);
-                
-                if ($fromDate->day == 1 && $toDate->day == $toDate->daysInMonth && 
-                    $fromDate->format('Y-m') === $toDate->format('Y-m')) {
-                    $this->selectedMonth = $fromDate->format('m');
-                    $this->selectedYear = $fromDate->format('Y');
-                }
-            } catch (\Exception $e) {
-                // Ignora errori di parsing
-            }
         }
+    }
+    
+    // AGGIUNGI QUESTO METODO
+    public function updateDateRange($data)
+    {
+        $this->dateFrom = $data['date_from'];
+        $this->dateTo = $data['date_to'];
+        $this->resetPage();
     }
     
     /**
@@ -116,11 +95,11 @@ class ActivitiesTable extends Component
         $query = Activity::query();
         
         // Filtri ottimizzati con indici
-        if ($this->useDateFilter && $this->dateFrom && $this->dateTo) {
+        if ($this->dateFrom && $this->dateTo) {
             $query->whereBetween('data_activities', [$this->dateFrom, $this->dateTo]);
-        } elseif ($this->useDateFilter && $this->dateFrom) {
+        } elseif ($this->dateFrom) {
             $query->whereDate('data_activities', '>=', $this->dateFrom);
-        } elseif ($this->useDateFilter && $this->dateTo) {
+        } elseif ($this->dateTo) {
             $query->whereDate('data_activities', '<=', $this->dateTo);
         }
         
@@ -161,7 +140,7 @@ class ActivitiesTable extends Component
             'entity:id_cliente,ragione_sociale,nome,cognome,partita_iva',
             'staffDetails' => function($q) {
                 $q->with('staff:id_personale,NomePers,CognomePers')
-                  ->limit(3); // Limita a 3 staff per attività per performance
+                  ->limit(3);
             }
         ]);
         
@@ -299,38 +278,7 @@ class ActivitiesTable extends Component
             ->get();
     }
     
-    // ==================== CALENDAR METHODS ====================
-    
-    public function setCurrentMonthRange()
-    {
-        if ($this->selectedMonth && $this->selectedYear) {
-            $date = Carbon::createFromDate($this->selectedYear, $this->selectedMonth, 1);
-            $this->dateFrom = $date->copy()->startOfMonth()->format('Y-m-d');
-            $this->dateTo = $date->copy()->endOfMonth()->format('Y-m-d');
-            $this->useDateFilter = true;
-            $this->resetPage();
-        }
-    }
-    
-    public function previousMonth()
-    {
-        if ($this->selectedMonth && $this->selectedYear) {
-            $date = Carbon::createFromDate($this->selectedYear, $this->selectedMonth, 1)->subMonth();
-            $this->selectedMonth = $date->format('m');
-            $this->selectedYear = $date->format('Y');
-            $this->setCurrentMonthRange();
-        }
-    }
-    
-    public function nextMonth()
-    {
-        if ($this->selectedMonth && $this->selectedYear) {
-            $date = Carbon::createFromDate($this->selectedYear, $this->selectedMonth, 1)->addMonth();
-            $this->selectedMonth = $date->format('m');
-            $this->selectedYear = $date->format('Y');
-            $this->setCurrentMonthRange();
-        }
-    }
+    // ==================== SORTING ====================
     
     public function sortBy($field)
     {
@@ -343,11 +291,33 @@ class ActivitiesTable extends Component
         $this->resetPage();
     }
     
+    // ==================== RESET METHODS ====================
+    
     public function updatingSearch() { $this->resetPage(); }
     public function updatingPerPage() { $this->resetPage(); }
     public function updatingCostCenterFilter() { $this->resetPage(); }
     public function updatingServiceFilter() { $this->resetPage(); }
     public function updatingEntityFilter() { $this->resetPage(); }
+    
+    public function resetFilters()
+    {
+        $this->search = '';
+        $this->costCenterFilter = '';
+        $this->costCenterSearch = '';
+        $this->costCenterName = '';
+        $this->serviceFilter = '';
+        $this->serviceSearch = '';
+        $this->serviceName = '';
+        $this->entityFilter = '';
+        $this->entitySearch = '';
+        $this->entityName = '';
+        $this->dateFrom = '';
+        $this->dateTo = '';
+        $this->resetPage();
+        
+        // Resetta anche il componente date-range-filter
+        $this->dispatch('resetDates');
+    }
     
     // ==================== CRUD METHODS ====================
     

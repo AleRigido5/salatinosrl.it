@@ -1,59 +1,9 @@
 <div>
     <!-- Filtri e Ricerca -->
     <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
-        <!-- Filtri Data con navigazione mensile -->
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-200">
-            <!-- Range date personalizzato a sinistra -->
-            <div class="flex items-center gap-3">
-                <input type="date" id="date_from" value="{{ request('date_from', $dateFrom) }}" class="text-sm px-3 py-1.5 border border-gray-300 rounded-md">
-                <span class="text-gray-500">→</span>
-                <input type="date" id="date_to" value="{{ request('date_to', $dateTo) }}" class="text-sm px-3 py-1.5 border border-gray-300 rounded-md">
-                
-                <!-- Bottone Applica -->
-                <button type="button" id="applyDateRange" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-1.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
-                    Applica
-                </button>
-            </div>
-            
-            <!-- Navigazione mese a destra -->
-            <div class="flex items-center gap-3">      
-                <!-- Frecce navigazione mese -->
-                <button type="button" id="prevMonth" class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors" title="Mese precedente">
-                    <i class="fas fa-chevron-left"></i>
-                </button>
-                
-                <!-- Freccia mese successivo -->
-                <button type="button" id="nextMonth" class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors" title="Mese successivo">
-                    <i class="fas fa-chevron-right"></i>
-                </button>
-                          
-                <!-- Select mese e anno -->
-                <div class="flex items-center gap-2">
-                    <select id="monthSelect" class="px-3 py-1.5 border border-gray-300 rounded-md text-sm">
-                        <option value="01">Gennaio</option>
-                        <option value="02">Febbraio</option>
-                        <option value="03">Marzo</option>
-                        <option value="04">Aprile</option>
-                        <option value="05">Maggio</option>
-                        <option value="06">Giugno</option>
-                        <option value="07">Luglio</option>
-                        <option value="08">Agosto</option>
-                        <option value="09">Settembre</option>
-                        <option value="10">Ottobre</option>
-                        <option value="11">Novembre</option>
-                        <option value="12">Dicembre</option>
-                    </select>
-                    
-                    <select id="yearSelect" class="px-3 py-1.5 border border-gray-300 rounded-md text-sm">
-                        @php
-                            $currentYear = date('Y');
-                            for($y = $currentYear - 10; $y <= $currentYear + 5; $y++):
-                        @endphp
-                            <option value="{{ $y }}" {{ $currentYear == $y ? 'selected' : '' }}>{{ $y }}</option>
-                        @php endfor; @endphp
-                    </select>
-                </div>
-            </div>
+        <!-- Filtri Data con componente DateRangeFilter -->
+        <div class="p-4">
+            @livewire('components.date-range-filter', ['dateFrom' => $dateFrom, 'dateTo' => $dateTo])
         </div>
         
         <!-- Filtri Avanzati con Autocomplete (invariati) -->

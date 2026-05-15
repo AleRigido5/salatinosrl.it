@@ -35,11 +35,35 @@
             </div>
         </div>
 
-        <!-- DESTRA: range date con wire:model -->
+         <!-- CENTRO: Data singola e Stagione (label affiancate) -->
+        <div class="flex items-center gap-4">
+            <!-- Data singola -->
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-700">Data</label>
+                <input type="date"
+                    wire:model.live="singleDate"
+                    class="text-sm px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+            </div>
+
+            <!-- Stagione (solo anno con input number) -->
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-700">Stagione</label>
+                <input type="number"
+                    wire:model.live="selectedSeason"
+                    min="2011"
+                    max="{{ date('Y') }}"
+                    step="1"
+                    placeholder="Anno ({{ date('Y') }})"
+                    class="text-sm px-3 py-1.5 w-32 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+            </div>
+        </div>
+
+        <!-- DESTRA: valore scritto direttamente da PHP, niente wire:model -->
         <div class="flex items-center gap-3">
+
             <input type="date"
                 value="{{ $dateFrom }}"
-                class="text-sm px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                class="text-sm px-3 py-1.5 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-default focus:outline-none">
 
             <span class="text-gray-400">
                 <i class="fas fa-arrow-right text-xs"></i>
@@ -47,7 +71,7 @@
 
             <input type="date"
                 value="{{ $dateTo }}"
-                class="text-sm px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                class="text-sm px-3 py-1.5 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-default focus:outline-none">
 
             <button type="button"
                 wire:click="applyFilters"
@@ -59,6 +83,7 @@
                     <i class="fas fa-spinner fa-spin text-sm"></i>
                 </span>
             </button>
+
         </div>
     </div>
 </div>

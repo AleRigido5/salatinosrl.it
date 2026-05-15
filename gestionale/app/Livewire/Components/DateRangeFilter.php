@@ -11,6 +11,8 @@ class DateRangeFilter extends Component
     public string $dateTo   = '';
     public int $selectedMonth;
     public int $selectedYear;
+    public string $singleDate = '';
+    public ?string $selectedSeason = null;
 
     protected $listeners = ['resetDates' => 'resetDates', 'resetDateRangeFilterWithoutApply' => 'resetDateRangeFilterWithoutApply'];
 
@@ -25,12 +27,16 @@ class DateRangeFilter extends Component
     public function updatedSelectedMonth(): void
     {
         $this->syncDatesFromSelects();
+        $this->singleDate = '';
+        $this->selectedSeason = null;
     }
 
     // Ogni volta che cambia il select anno → aggiorna gli input data
     public function updatedSelectedYear(): void
     {
         $this->syncDatesFromSelects();
+        $this->singleDate = '';
+        $this->selectedSeason = null;
     }
 
     public function previousMonth(): void
@@ -39,6 +45,8 @@ class DateRangeFilter extends Component
         $this->selectedMonth = $date->month;
         $this->selectedYear  = $date->year;
         $this->syncDatesFromSelects();
+        $this->singleDate = '';
+        $this->selectedSeason = null;
     }
 
     public function nextMonth(): void
@@ -47,6 +55,8 @@ class DateRangeFilter extends Component
         $this->selectedMonth = $date->month;
         $this->selectedYear  = $date->year;
         $this->syncDatesFromSelects();
+        $this->singleDate = '';
+        $this->selectedSeason = null;
     }
 
     // I campi di sinistra comandano quelli di destra
@@ -59,6 +69,37 @@ class DateRangeFilter extends Component
         $this->dateTo = Carbon::create($this->selectedYear, $this->selectedMonth, 1)
             ->endOfMonth()
             ->format('Y-m-d');
+    }
+
+    // Aggiorna quando viene selezionata una data singola
+    public function updatedSingleDate(string $value): void
+    {
+        if (!empty($value)) {
+            $dateObj = Carbon::parse($value);
+            $this->selectedMonth = $dateObj->month;
+            $this->selectedYear = $dateObj->year;
+            $this->dateFrom = $value;
+            $this->dateTo = $value;
+            $this->selectedSeason = null;
+        } else {
+            $this->syncDatesFromSelects();
+        }
+    }
+
+    // Aggiorna quando viene selezionata una stagione (anno)
+    public function updatedSelectedSeason(?string $value): void
+    {
+        if (!empty($value)) {
+            // Estrai solo l'anno dalla data
+            $year = Carbon::parse($value)->year;
+            $this->selectedYear = $year;
+            $this->selectedMonth = 1;
+            $this->dateFrom = Carbon::create($year, 1, 1)->startOfYear()->format('Y-m-d');
+            $this->dateTo = Carbon::create($year, 12, 31)->endOfYear()->format('Y-m-d');
+            $this->singleDate = '';
+        } else {
+            $this->syncDatesFromSelects();
+        }
     }
 
     // Solo questo dispatcha alla tabella
@@ -75,6 +116,8 @@ class DateRangeFilter extends Component
     {
         $this->selectedMonth = Carbon::now()->month;
         $this->selectedYear  = Carbon::now()->year;
+        $this->singleDate = '';
+        $this->selectedSeason = null;
         $this->syncDatesFromSelects();
         $this->applyFilters();
     }
@@ -84,6 +127,8 @@ class DateRangeFilter extends Component
         // Resetta al mese corrente
         $this->selectedMonth = Carbon::now()->month;
         $this->selectedYear = Carbon::now()->year;
+        $this->singleDate = '';
+        $this->selectedSeason = null;
         $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
         $this->dateTo = Carbon::now()->endOfMonth()->format('Y-m-d');
         
@@ -99,6 +144,9 @@ class DateRangeFilter extends Component
     {
         $this->dateFrom = '';
         $this->dateTo = '';
+        $this->singleDate = '';
+        $this->selectedSeason = null;
+        $this->syncDatesFromSelects();
         $this->applyFilters();
     }
 

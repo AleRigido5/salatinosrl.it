@@ -3,14 +3,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class InvoiceVatSummary extends Model
 {
     protected $table = 'invoice_vat_summaries';
     
     protected $fillable = [
-        'invoice_id',  // <-- Tieni questa colonna
+        'vatable_id',
+        'vatable_type',
         'tax_rate',
         'sdi_nature',
         'taxable_amount',
@@ -25,10 +26,10 @@ class InvoiceVatSummary extends Model
         'tax_amount' => 'decimal:2',
     ];
     
-    // Relazione semplice con la fattura
-    public function invoice(): BelongsTo
+    // Relazione polimorfica con la fattura
+    public function vatable(): MorphTo
     {
-        return $this->belongsTo(InvoiceReceived::class, 'invoice_id');
+        return $this->morphTo();
     }
     
     // Accessor per la natura operazione

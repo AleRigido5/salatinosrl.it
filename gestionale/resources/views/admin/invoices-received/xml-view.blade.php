@@ -285,33 +285,70 @@
         </tr>
     </thead>
     <tbody>
-        @forelse($xmlData['righe'] as $index => $riga)
-        <tr>
-            <td class="ctr">{{ $index + 1 }}</td>
-            <td>{{ $riga['descrizione'] ?? '' }}</td>
-            <td class="num">
-                @php $qty = floatval(str_replace(',', '.', $riga['quantita'] ?? 0)); @endphp
-                @if($qty != 0) {{ number_format($qty, 2, ',', '.') }} @endif
-            </td>
-            <td class="num">
-                @php $pu = floatval(str_replace(',', '.', $riga['prezzo_unitario'] ?? 0)); @endphp
-                @if($pu != 0) {{ number_format($pu, 5, ',', '.') }} @endif
-            </td>
-            <td class="ctr">{{ $riga['unita_misura'] ?? '' }}</td>
-            <td class="ctr">{{ $riga['sconto'] ?? '' }}</td>
-            <td class="num">
-                @if(isset($riga['aliquota_iva']))
-                    {{ number_format(floatval(str_replace(',', '.', $riga['aliquota_iva'])), 2, ',', '.') }}
-                @endif
-            </td>
-            <td class="num">
-                @php $pt = floatval(str_replace(',', '.', $riga['prezzo_totale'] ?? 0)); @endphp
-                @if($pt != 0) {{ number_format($pt, 5, ',', '.') }} @endif
-            </td>
-        </tr>
-        @empty
-        <tr><td colspan="8" style="text-align:center; padding:10px; color:#666;">Nessuna riga disponibile</td></tr>
-        @endforelse
+        {{-- CERCA PRIMA NELLE RIGHE DAL DATABASE --}}
+        @php
+            $hasXmlRows = isset($xmlData['righe']) && count($xmlData['righe']) > 0;
+            $hasDbRows = $invoice->rows && $invoice->rows->count() > 0;
+        @endphp
+        
+        @if($hasDbRows)
+            {{-- MOSTRA RIGHE DAL DATABASE --}}
+            @foreach($invoice->rows as $index => $riga)
+            <tr>
+                <td class="ctr">{{ $index + 1 }}</td>
+                <td>{{ $riga->description ?? '' }}</td>
+                <td class="num">
+                    @if($riga->quantity != 0) {{ number_format($riga->quantity, 3, ',', '.') }} @endif
+                </td>
+                <td class="num">
+                    @if($riga->unit_price != 0) {{ number_format($riga->unit_price, 4, ',', '.') }} @endif
+                </td>
+                <td class="ctr">{{ $riga->unit_measure ?? '' }}</td>
+                <td class="ctr">
+                    @if($riga->discount_percentage > 0)
+                        {{ number_format($riga->discount_percentage, 2, ',', '.') }}%
+                    @endif
+                </td>
+                <td class="num">
+                    @if($riga->vat_rate)
+                        {{ number_format($riga->vat_rate, 2, ',', '.') }}
+                    @endif
+                </td>
+                <td class="num">
+                    @if($riga->total != 0) {{ number_format($riga->total, 2, ',', '.') }} @endif
+                </td>
+            </tr>
+            @endforeach
+        @elseif($hasXmlRows)
+            {{-- MOSTRA RIGHE DALL'XML --}}
+            @foreach($xmlData['righe'] as $index => $riga)
+            <tr>
+                <td class="ctr">{{ $index + 1 }}</td>
+                <td>{{ $riga['descrizione'] ?? '' }}</td>
+                <td class="num">
+                    @php $qty = floatval(str_replace(',', '.', $riga['quantita'] ?? 0)); @endphp
+                    @if($qty != 0) {{ number_format($qty, 2, ',', '.') }} @endif
+                </td>
+                <td class="num">
+                    @php $pu = floatval(str_replace(',', '.', $riga['prezzo_unitario'] ?? 0)); @endphp
+                    @if($pu != 0) {{ number_format($pu, 5, ',', '.') }} @endif
+                </td>
+                <td class="ctr">{{ $riga['unita_misura'] ?? '' }}</td>
+                <td class="ctr">{{ $riga['sconto'] ?? '' }}</td>
+                <td class="num">
+                    @if(isset($riga['aliquota_iva']))
+                        {{ number_format(floatval(str_replace(',', '.', $riga['aliquota_iva'])), 2, ',', '.') }}
+                    @endif
+                </td>
+                <td class="num">
+                    @php $pt = floatval(str_replace(',', '.', $riga['prezzo_totale'] ?? 0)); @endphp
+                    @if($pt != 0) {{ number_format($pt, 2, ',', '.') }} @endif
+                </td>
+            </tr>
+            @endforeach
+        @else
+            <tr><td colspan="8" style="text-align:center; padding:10px; color:#666;">Nessuna riga disponibile</td></tr>
+        @endif
     </tbody>
 </table>
 

@@ -261,7 +261,14 @@ class InvoicesReceivedTable extends Component
     public function showDetails(int $id): void
     {
         $this->selectedInvoice = InvoiceReceived::with([
-            'ownership', 'entity', 'rows.costCenter', 'payments', 'creator', 'updater'
+            'ownership', 
+            'entity', 
+            'rows.costCenter', 
+            'rows.vehicle',
+            'payments', 
+            'creator', 
+            'updater', 
+            'vatSummaries'
         ])->find($id);
         $this->showModal = true;
     }

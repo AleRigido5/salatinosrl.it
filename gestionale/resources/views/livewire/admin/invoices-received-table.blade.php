@@ -36,8 +36,8 @@
         <!-- Linea di separazione -->
         <div class="border-t border-gray-200 my-4"></div>
         
-        <!-- RIGA INFERIORE: Autocomplete Proprietà + Autocomplete Fornitore + Select Stato -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- RIGA INFERIORE: Filtri -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <!-- Autocomplete Proprietà -->
             <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Proprietà</label>
@@ -138,23 +138,98 @@
                 </div>
             </div>
             
-            <!-- Select Stato -->
-            <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">Stato</label>
+            <!-- Autocomplete Centro di Costo -->
+            <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                <label class="block text-xs font-medium text-gray-500 mb-1">Centro di Costo</label>
                 <div class="relative">
-                    <i class="fas fa-tag absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-                    <select wire:model.live="status" class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
-                        <option value="">Tutti gli stati</option>
-                        @foreach($statuses as $s)
-                            <option value="{{ $s['value'] }}">{{ $s['label'] }}</option>
+                    <i class="fas fa-chart-pie absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                    <input type="text"
+                        id="cost_center_input"
+                        wire:model.live.debounce.300ms="costCenterSearch"
+                        x-on:focus="open = true"
+                        x-on:input="open = true; @this.set('costCenterSearch', $event.target.value)"
+                        placeholder="Cerca centro di costo..."
+                        class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                        autocomplete="off">
+                    @if($selectedCostCenterId)
+                        <button type="button"
+                            wire:click="clearCostCenter"
+                            x-on:click="document.getElementById('cost_center_input').value = ''"
+                            class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
+                            <i class="fas fa-times-circle text-sm"></i>
+                        </button>
+                    @endif
+                </div>
+
+                <div x-show="open && @entangle('showCostCenterDropdown')"
+                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    @if($costCenterResults && $costCenterResults->count() > 0)
+                        @foreach($costCenterResults as $item)
+                            <div
+                                x-on:click="
+                                    open = false;
+                                    document.getElementById('cost_center_input').value = '{{ addslashes($item->Nome) }}';
+                                    @this.set('costCenterSearch', '{{ addslashes($item->Nome) }}');
+                                    @this.set('selectedCostCenterId', '{{ $item->id }}');
+                                    @this.set('selectedCostCenterName', '{{ addslashes($item->Nome) }}');
+                                    @this.set('showCostCenterDropdown', false);
+                                    @this.call('resetPage');
+                                "
+                                class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                <div class="font-medium text-gray-800">{{ $item->Nome }}</div>
+                                @if($item->Localita)
+                                    <div class="text-xs text-gray-500">{{ $item->Localita }}</div>
+                                @endif
+                            </div>
                         @endforeach
+                    @else
+                        <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato trovato</div>
+                    @endif
+                </div>
+            </div>
+            
+            <!-- Select Tipo Documento -->
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Tipo Documento</label>
+                <div class="relative">
+                    <i class="fas fa-file-alt absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                    <select wire:model.live="type_invoice" class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                        <option value="">Tutti i tipi</option>
+                        @foreach($typeDocuments as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Select Stato + Per Page -->
+            <div class="flex gap-2">
+                <div class="flex-1">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Stato</label>
+                    <div class="relative">
+                        <i class="fas fa-tag absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                        <select wire:model.live="status" class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                            <option value="">Tutti gli stati</option>
+                            @foreach($statuses as $value => $statusData)
+                                <option value="{{ $value }}">{{ $statusData['label'] ?? $value }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Per pagina</label>
+                    <select wire:model.live="perPage" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                        <option value="10000">Tutti</option>
+                        <option value="200">200</option>
+                        <option value="100">100</option>
                     </select>
                 </div>
             </div>
         </div>
         
         <!-- Active Filters Tags -->
-        @if($selectedOwnershipId || $selectedSupplierId || $status || $type_invoice || $search || $dateFrom || $dateTo)
+        @if($selectedOwnershipId || $selectedSupplierId || $selectedCostCenterId || $status || $type_invoice || $search || $dateFrom || $dateTo)
         <div class="mt-4 pt-3 border-t border-gray-200">
             <div class="flex flex-wrap items-center gap-2">
                 <span class="text-xs text-gray-500">Filtri attivi:</span>
@@ -177,9 +252,18 @@
                 </span>
                 @endif
                 
+                @if($selectedCostCenterId && $selectedCostCenterName)
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
+                    <i class="fas fa-chart-pie mr-1 text-xs"></i> {{ $selectedCostCenterName }}
+                    <button wire:click="clearCostCenter" class="ml-1 hover:text-lime-900">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
+                </span>
+                @endif
+                
                 @if($status)
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
-                    <i class="fas fa-tag mr-1 text-xs"></i> {{ collect($statuses)->firstWhere('value', $status)['label'] ?? $status }}
+                    <i class="fas fa-tag mr-1 text-xs"></i> {{ $statuses[$status]['label'] ?? $status }}
                     <button wire:click="clearStatus" class="ml-1 hover:text-lime-900">
                         <i class="fas fa-times text-xs"></i>
                     </button>
@@ -213,7 +297,7 @@
                 </span>
                 @endif
                 
-                @if($selectedOwnershipId || $selectedSupplierId || $status || $type_invoice || $search || $dateFrom || $dateTo)
+                @if($selectedOwnershipId || $selectedSupplierId || $selectedCostCenterId || $status || $type_invoice || $search || $dateFrom || $dateTo)
                 <span class="text-xs text-gray-400 ml-2">
                     <button wire:click="resetFilters" class="hover:text-red-500">
                         <i class="fas fa-trash-alt mr-1 text-xs"></i> Rimuovi tutti
@@ -270,15 +354,33 @@
                     @endphp
                     <tr class="hover:bg-gray-50" wire:key="invoice-{{ $invoice->id }}">
                         <td class="px-4 py-3 text-sm">{{ $invoice->ownership->RagAbbrev ?? $invoice->ownership_name }}</td>
-                        <td class="px-4 py-3 text-sm">{{ $typeDocuments[$invoice->type_invoice] ?? $invoice->type_invoice }}</td>
+                        <!-- Nella colonna Tipo Doc. -->
+                        <td class="px-4 py-3 text-sm">
+                            {{ $typeDocuments[$invoice->type_invoice] ?? $invoice->type_invoice }}
+                            @if($invoice->is_manual)
+                                <i class="fas fa-hand-paper text-yellow-500 ml-1" title="Fattura creata manualmente"></i>
+                            @endif
+                        </td>
                         <td class="px-4 py-3 text-sm">{{ $invoice->data_invoice->format('d/m/Y') }}</td>
                         <td class="px-4 py-3 text-sm font-medium">{{ $invoice->n_invoice }}</td>
                         <td class="px-4 py-3 text-sm">{{ $invoice->supplier_name }}</td>
                         <td class="px-4 py-3 text-sm max-w-[200px] truncate" title="{{ $costCenterNames }}">{{ $costCenterNames ?: '-' }}</td>
-                        <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-medium {{ $invoice->status_badge_class }}">{{ $invoice->status_label }}</span></td>
+                        <td class="px-4 py-3">
+                            @php
+                                $statusConfig = $statuses[$invoice->status] ?? null;
+                                $badgeClass = $statusConfig['badge_class'] ?? 'bg-gray-100 text-gray-800';
+                                $statusLabel = $statusConfig['label'] ?? $invoice->status_label;
+                            @endphp
+                            <span class="px-2 py-1 rounded-full text-xs font-medium {{ $badgeClass }}">{{ $statusLabel }}</span>
+                        </td>
                         <td class="px-4 py-3 text-right font-medium">{{ number_format($invoice->importo_totale, 2, ',', '.') }} €</td>
                         <td class="px-4 py-3 text-center">
                             <div class="flex items-center justify-center space-x-2">
+                                <a href="{{ route('admin.invoices-received.edit', $invoice->id) }}" 
+                                class="text-yellow-600 hover:text-yellow-900" 
+                                title="Modifica">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </a>
                                 <a href="{{ route('admin.invoices-received.xml-view', $invoice->id) }}" target="_blank" class="text-purple-600 hover:text-purple-900" title="Visualizza XML"><i class="fa-solid fa-magnifying-glass"></i></a>
                                 <button wire:click="showDetails({{ $invoice->id }})" class="text-blue-600 hover:text-blue-900" title="Dettagli"><i class="fa-regular fa-eye"></i></button>
                                 <button wire:click="confirmDelete({{ $invoice->id }})" class="text-red-600 hover:text-red-900" title="Elimina"><i class="fa-solid fa-trash-can"></i></button>
@@ -291,8 +393,26 @@
                 </tbody>
             </table>
         </div>
-        <div class="px-6 py-4 border-t">{{ $invoices->links() }}</div>
     </div>
+
+    <!-- Paginazione -->
+    @if($perPage != 10000 && $invoices instanceof \Illuminate\Pagination\AbstractPaginator && $invoices->hasPages())
+    <div class="px-6 py-4 border-t">
+        <div class="text-sm text-gray-500 mb-2">
+            Mostrando {{ $invoices->firstItem() ?? 0 }} - {{ $invoices->lastItem() ?? 0 }} di {{ $invoices->total() }} risultati
+        </div>
+        <div class="flex justify-center">
+            {{ $invoices->links() }}
+        </div>
+    </div>
+    @elseif($perPage == 10000 && $invoices->count() > 0)
+    <div class="px-6 py-4 border-t">
+        <div class="text-sm text-gray-500 mb-2 text-center bg-green-50 p-2 rounded-lg">
+            <i class="fas fa-database text-green-500 mr-1"></i> 
+            Mostrati tutti i <strong>{{ $invoices->total() }}</strong> risultati
+        </div>
+    </div>
+    @endif
 
     <!-- ==================== MODAL DETTAGLI FATTURA ==================== -->
     @if($showModal && $selectedInvoice)
@@ -313,8 +433,12 @@
                     </div>
                 </div>
                 <div class="px-6 py-4 max-h-[70vh] overflow-y-auto">
+                    @php
+                        $statusConfig = $statuses[$selectedInvoice->status] ?? null;
+                        $badgeClass = $statusConfig['badge_class'] ?? 'bg-gray-100 text-gray-800';
+                    @endphp
                     <div class="flex justify-end mb-4">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $selectedInvoice->status_badge_class }}">{{ $selectedInvoice->status_label }}</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $badgeClass }}">{{ $statusConfig['label'] ?? $selectedInvoice->status_label }}</span>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div class="bg-gray-50 p-3 rounded-lg"><label class="block text-xs font-medium text-gray-500 uppercase">Fornitore</label><p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->supplier_name }}</p></div>
@@ -335,14 +459,34 @@
                         <h4 class="font-medium text-gray-900 mb-3 border-b pb-2"><i class="fas fa-credit-card mr-2 text-green-600"></i> Piano Scadenze / Pagamenti @if($selectedInvoice->payments->count() > 1)<span class="text-xs text-gray-500 ml-2">({{ $selectedInvoice->payments->count() }} rate)</span>@endif</h4>
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 border rounded-lg">
-                                <thead class="bg-gray-50"><tr><th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Data scadenza</th><th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Importo</th><th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Modalità pagamento</th><th class="px-3 py-2 text-left text-xs font-medium text-gray-500">IBAN</th><th class="px-3 py-2 text-center text-xs font-medium text-gray-500">Stato</th></tr></thead>
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Data scadenza</th>
+                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Importo</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Modalità pagamento</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">IBAN</th>
+                                        <th class="px-3 py-2 text-center text-xs font-medium text-gray-500">Stato</th>
+                                    </tr>
+                                </thead>
                                 <tbody class="divide-y divide-gray-200">
                                     @foreach($selectedInvoice->payments as $payment)
-                                    <tr><td class="px-3 py-2 text-sm">{{ $payment->due_date ? $payment->due_date->format('d/m/Y') : '-' }}</td><td class="px-3 py-2 text-sm text-right font-medium">{{ number_format($payment->amount, 2, ',', '.') }} €</td><td class="px-3 py-2 text-sm">{{ $payment->payment_method_label ?? $payment->payment_method ?? '-' }}</td><td class="px-3 py-2 text-sm font-mono text-xs">{{ $payment->iban ?? '-' }}</td><td class="px-3 py-2 text-center"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $payment->status_badge_class }}">{{ $payment->status_label }}</span></td></tr>
+                                    <tr>
+                                        <td class="px-3 py-2 text-sm">{{ $payment->due_date ? $payment->due_date->format('d/m/Y') : '-' }}</td>
+                                        <td class="px-3 py-2 text-sm text-right font-medium">{{ number_format($payment->amount, 2, ',', '.') }} €</td>
+                                        <td class="px-3 py-2 text-sm">{{ $payment->payment_method_label ?? $payment->payment_method ?? '-' }}</td>
+                                        <td class="px-3 py-2 text-sm font-mono text-xs">{{ $payment->iban ?? '-' }}</td>
+                                        <td class="px-3 py-2 text-center"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $payment->status_badge_class }}">{{ $payment->status_label }}</span></td>
+                                    </tr>
                                     @endforeach
                                 </tbody>
                                 @if($selectedInvoice->payments->count() > 1)
-                                <tfoot class="bg-gray-50"><tr><td class="px-3 py-2 text-right font-bold">Totale pagamenti</td><td class="px-3 py-2 text-right font-bold text-green-600">{{ number_format($selectedInvoice->payments->sum('amount'), 2, ',', '.') }} €</td><td colspan="3"></td></tfoot>
+                                <tfoot class="bg-gray-50">
+                                    <tr>
+                                        <td class="px-3 py-2 text-right font-bold">Totale pagamenti</td>
+                                        <td class="px-3 py-2 text-right font-bold text-green-600">{{ number_format($selectedInvoice->payments->sum('amount'), 2, ',', '.') }} €</td>
+                                        <td colspan="3"></td>
+                                    </tr>
+                                </tfoot>
                                 @endif
                             </table>
                         </div>
@@ -354,14 +498,31 @@
                         <h4 class="font-medium text-gray-900 mb-3 border-b pb-2">Righe Fattura</h4>
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 border rounded-lg">
-                                <thead class="bg-gray-50"><tr><th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Descrizione</th><th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Quantità</th><th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Prezzo Unit.</th><th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Sconto</th><th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Totale</th></tr></thead>
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Descrizione</th>
+                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Quantità</th>
+                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Prezzo Unit.</th>
+                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Sconto</th>
+                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Totale</th>
+                                    </tr>
+                                </thead>
                                 <tbody class="divide-y divide-gray-200">
                                     @foreach($selectedInvoice->rows as $row)
-                                    <tr><td class="px-3 py-2 text-sm">{{ $row->description }}</td><td class="px-3 py-2 text-sm text-right">{{ number_format($row->quantity, 3, ',', '.') }}</td><td class="px-3 py-2 text-sm text-right">{{ number_format($row->unit_price, 4, ',', '.') }} €</td><td class="px-3 py-2 text-sm text-right">{{ $row->discount_percentage > 0 ? number_format($row->discount_percentage, 2, ',', '.') . '%' : '-' }}</td><td class="px-3 py-2 text-sm text-right font-medium">{{ number_format($row->total, 2, ',', '.') }} €</td></tr>
+                                    <tr>
+                                        <td class="px-3 py-2 text-sm">{{ $row->description }}</td>
+                                        <td class="px-3 py-2 text-sm text-right">{{ number_format($row->quantity, 3, ',', '.') }}</td>
+                                        <td class="px-3 py-2 text-sm text-right">{{ number_format($row->unit_price, 4, ',', '.') }} €</td>
+                                        <td class="px-3 py-2 text-sm text-right">{{ $row->discount_percentage > 0 ? number_format($row->discount_percentage, 2, ',', '.') . '%' : '-' }}</td>
+                                        <td class="px-3 py-2 text-sm text-right font-medium">{{ number_format($row->total, 2, ',', '.') }} €</td>
+                                    </tr>
                                     @endforeach
                                 </tbody>
                                 <tfoot class="bg-gray-50">
-                                    <tr><td colspan="4" class="px-3 py-2 text-right font-bold">TOTALE</td><td class="px-3 py-2 text-right font-bold text-lg">{{ number_format($selectedInvoice->importo_totale, 2, ',', '.') }} €</td></tr>
+                                    <tr>
+                                        <td colspan="4" class="px-3 py-2 text-right font-bold">TOTALE</td>
+                                        <td class="px-3 py-2 text-right font-bold text-lg">{{ number_format($selectedInvoice->importo_totale, 2, ',', '.') }} €</td>
+                                    </tr>
                                 </tfoot>
                             </table>
                         </div>
@@ -465,36 +626,78 @@
         </div>
     </div>
     @endif
-</div>
 
-<script>
-    document.addEventListener('livewire:initialized', () => {
-        // Evento per pulire l'input della proprietà
-        Livewire.on('clearOwnershipInput', () => {
-            const input = document.getElementById('ownership_input');
-            if (input) input.value = '';
-        });
-        
-        Livewire.on('clearSupplierInput', () => {
-            const input = document.getElementById('supplier_input');
-            if (input) input.value = '';
-        });
-        
-        Livewire.on('resetAllFilters', () => {
-            // Pulisce tutti gli input
-            const ownershipInput = document.getElementById('ownership_input');
-            if (ownershipInput) ownershipInput.value = '';
+    <!-- Stili per la paginazione (INCLUSI nel div principale) -->
+    <style scoped>
+        nav[role="navigation"] div.flex-1 {
+            display: none !important;
+        }
+        nav[role="navigation"] .relative.z-0 {
+            justify-content: center !important;
+            display: flex !important;
+        }
+        nav[role="navigation"] span[aria-current="page"] span,
+        nav[role="navigation"] .relative.inline-flex.items-center {
+            background-color: white !important;
+            border-color: #e5e7eb !important;
+            color: #374151 !important;
+        }
+        nav[role="navigation"] span[aria-current="page"] span {
+            background-color: #84cc16 !important;
+            border-color: #84cc16 !important;
+            color: white !important;
+        }
+        nav[role="navigation"] .relative.inline-flex.items-center:hover {
+            background-color: #f9fafb !important;
+            border-color: #d1d5db !important;
+        }
+        nav[role="navigation"] p.text-sm {
+            display: none !important;
+        }
+        nav[role="navigation"] > div:first-child {
+            justify-content: center !important;
+        }
+        nav[role="navigation"] > div:first-child > div:first-child {
+            display: none !important;
+        }
+    </style>
+
+    <script>
+        document.addEventListener('livewire:initialized', () => {
+            // Evento per pulire l'input della proprietà
+            Livewire.on('clearOwnershipInput', () => {
+                const input = document.getElementById('ownership_input');
+                if (input) input.value = '';
+            });
             
-            const supplierInput = document.getElementById('supplier_input');
-            if (supplierInput) supplierInput.value = '';
+            Livewire.on('clearSupplierInput', () => {
+                const input = document.getElementById('supplier_input');
+                if (input) input.value = '';
+            });
+            
+            Livewire.on('clearCostCenterInput', () => {
+                const input = document.getElementById('cost_center_input');
+                if (input) input.value = '';
+            });
+            
+            Livewire.on('resetAllFilters', () => {
+                const ownershipInput = document.getElementById('ownership_input');
+                if (ownershipInput) ownershipInput.value = '';
+                
+                const supplierInput = document.getElementById('supplier_input');
+                if (supplierInput) supplierInput.value = '';
+                
+                const costCenterInput = document.getElementById('cost_center_input');
+                if (costCenterInput) costCenterInput.value = '';
+            });
+            
+            Livewire.on('showSuccess', (event) => {
+                console.log('Success:', event.message);
+            });
+            
+            Livewire.on('showError', (event) => {
+                console.error('Error:', event.message);
+            });
         });
-        
-        Livewire.on('showSuccess', (event) => {
-            console.log('Success:', event.message);
-        });
-        
-        Livewire.on('showError', (event) => {
-            console.error('Error:', event.message);
-        });
-    });
-</script>
+    </script>
+</div>

@@ -28,6 +28,7 @@ class InvoiceReceived extends Model
         'divisa',
         'status',
         'sdi_id',
+        'is_manual', 
         'xml_filename',
         'xml_content',
         'file_hash',

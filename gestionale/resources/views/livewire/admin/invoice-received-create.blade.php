@@ -369,7 +369,14 @@
                                     required>
                             </td>
                             <td class="col-um px-2 py-1">
-                                <input type="text" wire:model.live="rows.{{ $index }}.unit_measure" class="w-full px-1 py-1 text-sm border rounded-md text-center" placeholder="PZ">
+                                <select wire:model.live="rows.{{ $index }}.unit_measure" 
+                                        class="w-full px-1 py-1 text-sm border rounded-md text-center">
+                                    @foreach($unitMeasureList as $um)
+                                        <option value="{{ $um['codice'] }}">
+                                            {{ $um['nome'] }} ({{ $um['codice'] }})
+                                        </option>
+                                    @endforeach
+                                </select>
                             </td>
                             <td class="col-discount px-2 py-1">
                                 <input type="number" step="0.01" wire:model.live="rows.{{ $index }}.discount_percentage" class="w-full px-1 py-1 text-sm border rounded-md text-right" placeholder="0">

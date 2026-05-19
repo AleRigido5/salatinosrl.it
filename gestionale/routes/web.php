@@ -213,6 +213,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
             
             // Visualizzazione XML fattura (DEVE essere PRIMA di /{invoice})
             Route::get('/{id}/xml-view', [App\Http\Controllers\Admin\InvoiceXmlController::class, 'showAsHtml'])->name('xml-view');
+
+            // Rotte per modifica
+            Route::get('/{invoice}/edit', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'edit'])->name('edit');
+            Route::put('/{invoice}', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'update'])->name('update');
             
             // Questa rotta con parametro {invoice} DEVE andare DOPO
             Route::get('/{invoice}', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'show'])->name('show');

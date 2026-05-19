@@ -132,7 +132,7 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Stato</label>
-                        <input type="text" value="Bozza" class="w-full border rounded-lg px-3 py-2 disabled-input" disabled>
+                        <input type="text" value="Emessa" class="w-full border rounded-lg px-3 py-2 disabled-input" disabled>
                     </div>
                     <div>
                         <label class="block text-sm font-medium mb-1">Divisa</label>

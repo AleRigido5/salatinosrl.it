@@ -1224,6 +1224,7 @@ class InvoicesXmlImport extends Component
                 'divisa' => $this->cleanUtf8String($this->divisa),
                 'status' => $this->status,
                 'sdi_id' => $this->cleanUtf8String($this->sdi_id),
+                'is_manual' => false, 
                 'xml_filename' => $xmlStoragePath,
                 'xml_content' => $this->xml_content ?? null,
                 'file_hash' => $this->file_hash,
@@ -1302,6 +1303,8 @@ class InvoicesXmlImport extends Component
                 'trace' => $e->getTraceAsString()
             ]);
             $this->dispatch('alert', ['type' => 'error', 'message' => 'Errore: ' . $this->cleanUtf8String($e->getMessage())]);
+
+            return null;
         }
     }
 

@@ -82,6 +82,18 @@ class InvoiceReceivedController extends Controller
         return view('admin.invoices-received.show', compact('invoice'));
     }
 
+    public function edit($id)
+    {
+        return view('admin.invoices-received.edit', ['id' => $id]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        // Questo metodo non viene più utilizzato perché usiamo Livewire
+        // Ma lo manteniamo per compatibilità
+        return redirect()->route('admin.invoices-received.index');
+    }
+
     public function xmlImport()
     {
         Log::info('xmlImport - Auth check: ' . (Auth::guard('admin')->check() ? 'true' : 'false'));

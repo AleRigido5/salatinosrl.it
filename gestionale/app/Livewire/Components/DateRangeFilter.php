@@ -31,7 +31,7 @@ class DateRangeFilter extends Component
         $this->selectedSeason = null;
     }
 
-    // Ogni volta che cambia il select anno → aggiorna gli input data
+    // Ogni volta che cambia l'anno (dalle frecce)
     public function updatedSelectedYear(): void
     {
         $this->syncDatesFromSelects();
@@ -47,6 +47,12 @@ class DateRangeFilter extends Component
         $this->syncDatesFromSelects();
         $this->singleDate = '';
         $this->selectedSeason = null;
+        
+        // Forza l'aggiornamento della select
+        $this->dispatch('monthYearUpdated', [
+            'month' => $this->selectedMonth,
+            'year' => $this->selectedYear
+        ]);
     }
 
     public function nextMonth(): void
@@ -57,6 +63,12 @@ class DateRangeFilter extends Component
         $this->syncDatesFromSelects();
         $this->singleDate = '';
         $this->selectedSeason = null;
+        
+        // Forza l'aggiornamento della select
+        $this->dispatch('monthYearUpdated', [
+            'month' => $this->selectedMonth,
+            'year' => $this->selectedYear
+        ]);
     }
 
     // I campi di sinistra comandano quelli di destra
@@ -90,15 +102,43 @@ class DateRangeFilter extends Component
     public function updatedSelectedSeason(?string $value): void
     {
         if (!empty($value)) {
-            // Estrai solo l'anno dalla data
-            $year = Carbon::parse($value)->year;
+            $year = (int)$value;
+            
+            // Mantieni il mese corrente invece di forzare a Gennaio
+            $currentMonth = Carbon::now()->month;
+            $currentDay = Carbon::now()->day;
+            
             $this->selectedYear = $year;
-            $this->selectedMonth = 1;
-            $this->dateFrom = Carbon::create($year, 1, 1)->startOfYear()->format('Y-m-d');
-            $this->dateTo = Carbon::create($year, 12, 31)->endOfYear()->format('Y-m-d');
+            $this->selectedMonth = $currentMonth;
             $this->singleDate = '';
+            
+            // Calcola le nuove date mantenendo lo stesso giorno/mese dell'anno selezionato
+            try {
+                // Cerca di mantenere lo stesso giorno e mese nell'anno selezionato
+                $newDate = Carbon::create($year, $currentMonth, $currentDay);
+                
+                // Se la data non esiste (es. 31 febbraio), prendi l'ultimo giorno del mese
+                if (!$newDate->isValid()) {
+                    $newDate = Carbon::create($year, $currentMonth, 1)->endOfMonth();
+                }
+                
+                // Imposta dateFrom e dateTo con la stessa data (modalità data singola)
+                $this->dateFrom = $newDate->format('Y-m-d');
+                $this->dateTo = $newDate->format('Y-m-d');
+            } catch (\Exception $e) {
+                // Fallback: primo giorno del mese selezionato
+                $this->dateFrom = Carbon::create($year, $currentMonth, 1)->format('Y-m-d');
+                $this->dateTo = Carbon::create($year, $currentMonth, 1)->format('Y-m-d');
+            }
+            
         } else {
-            $this->syncDatesFromSelects();
+            // Se viene deselezionata la stagione, resetta ai valori attuali (oggi)
+            $currentDate = Carbon::now();
+            $this->selectedMonth = $currentDate->month;
+            $this->selectedYear = $currentDate->year;
+            $this->dateFrom = $currentDate->format('Y-m-d');
+            $this->dateTo = $currentDate->format('Y-m-d');
+            $this->singleDate = '';
         }
     }
 
@@ -160,6 +200,17 @@ class DateRangeFilter extends Component
         return $years;
     }
 
+    // Ultimi 10 anni per la stagione
+    public function getSeasonYearsProperty(): array
+    {
+        $currentYear = Carbon::now()->year;
+        $years = [];
+        for ($i = 9; $i >= 0; $i--) {
+            $years[] = $currentYear - $i;
+        }
+        return $years;
+    }
+
     public function getMonthsProperty(): array
     {
         return [
@@ -183,6 +234,7 @@ class DateRangeFilter extends Component
         return view('components.date-range-filter', [
             'years'  => $this->years,
             'months' => $this->months,
+            'seasonYears' => $this->seasonYears,
         ]);
     }
 }

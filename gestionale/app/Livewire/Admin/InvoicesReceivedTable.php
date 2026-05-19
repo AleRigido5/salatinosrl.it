@@ -34,6 +34,13 @@ class InvoicesReceivedTable extends Component
     public string $selectedSupplierName = '';
     public bool $showSupplierDropdown = false;
     
+    // Autocomplete Centro di Costo
+    public string $costCenterSearch = '';
+    public Collection $costCenterResults;
+    public string $selectedCostCenterId = '';
+    public string $selectedCostCenterName = '';
+    public bool $showCostCenterDropdown = false;
+    
     // Date
     public string $dateFrom = '';
     public string $dateTo = '';
@@ -41,7 +48,7 @@ class InvoicesReceivedTable extends Component
     // Ordinamento
     public string $sortField = 'data_invoice';
     public string $sortDirection = 'desc';
-    public int $perPage = 15;
+    public int $perPage = 100000; // Default: 100 per pagina
     
     // Modal
     public $selectedInvoice = null;
@@ -63,6 +70,7 @@ class InvoicesReceivedTable extends Component
     {
         $this->ownershipResults = new Collection();
         $this->supplierResults = new Collection();
+        $this->costCenterResults = new Collection();
         $this->updateTrashCount();
     }
 
@@ -76,13 +84,11 @@ class InvoicesReceivedTable extends Component
     // ==================== AUTOCOMPLETE PROPRIETÀ ====================
     public function updatedOwnershipSearch(): void
     {
-        // Se c'è già una selezione e il testo corrisponde al nome selezionato, non cercare
         if ($this->selectedOwnershipId && $this->ownershipSearch === $this->selectedOwnershipName) {
             $this->showOwnershipDropdown = false;
             return;
         }
 
-        // Se l'utente modifica il testo dopo una selezione, pulisci la selezione
         if ($this->selectedOwnershipId) {
             $this->selectedOwnershipId = '';
             $this->selectedOwnershipName = '';
@@ -110,7 +116,7 @@ class InvoicesReceivedTable extends Component
     {
         $this->selectedOwnershipId = (string)$id;
         $this->selectedOwnershipName = $name;
-        $this->ownershipSearch = $name;  // Questo compila l'input
+        $this->ownershipSearch = $name;
         $this->showOwnershipDropdown = false;
         $this->resetPage();
     }
@@ -119,7 +125,7 @@ class InvoicesReceivedTable extends Component
     {
         $this->selectedOwnershipId = '';
         $this->selectedOwnershipName = '';
-        $this->ownershipSearch = '';  // Questo svuota l'input
+        $this->ownershipSearch = '';
         $this->resetPage();
         $this->dispatch('clearOwnershipInput');
     }
@@ -127,13 +133,11 @@ class InvoicesReceivedTable extends Component
     // ==================== AUTOCOMPLETE FORNITORE ====================
     public function updatedSupplierSearch(): void
     {
-        // Se c'è già una selezione e il testo corrisponde al nome selezionato, non cercare
         if ($this->selectedSupplierId && $this->supplierSearch === $this->selectedSupplierName) {
             $this->showSupplierDropdown = false;
             return;
         }
 
-        // Se l'utente modifica il testo dopo una selezione, pulisci la selezione
         if ($this->selectedSupplierId) {
             $this->selectedSupplierId = '';
             $this->selectedSupplierName = '';
@@ -164,7 +168,7 @@ class InvoicesReceivedTable extends Component
     {
         $this->selectedSupplierId = (string)$id;
         $this->selectedSupplierName = $name;
-        $this->supplierSearch = $name;  // Questo compila l'input
+        $this->supplierSearch = $name;
         $this->showSupplierDropdown = false;
         $this->resetPage();
     }
@@ -173,9 +177,54 @@ class InvoicesReceivedTable extends Component
     {
         $this->selectedSupplierId = '';
         $this->selectedSupplierName = '';
-        $this->supplierSearch = '';  // Questo svuota l'input
+        $this->supplierSearch = '';
         $this->resetPage();
         $this->dispatch('clearSupplierInput');
+    }
+
+    // ==================== AUTOCOMPLETE CENTRO DI COSTO ====================
+    public function updatedCostCenterSearch(): void
+    {
+        if ($this->selectedCostCenterId && $this->costCenterSearch === $this->selectedCostCenterName) {
+            $this->showCostCenterDropdown = false;
+            return;
+        }
+
+        if ($this->selectedCostCenterId) {
+            $this->selectedCostCenterId = '';
+            $this->selectedCostCenterName = '';
+            $this->resetPage();
+        }
+
+        if (strlen($this->costCenterSearch) < 2) {
+            $this->costCenterResults = new Collection();
+            $this->showCostCenterDropdown = false;
+            return;
+        }
+
+        $this->costCenterResults = CostCenter::where('Nome', 'like', '%' . $this->costCenterSearch . '%')
+            ->limit(10)
+            ->get(['id', 'Nome', 'Localita']);
+        
+        $this->showCostCenterDropdown = $this->costCenterResults->isNotEmpty();
+    }
+
+    public function selectCostCenter(int $id, string $name): void
+    {
+        $this->selectedCostCenterId = (string)$id;
+        $this->selectedCostCenterName = $name;
+        $this->costCenterSearch = $name;
+        $this->showCostCenterDropdown = false;
+        $this->resetPage();
+    }
+
+    public function clearCostCenter(): void
+    {
+        $this->selectedCostCenterId = '';
+        $this->selectedCostCenterName = '';
+        $this->costCenterSearch = '';
+        $this->resetPage();
+        $this->dispatch('clearCostCenterInput');
     }
 
     // ==================== FILTRI E QUERY ====================
@@ -198,6 +247,7 @@ class InvoicesReceivedTable extends Component
         $this->type_invoice = '';
         $this->clearOwnership();
         $this->clearSupplier();
+        $this->clearCostCenter();
         $this->dateFrom = '';
         $this->dateTo = '';
         $this->resetPage();
@@ -206,37 +256,29 @@ class InvoicesReceivedTable extends Component
         $this->dispatch('resetAllFilters');
     }
 
-    // Metodo per pulire lo stato
     public function clearStatus(): void
     {
         $this->status = '';
         $this->resetPage();
-        $this->dispatch('clearStatusFilter');
     }
 
-    // Metodo per pulire il tipo documento
     public function clearTypeInvoice(): void
     {
         $this->type_invoice = '';
         $this->resetPage();
-        $this->dispatch('clearTypeInvoiceFilter');
     }
 
-    // Metodo per pulire la ricerca
     public function clearSearch(): void
     {
         $this->search = '';
         $this->resetPage();
-        $this->dispatch('clearSearchFilter');
     }
 
-    // Metodo per pulire la data
     public function clearDates(): void
     {
         $this->dateFrom = '';
         $this->dateTo = '';
         $this->resetPage();
-        // Questo evento resetta anche il componente date-range-filter
         $this->dispatch('resetDateRangeFilterWithoutApply');
     }
 
@@ -249,10 +291,29 @@ class InvoicesReceivedTable extends Component
             ->when($this->type_invoice, fn($q) => $q->where('type_invoice', $this->type_invoice))
             ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
             ->when($this->selectedSupplierId, fn($q) => $q->where('id_entities', $this->selectedSupplierId))
+            ->when($this->selectedCostCenterId, function($q) {
+                // Filtra per centro di costo attraverso le righe fattura
+                $q->whereHas('rows', fn($q2) => $q2->where('id_cost_center', $this->selectedCostCenterId));
+            })
             ->when($this->dateFrom, fn($q) => $q->whereDate('data_invoice', '>=', $this->dateFrom))
             ->when($this->dateTo, fn($q) => $q->whereDate('data_invoice', '<=', $this->dateTo))
             ->orderBy($this->sortField, $this->sortDirection);
 
+        // Gestione della paginazione "Tutti"
+        if ($this->perPage == 10000) {
+            $results = $query->get();
+            // Crea un paginatore manuale per mantenere la compatibilità con la view
+            $page = \Illuminate\Pagination\Paginator::resolveCurrentPage();
+            $perPage = $results->count();
+            return new \Illuminate\Pagination\LengthAwarePaginator(
+                $results->forPage($page, $perPage),
+                $results->count(),
+                $perPage,
+                $page,
+                ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
+            );
+        }
+        
         return $query->paginate($this->perPage);
     }
 
@@ -397,12 +458,7 @@ class InvoicesReceivedTable extends Component
 
     public function getStatusesProperty(): array
     {
-        return [
-            ['value' => 'bozza', 'label' => 'Bozza'],
-            ['value' => 'inviata', 'label' => 'Inviata'],
-            ['value' => 'consegnata', 'label' => 'Consegnata'],
-            ['value' => 'scartata', 'label' => 'Scartata'],
-        ];
+        return config('gestionale.invoice_status', []);
     }
 
     public function getTypeDocumentsProperty(): array

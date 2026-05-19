@@ -20,22 +20,23 @@
 
             <div class="flex items-center gap-2">
                 <select wire:model.live="selectedMonth"
+                    wire:key="month-select-{{ $selectedMonth }}-{{ $selectedYear }}"
                     class="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-lime-500">
                     @foreach($months as $num => $name)
-                        <option value="{{ $num }}">{{ $name }}</option>
+                        <option value="{{ $num }}" {{ $selectedMonth == $num ? 'selected' : '' }}>{{ $name }}</option>
                     @endforeach
                 </select>
 
-                <select wire:model.live="selectedYear"
-                    class="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-lime-500">
-                    @foreach($years as $year)
-                        <option value="{{ $year }}">{{ $year }}</option>
-                    @endforeach
-                </select>
+                <!-- ANNO: campo non editabile che si aggiorna con le frecce -->
+                <input type="text" 
+                    readonly
+                    value="{{ $selectedYear }}"
+                    wire:key="year-input-{{ $selectedYear }}"
+                    class="px-3 py-1.5 border border-gray-300 rounded-md text-sm bg-gray-50 text-gray-700 w-20 text-center cursor-default focus:outline-none">
             </div>
         </div>
 
-         <!-- CENTRO: Data singola e Stagione (label affiancate) -->
+        <!-- CENTRO: Data singola e Stagione (label affiancate) -->
         <div class="flex items-center gap-4">
             <!-- Data singola -->
             <div class="flex items-center gap-2">
@@ -45,16 +46,16 @@
                     class="text-sm px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
             </div>
 
-            <!-- Stagione (solo anno con input number) -->
+            <!-- Stagione (select con ultimi 10 anni) -->
             <div class="flex items-center gap-2">
                 <label class="text-sm font-medium text-gray-700">Stagione</label>
-                <input type="number"
-                    wire:model.live="selectedSeason"
-                    min="2011"
-                    max="{{ date('Y') }}"
-                    step="1"
-                    placeholder="Anno ({{ date('Y') }})"
-                    class="text-sm px-3 py-1.5 w-32 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                <select wire:model.live="selectedSeason"
+                    class="text-sm px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                    <option value="">Seleziona anno</option>
+                    @foreach($seasonYears as $year)
+                        <option value="{{ $year }}">{{ $year }}</option>
+                    @endforeach
+                </select>
             </div>
         </div>
 
@@ -87,3 +88,19 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+    document.addEventListener('livewire:initialized', () => {
+        // Forza l'aggiornamento della select quando cambia il mese/anno
+        Livewire.on('monthYearUpdated', (data) => {
+            const select = document.querySelector('select[wire\\:model\\:live="selectedMonth"]');
+            if (select && select.value != data.month) {
+                select.value = data.month;
+                // Trigger manuale dell'evento change
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+    });
+</script>
+@endpush

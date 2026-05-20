@@ -7,18 +7,18 @@
         <div class="flex gap-2">
             <!-- Pulsante per creazione manuale -->
             <a href="{{ route('admin.invoices-received.create') }}" 
-            class="bg-gradient-to-r from-blue-400 to-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+            class="bg-gradient-to-r from-blue-400 to-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" title="Crea Manualmente">
                 <i class="fas fa-plus"></i>
             </a>
 
             <!-- Pulsante per Import XML -->
-            <a href="{{ route('admin.invoices-received.xml-import') }}" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+            <a href="{{ route('admin.invoices-received.xml-import') }}" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" title="Importa XML">
                 <i class="fas fa-upload"></i> Importa XML
             </a>
 
             <!-- Pulsante per cestino -->
             <div class="relative group">
-                <button wire:click="openTrashModal" class="relative px-5 py-2.5 rounded-lg shadow-md bg-gray-200 text-gray-700 hover:bg-gray-300">
+                <button wire:click="openTrashModal" class="relative px-5 py-2.5 rounded-lg shadow-md bg-gray-200 text-gray-700 hover:bg-gray-300" title="Cestino">
                     <i class="fas fa-trash-alt"></i>
                     <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-md" style="{{ $trashCount == 0 ? 'display: none;' : '' }}">
                         {{ $trashCount }}
@@ -437,23 +437,168 @@
                         $statusConfig = $statuses[$selectedInvoice->status] ?? null;
                         $badgeClass = $statusConfig['badge_class'] ?? 'bg-gray-100 text-gray-800';
                     @endphp
-                    <div class="flex justify-end mb-4">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $badgeClass }}">{{ $statusConfig['label'] ?? $selectedInvoice->status_label }}</span>
+                    
+                    <!-- RIGA SUPERIORE: Stato con Switch Button -->
+                    <div class="flex justify-between items-center mb-6 p-4 bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-200">
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-tag text-gray-400"></i>
+                            <span class="text-sm font-medium text-gray-600">Stato fattura:</span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <!-- Switch Button per Emessa / Visionata -->
+                            <div class="flex items-center gap-3">
+                                <span class="text-sm {{ $selectedInvoice->status === 'issued' ? 'font-bold text-red-600' : 'text-gray-400' }}">
+                                    <i class="fas fa-pen mr-1"></i>Emessa
+                                </span>
+                                <button 
+                                    wire:click="updateInvoiceStatus({{ $selectedInvoice->id }}, '{{ $selectedInvoice->status === 'issued' ? 'viewed' : 'issued' }}')"
+                                    class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2"
+                                    style="background-color: {{ $selectedInvoice->status === 'viewed' ? '#3b82f6' : '#e5e7eb' }}"
+                                >
+                                    <span class="sr-only">Cambia stato</span>
+                                    <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm"
+                                        style="transform: translateX({{ $selectedInvoice->status === 'viewed' ? 'calc(1.25rem)' : '0.125rem' }})">
+                                    </span>
+                                </button>
+                                <span class="text-sm {{ $selectedInvoice->status === 'viewed' ? 'font-bold text-blue-600' : 'text-gray-400' }}">
+                                    <i class="fas fa-eye mr-1"></i>Visionata
+                                </span>
+                            </div>
+                            
+                            <!-- Badge di stato (alternativo) -->
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $badgeClass }}">
+                                {{ $statusConfig['label'] ?? $selectedInvoice->status_label }}
+                            </span>
+                        </div>
                     </div>
+                    
+                    <!-- Informazioni principali -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div class="bg-gray-50 p-3 rounded-lg"><label class="block text-xs font-medium text-gray-500 uppercase">Fornitore</label><p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->supplier_name }}</p></div>
-                        <div class="bg-gray-50 p-3 rounded-lg"><label class="block text-xs font-medium text-gray-500 uppercase">Proprietà</label><p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->ownership_name }}</p></div>
-                        <div class="bg-gray-50 p-3 rounded-lg"><label class="block text-xs font-medium text-gray-500 uppercase">Tipo Documento</label><p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->type_invoice_label }}</p></div>
-                        @if($selectedInvoice->sdi_id)<div class="bg-gray-50 p-3 rounded-lg"><label class="block text-xs font-medium text-gray-500 uppercase">SDI ID</label><p class="text-sm font-mono text-gray-900 mt-1 break-all">{{ $selectedInvoice->sdi_id }}</p></div>@endif
-                        @if($selectedInvoice->causale)<div class="bg-gray-50 p-3 rounded-lg col-span-2"><label class="block text-xs font-medium text-gray-500 uppercase">Causale / Note</label><p class="text-sm text-gray-700 mt-1">{{ $selectedInvoice->causale }}</p></div>@endif
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Fornitore</label>
+                            <p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->supplier_name }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Proprietà</label>
+                            <p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->ownership_name }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Tipo Documento</label>
+                            <p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->type_invoice_label }}</p>
+                        </div>
+                        @if($selectedInvoice->sdi_id)
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="block text-xs font-medium text-gray-500 uppercase">SDI ID</label>
+                            <p class="text-sm font-mono text-gray-900 mt-1 break-all">{{ $selectedInvoice->sdi_id }}</p>
+                        </div>
+                        @endif
+                        @if($selectedInvoice->causale)
+                        <div class="bg-gray-50 p-3 rounded-lg col-span-2">
+                            <label class="block text-xs font-medium text-gray-500 uppercase">Causale / Note</label>
+                            <p class="text-sm text-gray-700 mt-1">{{ $selectedInvoice->causale }}</p>
+                        </div>
+                        @endif
                     </div>
+                    
+                    <!-- Riferimenti Amministrativi -->
                     <div class="mb-4">
                         <h4 class="font-medium text-gray-900 mb-3 border-b pb-2">Riferimenti Amministrativi</h4>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="bg-blue-50 p-3 rounded-lg"><label class="block text-xs font-medium text-blue-600 uppercase"><i class="fas fa-user-plus mr-1"></i> Inserito da</label><p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->creator->name ?? 'Sistema' }}</p><p class="text-xs text-gray-500 mt-1">{{ $selectedInvoice->created_at ? $selectedInvoice->created_at->format('d/m/Y H:i:s') : '-' }}</p></div>
-                            <div class="bg-green-50 p-3 rounded-lg"><label class="block text-xs font-medium text-green-600 uppercase"><i class="fas fa-user-edit mr-1"></i> Modificato da</label><p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->updater->name ?? $selectedInvoice->creator->name ?? 'Sistema' }}</p><p class="text-xs text-gray-500 mt-1">{{ $selectedInvoice->updated_at ? $selectedInvoice->updated_at->format('d/m/Y H:i:s') : '-' }}</p></div>
+                            <div class="bg-blue-50 p-3 rounded-lg">
+                                <label class="block text-xs font-medium text-blue-600 uppercase"><i class="fas fa-user-plus mr-1"></i> Inserito da</label>
+                                <p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->creator->name ?? 'Sistema' }}</p>
+                                <p class="text-xs text-gray-500 mt-1">{{ $selectedInvoice->created_at ? $selectedInvoice->created_at->format('d/m/Y H:i:s') : '-' }}</p>
+                            </div>
+                            <div class="bg-green-50 p-3 rounded-lg">
+                                <label class="block text-xs font-medium text-green-600 uppercase"><i class="fas fa-user-edit mr-1"></i> Modificato da</label>
+                                <p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->updater->name ?? $selectedInvoice->creator->name ?? 'Sistema' }}</p>
+                                <p class="text-xs text-gray-500 mt-1">{{ $selectedInvoice->updated_at ? $selectedInvoice->updated_at->format('d/m/Y H:i:s') : '-' }}</p>
+                            </div>
                         </div>
                     </div>
+                    
+                    <!-- Documento Importato Manualmente (se non c'è XML) -->
+                    @if(!$selectedInvoice->xml_filename)
+                    <div class="mb-4">
+                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-hand-paper text-yellow-600 text-xl"></i>
+                                </div>
+                                <div class="ml-3">
+                                    <h4 class="text-sm font-medium text-yellow-800">Documento importato manualmente</h4>
+                                    <p class="text-xs text-yellow-700 mt-1">
+                                        Questa fattura è stata creata manualmente e non proviene da un file XML.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+                    
+                    <!-- ==================== ALLEGATO ==================== -->
+                    {{-- <div class="mb-4">
+                        <h4 class="font-medium text-gray-900 mb-3 border-b pb-2">
+                            <i class="fas fa-paperclip mr-2 text-blue-500"></i> 
+                            Allegato
+                        </h4>
+                        
+                        @if($selectedInvoice->attachment)
+                            @php
+                                $attachmentPath = $selectedInvoice->attachment;
+                                $isUrl = filter_var($attachmentPath, FILTER_VALIDATE_URL);
+                                $fileName = basename($attachmentPath);
+                                $extension = pathinfo($fileName, PATHINFO_EXTENSION);
+                                
+                                $iconClass = match(strtolower($extension)) {
+                                    'pdf' => 'fa-file-pdf text-red-500',
+                                    'jpg', 'jpeg', 'png', 'gif', 'webp' => 'fa-file-image text-green-500',
+                                    'doc', 'docx' => 'fa-file-word text-blue-500',
+                                    'xls', 'xlsx' => 'fa-file-excel text-green-600',
+                                    'zip', 'rar', '7z' => 'fa-file-archive text-yellow-600',
+                                    'txt' => 'fa-file-alt text-gray-500',
+                                    default => 'fa-file text-gray-400'
+                                };
+                            @endphp
+                            <div class="bg-blue-50 rounded-lg p-3 flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas {{ $iconClass }} text-2xl"></i>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-800">{{ $fileName }}</p>
+                                        <p class="text-xs text-gray-500">
+                                            @if($isUrl)
+                                                Allegato esterno
+                                            @else
+                                                Allegato locale
+                                            @endif
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    @if($isUrl)
+                                        <a href="{{ $attachmentPath }}" target="_blank" 
+                                        class="text-blue-600 hover:text-blue-800 transition-colors p-1" 
+                                        title="Apri allegato">
+                                            <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                    @else
+                                        <button wire:click="downloadAttachment({{ $selectedInvoice->id }})" 
+                                                class="text-blue-600 hover:text-blue-800 transition-colors p-1" 
+                                                title="Scarica allegato">
+                                            <i class="fas fa-download"></i>
+                                        </button>
+                                    @endif
+                                </div>
+                            </div>
+                        @else
+                            <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                <i class="fas fa-paperclip text-gray-300 text-xl mb-1"></i>
+                                <p class="text-sm text-gray-500">Nessun allegato presente</p>
+                            </div>
+                        @endif
+                    </div> --}}
+                    
+                    <!-- Piano Scadenze / Pagamenti -->
                     @if($selectedInvoice->payments && $selectedInvoice->payments->count() > 0)
                     <div class="mb-4">
                         <h4 class="font-medium text-gray-900 mb-3 border-b pb-2"><i class="fas fa-credit-card mr-2 text-green-600"></i> Piano Scadenze / Pagamenti @if($selectedInvoice->payments->count() > 1)<span class="text-xs text-gray-500 ml-2">({{ $selectedInvoice->payments->count() }} rate)</span>@endif</h4>
@@ -492,8 +637,12 @@
                         </div>
                     </div>
                     @else
-                    <div class="mb-4 bg-gray-50 rounded-lg p-3"><p class="text-sm text-gray-500 text-center"><i class="fas fa-info-circle mr-1"></i> Nessun dato di pagamento disponibile</p></div>
+                    <div class="mb-4 bg-gray-50 rounded-lg p-3">
+                        <p class="text-sm text-gray-500 text-center"><i class="fas fa-info-circle mr-1"></i> Nessun dato di pagamento disponibile</p>
+                    </div>
                     @endif
+                    
+                    <!-- Righe Fattura -->
                     <div>
                         <h4 class="font-medium text-gray-900 mb-3 border-b pb-2">Righe Fattura</h4>
                         <div class="overflow-x-auto">
@@ -527,10 +676,12 @@
                             </table>
                         </div>
                     </div>
+                    
+                    <!-- Metadati importazione -->
                     <div class="text-xs text-gray-400 border-t pt-3 mt-4">
                         <div class="grid grid-cols-2 gap-2">
                             <div><i class="fas fa-calendar-alt mr-1"></i> Importata il: {{ $selectedInvoice->imported_at ? $selectedInvoice->imported_at->format('d/m/Y H:i:s') : '-' }}</div>
-                            <div><i class="fas fa-file-code mr-1"></i> File XML: {{ basename($selectedInvoice->xml_filename ?? '') }}</div>
+                            <div><i class="fas fa-file-code mr-1"></i> File XML: {{ basename($selectedInvoice->xml_filename ?? '') ?: 'Manuale' }}</div>
                         </div>
                     </div>
                 </div>

@@ -38,6 +38,7 @@ class ActivitiesTable extends Component
     public $showCostCenterDropdown = false;
     public $showServiceDropdown = false;
     public $showEntityDropdown = false;
+    public $positionFilter = '';
     
     // Modal
     public $showViewModal = false;
@@ -53,6 +54,7 @@ class ActivitiesTable extends Component
         'costCenterFilter' => ['except' => ''],
         'serviceFilter' => ['except' => ''],
         'entityFilter' => ['except' => ''],
+        'positionFilter' => ['except' => ''],
         'dateFrom' => ['except' => ''],
         'dateTo' => ['except' => ''],
         'perPage' => ['except' => 10000],
@@ -94,7 +96,7 @@ class ActivitiesTable extends Component
     {
         $query = Activity::query();
         
-        // Filtri ottimizzati con indici
+        // Filtri data
         if ($this->dateFrom && $this->dateTo) {
             $query->whereBetween('data_activities', [$this->dateFrom, $this->dateTo]);
         } elseif ($this->dateFrom) {
@@ -103,48 +105,76 @@ class ActivitiesTable extends Component
             $query->whereDate('data_activities', '<=', $this->dateTo);
         }
         
+        // Centro di costo
         if ($this->costCenterFilter) {
             $query->where('id_cost_centers', $this->costCenterFilter);
         }
         
+        // Servizio
         if ($this->serviceFilter) {
             $query->where('id_services', $this->serviceFilter);
         }
         
+        // Entità
         if ($this->entityFilter) {
             $query->where('id_entities', $this->entityFilter);
         }
         
+        // NUOVO FILTRO POSIZIONI
+        if ($this->positionFilter === 'aperte') {
+            // ATTIVITÀ APERTE: clienti esterni + fattura vuota
+            $query->where(function($q) {
+                $q->whereNull('activities.invoice_references')
+                ->orWhere('activities.invoice_references', '');
+            })->whereExists(function($q) {
+                $q->select(DB::raw(1))
+                ->from('cost_centers')
+                ->whereColumn('cost_centers.id', 'activities.id_cost_centers')
+                ->where('cost_centers.table_references', 'entities');
+            });
+            
+        } elseif ($this->positionFilter === 'interne') {
+            // ATTIVITÀ INTERNE: clienti interni (NON esterni)
+            $query->whereNotExists(function($q) {
+                $q->select(DB::raw(1))
+                ->from('cost_centers')
+                ->whereColumn('cost_centers.id', 'activities.id_cost_centers')
+                ->where('cost_centers.table_references', 'entities');
+            });
+        }
+        
+        // Ricerca generica
         if ($this->search) {
             $searchTerm = '%' . $this->search . '%';
             $query->where(function($q) use ($searchTerm) {
                 $q->where('invoice_references', 'like', $searchTerm)
-                  ->orWhere('note', 'like', $searchTerm)
-                  ->orWhere('ha', 'like', $searchTerm)
-                  ->orWhere('Lat_Long', 'like', $searchTerm);
+                ->orWhere('note', 'like', $searchTerm)
+                ->orWhere('ha', 'like', $searchTerm)
+                ->orWhere('Lat_Long', 'like', $searchTerm);
             });
         }
         
-        // Usa select specifiche per ridurre il carico
+        // Select con total_ore aggregato
         $query->select([
             'activities.*',
             DB::raw('(SELECT SUM(n_ore) FROM activities_staff_lnk WHERE activities_staff_lnk.id_activities = activities.id) as total_ore')
         ]);
         
+        // Ordinamento
         $query->orderBy($this->sortField, $this->sortDirection);
         
         // Eager loading ottimizzato
         $query->with([
-            'costCenter:id,Nome,Localita',
+            'costCenter:id,Nome,Localita,table_references',
             'service:id,Titolo,Descrizione',
             'entity:id_cliente,ragione_sociale,nome,cognome,partita_iva',
             'staffDetails' => function($q) {
                 $q->with('staff:id_personale,NomePers,CognomePers')
-                  ->limit(3);
+                ->limit(3);
             }
         ]);
         
-        // Se "Tutti" è selezionato, usa chunking per evitare memory overflow
+        // Paginazione o chunking
         if ($this->perPage == 10000) {
             $allActivities = collect();
             $query->chunk(500, function($chunk) use (&$allActivities) {
@@ -157,7 +187,7 @@ class ActivitiesTable extends Component
         
         return $query->paginate($this->perPage);
     }
-    
+        
     // ==================== AUTOCOMPLETE METHODS ====================
     
     public function updatedCostCenterSearch()
@@ -309,6 +339,7 @@ class ActivitiesTable extends Component
         $this->serviceSearch = '';
         $this->serviceName = '';
         $this->entityFilter = '';
+        $this->positionFilter = '';
         $this->entitySearch = '';
         $this->entityName = '';
         $this->dateFrom = '';

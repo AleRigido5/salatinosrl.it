@@ -101,43 +101,21 @@ class DateRangeFilter extends Component
     {
         if (!empty($value)) {
             $newYear = (int)$value;
-            
-            // Mantieni il mese corrente, ma prendi l'intero mese
-            $currentMonth = Carbon::now()->month;
-            
-            // Imposta dateFrom al primo giorno del mese
-            $this->dateFrom = Carbon::create($newYear, $currentMonth, 1)
-                ->startOfMonth()
-                ->format('Y-m-d');
-            
-            // Imposta dateTo all'ultimo giorno del mese
-            $this->dateTo = Carbon::create($newYear, $currentMonth, 1)
-                ->endOfMonth()
-                ->format('Y-m-d');
-            
-            // Resetta la data singola
-            $this->singleDate = '';
-            
-            // Aggiorna i select del mese/anno
-            $this->selectedMonth = $currentMonth;
-            $this->selectedYear = $newYear;
-            
+
+            $this->dateFrom = Carbon::create($newYear, 1, 1)->startOfYear()->format('Y-m-d');
+            $this->dateTo   = Carbon::create($newYear, 12, 31)->endOfYear()->format('Y-m-d');
+
+            $this->singleDate     = '';
+            $this->selectedMonth  = 1;
+            $this->selectedYear   = $newYear;
+
         } else {
-            // Se viene deselezionata la stagione, resetta al mese corrente completo
             $currentDate = Carbon::now();
             $this->selectedMonth = $currentDate->month;
-            $this->selectedYear = $currentDate->year;
-            
-            // Imposta l'intero mese corrente
-            $this->dateFrom = Carbon::create($this->selectedYear, $this->selectedMonth, 1)
-                ->startOfMonth()
-                ->format('Y-m-d');
-            
-            $this->dateTo = Carbon::create($this->selectedYear, $this->selectedMonth, 1)
-                ->endOfMonth()
-                ->format('Y-m-d');
-            
-            $this->singleDate = '';
+            $this->selectedYear  = $currentDate->year;
+            $this->dateFrom      = Carbon::now()->startOfMonth()->format('Y-m-d');
+            $this->dateTo        = Carbon::now()->endOfMonth()->format('Y-m-d');
+            $this->singleDate    = '';
         }
     }
 

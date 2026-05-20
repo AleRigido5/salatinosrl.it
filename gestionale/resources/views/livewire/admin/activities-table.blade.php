@@ -173,15 +173,23 @@
                 </div>
             </div>
             
-            <!-- Per Page Selector con opzioni Tutti, 200, 100 -->
+            <!-- Per Page Selector con opzioni Tutti, 200, 100 e POSIZIONI -->
             <div class="flex items-center space-x-2">
-                <select wire:model.live="perPage" class="text-sm px-3 py-2 border border-gray-300 rounded-md">
-                    <option value="10000">Tutti</option>
-                    <option value="200">200 per pagina</option>
-                    <option value="100">100 per pagina</option>
+                <!-- Select Posizioni -->
+                <select wire:model.live="positionFilter" class="text-sm px-3 py-2 border border-gray-300 rounded-md">
+                    <option value="">Posizioni</option>
+                    <option value="aperte">Aperte</option>
+                    <option value="interne">Interne</option>
                 </select>
                 
-                @if($search || $costCenterFilter || $serviceFilter || $entityFilter || request('date_from') || request('date_to'))
+                <!-- Select Per Page -->
+                <select wire:model.live="perPage" class="text-sm px-3 py-2 border border-gray-300 rounded-md">
+                    <option value="10000">Tutti</option>
+                    <option value="200">200</option>
+                    <option value="100">100</option>
+                </select>
+                
+                @if($search || $costCenterFilter || $serviceFilter || $entityFilter || $positionFilter || request('date_from') || request('date_to'))
                 <a href="{{ route('admin.activities.index') }}" class="text-sm text-gray-500 hover:text-gray-700" title="Resetta tutti i filtri">
                     <i class="fas fa-sync-alt"></i>
                 </a>
@@ -1028,6 +1036,29 @@
         </div>
     </div>
     @endif
+
+    <div
+        x-data="{
+            dateFrom: '{{ $dateFrom }}',
+            dateTo: '{{ $dateTo }}',
+            basePdfUrl: '{{ route('admin.activities.export-pdf') }}',
+            baseExcelUrl: '{{ route('admin.activities.export-excel') }}',
+        }"
+        x-on:date-range-updated.window="
+            dateFrom = $event.detail.date_from || dateFrom;
+            dateTo   = $event.detail.date_to   || dateTo;
+        "
+        class="flex gap-3 justify-end"
+    >
+        <a :href="basePdfUrl + '?date_from=' + dateFrom + '&date_to=' + dateTo"
+        class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium">
+            <i class="fas fa-file-pdf text-xl"></i> Esporta PDF
+        </a>
+        <a :href="baseExcelUrl + '?date_from=' + dateFrom + '&date_to=' + dateTo"
+        class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium">
+            <i class="fas fa-file-excel text-xl"></i> Esporta Excel
+        </a>
+    </div>
 
     <style>
         nav[role="navigation"] div.flex-1 {

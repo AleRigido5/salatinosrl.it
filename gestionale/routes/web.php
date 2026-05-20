@@ -114,6 +114,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/{activity}/edit', [ActivityController::class, 'edit'])->name('edit');
             Route::put('/{activity}', [ActivityController::class, 'update'])->name('update');
             Route::delete('/{activity}', [ActivityController::class, 'destroy'])->name('destroy');
+
+            Route::get('activities/export-pdf',   [ActivityController::class, 'exportPdf'])->name('export-pdf');
+            Route::get('activities/export-excel', [ActivityController::class, 'exportExcel'])->name('export-excel');
         });
 
         // =============================================
@@ -223,6 +226,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::delete('/{invoice}', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'destroy'])->name('destroy');
             
             Route::get('/export/pdf', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'exportPdf'])->name('export.pdf');
+        });
+
+        // =============================================
+        // SCADENZE PAGAMENTI (INVOICE PAYMENTS)
+        // =============================================
+        Route::prefix('invoice-payments')->name('invoice-payments.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\InvoicePaymentController::class, 'index'])->name('index');
         });
 
         // =============================================

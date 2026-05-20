@@ -9,6 +9,13 @@ use App\Models\Service;
 use App\Models\Entity;
 use App\Models\Staff;
 use App\Models\ActivityStaffLink;
+use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -345,5 +352,205 @@ class ActivityController extends Controller
             Log::error('ERRORE UPDATE INVOICE REF: ' . $e->getMessage());
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
+    }
+
+    public function exportPdf(Request $request)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('view_activities')) {
+            abort(403);
+        }
+
+        $dateFrom = $request->date_from
+            ? Carbon::parse($request->date_from)->startOfDay()
+            : Carbon::now()->startOfMonth();
+        $dateTo = $request->date_to
+            ? Carbon::parse($request->date_to)->endOfDay()
+            : Carbon::now()->endOfMonth();
+
+        $query = Activity::with([
+            'costCenter:id,Nome',
+            'service:id,Titolo',
+            'entity:id_cliente,ragione_sociale,nome,cognome',
+            'staffDetails.staff:id_personale,NomePers,CognomePers',
+        ])->whereBetween('data_activities', [$dateFrom, $dateTo])
+        ->orderBy('data_activities');
+
+        if ($request->cost_center_filter) $query->where('id_cost_centers', $request->cost_center_filter);
+        if ($request->service_filter)     $query->where('id_services', $request->service_filter);
+        if ($request->entity_filter)      $query->where('id_entities', $request->entity_filter);
+
+        $activities = $query->get();
+
+        $html = '<!DOCTYPE html><html><head><meta charset="utf-8">
+        <style>
+            body { font-family: "DejaVu Sans", sans-serif; font-size: 9px; margin: 15px; }
+            .header { text-align: center; margin-bottom: 15px; border-bottom: 2px solid #84cc16; padding-bottom: 8px; }
+            .header h1 { margin: 0; font-size: 14px; color: #333; }
+            .header p { margin: 3px 0 0; color: #666; font-size: 9px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th { background-color: #84cc16; color: white; padding: 6px; text-align: left; font-size: 9px; }
+            td { border: 1px solid #ddd; padding: 4px 6px; font-size: 8px; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .footer { margin-top: 15px; text-align: right; font-size: 8px; color: #999; border-top: 1px solid #ddd; padding-top: 8px; }
+        </style>
+        </head><body>
+        <div class="header">
+            <h1>Report Attività</h1>
+            <p>Periodo: ' . $dateFrom->format('d/m/Y') . ' - ' . $dateTo->format('d/m/Y') . '</p>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Cliente</th>
+                    <th>Cantiere</th>
+                    <th>Servizio</th>
+                    <th>Personale</th>
+                    <th>Note</th>
+                    <th>ha</th>
+                    <th>Rif. Fattura</th>
+                </tr>
+            </thead>
+            <tbody>';
+
+        foreach ($activities as $activity) {
+            $entity     = $activity->entity;
+            $clienteNome = $entity ? ($entity->ragione_sociale ?: trim($entity->nome . ' ' . $entity->cognome)) : '-';
+            $cantiere   = $activity->costCenter->Nome ?? '-';
+            $servizio   = $activity->service->Titolo ?? '-';
+            $personale  = $activity->staffDetails->map(fn($sd) =>
+                trim(($sd->staff->CognomePers ?? '') . ' ' . ($sd->staff->NomePers ?? '')) .
+                ' (' . number_format(floatval($sd->n_ore), 1) . 'h)'
+            )->join(', ');
+
+            $html .= '<tr>
+                <td>' . e(Carbon::parse($activity->data_activities)->format('d/m/Y')) . '</td>
+                <td>' . e($clienteNome) . '</td>
+                <td>' . e($cantiere) . '</td>
+                <td>' . e($servizio) . '</td>
+                <td>' . e($personale ?: '-') . '</td>
+                <td>' . e($activity->note ?? '-') . '</td>
+                <td>' . ($activity->ha ? number_format(floatval($activity->ha), 2) : '-') . '</td>
+                <td>' . e($activity->invoice_references ?? '-') . '</td>
+            </tr>';
+        }
+
+        $html .= '</tbody></table>
+        <div class="footer">
+            Totale attività: ' . $activities->count() . ' — Generato il ' . Carbon::now()->format('d/m/Y H:i') . '
+        </div>
+        </body></html>';
+
+        $pdf = Pdf::loadHTML($html)->setPaper('A4', 'landscape');
+        return $pdf->download("attivita_{$dateFrom->format('Y-m-d')}_{$dateTo->format('Y-m-d')}.pdf");
+    }
+
+    public function exportExcel(Request $request)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('view_activities')) {
+            abort(403);
+        }
+
+        $dateFrom = $request->date_from
+            ? Carbon::parse($request->date_from)->startOfDay()
+            : Carbon::now()->startOfMonth();
+        $dateTo = $request->date_to
+            ? Carbon::parse($request->date_to)->endOfDay()
+            : Carbon::now()->endOfMonth();
+
+        $query = Activity::with([
+            'costCenter:id,Nome',
+            'service:id,Titolo',
+            'entity:id_cliente,ragione_sociale,nome,cognome',
+            'staffDetails.staff:id_personale,NomePers,CognomePers',
+        ])->whereBetween('data_activities', [$dateFrom, $dateTo])
+        ->orderBy('data_activities');
+
+        if ($request->cost_center_filter) $query->where('id_cost_centers', $request->cost_center_filter);
+        if ($request->service_filter)     $query->where('id_services', $request->service_filter);
+        if ($request->entity_filter)      $query->where('id_entities', $request->entity_filter);
+
+        $activities = $query->get();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Attività');
+
+        // Intestazioni
+        $headers = ['A1' => 'Data', 'B1' => 'Cliente', 'C1' => 'Cantiere', 'D1' => 'Servizio',
+                    'E1' => 'Personale (ore)', 'F1' => 'Note', 'G1' => 'ha', 'H1' => 'Rif. Fattura'];
+
+        foreach ($headers as $cell => $value) {
+            $sheet->setCellValue($cell, $value);
+        }
+
+        $sheet->getStyle('A1:H1')->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '84cc16']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'DDDDDD']]],
+        ]);
+
+        // Dati
+        $row = 2;
+        foreach ($activities as $activity) {
+            $entity      = $activity->entity;
+            $clienteNome = $entity ? ($entity->ragione_sociale ?: trim($entity->nome . ' ' . $entity->cognome)) : '-';
+            $cantiere    = $activity->costCenter->Nome ?? '-';
+            $servizio    = $activity->service->Titolo ?? '-';
+            $personale   = $activity->staffDetails->map(fn($sd) =>
+                trim(($sd->staff->CognomePers ?? '') . ' ' . ($sd->staff->NomePers ?? '')) .
+                ' (' . number_format(floatval($sd->n_ore), 1) . 'h)'
+            )->join(', ');
+
+            $sheet->setCellValue('A' . $row, Carbon::parse($activity->data_activities)->format('d/m/Y'));
+            $sheet->setCellValue('B' . $row, $clienteNome);
+            $sheet->setCellValue('C' . $row, $cantiere);
+            $sheet->setCellValue('D' . $row, $servizio);
+            $sheet->setCellValue('E' . $row, $personale ?: '-');
+            $sheet->setCellValue('F' . $row, $activity->note ?? '');
+            $sheet->setCellValue('G' . $row, $activity->ha ? number_format(floatval($activity->ha), 2) : '');
+            $sheet->setCellValue('H' . $row, $activity->invoice_references ?? '');
+
+            // Righe alternate
+            if ($row % 2 === 0) {
+                $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray([
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F9FAFB']],
+                ]);
+            }
+
+            $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray([
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
+            ]);
+
+            $row++;
+        }
+
+        // Riga totale attività
+        $sheet->setCellValue('A' . $row, 'Totale attività: ' . $activities->count());
+        $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray([
+            'font' => ['bold' => true],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F0FDF4']],
+            'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'DDDDDD']]],
+        ]);
+        $sheet->mergeCells('A' . $row . ':H' . $row);
+
+        // Auto-size colonne
+        foreach (range('A', 'H') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $sheet->setAutoFilter('A1:H' . ($row - 1));
+        $sheet->freezePane('A2');
+
+        $filename = "attivita_{$dateFrom->format('Y-m-d')}_{$dateTo->format('Y-m-d')}.xlsx";
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save('php://output');
+        exit;
     }
 }

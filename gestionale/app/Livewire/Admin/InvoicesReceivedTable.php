@@ -10,6 +10,8 @@ use App\Models\Entity;
 use App\Models\CostCenter;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class InvoicesReceivedTable extends Component
 {
@@ -227,6 +229,58 @@ class InvoicesReceivedTable extends Component
         $this->dispatch('clearCostCenterInput');
     }
 
+    // ==================== AGGIORNAMENTO STATO FATTURA ====================
+    public function updateInvoiceStatus(int $id, string $newStatus): void
+    {
+        try {
+            $invoice = InvoiceReceived::find($id);
+            if (!$invoice) {
+                $this->dispatch('showError', message: 'Fattura non trovata');
+                return;
+            }
+            
+            // Verifica che lo stato sia valido (issued o viewed)
+            if (!in_array($newStatus, ['issued', 'viewed'])) {
+                $this->dispatch('showError', message: 'Stato non valido');
+                return;
+            }
+            
+            DB::beginTransaction();
+            
+            // Aggiorna lo stato della fattura principale
+            $invoice->status = $newStatus;
+            $invoice->save();
+            
+            // Aggiorna anche lo stato dei pagamenti associati
+            // Se la fattura è "Visionata", i pagamenti diventano "in_attesa" o rimangono invariati
+            // Se la fattura è "Emessa", i pagamenti tornano "in_attesa" (non ancora pagati)
+            if ($newStatus === 'viewed') {
+                // Fattura visionata -> i pagamenti sono in attesa di pagamento
+                $invoice->payments()->update(['status' => 'pending']);
+            } elseif ($newStatus === 'issued') {
+                // Fattura emessa -> i pagamenti sono ancora in attesa (non pagati)
+                // Se vuoi resettare i pagamenti a "pending" quando torni a "emessa"
+                $invoice->payments()->update(['status' => 'issued']);
+            }
+            
+            DB::commit();
+            
+            // Aggiorna anche l'istanza selezionata nel modal
+            if ($this->selectedInvoice && $this->selectedInvoice->id === $id) {
+                $this->selectedInvoice->status = $newStatus;
+                // Ricarica i pagamenti aggiornati
+                $this->selectedInvoice->load('payments');
+            }
+            
+            $statusLabel = $newStatus === 'issued' ? 'Emessa' : 'Visionata';
+            $this->dispatch('showSuccess', message: "Stato fattura aggiornato a '{$statusLabel}' e pagamenti sincronizzati");
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+
     // ==================== FILTRI E QUERY ====================
     
     public function sortBy(string $field): void
@@ -339,6 +393,66 @@ class InvoicesReceivedTable extends Component
         $this->showModal = false;
         $this->selectedInvoice = null;
     }
+
+    // ==================== ALLEGATI ====================
+    
+    /**
+     * Scarica l'allegato della fattura
+     */
+    // public function downloadAttachment($invoiceId)
+    // {
+    //     try {
+    //         $invoice = InvoiceReceived::find($invoiceId);
+    //         if (!$invoice || !$invoice->attachment) {
+    //             $this->dispatch('showError', message: 'Nessun allegato trovato');
+    //             return;
+    //         }
+
+    //         // Se l'attachment è un percorso relativo
+    //         $attachmentPath = $invoice->attachment;
+            
+    //         // Verifica se il file esiste nello storage
+    //         if (Storage::disk('public')->exists($attachmentPath)) {
+    //             // Restituisci il file per il download
+    //             return response()->download(storage_path('app/public/' . $attachmentPath));
+    //         }
+            
+    //         // Se il percorso è un URL completo, apri in una nuova finestra
+    //         if (filter_var($attachmentPath, FILTER_VALIDATE_URL)) {
+    //             $this->dispatch('openWindow', url: $attachmentPath);
+    //             return;
+    //         }
+            
+    //         $this->dispatch('showError', message: 'File non trovato sul server');
+            
+    //     } catch (\Exception $e) {
+    //         Log::error('Errore download allegato: ' . $e->getMessage());
+    //         $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+    //     }
+    // }
+
+    /**
+     * Verifica se l'allegato esiste
+     */
+    // public function attachmentExists($invoiceId)
+    // {
+    //     $invoice = InvoiceReceived::find($invoiceId);
+    //     if (!$invoice || !$invoice->attachment) {
+    //         return false;
+    //     }
+        
+    //     $attachmentPath = $invoice->attachment;
+        
+    //     if (Storage::disk('public')->exists($attachmentPath)) {
+    //         return true;
+    //     }
+        
+    //     if (filter_var($attachmentPath, FILTER_VALIDATE_URL)) {
+    //         return true;
+    //     }
+        
+    //     return false;
+    // }
 
     // ==================== ELIMINAZIONE ====================
     
@@ -458,7 +572,7 @@ class InvoicesReceivedTable extends Component
 
     public function getStatusesProperty(): array
     {
-        return config('gestionale.invoice_status', []);
+        return (array) config('gestionale.invoice_status', []);
     }
 
     public function getTypeDocumentsProperty(): array

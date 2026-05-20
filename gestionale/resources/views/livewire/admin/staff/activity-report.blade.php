@@ -728,16 +728,15 @@
 
     <!-- Bottoni Export PDF ed Excel -->
     <div class="mt-6 flex justify-end gap-4">
-        <a href="{{ route('admin.staff.export-report-pdf', ['staff' => $staff->id_personale, 'date_from' => $dateFrom->format('Y-m-d'), 'date_to' => $dateTo->format('Y-m-d')]) }}" 
-        class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2">
-            <i class="fas fa-file-pdf text-xl"></i>
-            <span>Esporta PDF</span>
-        </a>
-        <a href="{{ route('admin.staff.export-report-excel', ['staff' => $staff->id_personale, 'date_from' => $dateFrom->format('Y-m-d'), 'date_to' => $dateTo->format('Y-m-d')]) }}" 
-        class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2">
-            <i class="fas fa-file-excel text-xl"></i>
-            <span>Esporta Excel</span>
-        </a>
+        <x-export-buttons
+            pdf-route="admin.staff.export-report-pdf"
+            excel-route="admin.staff.export-report-excel"
+            :params="[
+                'staff'     => $staff->id_personale,
+                'date_from' => $dateFrom->format('Y-m-d'),
+                'date_to'   => $dateTo->format('Y-m-d'),
+            ]"
+        />
     </div>
 </div>
 

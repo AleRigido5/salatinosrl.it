@@ -31,6 +31,7 @@ class InvoiceReceived extends Model
         'is_manual', 
         'xml_filename',
         'xml_content',
+        'attachment',
         'file_hash',
         'imported_at',
         'created_by',  

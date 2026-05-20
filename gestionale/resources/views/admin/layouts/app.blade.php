@@ -417,11 +417,53 @@
 
                     <!-- Acquisti -->
                     @if($currentAdmin && $currentAdmin->hasPermission('view_purchases'))
-                    <a href="{{ route('admin.invoices-received.index') }}" 
-                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.invoices-received.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
-                        <i class="fa-solid fa-dolly w-5 h-5 {{ request()->routeIs('admin.invoices-received.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
-                        <span class="sidebar-link-text text-sm font-medium ml-3">Acquisti</span>
-                    </a>
+                    <!-- Acquisti con Dropdown -->
+                    <div x-data="{ 
+                        openAcquisti: false,
+                        init() {
+                            // Ascolta l'evento sidebar-chiuso
+                            window.addEventListener('sidebar-closed', () => {
+                                this.openAcquisti = false;
+                            });
+                        }
+                    }">
+                        <a href="#" 
+                        @click.prevent="$store.sidebar.isExpanded ? openAcquisti = !openAcquisti : null"
+                        class="sidebar-link flex items-center justify-between px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.invoices-received.*') || request()->routeIs('admin.invoice-payments.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }}">
+                            <div class="flex items-center">
+                                <i class="fa-solid fa-dolly w-5 h-5 {{ request()->routeIs('admin.invoices-received.*') || request()->routeIs('admin.invoice-payments.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                                <span class="sidebar-link-text text-sm font-medium ml-3">Acquisti</span>
+                            </div>
+                            <!-- Freccia più staccata - con margin-left maggiore -->
+                            <i class="fas fa-chevron-down text-xs transition-transform duration-200 ml-4 mr-1" 
+                            :class="{ 'rotate-180': openAcquisti }" 
+                            x-show="$store.sidebar.isExpanded"
+                            style="min-width: 12px;"></i>
+                        </a>
+                        
+                        <!-- Submenu Dropdown -->
+                        <div x-show="openAcquisti && $store.sidebar.isExpanded" 
+                            x-transition:enter="transition ease-out duration-200" 
+                            x-transition:enter-start="opacity-0 transform -translate-y-2" 
+                            x-transition:enter-end="opacity-100 transform translate-y-0"
+                            x-transition:leave="transition ease-in duration-100" 
+                            x-transition:leave-start="opacity-100 transform translate-y-0" 
+                            x-transition:leave-end="opacity-0 transform -translate-y-2"
+                            class="ml-6 mt-1 space-y-1">
+                            
+                            <a href="{{ route('admin.invoices-received.index') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.invoices-received.*') && !request()->routeIs('admin.invoice-payments.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fas fa-file-invoice w-4 h-4 mr-2"></i>
+                                <span>Elenco fatture</span>
+                            </a>
+                            
+                            <a href="{{ route('admin.invoice-payments.index') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.invoice-payments.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fas fa-calendar-alt w-4 h-4 mr-2"></i>
+                                <span>Elenco scadenze</span>
+                            </a>
+                        </div>
+                    </div>
                     @endif
 
                     <!-- Vendite -->
@@ -982,7 +1024,51 @@
     @livewireScripts
 
     <script>
-        // Dropdown menu functionality
+        // ============================================
+        // SIDEBAR STATE MANAGEMENT (Alpine.js Store)
+        // ============================================
+        document.addEventListener('alpine:init', () => {
+            Alpine.store('sidebar', {
+                isExpanded: false,
+                init() {
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar) {
+                        // Funzione per aggiornare lo stato
+                        const updateState = () => {
+                            const wasExpanded = this.isExpanded;
+                            // La sidebar è espansa quando NON ha la classe 'sidebar-closed' 
+                            // o quando la larghezza è maggiore di 100px
+                            this.isExpanded = !sidebar.classList.contains('sidebar-closed') || sidebar.offsetWidth > 100;
+                            
+                            // Se la sidebar si è chiusa (da espansa a non espansa)
+                            if (wasExpanded && !this.isExpanded) {
+                                // Emetti un evento globale per chiudere tutti i dropdown
+                                window.dispatchEvent(new CustomEvent('sidebar-closed'));
+                            }
+                        };
+                        
+                        // Osserva i cambiamenti delle classi
+                        const classObserver = new MutationObserver(updateState);
+                        classObserver.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+                        
+                        // Osserva i cambiamenti di stile (per la larghezza)
+                        const resizeObserver = new ResizeObserver(updateState);
+                        resizeObserver.observe(sidebar);
+                        
+                        // Osserva anche i cambiamenti CSS (nel caso)
+                        const styleObserver = new MutationObserver(updateState);
+                        styleObserver.observe(sidebar, { attributes: true, attributeFilter: ['style'] });
+                        
+                        // Stato iniziale
+                        updateState();
+                    }
+                }
+            });
+        });
+
+        // ============================================
+        // DROPDOWN MENU FUNCTIONALITY
+        // ============================================
         document.addEventListener('DOMContentLoaded', function() {
             // User dropdown
             const userMenuButton = document.getElementById('userMenuButton');
@@ -1023,6 +1109,23 @@
                 }
             });
             
+            // Quando la sidebar si chiude, chiudi tutti i dropdown di Acquisti
+            window.addEventListener('sidebar-closed', function() {
+                // Chiudi tutti i dropdown di Acquisti (Alpine.js)
+                const acquistiElements = document.querySelectorAll('[x-data]');
+                acquistiElements.forEach(el => {
+                    if (el.__x && el.__x.$data && typeof el.__x.$data.openAcquisti !== 'undefined') {
+                        el.__x.$data.openAcquisti = false;
+                    }
+                });
+                
+                // Chiudi anche eventuali altri dropdown
+                const allDropdowns = document.querySelectorAll('.dropdown-menu.show');
+                allDropdowns.forEach(dropdown => {
+                    dropdown.classList.remove('show');
+                });
+            });
+            
             // Auto-hide success message after 5 seconds
             const successAlert = document.querySelector('.animate-pulse');
             if (successAlert) {
@@ -1036,19 +1139,20 @@
                     }, 500);
                 }, 5000);
             }
-            
-            // Sidebar hover effect è gestito completamente da CSS
-            // Non serve più JavaScript per il toggle
         });
         
-        // Tooltip auto-initialization
+        // ============================================
+        // TOOLTIP AUTO-INITIALIZATION
+        // ============================================
         document.querySelectorAll('[data-tooltip]').forEach(element => {
             if (element.classList.contains('disabled-link')) {
                 element.setAttribute('data-tooltip', 'Non hai i permessi necessari');
             }
         });
         
-        // Tab functionality helper
+        // ============================================
+        // TAB FUNCTIONALITY HELPER
+        // ============================================
         window.initializeTabs = function(containerId) {
             const container = document.getElementById(containerId);
             if (!container) return;
@@ -1071,12 +1175,24 @@
                 });
             });
         };
-
-        // Livewire Event Handlers
+        
+        // ============================================
+        // LIVE WIRE EVENT HANDLERS
+        // ============================================
         document.addEventListener('livewire:init', function () {
             // Redirect to edit page
             Livewire.on('redirectToEdit', ({ id }) => {
                 window.location.href = '/admin/entities/' + id + '/edit';
+            });
+            
+            // Redirect to edit staff
+            Livewire.on('redirectToEditStaff', ({ id }) => {
+                window.location.href = '/admin/staff/' + id + '/edit';
+            });
+            
+            // Redirect to edit vehicle
+            Livewire.on('redirectToEditVehicle', ({ id }) => {
+                window.location.href = '/admin/vehicles/' + id + '/edit';
             });
             
             // Show success message as toast
@@ -1103,9 +1219,43 @@
             Livewire.on('tableRefreshed', () => {
                 console.log('Tabella aggiornata');
             });
+            
+            // Clear input events
+            Livewire.on('clearOwnershipInput', () => {
+                const input = document.getElementById('ownership_input');
+                if (input) input.value = '';
+            });
+            
+            Livewire.on('clearSupplierInput', () => {
+                const input = document.getElementById('supplier_input');
+                if (input) input.value = '';
+            });
+            
+            Livewire.on('clearCostCenterInput', () => {
+                const input = document.getElementById('cost_center_input');
+                if (input) input.value = '';
+            });
+            
+            Livewire.on('resetAllFilters', () => {
+                const ownershipInput = document.getElementById('ownership_input');
+                if (ownershipInput) ownershipInput.value = '';
+                
+                const supplierInput = document.getElementById('supplier_input');
+                if (supplierInput) supplierInput.value = '';
+                
+                const costCenterInput = document.getElementById('cost_center_input');
+                if (costCenterInput) costCenterInput.value = '';
+            });
+            
+            // Scroll to top when page changes
+            Livewire.on('scrollToTop', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
         });
-
-        // Toast notification function
+        
+        // ============================================
+        // TOAST NOTIFICATION FUNCTION
+        // ============================================
         function showToast(message, type = 'success') {
             const colors = {
                 success: 'bg-green-500',
@@ -1128,21 +1278,151 @@
                 <div class="flex items-center">
                     <i class="fas ${icons[type]} mr-2"></i>
                     <span>${message}</span>
+                    <button class="ml-4 text-white hover:text-gray-200 focus:outline-none" onclick="this.parentElement.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             `;
             
             document.body.appendChild(toast);
             
+            // Auto remove after 5 seconds
             setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transition = 'opacity 0.5s ease';
-                setTimeout(() => {
-                    if (toast && toast.remove) {
-                        toast.remove();
-                    }
-                }, 500);
+                if (toast && toast.parentElement) {
+                    toast.style.opacity = '0';
+                    toast.style.transition = 'opacity 0.5s ease';
+                    setTimeout(() => {
+                        if (toast && toast.remove) {
+                            toast.remove();
+                        }
+                    }, 500);
+                }
             }, 5000);
         }
+        
+        // ============================================
+        // SIDEBAR HELPER FUNCTION (per uso in Alpine)
+        // ============================================
+        window.sidebarExpanded = function() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return false;
+            return !sidebar.classList.contains('sidebar-closed') || sidebar.offsetWidth > 100;
+        };
+        
+        // ============================================
+        // MODAL HELPER FUNCTIONS
+        // ============================================
+        window.openModal = function(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                document.body.style.overflow = 'hidden';
+            }
+        };
+        
+        window.closeModal = function(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                document.body.style.overflow = '';
+            }
+        };
+        
+        // ============================================
+        // CONFIRM DIALOG HELPER
+        // ============================================
+        window.confirmAction = function(message, callback) {
+            if (confirm(message)) {
+                callback();
+            }
+        };
+        
+        // ============================================
+        // FORMAT NUMBER HELPER
+        // ============================================
+        window.formatNumber = function(number, decimals = 2, decPoint = ',', thousandsSep = '.') {
+            number = parseFloat(number);
+            if (isNaN(number)) return '0,00';
+            
+            let parts = number.toFixed(decimals).split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSep);
+            return parts.join(decPoint);
+        };
+        
+        // ============================================
+        // FORMAT DATE HELPER
+        // ============================================
+        window.formatDate = function(dateString, format = 'dd/mm/yyyy') {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return '-';
+            
+            const day = date.getDate().toString().padStart(2, '0');
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const year = date.getFullYear();
+            
+            return format.replace('dd', day).replace('mm', month).replace('yyyy', year);
+        };
+        
+        // ============================================
+        // PRINT ELEMENT HELPER
+        // ============================================
+        window.printElement = function(elementId) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                    <html>
+                    <head>
+                        <title>Stampa</title>
+                        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+                        <style>
+                            body { font-family: Arial, sans-serif; padding: 20px; }
+                            @media print {
+                                .no-print { display: none; }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        ${element.innerHTML}
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+                printWindow.print();
+            }
+        };
+        
+        // ============================================
+        // EXPORT TABLE TO CSV HELPER
+        // ============================================
+        window.exportToCSV = function(tableId, filename = 'export.csv') {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            
+            const rows = table.querySelectorAll('tr');
+            const csvData = [];
+            
+            rows.forEach(row => {
+                const cols = row.querySelectorAll('td, th');
+                const rowData = [];
+                cols.forEach(col => {
+                    let text = col.innerText.replace(/,/g, ';');
+                    rowData.push(text);
+                });
+                csvData.push(rowData.join(','));
+            });
+            
+            const blob = new Blob([csvData.join('\n')], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        };
     </script>
     
     @stack('scripts')

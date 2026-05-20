@@ -1308,6 +1308,167 @@ class InvoicesXmlImport extends Component
         }
     }
 
+    // SAVE CON ALLEGATO
+    // public function save()
+    // {
+    //     Log::info('Tentativo salvataggio fattura', [
+    //         'fornitore_partita_iva' => $this->fornitore_partita_iva,
+    //         'n_invoice' => $this->n_invoice,
+    //         'data_invoice' => $this->data_invoice,
+    //         'importo_totale' => $this->importo_totale,
+    //         'rows_count' => count($this->rows),
+    //         'payments_count' => count($this->payments),
+    //         'vatSummaries_count' => count($this->vatSummaries),
+    //         'supplier_found' => $this->supplier_found,
+    //         'id_entities' => $this->id_entities,
+    //     ]);
+
+    //     $adminId = null;
+    //     if (Auth::guard('admin')->check()) {
+    //         $adminId = Auth::guard('admin')->id();
+    //         Log::info('Admin autenticato ID: ' . $adminId);
+    //     } else {
+    //         Log::warning('Admin NON autenticato!');
+    //     }
+        
+    //     if ($this->checkInvoiceExists()) {
+    //         $this->dispatch('alert', ['type' => 'error', 'message' => "❌ FATTURA DUPLICATA! Impossibile importare."]);
+    //         return;
+    //     }
+        
+    //     if (!$this->supplier_found && $this->supplier_not_found && !$this->id_entities) {
+    //         $this->createSupplierAutomatically();
+    //     }
+        
+    //     try {
+    //         $this->validate([
+    //             'id_entities' => 'required|exists:entities,id_cliente',
+    //             'type_invoice' => 'required|string|max:10',
+    //             'n_invoice' => 'required|string|max:100',
+    //             'data_invoice' => 'required|date',
+    //             'divisa' => 'required|string|size:3',
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         Log::error('Validazione fallita', ['errors' => $e->getMessage()]);
+    //         $this->dispatch('alert', ['type' => 'error', 'message' => 'Dati mancanti: ' . $e->getMessage()]);
+    //         return;
+    //     }
+
+    //     try {
+    //         DB::beginTransaction();
+
+    //         $xmlStoragePath = $this->saveXmlFile();
+            
+    //         // ============================================
+    //         // SALVA L'ALLEGATO NEL DATABASE
+    //         // ============================================
+    //         $attachmentPath = null;
+    //         if (!empty($this->extracted_attachments)) {
+    //             // Prendi il primo allegato (o puoi salvarli tutti come JSON)
+    //             $firstAttachment = $this->extracted_attachments[0];
+    //             $attachmentPath = $firstAttachment['url'] ?? $firstAttachment['temp_path'] ?? null;
+                
+    //             // Se vuoi salvare più allegati, salvali come JSON
+    //             // $attachmentPath = json_encode(array_column($this->extracted_attachments, 'url'));
+    //         }
+
+    //         $invoice = InvoiceReceived::create([
+    //             'id_ownership' => $this->id_ownership,
+    //             'id_entities' => $this->id_entities,
+    //             'type_invoice' => $this->type_invoice ?: 'TD01',
+    //             'n_invoice' => $this->cleanUtf8String($this->n_invoice),
+    //             'data_invoice' => $this->data_invoice,
+    //             'importo_totale' => $this->importo_totale ?: 0,
+    //             'causale' => $this->cleanUtf8String($this->causale),
+    //             'divisa' => $this->cleanUtf8String($this->divisa),
+    //             'status' => $this->status,
+    //             'sdi_id' => $this->cleanUtf8String($this->sdi_id),
+    //             'is_manual' => false, 
+    //             'xml_filename' => $xmlStoragePath,
+    //             'attachment' => $attachmentPath, // SALVA IL PERCORSO DELL'ALLEGATO
+    //             'xml_content' => $this->xml_content ?? null,
+    //             'file_hash' => $this->file_hash,
+    //             'imported_at' => now(),
+    //             'created_by' => $adminId,
+    //             'updated_by' => $adminId,
+    //         ]);
+
+    //         Log::info('Fattura creata con ID: ' . $invoice->id);
+    //         Log::info('Allegato salvato nel DB: ' . ($attachmentPath ?? 'Nessun allegato'));
+
+    //         foreach ($this->rows as $index => $row) {
+    //             Log::info('Salvataggio riga ' . $index, ['description' => $row['description']]);
+                
+    //             InvoiceRow::create([
+    //                 'document_id' => $invoice->id,
+    //                 'document_type' => 'invoice_received',
+    //                 'id_cost_center' => $row['id_cost_center'] ?? null,
+    //                 'id_vehicle' => $row['id_vehicle'] ?? null,
+    //                 'description' => $this->cleanUtf8String($row['description'] ?? ''),
+    //                 'quantity' => $row['quantity'] ?? 1,
+    //                 'unit_price' => $row['unit_price'] ?? 0,
+    //                 'discount_percentage' => $row['discount_percentage'] ?? 0,
+    //             ]);
+    //         }
+            
+    //         $defaultStatus = config('gestionale.invoice_status.issued.code', 'issued');
+
+    //         foreach ($this->payments as $index => $payment) {
+    //             $dueDate = !empty($payment['due_date']) 
+    //                 ? $payment['due_date'] 
+    //                 : $this->data_invoice;
+                
+    //             Log::info('Salvataggio pagamento ' . ($index + 1), [
+    //                 'due_date' => $dueDate,
+    //                 'amount' => $payment['amount'],
+    //                 'payment_method' => $payment['payment_method'] ?? 'Non specificato',
+    //                 'has_iban' => !empty($payment['iban'])
+    //             ]);
+                
+    //             $invoice->payments()->create([
+    //                 'due_date' => $dueDate,
+    //                 'amount' => $payment['amount'] ?? $this->importo_totale,
+    //                 'payment_method' => $this->cleanUtf8String($payment['payment_method'] ?? null),
+    //                 'iban' => $this->cleanUtf8String($payment['iban'] ?? null),
+    //                 'status' => $defaultStatus,
+    //             ]);
+    //         }
+            
+    //         foreach ($this->vatSummaries as $summary) {
+    //             $invoice->vatSummaries()->create([
+    //                 'tax_rate' => $summary['tax_rate'] ?? 0,
+    //                 'sdi_nature' => $this->cleanUtf8String($summary['sdi_nature'] ?? null),
+    //                 'taxable_amount' => $summary['taxable_amount'] ?? 0,
+    //                 'tax_amount' => $summary['tax_amount'] ?? 0,
+    //                 'vat_law_reference' => $this->cleanUtf8String($summary['vat_law_reference'] ?? null),
+    //                 'esigibilita_iva' => $this->cleanUtf8String($summary['esigibilita_iva'] ?? 'I'),
+    //             ]);
+    //         }
+
+    //         DB::commit();
+
+    //         if (!empty($this->extracted_attachments)) {
+    //             Log::info('Allegati collegati alla fattura', [
+    //                 'invoice_id' => $invoice->id,
+    //                 'n_fattura' => $this->n_invoice,
+    //                 'allegati' => array_column($this->extracted_attachments, 'original_name')
+    //             ]);
+    //         }
+
+    //         session()->flash('success', 'Fattura importata con successo!');
+    //         return redirect()->route('admin.invoices-received.index');
+
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         Log::error('Errore salvataggio: ' . $e->getMessage(), [
+    //             'trace' => $e->getTraceAsString()
+    //         ]);
+    //         $this->dispatch('alert', ['type' => 'error', 'message' => 'Errore: ' . $this->cleanUtf8String($e->getMessage())]);
+
+    //         return null;
+    //     }
+    // }
+
     public function render()
     {
         $tipoDocumento = config('gestionale.tipo_documento', []);

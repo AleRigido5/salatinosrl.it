@@ -20,7 +20,7 @@ return [
     | Stato fatture (acquisto e vendita)
     |--------------------------------------------------------------------------
     */
-     'invoice_status' => [
+    'invoice_status' => [
         'issued' => [
             'label' => 'Emessa',
             'color' => 'red',

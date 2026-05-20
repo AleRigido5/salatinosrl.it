@@ -173,8 +173,8 @@ return [
         'TD27' => 'fattura per autoconsumo o per cessioni gratuite senza rivalsa',
         'TD28' => 'acquisti da San Marino con IVA (fattura cartacea)',
         'TD29' => 'Comunicazione per omessa o irregolare fatturazione (art. 6, comma 8, D.Lgs. 471/97)',
-        'pro-forma' => 'Pro-forma',
-        'avviso di parcella' => 'Avviso di Parcella',
+        'DF01' => 'Pro-forma',
+        'DF02' => 'Avviso di Parcella',
     ],
     
     /*

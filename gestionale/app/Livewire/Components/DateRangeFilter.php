@@ -48,7 +48,6 @@ class DateRangeFilter extends Component
         $this->singleDate = '';
         $this->selectedSeason = null;
         
-        // Forza l'aggiornamento della select
         $this->dispatch('monthYearUpdated', [
             'month' => $this->selectedMonth,
             'year' => $this->selectedYear
@@ -64,7 +63,6 @@ class DateRangeFilter extends Component
         $this->singleDate = '';
         $this->selectedSeason = null;
         
-        // Forza l'aggiornamento della select
         $this->dispatch('monthYearUpdated', [
             'month' => $this->selectedMonth,
             'year' => $this->selectedYear
@@ -102,44 +100,55 @@ class DateRangeFilter extends Component
     public function updatedSelectedSeason(?string $value): void
     {
         if (!empty($value)) {
-            $year = (int)$value;
+            $newYear = (int)$value;
             
-            // Mantieni il mese corrente invece di forzare a Gennaio
+            // Mantieni il mese corrente, ma prendi l'intero mese
             $currentMonth = Carbon::now()->month;
-            $currentDay = Carbon::now()->day;
             
-            $this->selectedYear = $year;
-            $this->selectedMonth = $currentMonth;
+            // Imposta dateFrom al primo giorno del mese
+            $this->dateFrom = Carbon::create($newYear, $currentMonth, 1)
+                ->startOfMonth()
+                ->format('Y-m-d');
+            
+            // Imposta dateTo all'ultimo giorno del mese
+            $this->dateTo = Carbon::create($newYear, $currentMonth, 1)
+                ->endOfMonth()
+                ->format('Y-m-d');
+            
+            // Resetta la data singola
             $this->singleDate = '';
             
-            // Calcola le nuove date mantenendo lo stesso giorno/mese dell'anno selezionato
-            try {
-                // Cerca di mantenere lo stesso giorno e mese nell'anno selezionato
-                $newDate = Carbon::create($year, $currentMonth, $currentDay);
-                
-                // Se la data non esiste (es. 31 febbraio), prendi l'ultimo giorno del mese
-                if (!$newDate->isValid()) {
-                    $newDate = Carbon::create($year, $currentMonth, 1)->endOfMonth();
-                }
-                
-                // Imposta dateFrom e dateTo con la stessa data (modalità data singola)
-                $this->dateFrom = $newDate->format('Y-m-d');
-                $this->dateTo = $newDate->format('Y-m-d');
-            } catch (\Exception $e) {
-                // Fallback: primo giorno del mese selezionato
-                $this->dateFrom = Carbon::create($year, $currentMonth, 1)->format('Y-m-d');
-                $this->dateTo = Carbon::create($year, $currentMonth, 1)->format('Y-m-d');
-            }
+            // Aggiorna i select del mese/anno
+            $this->selectedMonth = $currentMonth;
+            $this->selectedYear = $newYear;
             
         } else {
-            // Se viene deselezionata la stagione, resetta ai valori attuali (oggi)
+            // Se viene deselezionata la stagione, resetta al mese corrente completo
             $currentDate = Carbon::now();
             $this->selectedMonth = $currentDate->month;
             $this->selectedYear = $currentDate->year;
-            $this->dateFrom = $currentDate->format('Y-m-d');
-            $this->dateTo = $currentDate->format('Y-m-d');
+            
+            // Imposta l'intero mese corrente
+            $this->dateFrom = Carbon::create($this->selectedYear, $this->selectedMonth, 1)
+                ->startOfMonth()
+                ->format('Y-m-d');
+            
+            $this->dateTo = Carbon::create($this->selectedYear, $this->selectedMonth, 1)
+                ->endOfMonth()
+                ->format('Y-m-d');
+            
             $this->singleDate = '';
         }
+    }
+
+    public function updatedDateFrom(): void
+    {
+        // opzionale: validazione o sync
+    }
+
+    public function updatedDateTo(): void
+    {
+        // opzionale: validazione o sync
     }
 
     // Solo questo dispatcha alla tabella
@@ -164,7 +173,6 @@ class DateRangeFilter extends Component
 
     public function resetDateRangeFilterWithoutApply(): void
     {
-        // Resetta al mese corrente
         $this->selectedMonth = Carbon::now()->month;
         $this->selectedYear = Carbon::now()->year;
         $this->singleDate = '';
@@ -172,8 +180,6 @@ class DateRangeFilter extends Component
         $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
         $this->dateTo = Carbon::now()->endOfMonth()->format('Y-m-d');
         
-        // NON chiamare applyFilters() per non riattivare il filtro!
-        // Invia comunque le date vuote alla tabella principale
         $this->dispatch('dateRangeUpdated', [
             'date_from' => '',
             'date_to' => '',
@@ -200,7 +206,6 @@ class DateRangeFilter extends Component
         return $years;
     }
 
-    // Ultimi 10 anni per la stagione
     public function getSeasonYearsProperty(): array
     {
         $currentYear = Carbon::now()->year;

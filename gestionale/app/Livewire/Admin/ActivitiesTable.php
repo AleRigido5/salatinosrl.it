@@ -27,7 +27,7 @@ class ActivitiesTable extends Component
     public $entityName = '';
     public $dateFrom = '';
     public $dateTo = '';
-    public $perPage = 50;
+    public $perPage = 10000;
     public $sortField = 'data_activities';
     public $sortDirection = 'desc';
     
@@ -55,7 +55,7 @@ class ActivitiesTable extends Component
         'entityFilter' => ['except' => ''],
         'dateFrom' => ['except' => ''],
         'dateTo' => ['except' => ''],
-        'perPage' => ['except' => 50],
+        'perPage' => ['except' => 10000],
         'sortField' => ['except' => 'data_activities'],
         'sortDirection' => ['except' => 'desc'],
     ];

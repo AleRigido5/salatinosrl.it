@@ -27,7 +27,6 @@
                     @endforeach
                 </select>
 
-                <!-- ANNO: campo non editabile che si aggiorna con le frecce -->
                 <input type="text" 
                     readonly
                     value="{{ $selectedYear }}"
@@ -36,9 +35,8 @@
             </div>
         </div>
 
-        <!-- CENTRO: Data singola e Stagione (label affiancate) -->
+        <!-- CENTRO: Data singola e Stagione -->
         <div class="flex items-center gap-4">
-            <!-- Data singola -->
             <div class="flex items-center gap-2">
                 <label class="text-sm font-medium text-gray-700">Data</label>
                 <input type="date"
@@ -46,7 +44,6 @@
                     class="text-sm px-3 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
             </div>
 
-            <!-- Stagione (select con ultimi 10 anni) -->
             <div class="flex items-center gap-2">
                 <label class="text-sm font-medium text-gray-700">Stagione</label>
                 <select wire:model.live="selectedSeason"
@@ -59,11 +56,12 @@
             </div>
         </div>
 
-        <!-- DESTRA: valore scritto direttamente da PHP, niente wire:model -->
+        <!-- DESTRA: campi in sola lettura -->
         <div class="flex items-center gap-3">
 
             <input type="date"
-                value="{{ $dateFrom }}"
+                wire:key="date-from-{{ $dateFrom }}"
+                wire:model="dateFrom"
                 class="text-sm px-3 py-1.5 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-default focus:outline-none">
 
             <span class="text-gray-400">
@@ -71,7 +69,8 @@
             </span>
 
             <input type="date"
-                value="{{ $dateTo }}"
+                wire:key="date-to-{{ $dateTo }}"
+                wire:model="dateTo"
                 class="text-sm px-3 py-1.5 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-default focus:outline-none">
 
             <button type="button"
@@ -92,12 +91,10 @@
 @push('scripts')
 <script>
     document.addEventListener('livewire:initialized', () => {
-        // Forza l'aggiornamento della select quando cambia il mese/anno
         Livewire.on('monthYearUpdated', (data) => {
             const select = document.querySelector('select[wire\\:model\\:live="selectedMonth"]');
             if (select && select.value != data.month) {
                 select.value = data.month;
-                // Trigger manuale dell'evento change
                 select.dispatchEvent(new Event('change', { bubbles: true }));
             }
         });

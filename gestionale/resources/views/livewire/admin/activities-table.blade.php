@@ -3,7 +3,10 @@
     <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
         <!-- Filtri Data con componente DateRangeFilter -->
         <div class="p-4">
-            @livewire('components.date-range-filter', ['dateFrom' => $dateFrom, 'dateTo' => $dateTo])
+            <livewire:components.date-range-filter 
+                wire:model:dateFrom="dateFrom"
+                wire:model:dateTo="dateTo"
+            />        
         </div>
         
         <!-- Filtri Avanzati con Autocomplete (invariati) -->

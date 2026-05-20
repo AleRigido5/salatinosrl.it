@@ -1048,7 +1048,7 @@
             dateFrom = $event.detail.date_from || dateFrom;
             dateTo   = $event.detail.date_to   || dateTo;
         "
-        class="flex gap-3 justify-end"
+        class="flex gap-3 justify-end" 
     >
         <a :href="basePdfUrl + '?date_from=' + dateFrom + '&date_to=' + dateTo"
         class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium">

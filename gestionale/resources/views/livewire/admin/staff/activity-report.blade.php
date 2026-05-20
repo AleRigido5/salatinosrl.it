@@ -729,13 +729,8 @@
     <!-- Bottoni Export PDF ed Excel -->
     <div class="mt-6 flex justify-end gap-4">
         <x-export-buttons
-            pdf-route="admin.staff.export-report-pdf"
-            excel-route="admin.staff.export-report-excel"
-            :params="[
-                'staff'     => $staff->id_personale,
-                'date_from' => $dateFrom->format('Y-m-d'),
-                'date_to'   => $dateTo->format('Y-m-d'),
-            ]"
+            :pdf-url="route('admin.staff.export-report-pdf', ['staff' => $staff->id_personale, 'date_from' => $dateFrom->format('Y-m-d'), 'date_to' => $dateTo->format('Y-m-d')])"
+            :excel-url="route('admin.staff.export-report-excel', ['staff' => $staff->id_personale, 'date_from' => $dateFrom->format('Y-m-d'), 'date_to' => $dateTo->format('Y-m-d')])"
         />
     </div>
 </div>

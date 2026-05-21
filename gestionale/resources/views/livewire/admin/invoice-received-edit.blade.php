@@ -89,8 +89,8 @@
             @endif
         </h1>
         <a href="{{ route('admin.invoices-received.index') }}" 
-           class="bg-gray-600 hover:bg-gray-900 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
-            <i class="fas fa-arrow-left mr-2"></i> Torna all'elenco
+           class="bg-gray-600 hover:bg-gray-900 text-white px-4 py-2 rounded-lg transition-colors flex items-center" title="Torna all'elenco">
+            <i class="fas fa-arrow-left"></i>
         </a>
     </div>
 
@@ -153,6 +153,7 @@
                                     <input type="text"
                                         id="supplier_input"
                                         wire:model.live.debounce.300ms="supplierSearch"
+                                        value="{{ $supplierSearch }}"
                                         x-on:focus="if (!{{ $isReadonly ? 'true' : 'false' }}) open = true"
                                         x-on:input="if (!{{ $isReadonly ? 'true' : 'false' }}) { open = true; @this.set('supplierSearch', $event.target.value); }"
                                         placeholder="Cerca fornitore..."
@@ -355,11 +356,9 @@
                                     {{ $isReadonly ? 'disabled' : '' }}>
                                     @foreach($vatRatesList as $vat)
                                         <option value="{{ $vat['rate_percent'] }}">
-                                            @if($vat['rate'] > 0)
-                                                {{ number_format($vat['rate_percent'], 0) }}% — {{ $vat['description'] }}
-                                            @else
-                                                0% — {{ $vat['description'] }}
-                                                @if($vat['sdi_nature']) ({{ $vat['sdi_nature'] }}) @endif
+                                            {{ number_format($vat['rate_percent'], 0) }}%
+                                            @if($vat['rate'] == 0 && $vat['sdi_nature'])
+                                                — {{ $vat['sdi_nature'] }}
                                             @endif
                                         </option>
                                     @endforeach
@@ -379,6 +378,7 @@
                                         <i class="fas fa-building absolute left-2 top-2 text-gray-400 text-xs"></i>
                                         <input type="text"
                                             id="cost_center_input_{{ $index }}"
+                                            value="{{ $costCenterSearch[$index] ?? '' }}"
                                             wire:model.live.debounce.300ms="costCenterSearch.{{ $index }}"
                                             x-on:focus="open = true"
                                             x-on:input="open = true"
@@ -389,7 +389,7 @@
                                             <button type="button"
                                                 wire:click="clearCostCenter({{ $index }})"
                                                 x-on:click="document.getElementById('cost_center_input_{{ $index }}').value = ''"
-                                                class="absolute right-1 top-1.5 text-gray-400 hover:text-red-500">
+                                                class="absolute right-1 text-gray-400 hover:text-red-500">
                                                 <i class="fas fa-times text-xs"></i>
                                             </button>
                                         @endif
@@ -429,6 +429,7 @@
                                         <i class="fas fa-truck absolute left-2 top-2 text-gray-400 text-xs"></i>
                                         <input type="text"
                                             id="vehicle_input_{{ $index }}"
+                                            value="{{ $vehicleSearch[$index] ?? '' }}"
                                             wire:model.live.debounce.300ms="vehicleSearch.{{ $index }}"
                                             x-on:focus="open = true"
                                             x-on:input="open = true"
@@ -439,7 +440,7 @@
                                             <button type="button"
                                                 wire:click="clearVehicle({{ $index }})"
                                                 x-on:click="document.getElementById('vehicle_input_{{ $index }}').value = ''"
-                                                class="absolute right-1 top-1.5 text-gray-400 hover:text-red-500">
+                                                class="absolute right-1 text-gray-400 hover:text-red-500">
                                                 <i class="fas fa-times text-xs"></i>
                                             </button>
                                         @endif

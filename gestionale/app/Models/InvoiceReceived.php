@@ -173,4 +173,53 @@ class InvoiceReceived extends Model
         $xmlString = preg_replace('/\n\s*\n/', "\n", $xmlString);
         return $xmlString;
     }
+
+    /**
+     * Ottiene gli allegati della fattura da S3
+     */
+    public function getAttachmentsAttribute(): array
+    {
+        $attachments = [];
+        
+        if (empty($this->fornitore_slug)) {
+            return $attachments;
+        }
+        
+        $basePath = 'invoice-received/' . $this->fornitore_slug;
+        $disk = Storage::disk('s3');
+        
+        if ($disk->exists($basePath)) {
+            $files = $disk->files($basePath);
+            
+            $bucket = 'gestionale-152146163010-eu-north-1-an';
+            $region = 'eu-north-1';
+            
+            foreach ($files as $file) {
+                $url = "https://{$bucket}.s3.{$region}.amazonaws.com/{$file}";
+                
+                $attachments[] = [
+                    'name' => basename($file),
+                    'path' => $file,
+                    'url' => $url,
+                    'size' => $disk->size($file),
+                    'last_modified' => $disk->lastModified($file)
+                ];
+            }
+        }
+        
+        return $attachments;
+    }
+
+    /**
+     * Salva un allegato per la fattura
+     */
+    public function saveAttachment($fileContent, $fileName)
+    {
+        if (empty($this->fornitore_slug)) {
+            return false;
+        }
+        
+        $path = 'invoice-received/' . $this->fornitore_slug . '/' . $fileName;
+        return Storage::disk('s3')->put($path, $fileContent);
+    }
 }

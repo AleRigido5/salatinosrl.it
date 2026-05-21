@@ -9,6 +9,7 @@ use App\Models\Ownership;
 use App\Models\Entity;
 use App\Models\CostCenter;
 use App\Models\Vehicles;
+use App\Models\PaymentMethod;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -93,7 +94,7 @@ class InvoiceReceivedEdit extends Component
         $this->invoiceId = $id;
         $this->loadVatRates();
         $this->loadUnitMeasures();
-        $this->paymentMethods = config('gestionale.modalita_pagamento', []);
+        $this->loadPaymentMethods();
         $this->loadInvoice();
     }
     
@@ -134,7 +135,12 @@ class InvoiceReceivedEdit extends Component
             })
             ->toArray();
     }
-    
+
+    public function loadPaymentMethods()
+    {
+        $this->paymentMethods = PaymentMethod::getSelectArray();
+    }
+
     public function loadInvoice()
     {
         $invoice = InvoiceReceived::with([
@@ -194,23 +200,17 @@ class InvoiceReceivedEdit extends Component
         
         // Carica le righe
         foreach ($invoice->rows as $index => $row) {
-            // Normalizza il vat_rate in PERCENTUALE (es. 22) per la UI
             $vatRateRaw = floatval($row->vat_rate ?? 0);
-            
+
             if ($vatRateRaw > 0 && $vatRateRaw <= 1) {
-                // Valore decimale (es. 0.22) → converti in percentuale
                 $vatRatePercent = round($vatRateRaw * 100, 2);
             } elseif ($vatRateRaw > 1) {
-                // Già in percentuale (es. 22)
                 $vatRatePercent = $vatRateRaw;
             } else {
-                // Zero: cerca nei vatSummaries se c'è un'aliquota a 0
-                // Per le righe con IVA 0, proviamo a recuperare dai summaries
                 $vatRatePercent = 0;
             }
 
-            // Per le fatture importate, se vat_rate è 0 o null,
-            // tenta di recuperare l'aliquota dal vat_rate_id
+            // Fallback 1: vat_rate_id
             if ($vatRatePercent == 0 && $row->vat_rate_id) {
                 $vatInfo = collect($this->vatRatesList)->firstWhere('id', $row->vat_rate_id);
                 if ($vatInfo) {
@@ -218,6 +218,15 @@ class InvoiceReceivedEdit extends Component
                 }
             }
 
+            // NUOVO Fallback 2: leggi dai vatSummaries se c'è una sola aliquota positiva
+            if ($vatRatePercent == 0) {
+                $positiveSummaries = collect($invoice->vatSummaries)
+                    ->where('tax_rate', '>', 0);
+                if ($positiveSummaries->count() === 1) {
+                    $vatRatePercent = (float) $positiveSummaries->first()->tax_rate;
+                }
+            }
+            
             // Calcola l'imponibile per la riga
             $grossAmount = $row->quantity * $row->unit_price;
             $discountAmount = $grossAmount * ($row->discount_percentage / 100);
@@ -284,6 +293,17 @@ class InvoiceReceivedEdit extends Component
         
         $this->calculateTotals();
         $this->calculatePaymentsTotal();
+
+        // Per fatture importate, il totale ufficiale è quello del DB
+        // non quello ricalcolato dalle righe (che può avere micro-differenze)
+        if (!$this->is_manual) {
+            $this->importo_totale = (float) $invoice->importo_totale;
+            // Aggiorna anche la prima scadenza col totale corretto
+            if (count($this->payments) > 0) {
+                $this->payments[0]['amount'] = $this->importo_totale;
+                $this->calculatePaymentsTotal();
+            }
+        }
     }
         
     public function addRow()
@@ -446,68 +466,61 @@ class InvoiceReceivedEdit extends Component
         $vatGroup = [];
         
         foreach ($this->rows as $index => &$row) {
-            $quantity = floatval($row['quantity'] ?? 1);
-            $unitPrice = floatval($row['unit_price'] ?? 0);
+            $quantity          = floatval($row['quantity'] ?? 1);
+            $unitPrice         = floatval($row['unit_price'] ?? 0);
             $discountPercentage = floatval($row['discount_percentage'] ?? 0);
-            
-            // vat_rate è in percentuale nella UI (es. 22)
-            $vatRatePercent = floatval($row['vat_rate'] ?? 0);
-            $vatRateDecimal = $vatRatePercent / 100;
-            
-            $grossAmount = $quantity * $unitPrice;
-            $discountAmount = $grossAmount * ($discountPercentage / 100);
+            $vatRatePercent    = floatval($row['vat_rate'] ?? 0);
+            $vatRateDecimal    = $vatRatePercent / 100;
+
+            $grossAmount    = round($quantity * $unitPrice, 4);
+            $discountAmount = round($grossAmount * ($discountPercentage / 100), 4);
+            $taxable        = round($grossAmount - $discountAmount, 2);
+            $vatAmount      = round($taxable * $vatRateDecimal, 2);
+
             $totalDiscount += $discountAmount;
-            
-            $taxable = $grossAmount - $discountAmount;
-            $totalTaxable += $taxable;
-            
-            $vatAmount = $taxable * $vatRateDecimal;
-            $totalVat += $vatAmount;
-            
+            $totalTaxable  += $taxable;
+            $totalVat      += $vatAmount;
+
             $row['taxable_amount'] = $taxable;
-            $row['vat_amount'] = $vatAmount;
-            
-            // Raggruppa per aliquota percentuale
+            $row['vat_amount']     = $vatAmount;
+
             $key = (string)$vatRatePercent;
             if (!isset($vatGroup[$key])) {
-                // Cerca la descrizione nella lista aliquote
                 $vatInfo = collect($this->vatRatesList)->first(function($v) use ($vatRatePercent) {
                     return abs($v['rate_percent'] - $vatRatePercent) < 0.01;
                 });
 
                 $vatGroup[$key] = [
-                    'rate' => $vatRateDecimal,
-                    'rate_percent' => number_format($vatRatePercent, 2),
-                    'description' => $vatInfo['description'] ?? ($vatRatePercent == 0 ? 'IVA 0%' : "IVA " . number_format($vatRatePercent, 2) . "%"),
-                    'nature_code' => $vatInfo['sdi_nature'] ?? null,
+                    'rate'           => $vatRateDecimal,
+                    'rate_percent'   => number_format($vatRatePercent, 2),
+                    'description'    => $vatInfo['description'] ?? ($vatRatePercent == 0 ? 'IVA 0%' : "IVA " . number_format($vatRatePercent, 2) . "%"),
+                    'nature_code'    => $vatInfo['sdi_nature'] ?? null,
                     'taxable_amount' => 0,
-                    'vat_amount' => 0,
+                    'vat_amount'     => 0,
                 ];
             }
-            
+
             $vatGroup[$key]['taxable_amount'] += $taxable;
-            $vatGroup[$key]['vat_amount'] += $vatAmount;
+            $vatGroup[$key]['vat_amount']     += $vatAmount;
         }
-        
-        uksort($vatGroup, function($a, $b) {
-            return $b <=> $a;
-        });
-        
-        $this->vatSummary = array_values($vatGroup);
-        $this->total_taxable = $totalTaxable;
-        $this->total_vat = $totalVat;
-        $this->total_discount = $totalDiscount;
-        $this->importo_totale = $totalTaxable + $totalVat;
-        
+
+        uksort($vatGroup, fn($a, $b) => $b <=> $a);
+
+        $this->vatSummary      = array_values($vatGroup);
+        $this->total_taxable   = round($totalTaxable, 2);
+        $this->total_vat       = round($totalVat, 2);
+        $this->total_discount  = round($totalDiscount, 2);
+        $this->importo_totale  = round($totalTaxable + $totalVat, 2);
+
         $this->syncFirstPaymentWithTotal();
     }
     
     protected function syncFirstPaymentWithTotal()
     {
-        if (count($this->payments) > 0) {
+        if (count($this->payments) === 1) {
             $this->payments[0]['amount'] = $this->importo_totale;
-            $this->calculatePaymentsTotal();
         }
+        $this->calculatePaymentsTotal();
     }
     
     // ==================== AUTOCOMPLETE FORNITORE ====================

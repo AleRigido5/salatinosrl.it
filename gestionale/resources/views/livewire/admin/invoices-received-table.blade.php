@@ -681,7 +681,7 @@
                     <div class="text-xs text-gray-400 border-t pt-3 mt-4">
                         <div class="grid grid-cols-2 gap-2">
                             <div><i class="fas fa-calendar-alt mr-1"></i> Importata il: {{ $selectedInvoice->imported_at ? $selectedInvoice->imported_at->format('d/m/Y H:i:s') : '-' }}</div>
-                            <div><i class="fas fa-file-code mr-1"></i> File XML: {{ basename($selectedInvoice->xml_filename ?? '') ?: 'Manuale' }}</div>
+                            <div><i class="fas fa-file-code mr-1"></i> File XML: {{ basename($selectedInvoice->xml_filename ?? '') ?: 'Creata manualmente' }}</div>
                         </div>
                     </div>
                 </div>

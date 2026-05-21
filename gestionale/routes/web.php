@@ -236,6 +236,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         // =============================================
+        // PRIMA NOTA - SCRITTURE CONTABILI (ACCOUNTING ENTRIES)
+        // =============================================
+        Route::prefix('accounting-entries')->name('accounting-entries.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\AccountingEntryController::class, 'index'])->name('index');
+        });
+        
+        // =============================================
         // GESTIONE SCADENZE (EXPIRATION)
         // =============================================
         // Scadenze Staff

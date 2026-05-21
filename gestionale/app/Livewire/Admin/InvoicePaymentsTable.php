@@ -200,6 +200,11 @@ class InvoicePaymentsTable extends Component
             ->with(['payable' => function($q) {
                 $q->with(['ownership', 'entity']);
             }])
+            // 🔥 IMPORTANTE: ESCLUDI I PAGAMENTI COMPLETAMENTE PAGATI 🔥
+            ->whereNotIn('status', ['paid'])  // Non mostrare quelli pagati
+            // Oppure usa questa condizione per includere anche i parzialmente pagati:
+            // ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
+            
             ->when($this->search, function($q) {
                 $q->whereHas('payable', function($sq) {
                     $sq->where('n_invoice', 'like', '%' . $this->search . '%');
@@ -236,8 +241,9 @@ class InvoicePaymentsTable extends Component
     public function getStatusesProperty(): array
     {
         return [
-            'pending' => ['label' => 'In attesa', 'badge_class' => 'bg-yellow-100 text-yellow-800'],
-            'paid' => ['label' => 'Pagato', 'badge_class' => 'bg-green-100 text-green-800'],
+            'issued' => ['label' => 'Emessa / In attesa', 'badge_class' => 'bg-yellow-100 text-yellow-800'],
+            'partially_paid' => ['label' => 'Pagato parzialmente', 'badge_class' => 'bg-blue-100 text-blue-800'],
+            'paid' => ['label' => 'Completamente pagato', 'badge_class' => 'bg-green-100 text-green-800'],
             'overdue' => ['label' => 'Scaduto', 'badge_class' => 'bg-red-100 text-red-800'],
             'cancelled' => ['label' => 'Annullato', 'badge_class' => 'bg-gray-100 text-gray-800'],
         ];

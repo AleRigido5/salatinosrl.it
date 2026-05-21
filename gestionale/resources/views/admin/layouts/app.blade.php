@@ -481,18 +481,13 @@
                     </a>
 
                     <!-- Prima Nota -->
-                    {{-- @if($currentAdmin && $currentAdmin->hasPermission('view_journal_entries'))
-                    <a href="{{ route('admin.journal_entries.index') }}" 
-                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.journal_entries.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
-                        <i class="fa-solid fa-comment-dollar w-5 h-5 {{ request()->routeIs('admin.journal_entries.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                    @if($currentAdmin && $currentAdmin->hasPermission('view_accounting_entries'))
+                    <a href="{{ route('admin.accounting-entries.index') }}" 
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.accounting-entries.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                        <i class="fa-solid fa-book w-5 h-5 {{ request()->routeIs('admin.accounting-entries.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Prima Nota</span>
                     </a>
-                    @endif --}}
-                    <a href="#" 
-                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.journal_entries.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
-                        <i class="fa-solid fa-comment-dollar w-5 h-5 {{ request()->routeIs('admin.journal_entries.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
-                        <span class="sidebar-link-text text-sm font-medium ml-3">Prima Nota</span>
-                    </a>
+                    @endif
                 </div>
                 @endif
             </nav>
@@ -715,6 +710,42 @@
                                         $breadcrumbs[] = ['name' => 'Modifica', 'url' => null, 'clickable' => false];
                                     } elseif ($currentRoute === 'admin.cost_centers.create') {
                                         $breadcrumbs[] = ['name' => 'Nuovo Centro di Costo', 'url' => null, 'clickable' => false];
+                                    }
+                                }
+                                // Acquisti - Fatture di Acquisto
+                                elseif (str_starts_with($currentRoute, 'admin.invoices-received.')) {
+                                    $breadcrumbs[] = ['name' => 'Acquisti', 'url' => null, 'clickable' => false];
+                                    $breadcrumbs[] = ['name' => 'Fatture di Acquisto', 'url' => route('admin.invoices-received.index'), 'clickable' => true];
+                                    
+                                    if ($currentRoute === 'admin.invoices-received.create') {
+                                        $breadcrumbs[] = ['name' => 'Nuova Fattura', 'url' => null, 'clickable' => false];
+                                    } elseif ($currentRoute === 'admin.invoices-received.edit') {
+                                        $invoice = $currentParams['invoice'] ?? null;
+                                        if ($invoice && is_object($invoice)) {
+                                            $breadcrumbs[] = ['name' => 'Fattura n. ' . ($invoice->n_invoice ?? ''), 'url' => null, 'clickable' => false];
+                                        }
+                                        $breadcrumbs[] = ['name' => 'Modifica', 'url' => null, 'clickable' => false];
+                                    } elseif ($currentRoute === 'admin.invoices-received.xml-import') {
+                                        $breadcrumbs[] = ['name' => 'Importa XML', 'url' => null, 'clickable' => false];
+                                    } elseif ($currentRoute === 'admin.invoices-received.xml-view') {
+                                        $invoice = $currentParams['invoice'] ?? null;
+                                        if ($invoice && is_object($invoice)) {
+                                            $breadcrumbs[] = ['name' => 'Fattura n. ' . ($invoice->n_invoice ?? ''), 'url' => null, 'clickable' => false];
+                                        }
+                                        $breadcrumbs[] = ['name' => 'Visualizza XML', 'url' => null, 'clickable' => false];
+                                    }
+                                }
+                                // Scadenze Pagamento (Acquisti)
+                                elseif (str_starts_with($currentRoute, 'admin.invoice-payments.')) {
+                                    $breadcrumbs[] = ['name' => 'Acquisti', 'url' => null, 'clickable' => false];
+                                    $breadcrumbs[] = ['name' => 'Scadenze Pagamento', 'url' => route('admin.invoice-payments.index'), 'clickable' => true];
+                                    
+                                    if ($currentRoute === 'admin.invoice-payments.edit') {
+                                        $payment = $currentParams['payment'] ?? null;
+                                        if ($payment && is_object($payment)) {
+                                            $breadcrumbs[] = ['name' => 'Pagamento del ' . ($payment->due_date ? date('d/m/Y', strtotime($payment->due_date)) : ''), 'url' => null, 'clickable' => false];
+                                        }
+                                        $breadcrumbs[] = ['name' => 'Modifica', 'url' => null, 'clickable' => false];
                                     }
                                 }
                                 // Impostazioni

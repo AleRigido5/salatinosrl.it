@@ -5,6 +5,9 @@
             <i class="fas fa-calendar-alt mr-3 text-lime-600"></i>
             Scadenze Pagamenti
         </h1>
+        
+        <!-- Aggiungi il componente per il nuovo pagamento -->
+        @livewire('admin.register-payment')
     </div>
 
     <!-- Card filtri -->
@@ -175,9 +178,9 @@
                         </td>
                         <td class="px-4 py-3 text-sm">
                             @if($invoice)
-                            <a href="{{ route('admin.invoices-received.show', $invoice->id) }}" class="text-blue-600 hover:underline">
+                            <p>
                                 {{ $invoice->n_invoice ?? '-' }}
-                            </a>
+                            </p>
                             @else
                                 -
                             @endif

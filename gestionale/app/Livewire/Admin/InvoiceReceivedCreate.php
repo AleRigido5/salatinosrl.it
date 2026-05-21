@@ -9,6 +9,7 @@ use App\Models\Ownership;
 use App\Models\Entity;
 use App\Models\CostCenter;
 use App\Models\Vehicles;
+use App\Models\PaymentMethod;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -107,7 +108,7 @@ class InvoiceReceivedCreate extends Component
         $this->data_invoice = date('Y-m-d');
         $this->loadVatRates();
         $this->loadUnitMeasures();
-        $this->paymentMethods = config('gestionale.modalita_pagamento', []);
+        $this->loadPaymentMethods();
         $this->addRow();
         $this->calculateTotals();     // Prima calcola il totale
         $this->addPayment();          // Poi aggiungi la scadenza con l'importo corretto
@@ -149,6 +150,11 @@ class InvoiceReceivedCreate extends Component
                 ];
             })
             ->toArray();
+    }
+
+    public function loadPaymentMethods()
+    {
+        $this->paymentMethods = PaymentMethod::getSelectArray();
     }
     
     public function addRow()

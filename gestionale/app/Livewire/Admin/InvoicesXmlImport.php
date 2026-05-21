@@ -19,6 +19,12 @@ class InvoicesXmlImport extends Component
     use WithFileUploads;
 
     // ============================================
+    // CONFIGURAZIONE STORAGE - CAMBIA QUI PER PASSARE DA S3 A LOCALE
+    // Valori possibili: 's3' o 'local'
+    // ============================================
+    private const STORAGE_DRIVER = 's3';  // <-- CAMBIA QUI in 'local' per usare storage locale
+
+    // ============================================
     // TRAIT PER PULIZIA UTF-8 (integrato direttamente)
     // ============================================
     
@@ -356,8 +362,338 @@ class InvoicesXmlImport extends Component
     }
 
     // ============================================
-    // UPLOAD E PARSING XML
+    // METODI PER GLI ALLEGATI - VERSIONE S3 (AMAZON)
     // ============================================
+    
+    /**
+     * Estrae e salva gli allegati su S3
+     */
+    private function extractAttachmentsToS3($xml)
+    {
+        $savedFiles = [];
+        
+        $basePrefix = 'invoice-received/';
+        $tempFolderName = 'temp_' . $this->file_hash;
+        $folderPrefix = $basePrefix . $tempFolderName . '/';
+        
+        $allegati = null;
+        
+        if (isset($xml->FatturaElettronicaBody->Allegati)) {
+            $allegati = $xml->FatturaElettronicaBody->Allegati;
+        } elseif (isset($xml->FatturaElettronicaBody->Allegato)) {
+            $allegati = $xml->FatturaElettronicaBody;
+        }
+        
+        if (!$allegati) {
+            Log::warning('Nodo Allegati non trovato nell\'XML');
+            return $savedFiles;
+        }
+        
+        $allegatoNodes = isset($allegati->Allegato) ? $allegati->Allegato : [$allegati];
+        
+        foreach ($allegatoNodes as $index => $allegato) {
+            try {
+                $fileName = $this->cleanUtf8String((string)$allegato->NomeAttachment);
+                $base64Content = (string)$allegato->Attachment;
+                
+                if (empty($base64Content)) {
+                    Log::warning('Contenuto Base64 vuoto per allegato', ['fileName' => $fileName]);
+                    continue;
+                }
+                
+                $base64Content = preg_replace('/\s+/', '', $base64Content);
+                $decodedContent = base64_decode($base64Content);
+                
+                if ($decodedContent === false || strlen($decodedContent) === 0) {
+                    Log::error('Decodifica Base64 fallita', ['fileName' => $fileName]);
+                    continue;
+                }
+                
+                $safeFileName = $this->getSafeFileName($fileName, $decodedContent, $index);
+                $s3Path = $folderPrefix . $safeFileName;
+                
+                $saved = Storage::disk('s3')->put($s3Path, $decodedContent);
+                
+                if ($saved) {
+                    $bucket = config('filesystems.disks.s3.bucket', 'gestionale-152146163010-eu-north-1-an');
+                    $region = config('filesystems.disks.s3.region', 'eu-north-1');
+                    $publicUrl = "https://{$bucket}.s3.{$region}.amazonaws.com/{$s3Path}";
+                    
+                    Log::info('Allegato salvato su S3', [
+                        'path' => $s3Path,
+                        'url' => $publicUrl
+                    ]);
+                    
+                    $savedFiles[] = [
+                        'original_name' => $fileName,
+                        'saved_name' => $safeFileName,
+                        's3_path' => $s3Path,
+                        'temp_folder' => $tempFolderName,
+                        'url' => $publicUrl,
+                        'size' => strlen($decodedContent),
+                        'storage_driver' => 's3'
+                    ];
+                }
+                
+            } catch (\Exception $e) {
+                Log::error('Errore processamento allegato su S3: ' . $e->getMessage());
+            }
+        }
+        
+        return $savedFiles;
+    }
+    
+    /**
+     * Rinomina la cartella su S3 con il nome del fornitore
+     */
+    private function renameS3FolderToSupplier($attachments)
+    {
+        if (empty($attachments) || !isset($attachments[0]['temp_folder'])) {
+            return;
+        }
+        
+        $fornitoreSlug = $this->slugify($this->fornitore_denominazione);
+        $pivaFornitore = preg_replace('/[^A-Za-z0-9]/', '', $this->fornitore_partita_iva);
+        
+        if (!empty($pivaFornitore)) {
+            $finalFolderName = $fornitoreSlug . '_' . $pivaFornitore;
+        } else {
+            $finalFolderName = $fornitoreSlug;
+        }
+        
+        $basePrefix = 'invoice-received/';
+        $tempFolder = $basePrefix . $attachments[0]['temp_folder'];
+        $finalFolder = $basePrefix . $finalFolderName;
+        
+        $s3 = Storage::disk('s3');
+        $files = $s3->files($tempFolder);
+        
+        $bucket = config('filesystems.disks.s3.bucket', 'gestionale-152146163010-eu-north-1-an');
+        $region = config('filesystems.disks.s3.region', 'eu-north-1');
+        
+        foreach ($files as $file) {
+            $fileName = basename($file);
+            $newPath = $finalFolder . '/' . $fileName;
+            
+            $content = $s3->get($file);
+            $saved = $s3->put($newPath, $content);
+            
+            if ($saved) {
+                $newUrl = "https://{$bucket}.s3.{$region}.amazonaws.com/{$newPath}";
+                
+                foreach ($this->extracted_attachments as &$attachment) {
+                    if (isset($attachment['s3_path']) && $attachment['s3_path'] === $file) {
+                        $attachment['s3_path'] = $newPath;
+                        $attachment['url'] = $newUrl;
+                        $attachment['final_folder'] = $finalFolderName;
+                    }
+                }
+                
+                $s3->delete($file);
+            }
+        }
+        
+        if (count($s3->files($tempFolder)) === 0) {
+            $s3->deleteDirectory($tempFolder);
+        }
+    }
+
+    // ============================================
+    // METODI PER GLI ALLEGATI - VERSIONE LOCALE
+    // ============================================
+    
+    /**
+     * Estrae e salva gli allegati in locale
+     */
+    private function extractAttachmentsToLocal($xml)
+    {
+        $savedFiles = [];
+        
+        $tempFolder = 'allegati_fatture/temp_' . $this->file_hash;
+        
+        if (!Storage::disk('public')->exists($tempFolder)) {
+            Storage::disk('public')->makeDirectory($tempFolder, 0755, true);
+        }
+        
+        $allegati = null;
+        
+        if (isset($xml->FatturaElettronicaBody->Allegati)) {
+            $allegati = $xml->FatturaElettronicaBody->Allegati;
+        } elseif (isset($xml->FatturaElettronicaBody->Allegato)) {
+            $allegati = $xml->FatturaElettronicaBody;
+        }
+        
+        if (!$allegati) {
+            Log::warning('Nodo Allegati non trovato nell\'XML');
+            return $savedFiles;
+        }
+        
+        $allegatoNodes = isset($allegati->Allegato) ? $allegati->Allegato : [$allegati];
+        
+        foreach ($allegatoNodes as $index => $allegato) {
+            try {
+                $fileName = $this->cleanUtf8String((string)$allegato->NomeAttachment);
+                $base64Content = (string)$allegato->Attachment;
+                
+                if (empty($base64Content)) {
+                    Log::warning('Contenuto Base64 vuoto per allegato', ['fileName' => $fileName]);
+                    continue;
+                }
+                
+                $base64Content = preg_replace('/\s+/', '', $base64Content);
+                $decodedContent = base64_decode($base64Content);
+                
+                if ($decodedContent === false || strlen($decodedContent) === 0) {
+                    Log::error('Decodifica Base64 fallita', ['fileName' => $fileName]);
+                    continue;
+                }
+                
+                $safeFileName = $this->getSafeFileName($fileName, $decodedContent, $index);
+                $filePath = $tempFolder . '/' . $safeFileName;
+                
+                $saved = Storage::disk('public')->put($filePath, $decodedContent);
+                
+                if ($saved) {
+                    $publicUrl = Storage::url($filePath);
+                    
+                    Log::info('Allegato salvato in locale', [
+                        'path' => $filePath,
+                        'url' => $publicUrl,
+                        'size' => strlen($decodedContent)
+                    ]);
+                    
+                    $savedFiles[] = [
+                        'original_name' => $fileName,
+                        'saved_name' => $safeFileName,
+                        'temp_path' => $filePath,
+                        'url' => $publicUrl,
+                        'size' => strlen($decodedContent),
+                        'temp_folder' => $tempFolder,
+                        'storage_driver' => 'local'
+                    ];
+                }
+                
+            } catch (\Exception $e) {
+                Log::error('Errore processamento allegato in locale: ' . $e->getMessage());
+            }
+        }
+        
+        return $savedFiles;
+    }
+    
+    /**
+     * Rinomina la cartella locale con il nome del fornitore
+     */
+    private function renameLocalFolderToSupplier($attachments)
+    {
+        if (empty($attachments)) {
+            return;
+        }
+        
+        $fornitoreSlug = $this->slugify($this->fornitore_denominazione);
+        $pivaFornitore = preg_replace('/[^A-Za-z0-9]/', '', $this->fornitore_partita_iva);
+        
+        if (!empty($pivaFornitore)) {
+            $finalFolderName = $fornitoreSlug . '_' . $pivaFornitore;
+        } else {
+            $finalFolderName = $fornitoreSlug;
+        }
+        
+        $finalFolder = 'allegati_fatture/' . $finalFolderName;
+        $tempFolder = $attachments[0]['temp_folder'] ?? null;
+        
+        if (!$tempFolder || !Storage::disk('public')->exists($tempFolder)) {
+            Log::warning('Cartella temporanea non trovata', ['folder' => $tempFolder]);
+            return;
+        }
+        
+        if (!Storage::disk('public')->exists($finalFolder)) {
+            Storage::disk('public')->makeDirectory($finalFolder, 0755, true);
+        }
+        
+        $files = Storage::disk('public')->files($tempFolder);
+        
+        foreach ($files as $file) {
+            $fileName = basename($file);
+            $newPath = $finalFolder . '/' . $fileName;
+            
+            $copied = Storage::disk('public')->copy($file, $newPath);
+            
+            if ($copied) {
+                Log::info('Allegato spostato in locale', [
+                    'from' => $file,
+                    'to' => $newPath
+                ]);
+                
+                foreach ($this->extracted_attachments as &$attachment) {
+                    if (isset($attachment['temp_path']) && $attachment['temp_path'] === $file) {
+                        $attachment['path'] = $newPath;
+                        $attachment['url'] = Storage::url($newPath);
+                    }
+                }
+            }
+        }
+        
+        Storage::disk('public')->deleteDirectory($tempFolder);
+        Log::info('Cartella temporanea locale eliminata', ['folder' => $tempFolder]);
+    }
+
+    // ============================================
+    // METODO GENERICO PER GENERARE NOME FILE SICURO
+    // ============================================
+    
+    /**
+     * Genera un nome file sicuro
+     */
+    private function getSafeFileName($originalName, $content, $index)
+    {
+        if (!empty($originalName)) {
+            $name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
+            $extension = pathinfo($name, PATHINFO_EXTENSION);
+            
+            if (strpos($content, '%PDF') === 0 && strtolower($extension) !== 'pdf') {
+                $name = pathinfo($name, PATHINFO_FILENAME) . '.pdf';
+            }
+            
+            return $name;
+        }
+        
+        if (strpos($content, '%PDF') === 0) {
+            return 'allegato_' . ($index + 1) . '.pdf';
+        }
+        
+        if (strpos($content, 'PK') === 0) {
+            return 'allegato_' . ($index + 1) . '.zip';
+        }
+        
+        return 'allegato_' . ($index + 1) . '.bin';
+    }
+
+    /**
+     * Converte una stringa in slug
+     */
+    private function slugify($text)
+    {
+        $text = $this->cleanUtf8String($text);
+        
+        $text = preg_replace('~[^\pL\d]+~u', '_', $text);
+        $text = iconv('utf-8', 'us-ascii//TRANSLIT', $text);
+        $text = preg_replace('~[^-\w]+~', '', $text);
+        $text = trim($text, '_');
+        $text = preg_replace('~-+~', '_', $text);
+        $text = strtolower($text);
+        
+        if (empty($text)) {
+            $text = 'fornitore';
+        }
+        
+        return $text;
+    }
+
+    // ============================================
+    // UPLOAD E PARSING XML (SELEZIONA IL DRIVER)
+    // ============================================
+    
     public function uploadXml()
     {
         $this->validate([
@@ -366,8 +702,6 @@ class InvoicesXmlImport extends Component
 
         try {
             $content = file_get_contents($this->xml_file->getRealPath());
-            
-            // Pulisci il contenuto prima di tutto
             $content = $this->cleanUtf8String($content);
             
             $xml = simplexml_load_string($content);
@@ -380,20 +714,33 @@ class InvoicesXmlImport extends Component
             $this->xml_filename = $this->xml_file->getClientOriginalName();
             $this->file_hash = hash('sha256', $content);
             
-            // PASSO 1: Estrai gli allegati usando SimpleXML
-            $attachments = $this->extractAttachmentsUsingSimpleXML($xml);
-            $this->extracted_attachments = $attachments;
-            
-            // PASSO 2: Pulisci l'XML per il parsing
-            $cleanXmlContent = $this->removeAttachmentsFromXml($content);
-            $cleanXml = simplexml_load_string($cleanXmlContent);
-            
-            // PASSO 3: Parsing dell'XML pulito
-            $this->parseXmlInvoiceRobusto($cleanXml);
-            
-            // PASSO 4: Rinomina la cartella con il nome del fornitore
-            if (!empty($attachments) && !empty($this->fornitore_denominazione)) {
-                $this->renameAttachmentsFolderFinal($attachments);
+            // ============================================
+            // SELEZIONE DEL DRIVER IN BASE ALLA COSTANTE
+            // ============================================
+            if (self::STORAGE_DRIVER === 's3') {
+                Log::info('Utilizzo storage S3 per gli allegati');
+                $attachments = $this->extractAttachmentsToS3($xml);
+                $this->extracted_attachments = $attachments;
+                
+                $cleanXmlContent = $this->removeAttachmentsFromXml($content);
+                $cleanXml = simplexml_load_string($cleanXmlContent);
+                $this->parseXmlInvoiceRobusto($cleanXml);
+                
+                if (!empty($attachments) && !empty($this->fornitore_denominazione)) {
+                    $this->renameS3FolderToSupplier($attachments);
+                }
+            } else {
+                Log::info('Utilizzo storage locale per gli allegati');
+                $attachments = $this->extractAttachmentsToLocal($xml);
+                $this->extracted_attachments = $attachments;
+                
+                $cleanXmlContent = $this->removeAttachmentsFromXml($content);
+                $cleanXml = simplexml_load_string($cleanXmlContent);
+                $this->parseXmlInvoiceRobusto($cleanXml);
+                
+                if (!empty($attachments) && !empty($this->fornitore_denominazione)) {
+                    $this->renameLocalFolderToSupplier($attachments);
+                }
             }
             
             // Verifica duplicati
@@ -408,9 +755,10 @@ class InvoicesXmlImport extends Component
             $this->xml_parsed = true;
             
             if (!empty($attachments)) {
+                $driverName = self::STORAGE_DRIVER === 's3' ? 'S3 (Cloud)' : 'Locale';
                 $this->dispatch('alert', [
                     'type' => 'info', 
-                    'message' => "📎 Estratti " . count($attachments) . " allegati dalla fattura"
+                    'message' => "📎 Estratti " . count($attachments) . " allegati dalla fattura e salvati su " . $driverName
                 ]);
             }
             
@@ -420,241 +768,6 @@ class InvoicesXmlImport extends Component
             Log::error('Errore upload XML: ' . $e->getMessage());
             $this->addError('xml_file', 'Errore: ' . $e->getMessage());
         }
-    }
-
-    /**
-     * Estrae gli allegati usando SimpleXML
-     */
-    private function extractAttachmentsUsingSimpleXML($xml)
-    {
-        $savedFiles = [];
-        
-        // Crea una cartella temporanea
-        $tempFolder = 'allegati_fatture/temp_' . $this->file_hash;
-        
-        // Assicurati che la directory esista (usa public disk)
-        if (!Storage::disk('public')->exists($tempFolder)) {
-            Storage::disk('public')->makeDirectory($tempFolder, 0755, true);
-        }
-        
-        // Cerca il nodo Allegati (potrebbe essere in FatturaElettronicaBody)
-        $allegati = null;
-        
-        if (isset($xml->FatturaElettronicaBody->Allegati)) {
-            $allegati = $xml->FatturaElettronicaBody->Allegati;
-        } elseif (isset($xml->FatturaElettronicaBody->Allegato)) {
-            // Caso in cui c'è un solo allegato diretto
-            $allegati = $xml->FatturaElettronicaBody;
-        }
-        
-        if (!$allegati) {
-            Log::warning('Nodo Allegati non trovato nell\'XML');
-            return $savedFiles;
-        }
-        
-        // Itera su ogni Allegato
-        $allegatoNodes = isset($allegati->Allegato) ? $allegati->Allegato : [$allegati];
-        
-        foreach ($allegatoNodes as $index => $allegato) {
-            try {
-                // Estrai nome file
-                $fileName = $this->cleanUtf8String((string)$allegato->NomeAttachment);
-                
-                // Estrai contenuto Base64
-                $base64Content = (string)$allegato->Attachment;
-                
-                if (empty($base64Content)) {
-                    Log::warning('Contenuto Base64 vuoto per allegato', ['fileName' => $fileName]);
-                    continue;
-                }
-                
-                // Rimuovi spazi bianchi dal Base64
-                $base64Content = preg_replace('/\s+/', '', $base64Content);
-                
-                Log::info('Decodifica Base64 in corso', [
-                    'fileName' => $fileName,
-                    'base64_length' => strlen($base64Content)
-                ]);
-                
-                // Decodifica Base64
-                $decodedContent = base64_decode($base64Content);
-                
-                if ($decodedContent === false || strlen($decodedContent) === 0) {
-                    Log::error('Decodifica Base64 fallita', ['fileName' => $fileName]);
-                    continue;
-                }
-                
-                Log::info('Allegato decodificato', [
-                    'fileName' => $fileName,
-                    'decoded_size' => strlen($decodedContent)
-                ]);
-                
-                // Genera nome file sicuro
-                $safeFileName = $this->getSafeFileName($fileName, $decodedContent, $index);
-                
-                $filePath = $tempFolder . '/' . $safeFileName;
-                
-                // Salva il file
-                $saved = Storage::disk('public')->put($filePath, $decodedContent);
-                
-                if ($saved) {
-                    // URL pubblico (richiede php artisan storage:link)
-                    $publicUrl = Storage::url($filePath);
-                    
-                    Log::info('Allegato salvato con successo', [
-                        'path' => $filePath,
-                        'url' => $publicUrl,
-                        'size' => strlen($decodedContent)
-                    ]);
-                    
-                    $savedFiles[] = [
-                        'original_name' => $fileName,
-                        'saved_name' => $safeFileName,
-                        'temp_path' => $filePath,
-                        'url' => $publicUrl,
-                        'size' => strlen($decodedContent),
-                        'temp_folder' => $tempFolder
-                    ];
-                } else {
-                    Log::error('Salvataggio allegato fallito', ['path' => $filePath]);
-                }
-                
-            } catch (\Exception $e) {
-                Log::error('Errore processamento allegato: ' . $e->getMessage());
-            }
-        }
-        
-        return $savedFiles;
-    }
-
-    /**
-     * Genera un nome file sicuro
-     */
-    private function getSafeFileName($originalName, $content, $index)
-    {
-        // Se c'è un nome originale, puliscilo
-        if (!empty($originalName)) {
-            $name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
-            $extension = pathinfo($name, PATHINFO_EXTENSION);
-            
-            // Se l'estensione non corrisponde al contenuto, correggila
-            if (strpos($content, '%PDF') === 0 && strtolower($extension) !== 'pdf') {
-                $name = pathinfo($name, PATHINFO_FILENAME) . '.pdf';
-            }
-            
-            return $name;
-        }
-        
-        // Nome generico basato sul contenuto
-        if (strpos($content, '%PDF') === 0) {
-            return 'allegato_' . ($index + 1) . '.pdf';
-        }
-        
-        if (strpos($content, 'PK') === 0) {
-            return 'allegato_' . ($index + 1) . '.zip';
-        }
-        
-        return 'allegato_' . ($index + 1) . '.bin';
-    }
-
-    /**
-     * Rinomina la cartella temporanea con il nome del fornitore
-     */
-    private function renameAttachmentsFolderFinal($attachments)
-    {
-        if (empty($attachments)) {
-            return;
-        }
-        
-        // Crea un nome cartella basato sul nome del fornitore
-        $fornitoreSlug = $this->slugify($this->fornitore_denominazione);
-        $pivaFornitore = preg_replace('/[^A-Za-z0-9]/', '', $this->fornitore_partita_iva);
-        
-        if (!empty($pivaFornitore)) {
-            $finalFolderName = $fornitoreSlug . '_' . $pivaFornitore;
-        } else {
-            $finalFolderName = $fornitoreSlug;
-        }
-        
-        // Cartella definitiva
-        $finalFolder = 'allegati_fatture/' . $finalFolderName;
-        
-        // Ottieni la cartella temporanea dal primo allegato
-        $tempFolder = $attachments[0]['temp_folder'] ?? null;
-        
-        if (!$tempFolder || !Storage::disk('public')->exists($tempFolder)) {
-            Log::warning('Cartella temporanea non trovata', ['folder' => $tempFolder]);
-            return;
-        }
-        
-        // Crea la cartella finale se non esiste
-        if (!Storage::disk('public')->exists($finalFolder)) {
-            Storage::disk('public')->makeDirectory($finalFolder, 0755, true);
-        }
-        
-        // Sposta tutti i file dalla cartella temp a quella finale
-        $files = Storage::disk('public')->files($tempFolder);
-        
-        foreach ($files as $file) {
-            $fileName = basename($file);
-            $newPath = $finalFolder . '/' . $fileName;
-            
-            // Copia il file
-            $copied = Storage::disk('public')->copy($file, $newPath);
-            
-            if ($copied) {
-                Log::info('Allegato spostato', [
-                    'from' => $file,
-                    'to' => $newPath
-                ]);
-                
-                // Aggiorna il percorso e URL nell'array degli attachments
-                foreach ($this->extracted_attachments as &$attachment) {
-                    if (isset($attachment['temp_path']) && $attachment['temp_path'] === $file) {
-                        $attachment['path'] = $newPath;
-                        $attachment['url'] = Storage::url($newPath);
-                    }
-                }
-            } else {
-                Log::error('Copia allegato fallita', ['from' => $file, 'to' => $newPath]);
-            }
-        }
-        
-        // Elimina la cartella temporanea
-        Storage::disk('public')->deleteDirectory($tempFolder);
-        Log::info('Cartella temporanea eliminata', ['folder' => $tempFolder]);
-    }
-
-    /**
-     * Converte una stringa in slug
-     */
-    private function slugify($text)
-    {
-        $text = $this->cleanUtf8String($text);
-        
-        // Replace non letter or digits by _
-        $text = preg_replace('~[^\pL\d]+~u', '_', $text);
-        
-        // Transliterate
-        $text = iconv('utf-8', 'us-ascii//TRANSLIT', $text);
-        
-        // Remove unwanted characters
-        $text = preg_replace('~[^-\w]+~', '', $text);
-        
-        // Trim
-        $text = trim($text, '_');
-        
-        // Remove duplicate _
-        $text = preg_replace('~-+~', '_', $text);
-        
-        // Lowercase
-        $text = strtolower($text);
-        
-        if (empty($text)) {
-            $text = 'fornitore';
-        }
-        
-        return $text;
     }
 
     private function checkInvoiceExists()
@@ -1235,18 +1348,46 @@ class InvoicesXmlImport extends Component
 
             Log::info('Fattura creata con ID: ' . $invoice->id);
 
+            // Salva lo slug e la cartella degli allegati nel database
+            if (!empty($this->extracted_attachments)) {
+                $fornitoreSlug = $this->slugify($this->fornitore_denominazione);
+                $pivaFornitore = preg_replace('/[^A-Za-z0-9]/', '', $this->fornitore_partita_iva);
+                
+                if (!empty($pivaFornitore)) {
+                    $finalFolderName = $fornitoreSlug . '_' . $pivaFornitore;
+                } else {
+                    $finalFolderName = $fornitoreSlug;
+                }
+                
+                // Salva anche l'URL del primo allegato (o tutti come JSON)
+                $attachmentUrls = array_column($this->extracted_attachments, 'url');
+                $attachmentJson = json_encode($attachmentUrls);
+                
+                $invoice->update([
+                    'fornitore_slug' => $finalFolderName,
+                    'attachments_folder' => self::STORAGE_DRIVER === 's3' ? 'invoice-received/' . $finalFolderName : 'allegati_fatture/' . $finalFolderName,
+                    'attachment' => $attachmentJson, // Salva gli URL degli allegati
+                ]);
+            }
+
             foreach ($this->rows as $index => $row) {
                 Log::info('Salvataggio riga ' . $index, ['description' => $row['description']]);
                 
                 InvoiceRow::create([
-                    'document_id' => $invoice->id,
-                    'document_type' => 'invoice_received',
-                    'id_cost_center' => $row['id_cost_center'] ?? null,
-                    'id_vehicle' => $row['id_vehicle'] ?? null,
-                    'description' => $this->cleanUtf8String($row['description'] ?? ''),
-                    'quantity' => $row['quantity'] ?? 1,
-                    'unit_price' => $row['unit_price'] ?? 0,
+                    'document_id'         => $invoice->id,
+                    'document_type'       => 'invoice_received',
+                    'id_cost_center'      => $row['id_cost_center'] ?? null,
+                    'id_vehicle'          => $row['id_vehicle'] ?? null,
+                    'description'         => $this->cleanUtf8String($row['description'] ?? ''),
+                    'quantity'            => $row['quantity'] ?? 1,
+                    'unit_price'          => $row['unit_price'] ?? 0,
                     'discount_percentage' => $row['discount_percentage'] ?? 0,
+                    'vat_rate'            => ($row['aliquota_iva'] ?? 0) / 100,
+                    'total'               => round(
+                                                ($row['quantity'] ?? 1) * ($row['unit_price'] ?? 0) *
+                                                (1 - ($row['discount_percentage'] ?? 0) / 100),
+                                                2
+                                            ),
                 ]);
             }
             
@@ -1294,7 +1435,7 @@ class InvoicesXmlImport extends Component
                 ]);
             }
 
-            session()->flash('success', 'Fattura importata con successo!');
+            session()->flash('success', 'Fattura importata con successo! ' . count($this->extracted_attachments) . ' allegati salvati.');
             return redirect()->route('admin.invoices-received.index');
 
         } catch (\Exception $e) {
@@ -1307,167 +1448,6 @@ class InvoicesXmlImport extends Component
             return null;
         }
     }
-
-    // SAVE CON ALLEGATO
-    // public function save()
-    // {
-    //     Log::info('Tentativo salvataggio fattura', [
-    //         'fornitore_partita_iva' => $this->fornitore_partita_iva,
-    //         'n_invoice' => $this->n_invoice,
-    //         'data_invoice' => $this->data_invoice,
-    //         'importo_totale' => $this->importo_totale,
-    //         'rows_count' => count($this->rows),
-    //         'payments_count' => count($this->payments),
-    //         'vatSummaries_count' => count($this->vatSummaries),
-    //         'supplier_found' => $this->supplier_found,
-    //         'id_entities' => $this->id_entities,
-    //     ]);
-
-    //     $adminId = null;
-    //     if (Auth::guard('admin')->check()) {
-    //         $adminId = Auth::guard('admin')->id();
-    //         Log::info('Admin autenticato ID: ' . $adminId);
-    //     } else {
-    //         Log::warning('Admin NON autenticato!');
-    //     }
-        
-    //     if ($this->checkInvoiceExists()) {
-    //         $this->dispatch('alert', ['type' => 'error', 'message' => "❌ FATTURA DUPLICATA! Impossibile importare."]);
-    //         return;
-    //     }
-        
-    //     if (!$this->supplier_found && $this->supplier_not_found && !$this->id_entities) {
-    //         $this->createSupplierAutomatically();
-    //     }
-        
-    //     try {
-    //         $this->validate([
-    //             'id_entities' => 'required|exists:entities,id_cliente',
-    //             'type_invoice' => 'required|string|max:10',
-    //             'n_invoice' => 'required|string|max:100',
-    //             'data_invoice' => 'required|date',
-    //             'divisa' => 'required|string|size:3',
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         Log::error('Validazione fallita', ['errors' => $e->getMessage()]);
-    //         $this->dispatch('alert', ['type' => 'error', 'message' => 'Dati mancanti: ' . $e->getMessage()]);
-    //         return;
-    //     }
-
-    //     try {
-    //         DB::beginTransaction();
-
-    //         $xmlStoragePath = $this->saveXmlFile();
-            
-    //         // ============================================
-    //         // SALVA L'ALLEGATO NEL DATABASE
-    //         // ============================================
-    //         $attachmentPath = null;
-    //         if (!empty($this->extracted_attachments)) {
-    //             // Prendi il primo allegato (o puoi salvarli tutti come JSON)
-    //             $firstAttachment = $this->extracted_attachments[0];
-    //             $attachmentPath = $firstAttachment['url'] ?? $firstAttachment['temp_path'] ?? null;
-                
-    //             // Se vuoi salvare più allegati, salvali come JSON
-    //             // $attachmentPath = json_encode(array_column($this->extracted_attachments, 'url'));
-    //         }
-
-    //         $invoice = InvoiceReceived::create([
-    //             'id_ownership' => $this->id_ownership,
-    //             'id_entities' => $this->id_entities,
-    //             'type_invoice' => $this->type_invoice ?: 'TD01',
-    //             'n_invoice' => $this->cleanUtf8String($this->n_invoice),
-    //             'data_invoice' => $this->data_invoice,
-    //             'importo_totale' => $this->importo_totale ?: 0,
-    //             'causale' => $this->cleanUtf8String($this->causale),
-    //             'divisa' => $this->cleanUtf8String($this->divisa),
-    //             'status' => $this->status,
-    //             'sdi_id' => $this->cleanUtf8String($this->sdi_id),
-    //             'is_manual' => false, 
-    //             'xml_filename' => $xmlStoragePath,
-    //             'attachment' => $attachmentPath, // SALVA IL PERCORSO DELL'ALLEGATO
-    //             'xml_content' => $this->xml_content ?? null,
-    //             'file_hash' => $this->file_hash,
-    //             'imported_at' => now(),
-    //             'created_by' => $adminId,
-    //             'updated_by' => $adminId,
-    //         ]);
-
-    //         Log::info('Fattura creata con ID: ' . $invoice->id);
-    //         Log::info('Allegato salvato nel DB: ' . ($attachmentPath ?? 'Nessun allegato'));
-
-    //         foreach ($this->rows as $index => $row) {
-    //             Log::info('Salvataggio riga ' . $index, ['description' => $row['description']]);
-                
-    //             InvoiceRow::create([
-    //                 'document_id' => $invoice->id,
-    //                 'document_type' => 'invoice_received',
-    //                 'id_cost_center' => $row['id_cost_center'] ?? null,
-    //                 'id_vehicle' => $row['id_vehicle'] ?? null,
-    //                 'description' => $this->cleanUtf8String($row['description'] ?? ''),
-    //                 'quantity' => $row['quantity'] ?? 1,
-    //                 'unit_price' => $row['unit_price'] ?? 0,
-    //                 'discount_percentage' => $row['discount_percentage'] ?? 0,
-    //             ]);
-    //         }
-            
-    //         $defaultStatus = config('gestionale.invoice_status.issued.code', 'issued');
-
-    //         foreach ($this->payments as $index => $payment) {
-    //             $dueDate = !empty($payment['due_date']) 
-    //                 ? $payment['due_date'] 
-    //                 : $this->data_invoice;
-                
-    //             Log::info('Salvataggio pagamento ' . ($index + 1), [
-    //                 'due_date' => $dueDate,
-    //                 'amount' => $payment['amount'],
-    //                 'payment_method' => $payment['payment_method'] ?? 'Non specificato',
-    //                 'has_iban' => !empty($payment['iban'])
-    //             ]);
-                
-    //             $invoice->payments()->create([
-    //                 'due_date' => $dueDate,
-    //                 'amount' => $payment['amount'] ?? $this->importo_totale,
-    //                 'payment_method' => $this->cleanUtf8String($payment['payment_method'] ?? null),
-    //                 'iban' => $this->cleanUtf8String($payment['iban'] ?? null),
-    //                 'status' => $defaultStatus,
-    //             ]);
-    //         }
-            
-    //         foreach ($this->vatSummaries as $summary) {
-    //             $invoice->vatSummaries()->create([
-    //                 'tax_rate' => $summary['tax_rate'] ?? 0,
-    //                 'sdi_nature' => $this->cleanUtf8String($summary['sdi_nature'] ?? null),
-    //                 'taxable_amount' => $summary['taxable_amount'] ?? 0,
-    //                 'tax_amount' => $summary['tax_amount'] ?? 0,
-    //                 'vat_law_reference' => $this->cleanUtf8String($summary['vat_law_reference'] ?? null),
-    //                 'esigibilita_iva' => $this->cleanUtf8String($summary['esigibilita_iva'] ?? 'I'),
-    //             ]);
-    //         }
-
-    //         DB::commit();
-
-    //         if (!empty($this->extracted_attachments)) {
-    //             Log::info('Allegati collegati alla fattura', [
-    //                 'invoice_id' => $invoice->id,
-    //                 'n_fattura' => $this->n_invoice,
-    //                 'allegati' => array_column($this->extracted_attachments, 'original_name')
-    //             ]);
-    //         }
-
-    //         session()->flash('success', 'Fattura importata con successo!');
-    //         return redirect()->route('admin.invoices-received.index');
-
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         Log::error('Errore salvataggio: ' . $e->getMessage(), [
-    //             'trace' => $e->getTraceAsString()
-    //         ]);
-    //         $this->dispatch('alert', ['type' => 'error', 'message' => 'Errore: ' . $this->cleanUtf8String($e->getMessage())]);
-
-    //         return null;
-    //     }
-    // }
 
     public function render()
     {

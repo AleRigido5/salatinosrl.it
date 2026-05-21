@@ -21,7 +21,7 @@ class InvoiceRow extends Model
         'quantity',
         'unit_price',
         'vat_rate_id',
-        'vat_rate',        // AGGIUNGI QUESTO
+        'vat_rate',        
         'discount_percentage',
         'total'
     ];
@@ -30,7 +30,7 @@ class InvoiceRow extends Model
         'quantity' => 'decimal:8',
         'unit_price' => 'decimal:8',
         'discount_percentage' => 'decimal:2',
-        'vat_rate' => 'decimal:2',  // AGGIUNGI QUESTO
+        'vat_rate' => 'decimal:2',  
         'total' => 'decimal:6'
     ];
 

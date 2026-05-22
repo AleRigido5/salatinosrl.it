@@ -4,12 +4,28 @@
             <i class="fa-solid fa-book mr-3 text-lime-600"></i>
             Prima Nota - Scritture Contabili
         </h1>
-        @if($canCreate)
-        <button wire:click="openCreateModal" 
-            class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
-            <i class="fas fa-plus mr-2"></i> Nuova Scrittura
-        </button>
-        @endif
+        <div class="flex gap-2">
+            @if($canCreate)
+            <button wire:click="openCreateModal" 
+                class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                <i class="fas fa-plus mr-2"></i> Nuova Scrittura
+            </button>
+            @endif
+            
+            <!-- Pulsante Cestino -->
+            <div class="relative group">
+                <button wire:click="openTrashModal" 
+                    class="relative px-5 py-2.5 rounded-lg shadow-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all duration-200" 
+                    title="Cestino">
+                    <i class="fas fa-trash-alt"></i>
+                    @if($trashCount > 0)
+                    <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-md">
+                        {{ $trashCount }}
+                    </span>
+                    @endif
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Card Filtri -->
@@ -22,14 +38,14 @@
         
         <!-- RIGA INFERIORE: Filtri -->
         <div class="p-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <!-- Ricerca -->
                 <div>
                     <label class="block text-xs font-medium text-gray-500 mb-1">Ricerca</label>
                     <div class="relative">
                         <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
                         <input type="text" wire:model.live.debounce.300ms="search" 
-                            placeholder="Cerca in descrizione, conti..." 
+                            placeholder="Cerca in descrizione..." 
                             class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                     </div>
                 </div>
@@ -44,24 +60,13 @@
                     </select>
                 </div>
 
-                <!-- Conto Dare -->
+                <!-- Conto Bancario -->
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Conto Dare</label>
-                    <select wire:model.live="debitAccountId" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Conto Bancario</label>
+                    <select wire:model.live="bankAccountId" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
                         <option value="">Tutti</option>
-                        @foreach($accounts as $account)
-                            <option value="{{ $account->id }}">{{ $account->code }} - {{ $account->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <!-- Conto Avere -->
-                <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Conto Avere</label>
-                    <select wire:model.live="creditAccountId" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
-                        <option value="">Tutti</option>
-                        @foreach($accounts as $account)
-                            <option value="{{ $account->id }}">{{ $account->code }} - {{ $account->name }}</option>
+                        @foreach($bankAccounts as $account)
+                            <option value="{{ $account->id }}">{{ $account->name }} - {{ $account->n_conto }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -91,7 +96,7 @@
             </div>
 
             <!-- Active Filters Tags -->
-            @if($search || $type || $debitAccountId || $creditAccountId || $paymentMethodId || $dateFrom || $dateTo)
+            @if($search || $type || $bankAccountId || $paymentMethodId || $dateFrom || $dateTo)
             <div class="mt-4 pt-3 border-t border-gray-200 flex flex-wrap items-center gap-2">
                 <span class="text-xs text-gray-500">Filtri attivi:</span>
                 
@@ -123,19 +128,10 @@
                 </span>
                 @endif
                 
-                @if($debitAccountId)
+                @if($bankAccountId)
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
-                    Conto Dare
-                    <button wire:click="$set('debitAccountId', '')" class="ml-1 hover:text-lime-900">
-                        <i class="fas fa-times text-xs"></i>
-                    </button>
-                </span>
-                @endif
-                
-                @if($creditAccountId)
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
-                    Conto Avere
-                    <button wire:click="$set('creditAccountId', '')" class="ml-1 hover:text-lime-900">
+                    Conto Bancario
+                    <button wire:click="$set('bankAccountId', '')" class="ml-1 hover:text-lime-900">
                         <i class="fas fa-times text-xs"></i>
                     </button>
                 </span>
@@ -202,8 +198,7 @@
                         </th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Descrizione</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Tipo</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Conto Dare</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Conto Avere</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Conto Bancario</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 cursor-pointer" wire:click="sortBy('amount')">
                             Importo @if($sortField === 'amount')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
                         </th>
@@ -221,8 +216,7 @@
                                 {{ $entry->type_label }}
                             </span>
                         </td>
-                        <td class="px-4 py-3 text-sm">{{ $entry->debitAccount->code ?? '' }} - {{ $entry->debitAccount->name ?? '' }}</td>
-                        <td class="px-4 py-3 text-sm">{{ $entry->creditAccount->code ?? '' }} - {{ $entry->creditAccount->name ?? '' }}</td>
+                        <td class="px-4 py-3 text-sm">{{ $entry->bankAccount->name ?? '-' }}<br><small class="text-gray-400">{{ $entry->bankAccount->n_conto ?? '' }}</small></td>
                         <td class="px-4 py-3 text-sm text-right font-medium">{{ number_format($entry->amount, 2, ',', '.') }} €</td>
                         <td class="px-4 py-3 text-sm">{{ $entry->paymentMethod->name ?? '-' }}</td>
                         <td class="px-4 py-3 text-center">
@@ -247,7 +241,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="text-center py-8 text-gray-500">Nessuna scrittura contabile trovata</td>
+                        <td colspan="7" class="text-center py-8 text-gray-500">Nessuna scrittura contabile trovata</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -267,13 +261,13 @@
     </div>
     @endif
 
-    <!-- MODAL CREAZIONE/MODIFICA -->
+    <!-- MODAL CREAZIONE/MODIFICA (stile come STEP 2 pagamento - senza tabella fatture) -->
     @if($showModal)
     <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ open: true }" x-show="open" x-on:keydown.escape.window="open = false; $wire.closeModal()">
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75" x-on:click="open = false; $wire.closeModal()"></div>
             
-            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
                 <div class="bg-white px-6 pt-5 pb-4 border-b">
                     <div class="flex justify-between items-center">
                         <h3 class="text-lg font-medium text-gray-900">
@@ -288,72 +282,86 @@
                 </div>
                 
                 <form wire:submit.prevent="save">
-                    <div class="px-6 py-4 space-y-4">
-                        <!-- Data -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Data <span class="text-red-500">*</span></label>
-                            <input type="date" wire:model="entry_date" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                            @error('entry_date') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                    <div class="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                        
+                        <!-- Info (come nel pagamento) -->
+                        <div class="grid grid-cols-2 gap-4 mb-6 p-3 bg-gray-50 rounded-lg">
+                            <div>
+                                <p class="text-xs text-gray-500 uppercase">Data Scrittura</p>
+                                <p class="font-medium text-gray-800">{{ $entry_date ? \Carbon\Carbon::parse($entry_date)->format('d/m/Y') : '-' }}</p>
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <p class="text-xs text-gray-500 uppercase">Tipo Operazione</p>
+                                        <p class="font-medium text-gray-800">
+                                            <span class="px-2 py-1 rounded-full text-xs font-medium {{ $type_value === 'entrata' ? 'bg-green-100 text-green-800' : ($type_value === 'uscita' ? 'bg-red-100 text-red-800' : 'bg-gray-100') }}">
+                                                {{ $type_value === 'entrata' ? 'Entrata' : ($type_value === 'uscita' ? 'Uscita' : 'Non selezionato') }}
+                                            </span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-
+                        
                         <!-- Descrizione -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Descrizione <span class="text-red-500">*</span></label>
-                            <textarea wire:model="description" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" placeholder="Inserisci una descrizione..."></textarea>
+                            <textarea wire:model="description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" placeholder="Inserisci una descrizione..."></textarea>
                             @error('description') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
-
-                        <!-- Tipo -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo <span class="text-red-500">*</span></label>
-                            <select wire:model="type_value" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                                <option value="">Seleziona tipo</option>
-                                <option value="entrata">Entrata</option>
-                                <option value="uscita">Uscita</option>
-                            </select>
-                            @error('type_value') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        
+                        <!-- Data e Tipo (input) -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Data <span class="text-red-500">*</span></label>
+                                <input type="date" wire:model="entry_date" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                @error('entry_date') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Tipo <span class="text-red-500">*</span></label>
+                                <select wire:model="type_value" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                    <option value="">Seleziona tipo</option>
+                                    <option value="entrata">Entrata</option>
+                                    <option value="uscita">Uscita</option>
+                                </select>
+                                @error('type_value') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
                         </div>
 
-                        <!-- Conto Dare -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Conto Dare <span class="text-red-500">*</span></label>
-                            <select wire:model="debit_account_id" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                                <option value="">Seleziona conto</option>
-                                @foreach($accounts as $account)
-                                    <option value="{{ $account->id }}">{{ $account->code }} - {{ $account->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('debit_account_id') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        <!-- Conto Bancario e Metodo Pagamento (affiancati) -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Conto Bancario</label>
+                                <select wire:model="bank_account_id" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                    <option value="">Seleziona conto...</option>
+                                    @foreach($bankAccounts as $account)
+                                        <option value="{{ $account->id }}">{{ $account->name }} - {{ $account->n_conto }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Metodo Pagamento</label>
+                                <select wire:model="id_payments_methods" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                    <option value="">Seleziona metodo...</option>
+                                    @foreach($paymentMethods as $method)
+                                        <option value="{{ $method->id }}">{{ $method->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
 
-                        <!-- Conto Avere -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Conto Avere <span class="text-red-500">*</span></label>
-                            <select wire:model="credit_account_id" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                                <option value="">Seleziona conto</option>
-                                @foreach($accounts as $account)
-                                    <option value="{{ $account->id }}">{{ $account->code }} - {{ $account->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('credit_account_id') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                        </div>
-
-                        <!-- Importo -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Importo (€) <span class="text-red-500">*</span></label>
-                            <input type="number" step="0.01" wire:model="amount" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" placeholder="0.00">
-                            @error('amount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                        </div>
-
-                        <!-- Metodo Pagamento -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Metodo Pagamento</label>
-                            <select wire:model="id_payments_methods" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                                <option value="">Seleziona metodo</option>
-                                @foreach($paymentMethods as $method)
-                                    <option value="{{ $method->id }}">{{ $method->name }}</option>
-                                @endforeach
-                            </select>
+                        <!-- Importo (col-8 input + col-4 totale) come nel pagamento -->
+                        <div class="grid grid-cols-12 gap-4">
+                            <div class="col-span-8">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Importo (€) <span class="text-red-500">*</span></label>
+                                <input type="number" step="0.01" wire:model="amount" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" placeholder="0.00">
+                                @error('amount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div class="col-span-4 bg-gray-100 p-3 rounded-md text-right">
+                                <p class="text-sm text-gray-600">Totale</p>
+                                <p class="text-xl font-bold text-lime-600">{{ number_format($amount ?: 0, 2, ',', '.') }} €</p>
+                            </div>
                         </div>
                     </div>
                     
@@ -406,15 +414,9 @@
                         <p class="whitespace-pre-wrap">{{ $viewingEntry->description }}</p>
                     </div>
                     
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-gray-50 p-3 rounded-lg">
-                            <label class="block text-xs text-gray-500 uppercase">Conto Dare</label>
-                            <p class="font-medium">{{ $viewingEntry->debitAccount->code ?? '' }} - {{ $viewingEntry->debitAccount->name ?? '' }}</p>
-                        </div>
-                        <div class="bg-gray-50 p-3 rounded-lg">
-                            <label class="block text-xs text-gray-500 uppercase">Conto Avere</label>
-                            <p class="font-medium">{{ $viewingEntry->creditAccount->code ?? '' }} - {{ $viewingEntry->creditAccount->name ?? '' }}</p>
-                        </div>
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <label class="block text-xs text-gray-500 uppercase">Conto Bancario</label>
+                        <p class="font-medium">{{ $viewingEntry->bankAccount->name ?? '-' }} - {{ $viewingEntry->bankAccount->n_conto ?? '' }}</p>
                     </div>
                     
                     <div class="grid grid-cols-2 gap-4">
@@ -434,21 +436,14 @@
                         <p>N. {{ $viewingEntry->invoice->n_invoice }} del {{ $viewingEntry->invoice->data_invoice->format('d/m/Y') }}</p>
                     </div>
                     @endif
-                    
-                    @if($viewingEntry->invoicePayment)
-                    <div class="bg-gray-50 p-3 rounded-lg">
-                        <label class="block text-xs text-gray-500 uppercase">Pagamento Associato</label>
-                        <p>Scadenza: {{ $viewingEntry->invoicePayment->due_date->format('d/m/Y') }} - Importo: {{ number_format($viewingEntry->invoicePayment->amount, 2, ',', '.') }} €</p>
-                    </div>
-                    @endif
                 </div>
                 
                 <div class="bg-gray-50 px-6 py-3 flex justify-end gap-3">
-                    <button type="button" wire:click="closeViewModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
+                    <button type="button" wire:click="closeViewModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md">
                         Chiudi
                     </button>
                     @if($canEdit)
-                    <button type="button" wire:click="openEditModal({{ $viewingEntry->id }})" class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md transition-colors">
+                    <button type="button" wire:click="openEditModal({{ $viewingEntry->id }})" class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md">
                         <i class="fas fa-edit mr-2"></i> Modifica
                     </button>
                     @endif
@@ -460,8 +455,8 @@
 
     <!-- MODAL CONFERMA ELIMINAZIONE -->
     @if($showDeleteModal && $entryToDelete)
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" x-data="{ show: true }" x-show="show" x-transition.opacity.duration.200ms>
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6" x-on:click.away="show = false; $wire.cancelDelete()" x-transition.scale.origin.top>
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" x-data="{ show: true }" x-show="show">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6" x-on:click.away="show = false; $wire.cancelDelete()">
             <div class="text-center">
                 <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
                     <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
@@ -472,13 +467,110 @@
                     <span class="text-xs text-gray-400">L'operazione è irreversibile.</span>
                 </p>
                 <div class="flex justify-center space-x-3">
-                    <button wire:click="cancelDelete" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
+                    <button wire:click="cancelDelete" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md">
                         Annulla
                     </button>
-                    <button wire:click="deleteEntry" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">
+                    <button wire:click="deleteEntry" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
                         Elimina
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- MODAL CESTINO -->
+    @if($showTrashModal)
+    <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" x-data="{ show: true }" x-show="show" x-transition.opacity.duration.200ms>
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl p-6 max-h-[90vh] overflow-y-auto" x-on:click.away="show = false; $wire.closeTrashModal()" x-transition.scale.origin.top>
+            <div class="flex justify-between items-center mb-6 border-b pb-3">
+                <h2 class="text-2xl font-bold text-gray-800">
+                    <i class="fas fa-trash-alt mr-2 text-red-600"></i>
+                    Cestino - Scritture Contabili Eliminate
+                </h2>
+                <button wire:click="closeTrashModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            
+            <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
+                    <input type="text" wire:model.live="trashSearch" 
+                        placeholder="Cerca per descrizione o importo..." 
+                        class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" wire:click="trashSortBy('entry_date')">
+                                Data @if($trashSortField === 'entry_date')<i class="fas fa-sort-{{ $trashSortDirection === 'asc' ? 'up' : 'down' }}"></i>@endif
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrizione</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Importo</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" wire:click="trashSortBy('deleted_at')">
+                                Data eliminazione @if($trashSortField === 'deleted_at')<i class="fas fa-sort-{{ $trashSortDirection === 'asc' ? 'up' : 'down' }}"></i>@endif
+                            </th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        @forelse($trashedEntries as $entry)
+                        <tr wire:key="trash-{{ $entry->id }}" class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $entry->entry_date->format('d/m/Y') }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-500 max-w-md truncate" title="{{ $entry->description }}">{{ Str::limit($entry->description, 50) }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <span class="px-2 py-1 rounded-full text-xs font-medium {{ $entry->type === 'entrata' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                    {{ $entry->type === 'entrata' ? 'Entrata' : 'Uscita' }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">{{ number_format($entry->amount, 2, ',', '.') }} €</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $entry->deleted_at ? $entry->deleted_at->format('d/m/Y H:i') : '-' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <div class="flex space-x-3 justify-center">
+                                    <!-- Bottone RIPRISTINA -->
+                                    <button wire:click="restoreFromTrash({{ $entry->id }})" 
+                                        class="text-green-600 hover:text-green-900 transition-colors" 
+                                        title="Ripristina">
+                                        <i class="fas fa-trash-restore text-lg"></i>
+                                    </button>
+                                    <!-- Bottone ELIMINA DEFINITIVAMENTE -->
+                                    <button wire:click="forceDeleteFromTrash({{ $entry->id }})" 
+                                        onclick="return confirm('Eliminazione definitiva? Operazione non reversibile.')" 
+                                        class="text-red-600 hover:text-red-900 transition-colors" 
+                                        title="Elimina definitivamente">
+                                        <i class="fas fa-trash-alt text-lg"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center">
+                                <i class="fas fa-trash-alt text-gray-400 text-5xl mb-2"></i>
+                                <p class="text-sm text-gray-500 mt-2">Il cestino è vuoto</p>
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            
+            @if($trashedEntries->hasPages())
+            <div class="mt-4">
+                <div class="text-sm text-gray-500 mb-2">{{ $trashedEntries->firstItem() }} - {{ $trashedEntries->lastItem() }} di {{ $trashedEntries->total() }} elementi</div>
+                <div class="flex justify-center">{{ $trashedEntries->links() }}</div>
+            </div>
+            @endif
+            
+            <div class="flex justify-end mt-6 pt-4 border-t">
+                <button wire:click="closeTrashModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
+                    <i class="fas fa-times mr-2"></i> Chiudi
+                </button>
             </div>
         </div>
     </div>

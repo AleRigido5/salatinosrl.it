@@ -73,4 +73,9 @@ class Ownership extends Model
     {
         return $this->hasMany(Vehicles::class, 'id_ownership', 'id_proprieta');
     }
+
+    public function bankAccounts()
+    {
+        return $this->hasMany(BankAccount::class, 'id_ownership', 'id_proprieta');
+    }
 }

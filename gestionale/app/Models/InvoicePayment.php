@@ -4,11 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\SoftDeletes;  
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 
 class InvoicePayment extends Model
 {
+    use SoftDeletes;  
+
     protected $table = 'invoice_payments';
     
     protected $fillable = [
@@ -37,6 +40,8 @@ class InvoicePayment extends Model
         'residual_amount' => 0,
         'paid_amount' => 0,
     ];
+
+    protected $dates = ['deleted_at'];
     
     public function payable(): MorphTo
     {

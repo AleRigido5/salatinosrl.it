@@ -1,4 +1,5 @@
 <?php
+// app/Livewire/Admin/InvoicePaymentsTable.php
 
 namespace App\Livewire\Admin;
 
@@ -6,6 +7,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\InvoicePayment;
 use App\Models\InvoiceReceived;
+use App\Models\AccountingEntry;
 use App\Models\Ownership;
 use App\Models\Entity;
 use Illuminate\Support\Collection;
@@ -45,9 +47,17 @@ class InvoicePaymentsTable extends Component
     // Modal
     public $selectedPayment = null;
     public bool $showModal = false;
+    
+    // Cestino
+    public bool $showTrashModal = false;
+    public string $trashSearch = '';
+    public string $trashSortField = 'deleted_at';
+    public string $trashSortDirection = 'desc';
 
     protected $listeners = [
         'dateRangeUpdated' => 'updateDateRange',
+        'refreshPayments' => 'refreshTable',  
+        'paymentRegistered' => 'refreshTable', 
     ];
 
     public function mount(): void
@@ -188,6 +198,11 @@ class InvoicePaymentsTable extends Component
         $this->dispatch('resetDates');
     }
 
+    public function refreshTable(): void
+    {
+        $this->resetPage();
+    }
+
     public function clearStatus(): void
     {
         $this->status = '';
@@ -200,11 +215,7 @@ class InvoicePaymentsTable extends Component
             ->with(['payable' => function($q) {
                 $q->with(['ownership', 'entity']);
             }])
-            // 🔥 IMPORTANTE: ESCLUDI I PAGAMENTI COMPLETAMENTE PAGATI 🔥
-            ->whereNotIn('status', ['paid'])  // Non mostrare quelli pagati
-            // Oppure usa questa condizione per includere anche i parzialmente pagati:
-            // ->whereIn('status', ['issued', 'partially_paid', 'overdue'])
-            
+            ->whereNotIn('status', ['paid'])
             ->when($this->search, function($q) {
                 $q->whereHas('payable', function($sq) {
                     $sq->where('n_invoice', 'like', '%' . $this->search . '%');
@@ -238,6 +249,137 @@ class InvoicePaymentsTable extends Component
         $this->selectedPayment = null;
     }
 
+    // ==================== CESTINO ====================
+    
+    public function getTrashCountProperty(): int
+    {
+        return InvoicePayment::onlyTrashed()->count();
+    }
+    
+    public function getTrashedPaymentsProperty()
+    {
+        $query = InvoicePayment::onlyTrashed()->with(['payable.ownership', 'payable.entity']);
+        
+        if ($this->trashSearch) {
+            $searchTerm = '%' . $this->trashSearch . '%';
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('amount', 'like', $searchTerm)
+                  ->orWhereHas('payable', fn($sq) => $sq->where('n_invoice', 'like', $searchTerm));
+            });
+        }
+        
+        return $query->orderBy($this->trashSortField, $this->trashSortDirection)
+                     ->paginate(10);
+    }
+    
+    public function openTrashModal(): void
+    {
+        $this->trashSearch = '';
+        $this->showTrashModal = true;
+    }
+    
+    public function closeTrashModal(): void
+    {
+        $this->showTrashModal = false;
+        $this->trashSearch = '';
+    }
+    
+    public function trashSortBy(string $field): void
+    {
+        if ($this->trashSortField === $field) {
+            $this->trashSortDirection = $this->trashSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->trashSortField = $field;
+            $this->trashSortDirection = 'asc';
+        }
+    }
+    
+    public function restoreFromTrash(int $id): void
+    {
+        try {
+            DB::beginTransaction();
+            
+            $payment = InvoicePayment::onlyTrashed()->find($id);
+            if ($payment) {
+                $invoice = $payment->payable;
+                $paymentName = 'Pagamento di € ' . number_format($payment->amount, 2, ',', '.') . ' per fattura ' . ($invoice->n_invoice ?? '');
+                
+                // Ripristina il pagamento
+                $payment->restore();
+                
+                // RESETTA LO STATO A "EMESSA / IN ATTESA"
+                $payment->update([
+                    'paid_amount' => 0,
+                    'residual_amount' => $payment->amount,
+                    'status' => 'issued',
+                    'paid_at' => null,
+                ]);
+                
+                // Aggiorna lo stato della fattura a "issued"
+                if ($invoice) {
+                    $invoice->update(['status' => 'issued']);
+                }
+                
+                // Elimina le installment_transactions collegate
+                $payment->installmentTransactions()->forceDelete();
+                
+                // Elimina le accounting_entries collegate
+                $accountingEntries = AccountingEntry::whereHas('installmentTransactions', function($q) use ($payment) {
+                    $q->where('id_invoice_payment', $payment->id);
+                })->get();
+                
+                foreach ($accountingEntries as $entry) {
+                    $entry->installmentTransactions()->forceDelete();
+                    $entry->forceDelete();
+                }
+                
+                DB::commit();
+                
+                $this->dispatch('showSuccess', message: "{$paymentName} ripristinato e stato resettato a 'Emessa / In attesa'");
+                $this->dispatch('refreshPayments');
+            }
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+    
+    public function forceDeleteFromTrash(int $id): void
+    {
+        try {
+            DB::beginTransaction();
+            
+            $payment = InvoicePayment::onlyTrashed()->find($id);
+            if ($payment) {
+                $paymentName = 'Pagamento di € ' . number_format($payment->amount, 2, ',', '.');
+                
+                // Elimina le installment_transactions collegate
+                $payment->installmentTransactions()->forceDelete();
+                
+                // Elimina le accounting_entries collegate
+                $accountingEntries = AccountingEntry::whereHas('installmentTransactions', function($q) use ($payment) {
+                    $q->where('id_invoice_payment', $payment->id);
+                })->get();
+                
+                foreach ($accountingEntries as $entry) {
+                    $entry->installmentTransactions()->forceDelete();
+                    $entry->forceDelete();
+                }
+                
+                // Elimina definitivamente il pagamento
+                $payment->forceDelete();
+                
+                DB::commit();
+                
+                $this->dispatch('showSuccess', message: "{$paymentName} eliminato definitivamente.");
+                $this->dispatch('refreshPayments');
+            }
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+
     public function getStatusesProperty(): array
     {
         return [
@@ -254,6 +396,8 @@ class InvoicePaymentsTable extends Component
         return view('livewire.admin.invoice-payments-table', [
             'payments' => $this->payments,
             'statuses' => $this->statuses,
+            'trashCount' => $this->trashCount,
+            'trashedPayments' => $this->trashedPayments,
         ]);
     }
 }

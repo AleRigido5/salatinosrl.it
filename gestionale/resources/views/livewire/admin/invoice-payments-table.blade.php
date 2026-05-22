@@ -140,23 +140,24 @@
         @endif
     </div>
 
-    <!-- Tabella Scadenze -->
+    <!-- Tabella Scadenze con le colonne nell'ordine richiesto -->
     <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100">Proprietà</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100">Fornitore</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('due_date')">
                             Data Scadenza
                             @if($sortField === 'due_date')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
                         </th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">N. Fattura</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Fornitore</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Proprietà</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('amount')">
                             Importo
                             @if($sortField === 'amount')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
                         </th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">Residuo</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Modalità Pagamento</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500">Stato</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500">Azioni</th>
@@ -168,26 +169,20 @@
                         $invoice = $payment->payable;
                         $isOverdue = $payment->due_date && $payment->due_date->isPast() && $payment->status !== 'paid';
                         $rowClass = $isOverdue ? 'bg-red-50' : '';
+                        $residual = $payment->residual_amount > 0 ? $payment->residual_amount : $payment->amount;
                     @endphp
                     <tr class="hover:bg-gray-50 {{ $rowClass }}" wire:key="payment-{{ $payment->id }}">
+                        <td class="px-4 py-3 text-sm">{{ $invoice->ownership->RagAbbrev ?? $invoice->ownership_name ?? '-' }}</td>
+                        <td class="px-4 py-3 text-sm">{{ $invoice->entity->ragione_sociale ?? $invoice->supplier_name ?? '-' }}</td>
                         <td class="px-4 py-3 text-sm whitespace-nowrap {{ $isOverdue ? 'text-red-600 font-bold' : '' }}">
                             {{ $payment->due_date ? $payment->due_date->format('d/m/Y') : '-' }}
                             @if($isOverdue)
                                 <i class="fas fa-exclamation-triangle text-red-500 ml-1" title="Scaduto!"></i>
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-sm">
-                            @if($invoice)
-                            <p>
-                                {{ $invoice->n_invoice ?? '-' }}
-                            </p>
-                            @else
-                                -
-                            @endif
-                        </td>
-                        <td class="px-4 py-3 text-sm">{{ $invoice->entity->ragione_sociale ?? $invoice->supplier_name ?? '-' }}</td>
-                        <td class="px-4 py-3 text-sm">{{ $invoice->ownership->RagAbbrev ?? $invoice->ownership_name ?? '-' }}</td>
+                        <td class="px-4 py-3 text-sm">{{ $invoice->n_invoice ?? '-' }}</td>
                         <td class="px-4 py-3 text-sm text-right font-medium">{{ number_format($payment->amount, 2, ',', '.') }} €</td>
+                        <td class="px-4 py-3 text-sm text-right font-medium text-orange-600">{{ number_format($residual, 2, ',', '.') }} €</td>
                         <td class="px-4 py-3 text-sm">{{ $payment->payment_method_label ?? $payment->payment_method ?? '-' }}</td>
                         <td class="px-4 py-3 text-center">
                             @php
@@ -205,7 +200,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="text-center py-8 text-gray-500">Nessuna scadenza trovata</td>
+                        <td colspan="9" class="text-center py-8 text-gray-500">Nessuna scadenza trovata</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -220,69 +215,160 @@
     </div>
     @endif
 
-    <!-- MODAL DETTAGLI SCADENZA -->
+    <!-- MODAL DETTAGLI SCADENZA  -->
     @if($showModal && $selectedPayment)
     @php
         $invoiceModal = $selectedPayment->payable;
+        $residualModal = $selectedPayment->residual_amount > 0 ? $selectedPayment->residual_amount : $selectedPayment->amount;
+        
+        // Recupera tutti i pagamenti associati a questa fattura (tramite installment_transactions)
+        $paymentHistory = [];
+        if ($invoiceModal) {
+            $paymentHistory = \App\Models\InstallmentTransaction::whereHas('invoicePayment', function($q) use ($invoiceModal) {
+                $q->where('payable_id', $invoiceModal->id)->where('payable_type', App\Models\InvoiceReceived::class);
+            })->with(['accountingEntry', 'invoicePayment'])->orderBy('created_at', 'desc')->get();
+        }
     @endphp
     <div x-data="{ open: true }" x-show="open" x-on:click.away="open = false; $wire.closeModal()" class="fixed inset-0 z-50 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
-            <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-bold text-gray-900">Dettaglio Scadenza</h3>
-                    <button x-on:click="open = false" class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-times text-xl"></i>
-                    </button>
+            <div class="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="bg-white px-6 pt-5 pb-4 border-b sticky top-0 bg-white rounded-t-lg">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-bold text-gray-900">Dettaglio Scadenza</h3>
+                        <button x-on:click="open = false" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="space-y-3">
-                    <div class="border-b pb-2">
-                        <label class="text-xs text-gray-500 uppercase font-semibold">Fattura</label>
-                        <p class="font-medium text-gray-900 mt-1">{{ $invoiceModal->n_invoice ?? '-' }}</p>
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-500 uppercase font-semibold">Fornitore</label>
-                        <p class="text-gray-800">{{ $invoiceModal->entity->ragione_sociale ?? $invoiceModal->supplier_name ?? '-' }}</p>
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-500 uppercase font-semibold">Proprietà</label>
-                        <p class="text-gray-800">{{ $invoiceModal->ownership->RagAbbrev ?? $invoiceModal->ownership_name ?? '-' }}</p>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="text-xs text-gray-500 uppercase font-semibold">Data Scadenza</label>
-                            <p class="font-medium">{{ $selectedPayment->due_date ? $selectedPayment->due_date->format('d/m/Y') : '-' }}</p>
+                
+                <div class="px-6 py-4 space-y-4">
+                    <!-- Prima riga: Proprietà e Fornitore affiancati -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="text-xs text-gray-500 uppercase font-semibold">PROPRIETÀ</label>
+                            <p class="font-medium text-gray-900 mt-1">{{ $invoiceModal->ownership->RagAbbrev ?? $invoiceModal->ownership_name ?? '-' }}</p>
                         </div>
-                        <div>
-                            <label class="text-xs text-gray-500 uppercase font-semibold">Importo</label>
-                            <p class="font-bold text-lg text-green-600">{{ number_format($selectedPayment->amount, 2, ',', '.') }} €</p>
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="text-xs text-gray-500 uppercase font-semibold">FORNITORE</label>
+                            <p class="font-medium text-gray-900 mt-1">{{ $invoiceModal->entity->ragione_sociale ?? $invoiceModal->supplier_name ?? '-' }}</p>
                         </div>
                     </div>
-                    <div>
-                        <label class="text-xs text-gray-500 uppercase font-semibold">Modalità Pagamento</label>
-                        <p>{{ $selectedPayment->payment_method_label ?? $selectedPayment->payment_method ?? '-' }}</p>
+                    
+                    <!-- Seconda riga: Data Scadenza e N. Fattura affiancati -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="text-xs text-gray-500 uppercase font-semibold">DATA SCADENZA</label>
+                            <p class="font-medium text-gray-900 mt-1">{{ $selectedPayment->due_date ? $selectedPayment->due_date->format('d/m/Y') : '-' }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="text-xs text-gray-500 uppercase font-semibold">N. FATTURA</label>
+                            <p class="font-medium text-gray-900 mt-1">{{ $invoiceModal->n_invoice ?? '-' }}</p>
+                        </div>
                     </div>
-                    @if($selectedPayment->iban)
-                    <div>
-                        <label class="text-xs text-gray-500 uppercase font-semibold">IBAN</label>
-                        <p class="font-mono text-sm">{{ $selectedPayment->iban }}</p>
+                    
+                    <!-- Terza riga: Importo e Residuo affiancati -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="text-xs text-gray-500 uppercase font-semibold">IMPORTO</label>
+                            <p class="font-bold text-lg text-lime-600 mt-1">{{ number_format($selectedPayment->amount, 2, ',', '.') }} €</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="text-xs text-gray-500 uppercase font-semibold">RESIDUO</label>
+                            <p class="font-bold text-lg text-orange-600 mt-1">{{ number_format($residualModal, 2, ',', '.') }} €</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Quarta riga: Modalità Pagamento e Stato affiancati -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="text-xs text-gray-500 uppercase font-semibold">MODALITÀ PAGAMENTO</label>
+                            <p class="font-medium text-gray-900 mt-1">{{ $selectedPayment->payment_method_label ?? $selectedPayment->payment_method ?? 'Non specificato' }}</p>
+                        </div>
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <label class="text-xs text-gray-500 uppercase font-semibold">STATO</label>
+                            @php
+                                $statusConfigModal = $statuses[$selectedPayment->status] ?? ['label' => $selectedPayment->status, 'badge_class' => 'bg-gray-100'];
+                            @endphp
+                            <p class="mt-1"><span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $statusConfigModal['badge_class'] }}">{{ $statusConfigModal['label'] }}</span></p>
+                        </div>
+                    </div>
+                    
+                    <!-- CRONOLOGIA PAGAMENTI EFFETTUATI -->
+                    @if($paymentHistory->count() > 0)
+                    <div class="mt-4">
+                        <label class="text-xs text-gray-500 uppercase font-semibold mb-2 block">CRONOLOGIA PAGAMENTI</label>
+                        <div class="border rounded-lg overflow-hidden">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left text-xs font-medium">Data Pagamento</th>
+                                        <th class="px-3 py-2 text-right text-xs font-medium">Importo</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium">Metodo</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium">Operatore</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    @foreach($paymentHistory as $transaction)
+                                    @php
+                                        $accountingEntry = $transaction->accountingEntry;
+                                        $payment = $transaction->invoicePayment;
+                                    @endphp
+                                    <tr>
+                                        <td class="px-3 py-2 text-sm">{{ $accountingEntry ? $accountingEntry->entry_date->format('d/m/Y') : '-' }}</td>
+                                        <td class="px-3 py-2 text-sm text-right font-medium text-green-600">{{ number_format($transaction->allocated_amount, 2, ',', '.') }} €</td>
+                                        <td class="px-3 py-2 text-sm">{{ $payment->payment_method ?? '-' }}</td>
+                                        <td class="px-3 py-2 text-sm">
+                                            @if($accountingEntry && $accountingEntry->created_by)
+                                                {{\App\Models\Administrator::find($accountingEntry->created_by)->name ?? 'Sistema'}}
+                                            @else
+                                                Sistema
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot class="bg-green-50">
+                                    <tr>
+                                        <td class="px-3 py-2 font-bold text-sm">TOTALE PAGATO</td>
+                                        <td class="px-3 py-2 text-right font-bold text-green-600">{{ number_format($selectedPayment->paid_amount, 2, ',', '.') }} €</td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                    @elseif($selectedPayment->paid_amount > 0)
+                    <div class="bg-green-50 p-3 rounded-lg">
+                        <label class="text-xs text-gray-500 uppercase font-semibold">PAGAMENTI EFFETTUATI</label>
+                        <p class="font-medium text-green-600 mt-1">{{ number_format($selectedPayment->paid_amount, 2, ',', '.') }} €</p>
+                        @if($selectedPayment->paid_at)
+                        <p class="text-xs text-gray-500">Data pagamento: {{ $selectedPayment->paid_at->format('d/m/Y') }}</p>
+                        @endif
                     </div>
                     @endif
-                    <div>
-                        <label class="text-xs text-gray-500 uppercase font-semibold">Stato</label>
-                        @php
-                            $statusConfigModal = $statuses[$selectedPayment->status] ?? ['label' => $selectedPayment->status, 'badge_class' => 'bg-gray-100'];
-                        @endphp
-                        <p><span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $statusConfigModal['badge_class'] }}">{{ $statusConfigModal['label'] }}</span></p>
+                    
+                    <!-- RIFERIMENTI OPERAZIONE (creazione/modifica) -->
+                    <div class="bg-gray-50 p-3 rounded-lg mt-2">
+                        <label class="text-xs text-gray-500 uppercase font-semibold">RIFERIMENTI OPERAZIONE</label>
+                        <div class="mt-2 grid grid-cols-2 gap-3 text-xs">
+                            <div>
+                                <p class="text-gray-600">
+                                    <i class="fas fa-plus-circle text-green-500 mr-1"></i>
+                                    Creata il: {{ $selectedPayment->created_at ? $selectedPayment->created_at->format('d/m/Y H:i:s') : '-' }}
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-gray-600">
+                                    <i class="fas fa-edit text-blue-500 mr-1"></i>
+                                    Ultima modifica: {{ $selectedPayment->updated_at ? $selectedPayment->updated_at->format('d/m/Y H:i:s') : '-' }}
+                                </p>
+                            </div>
+                        </div>
                     </div>
-                    @if($selectedPayment->paid_at)
-                    <div>
-                        <label class="text-xs text-gray-500 uppercase font-semibold">Data Pagamento</label>
-                        <p>{{ $selectedPayment->paid_at->format('d/m/Y') }}</p>
-                    </div>
-                    @endif
                 </div>
-                <div class="mt-6 flex justify-end">
+                
+                <div class="bg-gray-50 px-6 py-3 rounded-b-lg flex justify-end">
                     <button x-on:click="open = false" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors">
                         Chiudi
                     </button>
@@ -290,5 +376,5 @@
             </div>
         </div>
     </div>
-    @endif
+@endif
 </div>

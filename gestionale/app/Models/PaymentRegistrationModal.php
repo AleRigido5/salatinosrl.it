@@ -1,35 +1,35 @@
 <?php
-// app/Livewire/Admin/RegisterPayment.php
+// app/Livewire/Admin/PaymentRegistrationModal.php
 
 namespace App\Livewire\Admin;
 
 use Livewire\Component;
 use App\Models\Entity;
 use App\Models\Ownership;
+use App\Models\BankAccount;
 use App\Models\PaymentMethod;
 use App\Models\InvoiceReceived;
-use App\Models\AccountingEntry;        
-use App\Models\InstallmentTransaction;
-use App\Models\BankAccount;
 use App\Models\InvoicePayment;
+use App\Models\AccountingEntry;
+use App\Models\InstallmentTransaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Collection;
 use Carbon\Carbon;
 
-class RegisterPayment extends Component
+class PaymentRegistrationModal extends Component
 {
     public $showModal = false;
     public $currentStep = 1;
     
-    // STEP 1 - Proprietà (Autocomplete)
+    // STEP 1 - Proprietà
     public string $ownershipSearch = '';
     public Collection $ownershipResults;
     public string $selectedOwnershipId = '';
     public string $selectedOwnershipName = '';
     public bool $showOwnershipDropdown = false;
     
-    // STEP 1 - Entità (Autocomplete)
+    // STEP 1 - Entità (Cliente/Fornitore)
     public string $entitySearch = '';
     public Collection $entityResults;
     public string $selectedEntityId = '';
@@ -40,11 +40,10 @@ class RegisterPayment extends Component
     // STEP 2
     public $paymentDate = '';
     public $paymentMethod = '';
-    public $availableInvoices = [];
-    public $notes = '';
     public $bankAccountId = '';
     public $bankAccounts = [];
-
+    public $availableInvoices = [];
+    public $notes = '';
     
     // STEP 3
     public $totalAmount = 0;
@@ -55,6 +54,7 @@ class RegisterPayment extends Component
         'selectedEntityId' => 'required|exists:entities,id_cliente',
         'paymentDate' => 'required|date',
         'paymentMethod' => 'required|exists:payment_methods,code',
+        'bankAccountId' => 'nullable|exists:bank_accounts,id',
     ];
     
     protected $messages = [
@@ -69,7 +69,12 @@ class RegisterPayment extends Component
         $this->paymentDate = date('Y-m-d');
         $this->ownershipResults = new Collection();
         $this->entityResults = new Collection();
-        $this->loadBankAccounts(); 
+        $this->loadBankAccounts();
+    }
+    
+    public function loadBankAccounts(): void
+    {
+        $this->bankAccounts = BankAccount::where('valid', 1)->get()->toArray();
     }
     
     public function openModal(): void
@@ -77,11 +82,6 @@ class RegisterPayment extends Component
         $this->resetForm();
         $this->showModal = true;
         $this->currentStep = 1;
-    }
-
-    public function loadBankAccounts(): void
-    {
-        $this->bankAccounts = \App\Models\BankAccount::where('valid', 1)->get();
     }
     
     public function closeModal(): void
@@ -93,24 +93,29 @@ class RegisterPayment extends Component
     public function resetForm(): void
     {
         $this->currentStep = 1;
+        
+        // Reset proprietà
         $this->ownershipSearch = '';
         $this->selectedOwnershipId = '';
         $this->selectedOwnershipName = '';
+        $this->ownershipResults = new Collection();
+        $this->showOwnershipDropdown = false;
+        
+        // Reset entità
         $this->entitySearch = '';
         $this->selectedEntityId = '';
         $this->selectedEntityName = '';
         $this->selectedEntityType = '';
+        $this->entityResults = new Collection();
+        $this->showEntityDropdown = false;
+        
         $this->paymentDate = date('Y-m-d');
         $this->paymentMethod = '';
-        $this->bankAccountId = ''; 
+        $this->bankAccountId = '';
         $this->availableInvoices = [];
         $this->notes = '';
         $this->totalAmount = 0;
         $this->totalSelectedAmount = 0;
-        $this->ownershipResults = new Collection();
-        $this->entityResults = new Collection();
-        $this->showOwnershipDropdown = false;
-        $this->showEntityDropdown = false;
     }
     
     // ==================== AUTOCOMPLETE PROPRIETÀ ====================
@@ -139,17 +144,18 @@ class RegisterPayment extends Component
                   ->orWhere('RagSocialePr', 'like', '%' . $this->ownershipSearch . '%');
             })
             ->limit(10)
-            ->get(['id_proprieta as id', 'RagAbbrev as name']);
+            ->get(['id_proprieta as id', 'RagAbbrev as name', 'Rag_Soc_intest as ragione_sociale']);
         
         $this->showOwnershipDropdown = $this->ownershipResults->isNotEmpty();
     }
     
-    public function selectOwnership($id, $name): void
+    public function selectOwnership(int $id, string $name): void
     {
-        $this->selectedOwnershipId = $id;
+        $this->selectedOwnershipId = (string)$id;
         $this->selectedOwnershipName = $name;
         $this->ownershipSearch = $name;
         $this->showOwnershipDropdown = false;
+        $this->dispatch('ownershipSelected', name: $name);
     }
     
     public function clearOwnership(): void
@@ -158,6 +164,7 @@ class RegisterPayment extends Component
         $this->selectedOwnershipName = '';
         $this->ownershipSearch = '';
         $this->showOwnershipDropdown = false;
+        $this->dispatch('clearOwnershipInput');
     }
     
     // ==================== AUTOCOMPLETE ENTITÀ ====================
@@ -181,34 +188,32 @@ class RegisterPayment extends Component
         }
 
         $this->entityResults = Entity::where('valid', 1)
-            ->whereIn('entity_type', ['fornitore', 'entrambi'])  // Solo fornitori e entrambi
             ->where(function($q) {
                 $q->where('ragione_sociale', 'like', '%' . $this->entitySearch . '%')
-                ->orWhere('nome', 'like', '%' . $this->entitySearch . '%')
-                ->orWhere('cognome', 'like', '%' . $this->entitySearch . '%')
-                ->orWhere('partita_iva', 'like', '%' . $this->entitySearch . '%');
+                  ->orWhere('nome', 'like', '%' . $this->entitySearch . '%')
+                  ->orWhere('cognome', 'like', '%' . $this->entitySearch . '%')
+                  ->orWhere('partita_iva', 'like', '%' . $this->entitySearch . '%');
             })
             ->limit(10)
             ->get(['id_cliente as id', 
-                DB::raw("CASE 
-                    WHEN ragione_sociale IS NOT NULL AND ragione_sociale != '' THEN ragione_sociale 
-                    ELSE CONCAT(nome, ' ', cognome) 
-                END as name"), 
-                'entity_type as type']);
+                   DB::raw("CASE 
+                       WHEN ragione_sociale IS NOT NULL AND ragione_sociale != '' THEN ragione_sociale 
+                       ELSE CONCAT(nome, ' ', cognome) 
+                   END as name"), 
+                   'entity_type as type',
+                   'partita_iva as piva']);
         
         $this->showEntityDropdown = $this->entityResults->isNotEmpty();
     }
     
-    public function selectEntity($id, $name, $type): void
+    public function selectEntity(int $id, string $name, string $type): void
     {
-        $this->selectedEntityId = $id;
+        $this->selectedEntityId = (string)$id;
         $this->selectedEntityName = $name;
         $this->selectedEntityType = $type;
         $this->entitySearch = $name;
         $this->showEntityDropdown = false;
-        
-        // Carica le fatture aperte
-        $this->loadAvailableInvoices();
+        $this->dispatch('entitySelected', name: $name);
     }
     
     public function clearEntity(): void
@@ -219,6 +224,7 @@ class RegisterPayment extends Component
         $this->entitySearch = '';
         $this->showEntityDropdown = false;
         $this->availableInvoices = [];
+        $this->dispatch('clearEntityInput');
     }
     
     public function goToStep($step): void
@@ -228,7 +234,7 @@ class RegisterPayment extends Component
                 'selectedOwnershipId' => 'required',
                 'selectedEntityId' => 'required',
             ]);
-            $this->loadAvailableInvoices();
+            $this->loadInvoices();
         }
         
         if ($step == 3) {
@@ -242,7 +248,7 @@ class RegisterPayment extends Component
         $this->currentStep = $step;
     }
     
-    public function loadAvailableInvoices(): void
+    public function loadInvoices(): void
     {
         if (!$this->selectedEntityId) {
             $this->availableInvoices = [];
@@ -338,7 +344,7 @@ class RegisterPayment extends Component
                 'description' => 'Pagamento fatture ' . $this->selectedEntityName . ($this->notes ? ' - ' . $this->notes : ''),
                 'type' => 'uscita',
                 'id_payments_methods' => $this->getPaymentMethodId(),
-                'bank_account_id' => $this->bankAccountId ?: null,
+                'bank_account_id' => null, // Se hai un conto bancario, metti l'ID qui
                 'invoice_id' => null,
                 'invoice_payment_id' => null,
                 'amount' => $this->totalAmount,
@@ -396,10 +402,8 @@ class RegisterPayment extends Component
             DB::commit();
             
             $this->dispatch('showSuccess', message: 'Pagamento registrato con successo!');
-            $this->dispatch('paymentRegistered');  // Evento per aggiornare la tabella
-            $this->dispatch('refreshPayments');     // Evento alternativo
-            
             $this->closeModal();
+            $this->dispatch('refreshPayments');
             
         } catch (\Exception $e) {
             DB::rollBack();
@@ -407,11 +411,20 @@ class RegisterPayment extends Component
         }
     }
 
-    // Metodo helper per ottenere l'ID del metodo di pagamento
+    
     private function getPaymentMethodId(): ?int
     {
         $method = PaymentMethod::where('code', $this->paymentMethod)->first();
         return $method ? $method->id : null;
+    }
+    
+    private function getIbanFromBankAccount(): ?string
+    {
+        if ($this->bankAccountId) {
+            $bankAccount = BankAccount::find($this->bankAccountId);
+            return $bankAccount ? $bankAccount->iban : null;
+        }
+        return null;
     }
     
     public function getPaymentMethodsProperty()
@@ -421,7 +434,7 @@ class RegisterPayment extends Component
     
     public function render()
     {
-        return view('livewire.admin.register-payment', [
+        return view('livewire.admin.payment-registration-modal', [
             'paymentMethods' => $this->paymentMethods,
             'bankAccounts' => $this->bankAccounts,
         ]);

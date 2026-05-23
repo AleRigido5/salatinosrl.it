@@ -370,6 +370,11 @@ class InvoicesXmlImport extends Component
      */
     private function extractAttachmentsToS3($xml)
     {
+        if (!class_exists('League\Flysystem\AwsS3V3\PortableVisibilityConverter')) {
+            Log::error('Pacchetto AWS S3 non installato, utilizzo storage locale');
+            return $this->extractAttachmentsToLocal($xml);
+        }
+        
         $savedFiles = [];
         
         $basePrefix = 'invoice-received/';

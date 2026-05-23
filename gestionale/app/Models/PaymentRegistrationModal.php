@@ -180,7 +180,7 @@ class PaymentRegistrationModal extends Component
             $this->selectedEntityName = '';
             $this->selectedEntityType = '';
         }
-        
+
         if (strlen($this->entitySearch) < 2) {
             $this->entityResults = new Collection();
             $this->showEntityDropdown = false;

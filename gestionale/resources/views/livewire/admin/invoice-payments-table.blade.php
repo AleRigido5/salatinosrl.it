@@ -279,6 +279,7 @@
                         </div>
                     </div>
                     
+                    
                     <!-- Quarta riga: Modalità Pagamento e Stato affiancati -->
                     <div class="grid grid-cols-2 gap-4">
                         <div class="bg-gray-50 p-3 rounded-lg">

@@ -370,8 +370,23 @@ class InvoicesXmlImport extends Component
      */
     private function extractAttachmentsToS3($xml)
     {
-        if (!class_exists('League\Flysystem\AwsS3V3\PortableVisibilityConverter')) {
+        Log::info('=== extractAttachmentsToS3 INIZIO ===');
+        
+        // Verifica classe S3
+        $classExists = class_exists('League\Flysystem\AwsS3V3\PortableVisibilityConverter');
+        Log::info('Classe PortableVisibilityConverter esiste? ' . ($classExists ? 'SI' : 'NO'));
+        
+        if (!$classExists) {
             Log::error('Pacchetto AWS S3 non installato, utilizzo storage locale');
+            return $this->extractAttachmentsToLocal($xml);
+        }
+        
+        // Verifica che il disco s3 sia configurato
+        try {
+            $s3disk = Storage::disk('s3');
+            Log::info('Disco S3 configurato correttamente');
+        } catch (\Exception $e) {
+            Log::error('Errore configurazione disco S3: ' . $e->getMessage());
             return $this->extractAttachmentsToLocal($xml);
         }
         
@@ -381,12 +396,16 @@ class InvoicesXmlImport extends Component
         $tempFolderName = 'temp_' . $this->file_hash;
         $folderPrefix = $basePrefix . $tempFolderName . '/';
         
+        Log::info('Cartella temporanea S3: ' . $folderPrefix);
+        
         $allegati = null;
         
         if (isset($xml->FatturaElettronicaBody->Allegati)) {
             $allegati = $xml->FatturaElettronicaBody->Allegati;
+            Log::info('Trovato nodo Allegati');
         } elseif (isset($xml->FatturaElettronicaBody->Allegato)) {
             $allegati = $xml->FatturaElettronicaBody;
+            Log::info('Trovato nodo Allegato singolo');
         }
         
         if (!$allegati) {
@@ -395,16 +414,21 @@ class InvoicesXmlImport extends Component
         }
         
         $allegatoNodes = isset($allegati->Allegato) ? $allegati->Allegato : [$allegati];
+        Log::info('Numero allegati trovati: ' . count($allegatoNodes));
         
         foreach ($allegatoNodes as $index => $allegato) {
             try {
                 $fileName = $this->cleanUtf8String((string)$allegato->NomeAttachment);
+                Log::info('Processo allegato ' . ($index + 1) . ': ' . $fileName);
+                
                 $base64Content = (string)$allegato->Attachment;
                 
                 if (empty($base64Content)) {
                     Log::warning('Contenuto Base64 vuoto per allegato', ['fileName' => $fileName]);
                     continue;
                 }
+                
+                Log::info('Lunghezza Base64: ' . strlen($base64Content));
                 
                 $base64Content = preg_replace('/\s+/', '', $base64Content);
                 $decodedContent = base64_decode($base64Content);
@@ -414,36 +438,51 @@ class InvoicesXmlImport extends Component
                     continue;
                 }
                 
+                Log::info('Contenuto decodificato, dimensione: ' . strlen($decodedContent) . ' bytes');
+                
                 $safeFileName = $this->getSafeFileName($fileName, $decodedContent, $index);
                 $s3Path = $folderPrefix . $safeFileName;
                 
-                $saved = Storage::disk('s3')->put($s3Path, $decodedContent);
+                Log::info('Tentativo salvataggio su S3: ' . $s3Path);
                 
-                if ($saved) {
-                    $bucket = config('filesystems.disks.s3.bucket', 'gestionale-152146163010-eu-north-1-an');
-                    $region = config('filesystems.disks.s3.region', 'eu-north-1');
-                    $publicUrl = "https://{$bucket}.s3.{$region}.amazonaws.com/{$s3Path}";
+                // Prova a salvare su S3
+                try {
+                    $saved = Storage::disk('s3')->put($s3Path, $decodedContent);
                     
-                    Log::info('Allegato salvato su S3', [
-                        'path' => $s3Path,
-                        'url' => $publicUrl
-                    ]);
-                    
-                    $savedFiles[] = [
-                        'original_name' => $fileName,
-                        'saved_name' => $safeFileName,
-                        's3_path' => $s3Path,
-                        'temp_folder' => $tempFolderName,
-                        'url' => $publicUrl,
-                        'size' => strlen($decodedContent),
-                        'storage_driver' => 's3'
-                    ];
+                    if ($saved) {
+                        $bucket = config('filesystems.disks.s3.bucket', 'gestionale-152146163010-eu-north-1-an');
+                        $region = config('filesystems.disks.s3.region', 'eu-north-1');
+                        $publicUrl = "https://{$bucket}.s3.{$region}.amazonaws.com/{$s3Path}";
+                        
+                        Log::info('✅ Allegato salvato su S3 con successo!', [
+                            'path' => $s3Path,
+                            'url' => $publicUrl
+                        ]);
+                        
+                        $savedFiles[] = [
+                            'original_name' => $fileName,
+                            'saved_name' => $safeFileName,
+                            's3_path' => $s3Path,
+                            'temp_folder' => $tempFolderName,
+                            'url' => $publicUrl,
+                            'size' => strlen($decodedContent),
+                            'storage_driver' => 's3'
+                        ];
+                    } else {
+                        Log::error('❌ Salvataggio su S3 fallito (put returned false)', ['path' => $s3Path]);
+                    }
+                } catch (\Exception $e) {
+                    Log::error('❌ Eccezione durante salvataggio su S3: ' . $e->getMessage());
+                    Log::error('Stack trace: ' . $e->getTraceAsString());
                 }
                 
             } catch (\Exception $e) {
                 Log::error('Errore processamento allegato su S3: ' . $e->getMessage());
+                Log::error('Stack trace: ' . $e->getTraceAsString());
             }
         }
+        
+        Log::info('=== extractAttachmentsToS3 FINE, allegati salvati: ' . count($savedFiles) . ' ===');
         
         return $savedFiles;
     }

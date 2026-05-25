@@ -8,6 +8,8 @@ use Livewire\Livewire;
 use App\Livewire\Admin\InvoicesReceivedTable;
 use App\Livewire\Admin\InvoicesXmlImport;
 use App\Livewire\Components\DateRangeFilter;
+use App\Models\InvoicePayment;
+use App\Observers\InvoicePaymentObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -18,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
         Livewire::component('admin.invoices-received-table', InvoicesReceivedTable::class);
         Livewire::component('admin.invoices-xml-import', InvoicesXmlImport::class);
         Livewire::component('components.date-range-filter', DateRangeFilter::class);
+        InvoicePayment::observe(InvoicePaymentObserver::class);
 
         Blade::directive('unescape', function ($expression) {
             return "<?php echo html_entity_decode($expression, ENT_QUOTES | ENT_HTML5, 'UTF-8'); ?>";

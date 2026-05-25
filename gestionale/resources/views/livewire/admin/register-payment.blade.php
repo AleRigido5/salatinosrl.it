@@ -86,7 +86,7 @@
                                 @foreach($ownershipResults as $item)
                                 <div 
                                     wire:click="selectOwnership({{ $item->id }}, '{{ addslashes($item->name) }}')"
-                                    x-on:click="document.getElementById('ownership_input').value = '{{ addslashes($item->name) }}'; open = false"
+                                    x-on:click="document.getElementById('ownership_input').value = {{ json_encode($item->name) }}; open = false"
                                     class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
                                     <div class="font-medium text-gray-800">{{ $item->name }}</div>
                                 </div>
@@ -126,7 +126,7 @@
                                 @foreach($entityResults as $item)
                                 <div 
                                     wire:click="selectEntity({{ $item->id }}, '{{ addslashes($item->name) }}', '{{ $item->type }}')"
-                                    x-on:click="document.getElementById('entity_input').value = '{{ addslashes($item->name) }}'; open = false"
+                                    x-on:click="document.getElementById('entity_input').value = {{ json_encode($item->name) }}; open = false"
                                     class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
                                     <div class="font-medium text-gray-800">{{ $item->name }}</div>
                                     @if($item->type === 'fornitore')

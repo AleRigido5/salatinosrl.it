@@ -385,12 +385,12 @@ class RegisterPayment extends Component
                 ]);
                 
                 // Aggiorna lo stato della fattura
-                $totalPaid = $invoiceModel->payments()->sum('paid_amount');
-                if ($totalPaid >= $invoiceModel->importo_totale) {
-                    $invoiceModel->update(['status' => 'paid']);
-                } elseif ($totalPaid > 0) {
-                    $invoiceModel->update(['status' => 'partially_paid']);
-                }
+                // $totalPaid = $invoiceModel->payments()->sum('paid_amount');
+                // if ($totalPaid >= $invoiceModel->importo_totale) {
+                //     $invoiceModel->update(['status' => 'paid']);
+                // } elseif ($totalPaid > 0) {
+                //     $invoiceModel->update(['status' => 'partially_paid']);
+                // }
             }
             
             DB::commit();

@@ -351,16 +351,17 @@
                                 l'informazione reale è nei vatSummaries.
                             --}}
                             <td class="col-vat px-2 py-1">
-                                <select wire:model.live="rows.{{ $index }}.vat_rate"
+                                <select wire:model.live="rows.{{ $index }}.vat_rate_id"
                                     class="w-full px-1 py-1 text-sm border rounded-md"
                                     {{ $isReadonly ? 'disabled' : '' }}>
                                     @foreach($vatRatesList as $vat)
-                                        <option value="{{ $vat['rate_percent'] }}">
-                                            {{ number_format($vat['rate_percent'], 0) }}%
-                                            @if($vat['rate'] == 0 && $vat['sdi_nature'])
-                                                — {{ $vat['sdi_nature'] }}
-                                            @endif
-                                        </option>
+                                        @php
+                                            $displayText = number_format($vat['rate_percent'], 0) . '%';
+                                            if ($vat['rate_percent'] == 0 && !empty($vat['sdi_nature'])) {
+                                                $displayText .= ' — ' . $vat['sdi_nature'];
+                                            }
+                                        @endphp
+                                        <option value="{{ $vat['id'] }}">{{ $displayText }}</option>
                                     @endforeach
                                 </select>
                             </td>

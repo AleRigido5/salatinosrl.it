@@ -229,14 +229,14 @@
             })->with(['accountingEntry', 'invoicePayment'])->orderBy('created_at', 'desc')->get();
         }
     @endphp
-    <div x-data="{ open: true }" x-show="open" x-on:click.away="open = false; $wire.closeModal()" class="fixed inset-0 z-50 overflow-y-auto">
+    <div x-data="{}" x-show="$wire.showModal" x-on:click.away="$wire.closeModal()" class="fixed inset-0 z-50 overflow-y-auto">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
             <div class="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div class="bg-white px-6 pt-5 pb-4 border-b sticky top-0 bg-white rounded-t-lg">
                     <div class="flex justify-between items-center">
                         <h3 class="text-lg font-bold text-gray-900">Dettaglio Scadenza</h3>
-                        <button x-on:click="open = false" class="text-gray-400 hover:text-gray-600">
+                        <button wire:click="closeModal" class="text-gray-400 hover:text-gray-600">
                             <i class="fas fa-times text-xl"></i>
                         </button>
                     </div>
@@ -296,61 +296,68 @@
                     </div>
                     
                     <!-- CRONOLOGIA PAGAMENTI EFFETTUATI -->
+                    {{-- @php
+                        // Assicurati che $paymentHistory sia sempre una Collection
+                        if (!($paymentHistory instanceof \Illuminate\Support\Collection)) {
+                            $paymentHistory = collect($paymentHistory);
+                        }
+                    @endphp
+
                     @if($paymentHistory->count() > 0)
-                    <div class="mt-4">
-                        <label class="text-xs text-gray-500 uppercase font-semibold mb-2 block">CRONOLOGIA PAGAMENTI</label>
-                        <div class="border rounded-lg overflow-hidden">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-100">
-                                    <tr>
-                                        <th class="px-3 py-2 text-left text-xs font-medium">Data Pagamento</th>
-                                        <th class="px-3 py-2 text-right text-xs font-medium">Importo</th>
-                                        <th class="px-3 py-2 text-left text-xs font-medium">Metodo</th>
-                                        <th class="px-3 py-2 text-left text-xs font-medium">Operatore</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200">
-                                    @foreach($paymentHistory as $transaction)
-                                    @php
-                                        $accountingEntry = $transaction->accountingEntry;
-                                        $payment = $transaction->invoicePayment;
-                                    @endphp
-                                    <tr>
-                                        <td class="px-3 py-2 text-sm">{{ $accountingEntry ? $accountingEntry->entry_date->format('d/m/Y') : '-' }}</td>
-                                        <td class="px-3 py-2 text-sm text-right font-medium text-green-600">{{ number_format($transaction->allocated_amount, 2, ',', '.') }} €</td>
-                                        <td class="px-3 py-2 text-sm">{{ $payment->payment_method ?? '-' }}</td>
-                                        <td class="px-3 py-2 text-sm">
-                                            @if($accountingEntry && $accountingEntry->created_by)
-                                                {{\App\Models\Administrator::find($accountingEntry->created_by)->name ?? 'Sistema'}}
-                                            @else
-                                                Sistema
-                                            @endif
-                                        </td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
-                                <tfoot class="bg-green-50">
-                                    <tr>
-                                        <td class="px-3 py-2 font-bold text-sm">TOTALE PAGATO</td>
-                                        <td class="px-3 py-2 text-right font-bold text-green-600">{{ number_format($selectedPayment->paid_amount, 2, ',', '.') }} €</td>
-                                        <td colspan="2"></td>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                        <div class="mt-4">
+                            <label class="text-xs text-gray-500 uppercase font-semibold mb-2 block">CRONOLOGIA PAGAMENTI</label>
+                            <div class="border rounded-lg overflow-hidden">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-100">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left text-xs font-medium">Data Pagamento</th>
+                                            <th class="px-3 py-2 text-right text-xs font-medium">Importo</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium">Metodo</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium">Operatore</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-200">
+                                        @foreach($paymentHistory as $transaction)
+                                        @php
+                                            $accountingEntry = $transaction->accountingEntry;
+                                            $payment = $transaction->invoicePayment;
+                                        @endphp
+                                        <tr>
+                                            <td class="px-3 py-2 text-sm">{{ $accountingEntry ? $accountingEntry->entry_date->format('d/m/Y') : '-' }}</td>
+                                            <td class="px-3 py-2 text-sm text-right font-medium text-green-600">{{ number_format($transaction->allocated_amount, 2, ',', '.') }} €</td>
+                                            <td class="px-3 py-2 text-sm">{{ $payment->payment_method ?? '-' }}</td>
+                                            <td class="px-3 py-2 text-sm">
+                                                @if($accountingEntry && $accountingEntry->created_by)
+                                                    {{\App\Models\Administrator::find($accountingEntry->created_by)->name ?? 'Sistema'}}
+                                                @else
+                                                    Sistema
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                    <tfoot class="bg-green-50">
+                                        <tr>
+                                            <td class="px-3 py-2 font-bold text-sm">TOTALE PAGATO</td>
+                                            <td class="px-3 py-2 text-right font-bold text-green-600">{{ number_format($selectedPayment->paid_amount, 2, ',', '.') }} €</td>
+                                            <td colspan="2"></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
                         </div>
-                    </div>
                     @elseif($selectedPayment->paid_amount > 0)
-                    <div class="bg-green-50 p-3 rounded-lg">
-                        <label class="text-xs text-gray-500 uppercase font-semibold">PAGAMENTI EFFETTUATI</label>
-                        <p class="font-medium text-green-600 mt-1">{{ number_format($selectedPayment->paid_amount, 2, ',', '.') }} €</p>
-                        @if($selectedPayment->paid_at)
-                        <p class="text-xs text-gray-500">Data pagamento: {{ $selectedPayment->paid_at->format('d/m/Y') }}</p>
-                        @endif
-                    </div>
-                    @endif
+                        <div class="bg-green-50 p-3 rounded-lg">
+                            <label class="text-xs text-gray-500 uppercase font-semibold">PAGAMENTI EFFETTUATI</label>
+                            <p class="font-medium text-green-600 mt-1">{{ number_format($selectedPayment->paid_amount, 2, ',', '.') }} €</p>
+                            @if($selectedPayment->paid_at)
+                            <p class="text-xs text-gray-500">Data pagamento: {{ $selectedPayment->paid_at->format('d/m/Y') }}</p>
+                            @endif
+                        </div>
+                    @endif --}}
                     
                     <!-- RIFERIMENTI OPERAZIONE (creazione/modifica) -->
-                    <div class="bg-gray-50 p-3 rounded-lg mt-2">
+                    {{-- <div class="bg-gray-50 p-3 rounded-lg mt-2">
                         <label class="text-xs text-gray-500 uppercase font-semibold">RIFERIMENTI OPERAZIONE</label>
                         <div class="mt-2 grid grid-cols-2 gap-3 text-xs">
                             <div>
@@ -366,11 +373,11 @@
                                 </p>
                             </div>
                         </div>
-                    </div>
+                    </div> --}}
                 </div>
                 
                 <div class="bg-gray-50 px-6 py-3 rounded-b-lg flex justify-end">
-                    <button x-on:click="open = false" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors">
+                    <button wire:click="closeModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors">
                         Chiudi
                     </button>
                 </div>

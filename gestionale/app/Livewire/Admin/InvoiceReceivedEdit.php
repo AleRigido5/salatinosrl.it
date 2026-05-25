@@ -185,15 +185,15 @@ class InvoiceReceivedEdit extends Component
         $this->selectedVehicleName = [];
 
         // Prepara una mappa dell'IVA dai vatSummaries per le fatture importate
-        // (per le righe che non hanno vat_rate salvato nel DB)
-        // Indice: aliquota percentuale => info
         $vatSummaryMap = [];
         foreach ($invoice->vatSummaries as $vs) {
-            $key = (string)(float)$vs->tax_rate; // es. "10", "22", "0"
+            $key = (string)(float)$vs->tax_rate;
             if (!isset($vatSummaryMap[$key])) {
                 $vatSummaryMap[$key] = [
                     'rate_percent' => (float)$vs->tax_rate,
                     'sdi_nature' => $vs->sdi_nature,
+                    'taxable_amount' => $vs->taxable_amount,
+                    'tax_amount' => $vs->tax_amount,
                 ];
             }
         }
@@ -202,6 +202,7 @@ class InvoiceReceivedEdit extends Component
         foreach ($invoice->rows as $index => $row) {
             $vatRateRaw = floatval($row->vat_rate ?? 0);
 
+            // Converte da decimale a percentuale se necessario
             if ($vatRateRaw > 0 && $vatRateRaw <= 1) {
                 $vatRatePercent = round($vatRateRaw * 100, 2);
             } elseif ($vatRateRaw > 1) {
@@ -210,20 +211,46 @@ class InvoiceReceivedEdit extends Component
                 $vatRatePercent = 0;
             }
 
-            // Fallback 1: vat_rate_id
-            if ($vatRatePercent == 0 && $row->vat_rate_id) {
+            // Tentativo 1: da vat_rate_id
+            $natureCode = null;
+            $vatInfo = null;
+            
+            if ($row->vat_rate_id) {
                 $vatInfo = collect($this->vatRatesList)->firstWhere('id', $row->vat_rate_id);
                 if ($vatInfo) {
                     $vatRatePercent = $vatInfo['rate_percent'];
+                    // if ($vatRatePercent == 0 && !empty($vatInfo['sdi_nature'])) {
+                    //     $natureCode = $vatInfo['sdi_nature'];
+                    // }
+                    // ✅ Salva sempre la natura se presente, indipendentemente dall'aliquota
+                    $natureCode = !empty($vatInfo['sdi_nature']) ? $vatInfo['sdi_nature'] : null;
                 }
             }
-
-            // NUOVO Fallback 2: leggi dai vatSummaries se c'è una sola aliquota positiva
-            if ($vatRatePercent == 0) {
+            
+            // Tentativo 2: cerca nei vatSummaries se abbiamo solo un'aliquota
+            if ($vatRatePercent == 0 && !$natureCode) {
                 $positiveSummaries = collect($invoice->vatSummaries)
                     ->where('tax_rate', '>', 0);
                 if ($positiveSummaries->count() === 1) {
                     $vatRatePercent = (float) $positiveSummaries->first()->tax_rate;
+                }
+                
+                // Cerca anche nature per IVA 0%
+                $zeroSummaries = collect($invoice->vatSummaries)
+                    ->where('tax_rate', '==', 0);
+                if ($zeroSummaries->count() === 1 && !empty($zeroSummaries->first()->sdi_nature)) {
+                    $natureCode = $zeroSummaries->first()->sdi_nature;
+                    $vatRatePercent = 0;
+                }
+            }
+            
+            // Tentativo 3: cerca nella lista delle aliquote per trovare una corrispondenza
+            if (!$vatInfo) {
+                $vatInfo = collect($this->vatRatesList)->first(function($v) use ($vatRatePercent) {
+                    return abs($v['rate_percent'] - $vatRatePercent) < 0.01;
+                });
+                if ($vatInfo && $vatRatePercent == 0 && !empty($vatInfo['sdi_nature'])) {
+                    $natureCode = $vatInfo['sdi_nature'];
                 }
             }
             
@@ -245,7 +272,9 @@ class InvoiceReceivedEdit extends Component
                 'unit_price' => $row->unit_price,
                 'unit_measure' => $row->unit_measure ?? '',
                 'discount_percentage' => $row->discount_percentage,
-                'vat_rate' => $vatRatePercent,  // SEMPRE in percentuale nella UI
+                'vat_rate_id' => $row->vat_rate_id, 
+                'vat_rate' => $vatRatePercent,
+                'nature_code' => $natureCode,  // Salva il codice natura per IVA 0%
                 'id_cost_center' => $row->id_cost_center,
                 'cost_center_name' => $row->costCenter ? $row->costCenter->Nome : '',
                 'id_vehicle' => $row->id_vehicle,
@@ -295,10 +324,8 @@ class InvoiceReceivedEdit extends Component
         $this->calculatePaymentsTotal();
 
         // Per fatture importate, il totale ufficiale è quello del DB
-        // non quello ricalcolato dalle righe (che può avere micro-differenze)
         if (!$this->is_manual) {
             $this->importo_totale = (float) $invoice->importo_totale;
-            // Aggiorna anche la prima scadenza col totale corretto
             if (count($this->payments) > 0) {
                 $this->payments[0]['amount'] = $this->importo_totale;
                 $this->calculatePaymentsTotal();
@@ -317,7 +344,9 @@ class InvoiceReceivedEdit extends Component
             'unit_price' => 0,
             'unit_measure' => '',
             'discount_percentage' => 0,
+            'vat_rate_id' => null,
             'vat_rate' => 22,  // percentuale
+            'nature_code' => null,  // Per IVA 0%
             'id_cost_center' => null,
             'cost_center_name' => '',
             'id_vehicle' => null,
@@ -457,20 +486,19 @@ class InvoiceReceivedEdit extends Component
     /**
      * calculateTotals — vat_rate nelle righe è SEMPRE in percentuale (es. 22)
      */
-    public function calculateTotals()
+    public function calculateTotals(): void
     {
-        $totalTaxable = 0;
-        $totalVat = 0;
+        $totalTaxable  = 0;
+        $totalVat      = 0;
         $totalDiscount = 0;
-        
-        $vatGroup = [];
-        
+        $vatGroup      = [];
+
         foreach ($this->rows as $index => &$row) {
-            $quantity          = floatval($row['quantity'] ?? 1);
-            $unitPrice         = floatval($row['unit_price'] ?? 0);
+            $quantity           = floatval($row['quantity'] ?? 1);
+            $unitPrice          = floatval($row['unit_price'] ?? 0);
             $discountPercentage = floatval($row['discount_percentage'] ?? 0);
-            $vatRatePercent    = floatval($row['vat_rate'] ?? 0);
-            $vatRateDecimal    = $vatRatePercent / 100;
+            $vatRatePercent     = floatval($row['vat_rate'] ?? 0);
+            $vatRateDecimal     = $vatRatePercent / 100;
 
             $grossAmount    = round($quantity * $unitPrice, 4);
             $discountAmount = round($grossAmount * ($discountPercentage / 100), 4);
@@ -484,17 +512,45 @@ class InvoiceReceivedEdit extends Component
             $row['taxable_amount'] = $taxable;
             $row['vat_amount']     = $vatAmount;
 
-            $key = (string)$vatRatePercent;
-            if (!isset($vatGroup[$key])) {
+            // ✅ Leggi la natura DALLA RIGA, non dalla lista globale
+            $natureCode = ($vatRatePercent == 0 && !empty($row['nature_code']))
+                ? (string) $row['nature_code']
+                : null;
+
+            if (!empty($row['vat_rate_id'])) {
+                $vatRecord = collect($this->vatRatesList)->firstWhere('id', (int)$row['vat_rate_id']);
+                if ($vatRecord) {
+                    $row['vat_rate']    = $vatRecord['rate_percent'];
+                    $row['nature_code'] = ($vatRecord['rate_percent'] == 0 && !empty($vatRecord['sdi_nature']))
+                        ? $vatRecord['sdi_nature']
+                        : null;
+                }
+            }
+
+            $vatRatePercent = floatval($row['vat_rate'] ?? 0);
+
+            // Cerca vatInfo solo per la descrizione, non per determinare la natura
+            $vatInfo = null;
+            if ($vatRatePercent == 0 && $natureCode) {
+                // Cerca il record che corrisponde ESATTAMENTE a questa natura
+                $vatInfo = collect($this->vatRatesList)->first(function($v) use ($natureCode) {
+                    return $v['rate_percent'] == 0 && $v['sdi_nature'] === $natureCode;
+                });
+            } elseif ($vatRatePercent > 0) {
                 $vatInfo = collect($this->vatRatesList)->first(function($v) use ($vatRatePercent) {
                     return abs($v['rate_percent'] - $vatRatePercent) < 0.01;
                 });
+            }
 
+            // Chiave univoca per gruppo: percentuale + natura
+            $key = $vatRatePercent . '_' . ($natureCode ?? '');
+
+            if (!isset($vatGroup[$key])) {
                 $vatGroup[$key] = [
                     'rate'           => $vatRateDecimal,
                     'rate_percent'   => number_format($vatRatePercent, 2),
-                    'description'    => $vatInfo['description'] ?? ($vatRatePercent == 0 ? 'IVA 0%' : "IVA " . number_format($vatRatePercent, 2) . "%"),
-                    'nature_code'    => $vatInfo['sdi_nature'] ?? null,
+                    'description'    => $this->getVatDescription($vatRatePercent, $natureCode, $vatInfo),
+                    'nature_code'    => $natureCode,
                     'taxable_amount' => 0,
                     'vat_amount'     => 0,
                 ];
@@ -504,15 +560,64 @@ class InvoiceReceivedEdit extends Component
             $vatGroup[$key]['vat_amount']     += $vatAmount;
         }
 
-        uksort($vatGroup, fn($a, $b) => $b <=> $a);
+        uksort($vatGroup, function($a, $b) {
+            $aPercent = floatval(explode('_', $a)[0]);
+            $bPercent = floatval(explode('_', $b)[0]);
+            return $bPercent <=> $aPercent;
+        });
 
-        $this->vatSummary      = array_values($vatGroup);
-        $this->total_taxable   = round($totalTaxable, 2);
-        $this->total_vat       = round($totalVat, 2);
-        $this->total_discount  = round($totalDiscount, 2);
-        $this->importo_totale  = round($totalTaxable + $totalVat, 2);
+        $this->vatSummary     = array_values($vatGroup);
+        $this->total_taxable  = round($totalTaxable, 2);
+        $this->total_vat      = round($totalVat, 2);
+        $this->total_discount = round($totalDiscount, 2);
+        $this->importo_totale = round($totalTaxable + $totalVat, 2);
 
         $this->syncFirstPaymentWithTotal();
+    }
+
+    /**
+     * Ottiene la descrizione corretta per l'aliquota IVA
+     */
+    protected function getVatDescription($vatRatePercent, $natureCode, $vatInfo)
+    {
+        if ($vatRatePercent > 0) {
+            return 'IVA ' . number_format($vatRatePercent, 2) . '%';
+        }
+        
+        // IVA 0% con natura specifica
+        if (!empty($natureCode)) {
+            // Cerca la descrizione completa dal rate
+            if ($vatInfo && !empty($vatInfo['description'])) {
+                return $vatInfo['description'];
+            }
+            
+            // Mappa dei codici natura più comuni
+            $natureMap = [
+                'N1' => 'Escluse ex art. 15',
+                'N2.1' => 'Non soggette UE/extra-UE',
+                'N2.2' => 'Non soggette',
+                'N3.1' => 'Non imponibili esportazioni',
+                'N3.2' => 'Non imponibili cessioni intra-UE',
+                'N3.3' => 'Non imponibili servizi internazionali',
+                'N3.4' => 'Non imponibili servizi finanziari',
+                'N3.5' => 'Non imponibili operazioni triangolari',
+                'N3.6' => 'Non imponibili altre',
+                'N4' => 'Esenti',
+                'N5' => 'Regime del margine',
+                'N6.1' => 'Reverse charge - edilizia',
+                'N6.2' => 'Reverse charge - settore energetico',
+                'N6.3' => 'Reverse charge - altri settori',
+                'N6.4' => 'Reverse charge - subappalti',
+                'N6.5' => 'Reverse charge - rottami',
+                'N6.6' => 'Reverse charge - legname',
+                'N6.7' => 'Reverse charge - telefonia',
+                'N6.8' => 'Reverse charge - altri',
+            ];
+            
+            return $natureMap[$natureCode] ?? 'IVA 0% (' . $natureCode . ')';
+        }
+        
+        return 'IVA 0%';
     }
     
     protected function syncFirstPaymentWithTotal()
@@ -785,10 +890,21 @@ class InvoiceReceivedEdit extends Component
                 $existingRowIds = [];
                 
                 foreach ($this->rows as $row) {
-                    // vat_rate nella UI è in percentuale → salva in decimale nel DB
+                    $vatRatePercent = floatval($row['vat_rate'] ?? 0);
+
+                    // Cerca l'aliquota corrispondente
+                    $vatRateRecord = collect($this->vatRatesList)->first(function($v) use ($vatRatePercent, $row) {
+                        // Per IVA 0%, dobbiamo anche considerare se c'è una natura specifica
+                        if ($vatRatePercent == 0 && isset($row['nature_code'])) {
+                            return $v['rate_percent'] == 0 && $v['sdi_nature'] == $row['nature_code'];
+                        }
+                        return abs($v['rate_percent'] - $vatRatePercent) < 0.01;
+                    });
+
+                    $vatRateId      = !empty($row['vat_rate_id']) ? (int)$row['vat_rate_id'] : null;
                     $vatRatePercent = floatval($row['vat_rate'] ?? 0);
                     $vatRateDecimal = $vatRatePercent / 100;
-                    
+
                     $rowData = [
                         'document_id' => $invoice->id,
                         'document_type' => 'invoice_received',
@@ -800,7 +916,8 @@ class InvoiceReceivedEdit extends Component
                         'unit_price' => floatval($row['unit_price'] ?? 0),
                         'unit_measure' => $row['unit_measure'] ?? null,
                         'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
-                        'vat_rate' => $vatRateDecimal,  // salva decimale nel DB
+                        'vat_rate' => $vatRateDecimal,
+                        'vat_rate_id' => $vatRateId,  // Aggiungi questo campo
                         'total' => floatval($row['taxable_amount'] ?? 0),
                     ];
                     

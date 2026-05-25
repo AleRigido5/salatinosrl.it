@@ -88,6 +88,7 @@ class InvoicesXmlImport extends Component
     public $vatSummaries = [];
     public $xml_parsed = false;
     public $extracted_attachments = [];
+    protected $vatRatesMap = [];
     
     public $id_ownership;
     public $id_entities;
@@ -205,6 +206,7 @@ class InvoicesXmlImport extends Component
             })
             ->toArray();
     }
+    
 
     // ============================================
     // AUTOCOMPLETE CENTRO DI COSTO GLOBALE
@@ -1320,6 +1322,115 @@ class InvoicesXmlImport extends Component
         return $fornitorePiva . '.xml';
     }
 
+    // ============================================
+    // METODI PER LA GESTIONE DELLE ALIQUOTE IVA
+    // ============================================
+    
+    /**
+     * Carica la mappa delle aliquote IVA per ricerca rapida
+     */
+    protected function loadVatRatesMap(): void
+    {
+        $this->vatRatesMap = [];
+
+        $vatRates = DB::table('vat_rates')
+            ->where('is_active', 1)
+            ->orderBy('id')          // ordine stabile: prende sempre il primo
+            ->get();
+
+        foreach ($vatRates as $vat) {
+            $ratePercent = (string) round((float) $vat->rate * 100, 2);
+            $sdiNature   = trim((string) ($vat->sdi_nature ?? ''));
+
+            if (!isset($this->vatRatesMap[$ratePercent])) {
+                $this->vatRatesMap[$ratePercent] = [];
+            }
+
+            if ($ratePercent === '0' && $sdiNature !== '') {
+                // Per ogni natura salva solo il PRIMO id trovato (orderBy id garantisce stabilità)
+                if (!isset($this->vatRatesMap[$ratePercent][$sdiNature])) {
+                    $this->vatRatesMap[$ratePercent][$sdiNature] = (int) $vat->id;
+                }
+            } else {
+                // Per aliquote > 0% salva solo il primo trovato
+                if (!isset($this->vatRatesMap[$ratePercent]['default'])) {
+                    $this->vatRatesMap[$ratePercent]['default'] = (int) $vat->id;
+                }
+            }
+        }
+
+        Log::info('Mappa aliquote IVA caricata', [
+            'count' => count($this->vatRatesMap),
+            'keys'  => array_keys($this->vatRatesMap),
+            'natura_0' => array_keys($this->vatRatesMap['0'] ?? []),
+        ]);
+    }
+
+    /**
+     * Trova l'ID dell'aliquota IVA in base alla percentuale e alla natura
+     */
+    protected function findVatRateId(float|int $aliquotaPercentuale, ?string $natura = null): ?int
+    {
+        $rateKey = (string) round((float) $aliquotaPercentuale, 2);
+        $natura  = trim((string) ($natura ?? ''));
+
+        // Caso 1: Aliquota > 0%
+        if ((float) $aliquotaPercentuale > 0) {
+            if (isset($this->vatRatesMap[$rateKey]['default'])) {
+                return $this->vatRatesMap[$rateKey]['default'];
+            }
+
+            // Fallback DB diretto
+            $vatRate = DB::table('vat_rates')
+                ->where('is_active', 1)
+                ->whereRaw('ROUND(rate * 100, 2) = ?', [(float) $aliquotaPercentuale])
+                ->orderBy('id')
+                ->first();
+
+            return $vatRate ? (int) $vatRate->id : null;
+        }
+
+        // Caso 2: Aliquota 0% con natura dall'XML
+        if ($natura !== '') {
+            // Prima cerca in mappa
+            if (isset($this->vatRatesMap['0'][$natura])) {
+                Log::info("VAT match da mappa: natura={$natura}, id=" . $this->vatRatesMap['0'][$natura]);
+                return $this->vatRatesMap['0'][$natura];
+            }
+
+            // Fallback DB diretto per natura specifica
+            $vatRate = DB::table('vat_rates')
+                ->where('is_active', 1)
+                ->where('rate', 0)
+                ->where('sdi_nature', $natura)
+                ->orderBy('id')
+                ->first();
+
+            if ($vatRate) {
+                Log::info("VAT match da DB: natura={$natura}, id={$vatRate->id}");
+                return (int) $vatRate->id;
+            }
+
+            Log::warning('Natura non trovata per IVA 0%', ['natura' => $natura]);
+        }
+
+        // Caso 3: 0% senza natura — default N2.2
+        if (isset($this->vatRatesMap['0']['N2.2'])) {
+            return $this->vatRatesMap['0']['N2.2'];
+        }
+
+        // Fallback finale: 22%
+        if (isset($this->vatRatesMap['22']['default'])) {
+            Log::warning('Usata aliquota fallback 22%', [
+                'original_rate'   => $aliquotaPercentuale,
+                'original_natura' => $natura,
+            ]);
+            return $this->vatRatesMap['22']['default'];
+        }
+
+        return null;
+    }
+
     public function save()
     {
         Log::info('Tentativo salvataggio fattura', [
@@ -1367,6 +1478,11 @@ class InvoicesXmlImport extends Component
 
         try {
             DB::beginTransaction();
+
+            // ============================================
+            // CARICA LA MAPPA DELLE ALIQUOTE IVA
+            // ============================================
+            $this->loadVatRatesMap();
 
             $xmlStoragePath = $this->saveXmlFile();
 
@@ -1416,7 +1532,16 @@ class InvoicesXmlImport extends Component
 
             foreach ($this->rows as $index => $row) {
                 Log::info('Salvataggio riga ' . $index, ['description' => $row['description']]);
+
+                $aliquotaIvaPercentuale = $row['aliquota_iva'] ?? 0;  // Valore percentuale es. 10, 22, 0
+                $natura = $row['natura'] ?? null;
                 
+                // Cerca l'ID dell'aliquota IVA
+                $vatRateId = $this->findVatRateId($aliquotaIvaPercentuale, $natura);
+                
+                // Calcola il rate decimale per il campo vat_rate (legacy)
+                $vatRateDecimal = $aliquotaIvaPercentuale / 100;
+            
                 InvoiceRow::create([
                     'document_id'         => $invoice->id,
                     'document_type'       => 'invoice_received',
@@ -1426,7 +1551,8 @@ class InvoicesXmlImport extends Component
                     'quantity'            => $row['quantity'] ?? 1,
                     'unit_price'          => $row['unit_price'] ?? 0,
                     'discount_percentage' => $row['discount_percentage'] ?? 0,
-                    'vat_rate'            => ($row['aliquota_iva'] ?? 0) / 100,
+                    'vat_rate'            => $vatRateDecimal,        // Legacy: decimale
+                    'vat_rate_id'         => $vatRateId,             // NUOVO: foreign key
                     'total'               => round(
                                                 ($row['quantity'] ?? 1) * ($row['unit_price'] ?? 0) *
                                                 (1 - ($row['discount_percentage'] ?? 0) / 100),

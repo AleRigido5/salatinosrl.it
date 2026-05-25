@@ -52,20 +52,19 @@
                     </div>
                 </div>
                 
-                <div class="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto overflow-x-visible">                 
-                       
+                <div class="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                    
                     <!-- STEP 1: Selezione Proprietà e Cliente/Fornitore -->
                     @if($currentStep == 1)
-                    <div class="grid grid-cols-2 gap-6" style="min-height: 300px;">
-                        
+                    <div class="grid grid-cols-2 gap-6">
                         <!-- Proprietà (Autocomplete) -->
-                        <div x-data="{ open: false }" x-on:click.away="open = false" style="position: relative;">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Proprietà <span class="text-red-500">*</span>
-                            </label>
+                        <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Proprietà <span class="text-red-500">*</span></label>
                             <div class="relative">
                                 <i class="fas fa-building absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-                                <input type="text"
+                                <input type="text" 
+                                    id="ownership_input"
+                                    value="{{ $ownershipSearch }}"
                                     wire:model.live.debounce.300ms="ownershipSearch"
                                     x-on:focus="open = true"
                                     x-on:input="open = true"
@@ -73,8 +72,9 @@
                                     class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                                     autocomplete="off">
                                 @if($selectedOwnershipId)
-                                <button type="button"
+                                <button type="button" 
                                     wire:click="clearOwnership"
+                                    x-on:click="document.getElementById('ownership_input').value = ''; open = false"
                                     class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
                                     <i class="fas fa-times-circle text-sm"></i>
                                 </button>
@@ -82,33 +82,29 @@
                             </div>
 
                             @if($showOwnershipDropdown && $ownershipResults && $ownershipResults->count() > 0)
-                            <div x-show="open"
-                                style="position: absolute; top: 100%; left: 0; right: 0; z-index: 9999;"
-                                class="mt-1 bg-white border border-gray-200 rounded-md shadow-xl max-h-60 overflow-y-auto">
+                            <div class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                                 @foreach($ownershipResults as $item)
-                                <div
+                                <div 
                                     wire:click="selectOwnership({{ $item->id }}, '{{ addslashes($item->name) }}')"
-                                    x-on:click="open = false"
+                                    x-on:click="document.getElementById('ownership_input').value = '{{ addslashes($item->name) }}'; open = false"
                                     class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
                                     <div class="font-medium text-gray-800">{{ $item->name }}</div>
                                 </div>
                                 @endforeach
                             </div>
                             @endif
-
-                            @error('selectedOwnershipId')
-                                <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                            @enderror
+                            
+                            @error('selectedOwnershipId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
-
+                        
                         <!-- Cliente/Fornitore (Autocomplete) -->
-                        <div x-data="{ open: false }" x-on:click.away="open = false" style="position: relative;">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Cliente / Fornitore <span class="text-red-500">*</span>
-                            </label>
+                        <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Cliente / Fornitore <span class="text-red-500">*</span></label>
                             <div class="relative">
                                 <i class="fas fa-user absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-                                <input type="text"
+                                <input type="text" 
+                                    id="entity_input"
+                                    value="{{ $entitySearch }}"
                                     wire:model.live.debounce.300ms="entitySearch"
                                     x-on:focus="open = true"
                                     x-on:input="open = true"
@@ -116,8 +112,9 @@
                                     class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                                     autocomplete="off">
                                 @if($selectedEntityId)
-                                <button type="button"
+                                <button type="button" 
                                     wire:click="clearEntity"
+                                    x-on:click="document.getElementById('entity_input').value = ''; open = false"
                                     class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
                                     <i class="fas fa-times-circle text-sm"></i>
                                 </button>
@@ -125,26 +122,22 @@
                             </div>
 
                             @if($showEntityDropdown && $entityResults && $entityResults->count() > 0)
-                            <div x-show="open"
-                                style="position: absolute; top: 100%; left: 0; right: 0; z-index: 9999;"
-                                class="mt-1 bg-white border border-gray-200 rounded-md shadow-xl max-h-60 overflow-y-auto">
+                            <div class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                                 @foreach($entityResults as $item)
-                                <div
+                                <div 
                                     wire:click="selectEntity({{ $item->id }}, '{{ addslashes($item->name) }}', '{{ $item->type }}')"
-                                    x-on:click="open = false"
+                                    x-on:click="document.getElementById('entity_input').value = '{{ addslashes($item->name) }}'; open = false"
                                     class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
                                     <div class="font-medium text-gray-800">{{ $item->name }}</div>
                                     @if($item->type === 'fornitore')
                                     <div class="text-xs text-gray-500">Fornitore</div>
-                                    @endif
+                                    @endif                                
                                 </div>
                                 @endforeach
                             </div>
                             @endif
-
-                            @error('selectedEntityId')
-                                <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
-                            @enderror
+                            
+                            @error('selectedEntityId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
                     </div>
                     @endif

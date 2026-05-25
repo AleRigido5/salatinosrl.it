@@ -236,9 +236,13 @@
                                         @forelse($availableInvoices as $index => $item)
                                         <tr class="{{ $item['selected'] ? 'bg-lime-50' : '' }}">
                                             <td class="px-3 py-2 text-sm">{{ $item['invoice_number'] }}</td>
-                                            <td class="px-3 py-2 text-sm {{ \Carbon\Carbon::parse($item['due_date'])->isPast() && $item['residual_amount'] > 0 ? 'text-red-600 font-bold' : '' }}">
+                                            <td class="px-3 py-2 text-sm {{ 
+                                                !empty($item['due_date_raw']) && \Carbon\Carbon::parse($item['due_date_raw'])->isPast() && $item['residual_amount'] > 0 
+                                                    ? 'text-red-600 font-bold' 
+                                                    : '' 
+                                            }}">
                                                 {{ $item['due_date'] }}
-                                                @if(\Carbon\Carbon::parse($item['due_date'])->isPast() && $item['residual_amount'] > 0)
+                                                @if(!empty($item['due_date_raw']) && \Carbon\Carbon::parse($item['due_date_raw'])->isPast() && $item['residual_amount'] > 0)
                                                     <i class="fas fa-exclamation-triangle text-red-500 ml-1" title="Scaduto!"></i>
                                                 @endif
                                             </td>

@@ -276,28 +276,41 @@ class PaymentRegistrationModal extends Component
             return;
         }
         
+        // Ottieni tutte le fatture del fornitore
         $invoices = InvoiceReceived::where('id_entities', $this->selectedEntityId)
             ->whereIn('status', ['issued', 'partially_paid'])
-            ->with(['payments'])
+            ->with(['payments' => function($q) {
+                // Ordina per data scadenza
+                $q->orderBy('due_date', 'asc');
+            }])
             ->orderBy('data_invoice', 'asc')
             ->get();
         
         $this->availableInvoices = [];
         
         foreach ($invoices as $invoice) {
-            $totalPaid = $invoice->payments->sum('paid_amount');
-            $residual = $invoice->importo_totale - $totalPaid;
-            
-            if ($residual > 0.01) {  // Tolleranza di 1 centesimo
-                $this->availableInvoices[] = [
-                    'id' => $invoice->id,
-                    'invoice_number' => $invoice->n_invoice,
-                    'due_date' => $invoice->payments->first()?->due_date?->format('d/m/Y') ?? $invoice->data_invoice->format('d/m/Y'),
-                    'total_amount' => $invoice->importo_totale,
-                    'residual_amount' => $residual,
-                    'selected' => false,
-                    'selected_amount' => 0,
-                ];
+            // Per ogni pagamento (scadenza) della fattura
+            foreach ($invoice->payments as $payment) {
+                // Calcola il residuo per questa specifica scadenza
+                $residual = $payment->residual_amount;
+                
+                // Mostra solo se ha un residuo positivo
+                if ($residual > 0.01) {
+                    // Recupera la proprietà dalla fattura
+                    $ownershipName = $invoice->ownership->RagAbbrev ?? $invoice->ownership_name ?? '-';
+                    
+                    $this->availableInvoices[] = [
+                        'id' => $payment->id,  // ID del pagamento, non della fattura
+                        'invoice_id' => $invoice->id,
+                        'invoice_number' => $invoice->n_invoice,
+                        'due_date' => $payment->due_date ? $payment->due_date->format('d/m/Y') : '-',
+                        'total_amount' => $payment->amount,
+                        'residual_amount' => $residual,
+                        'selected' => false,
+                        'selected_amount' => 0,
+                        'ownership_name' => $ownershipName,  // Opzionale: per mostrare la proprietà
+                    ];
+                }
             }
         }
     }
@@ -375,44 +388,27 @@ class PaymentRegistrationModal extends Component
                 'updated_by' => $adminId,
             ]);
             
-            // === 2. REGISTRA I PAGAMENTI SULLE FATTURE ===
+            // === 2. REGISTRA I PAGAMENTI SULLE SCADENZE ===
             foreach ($this->availableInvoices as $invoiceData) {
                 if (!$invoiceData['selected'] || $invoiceData['selected_amount'] <= 0) {
                     continue;
                 }
                 
-                $invoiceModel = InvoiceReceived::find($invoiceData['id']);
-                if (!$invoiceModel) continue;
+                // Trova il pagamento (scadenza) specifico
+                $payment = InvoicePayment::find($invoiceData['id']);
+                if (!$payment) continue;
                 
                 $paidAmount = $invoiceData['selected_amount'];
+                $newPaidAmount = $payment->paid_amount + $paidAmount;
+                $newResidual = $payment->amount - $newPaidAmount;
                 
-                // Trova o crea il payment per questa fattura
-                $payment = $invoiceModel->payments()->first();
-                
-                if (!$payment) {
-                    // Crea un nuovo pagamento
-                    $residual = $invoiceModel->importo_totale - $paidAmount;
-                    $payment = $invoiceModel->payments()->create([
-                        'due_date' => $this->paymentDate,
-                        'amount' => $invoiceModel->importo_totale,
-                        'paid_amount' => $paidAmount,
-                        'residual_amount' => $residual,
-                        'payment_method' => $this->paymentMethod,
-                        'status' => $residual <= 0.01 ? 'paid' : 'partially_paid',
-                        'paid_at' => $residual <= 0.01 ? now() : null,
-                    ]);
-                } else {
-                    // Aggiorna il pagamento esistente
-                    $newPaidAmount = $payment->paid_amount + $paidAmount;
-                    $newResidual = $payment->amount - $newPaidAmount;
-                    
-                    $payment->update([
-                        'paid_amount' => $newPaidAmount,
-                        'residual_amount' => $newResidual,
-                        'status' => $newResidual <= 0.01 ? 'paid' : 'partially_paid',
-                        'paid_at' => $newResidual <= 0.01 ? now() : null,
-                    ]);
-                }
+                // Aggiorna il pagamento
+                $payment->update([
+                    'paid_amount' => $newPaidAmount,
+                    'residual_amount' => $newResidual,
+                    'status' => $newResidual <= 0.01 ? 'paid' : 'partially_paid',
+                    'paid_at' => $newResidual <= 0.01 ? now() : null,
+                ]);
                 
                 // === 3. COLLEGA LA SCRITTURA CONTABILE AL PAGAMENTO ===
                 InstallmentTransaction::create([
@@ -420,6 +416,17 @@ class PaymentRegistrationModal extends Component
                     'id_invoice_payment' => $payment->id,
                     'allocated_amount' => $paidAmount,
                 ]);
+                
+                // Aggiorna lo stato della fattura se necessario
+                $invoice = $payment->payable;
+                if ($invoice) {
+                    $totalResidual = $invoice->payments()->sum('residual_amount');
+                    if ($totalResidual <= 0.01) {
+                        $invoice->update(['status' => 'paid']);
+                    } elseif ($totalResidual < $invoice->importo_totale) {
+                        $invoice->update(['status' => 'partially_paid']);
+                    }
+                }
             }
             
             DB::commit();

@@ -249,32 +249,41 @@ class RegisterPayment extends Component
             return;
         }
         
+        // Recupera tutte le fatture del fornitore con i relativi pagamenti (scadenze)
         $invoices = InvoiceReceived::where('id_entities', $this->selectedEntityId)
-            ->where('status', '!=', 'paid')
-            ->with(['payments'])
+            ->whereIn('status', ['issued', 'partially_paid'])
+            ->with(['payments' => function($q) {
+                // Ordina i pagamenti per data scadenza
+                $q->orderBy('due_date', 'asc');
+            }])
             ->orderBy('data_invoice', 'asc')
             ->get();
         
         $this->availableInvoices = [];
         
         foreach ($invoices as $invoice) {
-            $totalPaid = $invoice->payments->sum('paid_amount');
-            $residual = $invoice->importo_totale - $totalPaid;
-            
-            if ($residual > 0) {
-                $this->availableInvoices[] = [
-                    'id' => $invoice->id,
-                    'invoice_number' => $invoice->n_invoice,
-                    'due_date' => $invoice->payments->first()?->due_date?->format('d/m/Y') ?? $invoice->data_invoice->format('d/m/Y'),
-                    'total_amount' => $invoice->importo_totale,
-                    'residual_amount' => $residual,
-                    'selected' => false,
-                    'selected_amount' => 0,
-                ];
+            // Per ogni pagamento (scadenza) della fattura
+            foreach ($invoice->payments as $payment) {
+                // Calcola il residuo per questa specifica scadenza
+                $residual = $payment->residual_amount;
+                
+                // Mostra solo se ha un residuo positivo
+                if ($residual > 0.01) {
+                    $this->availableInvoices[] = [
+                        'id' => $payment->id,  // ID del pagamento, non della fattura
+                        'invoice_id' => $invoice->id,
+                        'invoice_number' => $invoice->n_invoice,
+                        'due_date' => $payment->due_date ? $payment->due_date->format('d/m/Y') : $invoice->data_invoice->format('d/m/Y'),
+                        'total_amount' => $payment->amount,
+                        'residual_amount' => $residual,
+                        'selected' => false,
+                        'selected_amount' => 0,
+                    ];
+                }
             }
         }
     }
-    
+        
     public function toggleInvoice($index): void
     {
         if (!isset($this->availableInvoices[$index])) return;
@@ -303,7 +312,7 @@ class RegisterPayment extends Component
             $amount = 0;
         }
         
-        $this->availableInvoices[$index]['selected_amount'] = $amount;
+        $this->availableInvoices[$index]['selected_amount'] = round($amount, 2);
         $this->availableInvoices[$index]['selected'] = $amount > 0;
         $this->calculateTotal();
     }
@@ -332,7 +341,9 @@ class RegisterPayment extends Component
         try {
             DB::beginTransaction();
             
-            // === 1. REGISTRAZIONE IN PRIMA NOTA (accounting_entries) ===
+            $adminId = Auth::guard('admin')->id();
+            
+            // === 1. REGISTRAZIONE IN PRIMA NOTA ===
             $accountingEntry = AccountingEntry::create([
                 'entry_date' => $this->paymentDate,
                 'description' => 'Pagamento fatture ' . $this->selectedEntityName . ($this->notes ? ' - ' . $this->notes : ''),
@@ -341,41 +352,32 @@ class RegisterPayment extends Component
                 'bank_account_id' => $this->bankAccountId ?: null,
                 'invoice_id' => null,
                 'invoice_payment_id' => null,
-                'amount' => $this->totalAmount,
+                'amount' => $this->totalSelectedAmount,
+                'created_by' => $adminId,
+                'updated_by' => $adminId,
             ]);
             
-            // === 2. REGISTRA I PAGAMENTI SULLE FATTURE ===
+            // === 2. REGISTRA I PAGAMENTI SULLE SINGOLE SCADENZE ===
             foreach ($this->availableInvoices as $invoiceData) {
                 if (!$invoiceData['selected'] || $invoiceData['selected_amount'] <= 0) {
                     continue;
                 }
                 
-                $invoiceModel = InvoiceReceived::find($invoiceData['id']);
+                // Trova il pagamento specifico (scadenza)
+                $payment = InvoicePayment::find($invoiceData['id']);
+                if (!$payment) continue;
+                
                 $paidAmount = $invoiceData['selected_amount'];
+                $newPaidAmount = $payment->paid_amount + $paidAmount;
+                $newResidual = $payment->amount - $newPaidAmount;
                 
-                $payment = $invoiceModel->payments()->first();
-                
-                if (!$payment) {
-                    $payment = $invoiceModel->payments()->create([
-                        'due_date' => $this->paymentDate,
-                        'amount' => $invoiceModel->importo_totale,
-                        'paid_amount' => $paidAmount,
-                        'residual_amount' => $invoiceModel->importo_totale - $paidAmount,
-                        'payment_method' => $this->paymentMethod,
-                        'status' => ($invoiceModel->importo_totale - $paidAmount) <= 0 ? 'paid' : 'partially_paid',
-                        'paid_at' => ($invoiceModel->importo_totale - $paidAmount) <= 0 ? now() : null,
-                    ]);
-                } else {
-                    $newPaidAmount = $payment->paid_amount + $paidAmount;
-                    $newResidual = $payment->amount - $newPaidAmount;
-                    
-                    $payment->update([
-                        'paid_amount' => $newPaidAmount,
-                        'residual_amount' => $newResidual,
-                        'status' => $newResidual <= 0 ? 'paid' : 'partially_paid',
-                        'paid_at' => $newResidual <= 0 ? now() : null,
-                    ]);
-                }
+                // Aggiorna il pagamento (scadenza)
+                $payment->update([
+                    'paid_amount' => $newPaidAmount,
+                    'residual_amount' => $newResidual,
+                    'status' => $newResidual <= 0.01 ? 'paid' : 'partially_paid',
+                    'paid_at' => $newResidual <= 0.01 ? now() : null,
+                ]);
                 
                 // === 3. COLLEGA LA SCRITTURA CONTABILE AL PAGAMENTO ===
                 InstallmentTransaction::create([
@@ -384,21 +386,22 @@ class RegisterPayment extends Component
                     'allocated_amount' => $paidAmount,
                 ]);
                 
-                // Aggiorna lo stato della fattura
-                // $totalPaid = $invoiceModel->payments()->sum('paid_amount');
-                // if ($totalPaid >= $invoiceModel->importo_totale) {
-                //     $invoiceModel->update(['status' => 'paid']);
-                // } elseif ($totalPaid > 0) {
-                //     $invoiceModel->update(['status' => 'partially_paid']);
-                // }
+                // Aggiorna lo stato della fattura se necessario
+                $invoice = $payment->payable;
+                if ($invoice) {
+                    $totalResidual = $invoice->payments()->sum('residual_amount');
+                    if ($totalResidual <= 0.01) {
+                        $invoice->update(['status' => 'paid']);
+                    } elseif ($totalResidual < $invoice->importo_totale) {
+                        $invoice->update(['status' => 'partially_paid']);
+                    }
+                }
             }
             
             DB::commit();
             
             $this->dispatch('showSuccess', message: 'Pagamento registrato con successo!');
-            $this->dispatch('paymentRegistered');  // Evento per aggiornare la tabella
-            $this->dispatch('refreshPayments');     // Evento alternativo
-            
+            $this->dispatch('refreshPayments');
             $this->closeModal();
             
         } catch (\Exception $e) {

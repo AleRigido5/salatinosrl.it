@@ -220,45 +220,50 @@
                         </div> --}}
                         
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Fatture da pagare</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Scadenze da pagare</label>
                             <div class="border rounded-lg overflow-hidden">
                                 <table class="min-w-full divide-y divide-gray-200">
                                     <thead class="bg-gray-50">
                                         <tr>
                                             <th class="px-3 py-2 text-left text-xs font-medium">N. Fattura</th>
                                             <th class="px-3 py-2 text-left text-xs font-medium">Data Scadenza</th>
-                                            <th class="px-3 py-2 text-right text-xs font-medium">Totale</th>
+                                            <th class="px-3 py-2 text-right text-xs font-medium">Totale Scadenza</th>
                                             <th class="px-3 py-2 text-right text-xs font-medium">Residuo</th>
                                             <th class="px-3 py-2 text-center text-xs font-medium">Importo da pagare</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-200">
-                                        @forelse($availableInvoices as $index => $invoice)
-                                        <tr class="{{ $invoice['selected'] ? 'bg-lime-50' : '' }}">
-                                            <td class="px-3 py-2 text-sm">{{ $invoice['invoice_number'] }}</td>
-                                            <td class="px-3 py-2 text-sm">{{ $invoice['due_date'] }}</td>
-                                            <td class="px-3 py-2 text-sm text-right">{{ number_format($invoice['total_amount'], 2, ',', '.') }} €</td>
-                                            <td class="px-3 py-2 text-sm text-right font-medium">{{ number_format($invoice['residual_amount'], 2, ',', '.') }} €</td>
+                                        @forelse($availableInvoices as $index => $item)
+                                        <tr class="{{ $item['selected'] ? 'bg-lime-50' : '' }}">
+                                            <td class="px-3 py-2 text-sm">{{ $item['invoice_number'] }}</td>
+                                            <td class="px-3 py-2 text-sm {{ \Carbon\Carbon::parse($item['due_date'])->isPast() && $item['residual_amount'] > 0 ? 'text-red-600 font-bold' : '' }}">
+                                                {{ $item['due_date'] }}
+                                                @if(\Carbon\Carbon::parse($item['due_date'])->isPast() && $item['residual_amount'] > 0)
+                                                    <i class="fas fa-exclamation-triangle text-red-500 ml-1" title="Scaduto!"></i>
+                                                @endif
+                                            </td>
+                                            <td class="px-3 py-2 text-sm text-right">{{ number_format($item['total_amount'], 2, ',', '.') }} €</td>
+                                            <td class="px-3 py-2 text-sm text-right font-medium">{{ number_format($item['residual_amount'], 2, ',', '.') }} €</td>
                                             <td class="px-3 py-2 text-center">
                                                 <div class="flex items-center justify-center gap-2">
                                                     <input type="checkbox" 
                                                         wire:click="toggleInvoice({{ $index }})"
-                                                        {{ $invoice['selected'] ? 'checked' : '' }}
+                                                        {{ $item['selected'] ? 'checked' : '' }}
                                                         class="rounded border-gray-300">
                                                     <input type="text" 
                                                         wire:change="updateSelectedAmount({{ $index }}, $event.target.value)"
-                                                        value="{{ $invoice['selected_amount'] > 0 ? number_format($invoice['selected_amount'], 2, ',', '') : '' }}"
+                                                        value="{{ $item['selected_amount'] > 0 ? number_format($item['selected_amount'], 2, ',', '') : '' }}"
                                                         class="w-28 px-2 py-1 text-right text-sm border rounded-md"
                                                         placeholder="0,00"
-                                                        {{ !$invoice['selected'] ? 'disabled' : '' }}>
+                                                        {{ !$item['selected'] ? 'disabled' : '' }}>
                                                 </div>
                                             </td>
                                         </tr>
                                         @empty
                                         <tr>
                                             <td colspan="5" class="px-3 py-8 text-center text-gray-500">
-                                                Nessuna fattura aperta per questa controparte
-                                            <td>
+                                                Nessuna scadenza aperta per questa controparte
+                                            </td>
                                         </tr>
                                         @endforelse
                                     </tbody>

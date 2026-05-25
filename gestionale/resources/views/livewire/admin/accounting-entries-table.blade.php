@@ -336,7 +336,9 @@
                                 <select wire:model="bank_account_id" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                                     <option value="">Seleziona conto...</option>
                                     @foreach($bankAccounts as $account)
-                                        <option value="{{ $account->id }}">{{ $account->name }} - {{ $account->n_conto }}</option>
+                                        <option value="{{ $account->id }}">
+                                            {{ $account->name }}
+                                        </option>
                                     @endforeach
                                 </select>
                             </div>
@@ -355,12 +357,28 @@
                         <div class="grid grid-cols-12 gap-4">
                             <div class="col-span-8">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Importo (€) <span class="text-red-500">*</span></label>
-                                <input type="number" step="0.01" wire:model="amount" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" placeholder="0.00">
+                                <input type="number" 
+                                    step="0.01" 
+                                    wire:model.live="amount" 
+                                    wire:blur="formatAmount"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" 
+                                    placeholder="0.00">
                                 @error('amount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
                             <div class="col-span-4 bg-gray-100 p-3 rounded-md text-right">
                                 <p class="text-sm text-gray-600">Totale</p>
-                                <p class="text-xl font-bold text-lime-600">{{ number_format($amount ?: 0, 2, ',', '.') }} €</p>
+                                <p class="text-xl font-bold {{ $isAmountChanged ? 'text-orange-600' : 'text-lime-600' }}">
+                                    {{ number_format((float)$amount, 2, ',', '.') }} €
+                                </p>
+                                @if($isEditing && $isAmountChanged)
+                                    <p class="text-xs {{ $amountDifference > 0 ? 'text-green-600' : 'text-red-600' }} mt-1">
+                                        @if($amountDifference > 0)
+                                            ↑ +{{ number_format($amountDifference, 2, ',', '.') }} €
+                                        @else
+                                            ↓ {{ number_format($amountDifference, 2, ',', '.') }} €
+                                        @endif
+                                    </p>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -442,11 +460,6 @@
                     <button type="button" wire:click="closeViewModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md">
                         Chiudi
                     </button>
-                    @if($canEdit)
-                    <button type="button" wire:click="openEditModal({{ $viewingEntry->id }})" class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md">
-                        <i class="fas fa-edit mr-2"></i> Modifica
-                    </button>
-                    @endif
                 </div>
             </div>
         </div>

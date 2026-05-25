@@ -58,6 +58,7 @@ class InvoicePaymentsTable extends Component
         'dateRangeUpdated' => 'updateDateRange',
         'refreshPayments' => 'refreshTable',  
         'paymentRegistered' => 'refreshTable', 
+        'refreshInvoices' => 'refreshTable',
     ];
 
     public function mount(): void
@@ -215,7 +216,8 @@ class InvoicePaymentsTable extends Component
             ->with(['payable' => function($q) {
                 $q->with(['ownership', 'entity']);
             }])
-            ->whereNotIn('status', ['paid'])
+            // Mostra sia quelle in attesa che quelle parzialmente pagate (esclude solo quelle completamente pagate)
+            ->whereIn('status', ['issued', 'partially_paid'])
             ->when($this->search, function($q) {
                 $q->whereHas('payable', function($sq) {
                     $sq->where('n_invoice', 'like', '%' . $this->search . '%');

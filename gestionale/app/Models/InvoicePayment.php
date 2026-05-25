@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;  
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,15 @@ class InvoicePayment extends Model
     public function payable(): MorphTo
     {
         return $this->morphTo();
+    }
+    
+    /**
+     * Relazione con le transazioni di pagamento (InstallmentTransaction)
+     * Questa relazione collega i pagamenti alle scritture contabili
+     */
+    public function installmentTransactions(): HasMany
+    {
+        return $this->hasMany(InstallmentTransaction::class, 'id_invoice_payment', 'id');
     }
     
     /**

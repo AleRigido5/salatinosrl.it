@@ -674,20 +674,24 @@ class InvoiceReceivedEdit extends Component
     // ==================== AUTOCOMPLETE CENTRO DI COSTO ====================
     public function updatedCostCenterSearch($value, $index)
     {
+        // Reset se l'utente ha cancellato il testo
         if (isset($this->selectedCostCenterId[$index]) && $this->selectedCostCenterId[$index] && 
-            $value === $this->selectedCostCenterName[$index]) {
-            $this->showCostCenterDropdown[$index] = false;
-            return;
-        }
-        
-        if (isset($this->selectedCostCenterId[$index]) && $this->selectedCostCenterId[$index]) {
+            $value !== $this->selectedCostCenterName[$index]) {
             $this->rows[$index]['id_cost_center'] = null;
             $this->rows[$index]['cost_center_name'] = '';
             $this->selectedCostCenterId[$index] = '';
             $this->selectedCostCenterName[$index] = '';
         }
         
-        if (strlen($value) < 2) {
+        // Se il valore corrisponde esattamente al nome selezionato, non cercare
+        if (isset($this->selectedCostCenterId[$index]) && $this->selectedCostCenterId[$index] && 
+            $value === $this->selectedCostCenterName[$index]) {
+            $this->showCostCenterDropdown[$index] = false;
+            return;
+        }
+        
+        // Cerca solo se almeno 2 caratteri
+        if (strlen(trim($value)) < 2) {
             $this->costCenterResults[$index] = [];
             $this->showCostCenterDropdown[$index] = false;
             return;
@@ -700,6 +704,9 @@ class InvoiceReceivedEdit extends Component
         
         $this->costCenterResults[$index] = $results->toArray();
         $this->showCostCenterDropdown[$index] = count($this->costCenterResults[$index]) > 0;
+        
+        // Forza l'aggiornamento della vista
+        $this->dispatch('refresh-autocomplete');
     }
     
     public function selectCostCenter($id, $name, $index)
@@ -725,20 +732,24 @@ class InvoiceReceivedEdit extends Component
     // ==================== AUTOCOMPLETE MEZZI ====================
     public function updatedVehicleSearch($value, $index)
     {
+        // Reset se l'utente ha cancellato il testo
         if (isset($this->selectedVehicleId[$index]) && $this->selectedVehicleId[$index] && 
-            $value === $this->selectedVehicleName[$index]) {
-            $this->showVehicleDropdown[$index] = false;
-            return;
-        }
-        
-        if (isset($this->selectedVehicleId[$index]) && $this->selectedVehicleId[$index]) {
+            $value !== $this->selectedVehicleName[$index]) {
             $this->rows[$index]['id_vehicle'] = null;
             $this->rows[$index]['vehicle_name'] = '';
             $this->selectedVehicleId[$index] = '';
             $this->selectedVehicleName[$index] = '';
         }
         
-        if (strlen($value) < 2) {
+        // Se il valore corrisponde esattamente al nome selezionato, non cercare
+        if (isset($this->selectedVehicleId[$index]) && $this->selectedVehicleId[$index] && 
+            $value === $this->selectedVehicleName[$index]) {
+            $this->showVehicleDropdown[$index] = false;
+            return;
+        }
+        
+        // Cerca solo se almeno 2 caratteri
+        if (strlen(trim($value)) < 2) {
             $this->vehicleResults[$index] = [];
             $this->showVehicleDropdown[$index] = false;
             return;
@@ -747,14 +758,17 @@ class InvoiceReceivedEdit extends Component
         $results = Vehicles::where('valid', 1)
             ->where(function($q) use ($value) {
                 $q->where('targa', 'like', '%' . $value . '%')
-                  ->orWhere('modello', 'like', '%' . $value . '%')
-                  ->orWhere('marca', 'like', '%' . $value . '%');
+                ->orWhere('modello', 'like', '%' . $value . '%')
+                ->orWhere('marca', 'like', '%' . $value . '%');
             })
             ->limit(10)
             ->get(['id', DB::raw("CONCAT(marca, ' ', modello, ' - ', targa) as name"), 'targa as plate']);
         
         $this->vehicleResults[$index] = $results->toArray();
         $this->showVehicleDropdown[$index] = count($this->vehicleResults[$index]) > 0;
+        
+        // Forza l'aggiornamento della vista
+        $this->dispatch('refresh-autocomplete');
     }
     
     public function selectVehicle($id, $name, $index)

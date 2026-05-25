@@ -296,7 +296,7 @@
                     </div>
                     
                     <!-- CRONOLOGIA PAGAMENTI EFFETTUATI -->
-                    {{-- @php
+                    @php
                         // Assicurati che $paymentHistory sia sempre una Collection
                         if (!($paymentHistory instanceof \Illuminate\Support\Collection)) {
                             $paymentHistory = collect($paymentHistory);
@@ -354,7 +354,7 @@
                             <p class="text-xs text-gray-500">Data pagamento: {{ $selectedPayment->paid_at->format('d/m/Y') }}</p>
                             @endif
                         </div>
-                    @endif --}}
+                    @endif
                     
                     <!-- RIFERIMENTI OPERAZIONE (creazione/modifica) -->
                     {{-- <div class="bg-gray-50 p-3 rounded-lg mt-2">

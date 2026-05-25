@@ -372,105 +372,132 @@
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right bg-gray-100 font-semibold">
                             </td>
 
-                            <!-- Centro Di Costo — SEMPRE EDITABILE -->
+                            <!-- Campo Autocomplete Centro Di Costo con x-teleport -->
                             <td class="col-cost-center px-2 py-1">
-                                <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
-                                    <div class="relative">
+                                <div class="w-full"
+                                    x-data="{
+                                        open: false,
+                                        triggerRect: {},
+                                        updateRect() {
+                                            this.triggerRect = this.$refs.ccTrigger.getBoundingClientRect();
+                                        }
+                                    }"
+                                    x-on:click.away="open = false">
+                                    <div class="relative" x-ref="ccTrigger">
                                         <i class="fas fa-building absolute left-2 top-2 text-gray-400 text-xs"></i>
                                         <input type="text"
                                             id="cost_center_input_{{ $index }}"
-                                            value="{{ $costCenterSearch[$index] ?? '' }}"
                                             wire:model.live.debounce.300ms="costCenterSearch.{{ $index }}"
-                                            x-on:focus="open = true"
-                                            x-on:input="open = true"
+                                            value="{{ is_array($costCenterSearch) ? ($costCenterSearch[$index] ?? '') : $costCenterSearch }}"
+                                            x-on:focus="updateRect(); open = true"
+                                            x-on:input="updateRect(); open = true; @this.set('costCenterSearch.{{ $index }}', $event.target.value)"
                                             placeholder="Cerca centro..."
                                             class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                                             autocomplete="off">
-                                        @if(!empty($rows[$index]['id_cost_center']))
-                                            <button type="button"
-                                                wire:click="clearCostCenter({{ $index }})"
-                                                x-on:click="document.getElementById('cost_center_input_{{ $index }}').value = ''"
-                                                class="absolute right-1 text-gray-400 hover:text-red-500">
-                                                <i class="fas fa-times text-xs"></i>
-                                            </button>
-                                        @endif
                                     </div>
 
-                                    <div x-show="open && @entangle('showCostCenterDropdown.' . $index)"
-                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                                        @if(isset($costCenterResults[$index]) && count($costCenterResults[$index]) > 0)
-                                            @foreach($costCenterResults[$index] as $cc)
-                                                <div
-                                                    x-on:click="
-                                                        open = false;
-                                                        document.getElementById('cost_center_input_{{ $index }}').value = '{{ addslashes($cc['name']) }}';
-                                                        @this.call('selectCostCenter', '{{ $cc['id'] }}', '{{ addslashes($cc['name']) }}', {{ $index }});
-                                                    "
-                                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                                    <div class="font-medium text-gray-800">{{ $cc['name'] }}</div>
+                                    <!-- Dropdown teleportato nel body, posizionato via JS -->
+                                    <template x-teleport="body">
+                                        <div
+                                            x-show="open && @entangle('showCostCenterDropdown.' . $index)"
+                                            x-on:click.away="open = false"
+                                            :style="`position:fixed; z-index:9999; width:250px; top:${triggerRect.bottom + window.scrollY}px; left:${triggerRect.left + window.scrollX}px;`"
+                                            class="bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                            @if(isset($costCenterResults[$index]) && count($costCenterResults[$index]) > 0)
+                                                @foreach($costCenterResults[$index] as $cc)
+                                                    <div
+                                                        x-on:click="
+                                                            open = false;
+                                                            document.getElementById('cost_center_input_{{ $index }}').value = '{{ addslashes($cc['name']) }}';
+                                                            @this.set('costCenterSearch.{{ $index }}', '{{ addslashes($cc['name']) }}');
+                                                            @this.set('rows.{{ $index }}.id_cost_center', '{{ $cc['id'] }}');
+                                                            @this.set('rows.{{ $index }}.cost_center_name', '{{ addslashes($cc['name']) }}');
+                                                            @this.set('selectedCostCenterId.{{ $index }}', '{{ $cc['id'] }}');
+                                                            @this.set('selectedCostCenterName.{{ $index }}', '{{ addslashes($cc['name']) }}');
+                                                            @this.set('showCostCenterDropdown.{{ $index }}', false);
+                                                            @this.call('calculateTotals');
+                                                        "
+                                                        class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                                        <div class="font-medium text-gray-800">{{ $cc['name'] }}</div>
+                                                    </div>
+                                                @endforeach
+                                            @else
+                                                <div class="px-3 py-2 text-sm text-gray-500 text-center">
+                                                    @if(strlen($costCenterSearch[$index] ?? '') >= 2)
+                                                        Nessun centro di costo trovato
+                                                    @else
+                                                        Digita almeno 2 caratteri
+                                                    @endif
                                                 </div>
-                                            @endforeach
-                                        @else
-                                            <div class="px-3 py-2 text-sm text-gray-500 text-center">
-                                                @if(strlen($costCenterSearch[$index] ?? '') >= 2)
-                                                    Nessun centro trovato
-                                                @else
-                                                    Digita almeno 2 caratteri
-                                                @endif
-                                            </div>
-                                        @endif
-                                    </div>
+                                            @endif
+                                        </div>
+                                    </template>
                                 </div>
                             </td>
 
-                            <!-- Mezzo — SEMPRE EDITABILE -->
+                            <!-- Campo Autocomplete Mezzi con x-teleport -->
                             <td class="col-vehicle px-2 py-1">
-                                <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
-                                    <div class="relative">
+                                <div class="w-full"
+                                    x-data="{
+                                        open: false,
+                                        triggerRect: {},
+                                        updateRect() {
+                                            this.triggerRect = this.$refs.vhTrigger.getBoundingClientRect();
+                                        }
+                                    }"
+                                    x-on:click.away="open = false">
+                                    <div class="relative" x-ref="vhTrigger">
                                         <i class="fas fa-truck absolute left-2 top-2 text-gray-400 text-xs"></i>
                                         <input type="text"
                                             id="vehicle_input_{{ $index }}"
-                                            value="{{ $vehicleSearch[$index] ?? '' }}"
                                             wire:model.live.debounce.300ms="vehicleSearch.{{ $index }}"
-                                            x-on:focus="open = true"
-                                            x-on:input="open = true"
+                                            value="{{ is_array($vehicleSearch) ? ($vehicleSearch[$index] ?? '') : $vehicleSearch }}"
+                                            x-on:focus="updateRect(); open = true"
+                                            x-on:input="updateRect(); open = true; @this.set('vehicleSearch.{{ $index }}', $event.target.value)"
                                             placeholder="Cerca mezzo..."
                                             class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                                             autocomplete="off">
-                                        @if(!empty($rows[$index]['id_vehicle']))
-                                            <button type="button"
-                                                wire:click="clearVehicle({{ $index }})"
-                                                x-on:click="document.getElementById('vehicle_input_{{ $index }}').value = ''"
-                                                class="absolute right-1 text-gray-400 hover:text-red-500">
-                                                <i class="fas fa-times text-xs"></i>
-                                            </button>
-                                        @endif
                                     </div>
 
-                                    <div x-show="open && @entangle('showVehicleDropdown.' . $index)"
-                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                                        @if(isset($vehicleResults[$index]) && count($vehicleResults[$index]) > 0)
-                                            @foreach($vehicleResults[$index] as $vehicle)
-                                                <div
-                                                    x-on:click="
-                                                        open = false;
-                                                        document.getElementById('vehicle_input_{{ $index }}').value = '{{ addslashes($vehicle['name']) }}';
-                                                        @this.call('selectVehicle', '{{ $vehicle['id'] }}', '{{ addslashes($vehicle['name']) }}', {{ $index }});
-                                                    "
-                                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                                    <div class="font-medium text-gray-800">{{ $vehicle['name'] }}</div>
+                                    <!-- Dropdown teleportato nel body -->
+                                    <template x-teleport="body">
+                                        <div
+                                            x-show="open && @entangle('showVehicleDropdown.' . $index)"
+                                            x-on:click.away="open = false"
+                                            :style="`position:fixed; z-index:9999; width:250px; top:${triggerRect.bottom + window.scrollY}px; left:${triggerRect.left + window.scrollX}px;`"
+                                            class="bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                            @if(isset($vehicleResults[$index]) && count($vehicleResults[$index]) > 0)
+                                                @foreach($vehicleResults[$index] as $vehicle)
+                                                    <div
+                                                        x-on:click="
+                                                            open = false;
+                                                            document.getElementById('vehicle_input_{{ $index }}').value = '{{ addslashes($vehicle['name']) }}';
+                                                            @this.set('vehicleSearch.{{ $index }}', '{{ addslashes($vehicle['name']) }}');
+                                                            @this.set('rows.{{ $index }}.id_vehicle', '{{ $vehicle['id'] }}');
+                                                            @this.set('rows.{{ $index }}.vehicle_name', '{{ addslashes($vehicle['name']) }}');
+                                                            @this.set('selectedVehicleId.{{ $index }}', '{{ $vehicle['id'] }}');
+                                                            @this.set('selectedVehicleName.{{ $index }}', '{{ addslashes($vehicle['name']) }}');
+                                                            @this.set('showVehicleDropdown.{{ $index }}', false);
+                                                            @this.call('calculateTotals');
+                                                        "
+                                                        class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                                        <div class="font-medium text-gray-800">{{ $vehicle['name'] }}</div>
+                                                        @if($vehicle['plate'] ?? false)
+                                                            <div class="text-xs text-gray-500">Targa: {{ $vehicle['plate'] }}</div>
+                                                        @endif
+                                                    </div>
+                                                @endforeach
+                                            @else
+                                                <div class="px-3 py-2 text-sm text-gray-500 text-center">
+                                                    @if(strlen($vehicleSearch[$index] ?? '') >= 2)
+                                                        Nessun mezzo trovato
+                                                    @else
+                                                        Digita almeno 2 caratteri
+                                                    @endif
                                                 </div>
-                                            @endforeach
-                                        @else
-                                            <div class="px-3 py-2 text-sm text-gray-500 text-center">
-                                                @if(strlen($vehicleSearch[$index] ?? '') >= 2)
-                                                    Nessun mezzo trovato
-                                                @else
-                                                    Digita almeno 2 caratteri
-                                                @endif
-                                            </div>
-                                        @endif
-                                    </div>
+                                            @endif
+                                        </div>
+                                    </template>
                                 </div>
                             </td>
 

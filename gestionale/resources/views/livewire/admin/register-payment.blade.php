@@ -186,7 +186,26 @@
                                 <select wire:model="bankAccountId" class="w-full px-3 py-2 border border-gray-300 rounded-md">
                                     <option value="">Seleziona conto...</option>
                                     @foreach($bankAccounts as $account)
-                                        <option value="{{ $account->id }}">{{ $account->name }} - {{ $account->n_conto }}</option>
+                                        @php
+                                            // Mappa degli ID proprietà ai nomi (cache in memory per evitare query multiple)
+                                            static $ownershipNames = [];
+                                            $ownershipId = $account['id_ownership'] ?? null;
+                                            
+                                            if ($ownershipId && !isset($ownershipNames[$ownershipId])) {
+                                                $ownership = \App\Models\Ownership::find($ownershipId);
+                                                $ownershipNames[$ownershipId] = $ownership->RagAbbrev ?? $ownership->Rag_Soc_intest ?? 'N/A';
+                                            }
+                                            
+                                            $ownershipName = $ownershipNames[$ownershipId] ?? 'N/A';
+                                            $displayName = $ownershipName . ' - ' . ($account['name'] ?? '');
+                                            
+                                            if (!empty($account['n_conto'])) {
+                                                $displayName .= ' - ' . $account['n_conto'];
+                                            }
+                                        @endphp
+                                        <option value="{{ $account['id'] }}">
+                                            {{ $displayName }}
+                                        </option>
                                     @endforeach
                                 </select>
                             </div>

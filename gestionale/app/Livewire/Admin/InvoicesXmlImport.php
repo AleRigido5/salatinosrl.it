@@ -1486,7 +1486,8 @@ class InvoicesXmlImport extends Component
 
             $xmlStoragePath = $this->saveXmlFile();
 
-            $invoice = InvoiceReceived::create([
+            // Prepara i dati per la creazione della fattura
+            $invoiceData = [
                 'id_ownership' => $this->id_ownership,
                 'id_entities' => $this->id_entities,
                 'type_invoice' => $this->type_invoice ?: 'TD01',
@@ -1504,11 +1505,9 @@ class InvoicesXmlImport extends Component
                 'imported_at' => now(),
                 'created_by' => $adminId,
                 'updated_by' => $adminId,
-            ]);
+            ];
 
-            Log::info('Fattura creata con ID: ' . $invoice->id);
-
-            // Salva lo slug e la cartella degli allegati nel database
+            // Aggiungi i campi per gli allegati se presenti
             if (!empty($this->extracted_attachments)) {
                 $fornitoreSlug = $this->slugify($this->fornitore_denominazione);
                 $pivaFornitore = preg_replace('/[^A-Za-z0-9]/', '', $this->fornitore_partita_iva);
@@ -1519,27 +1518,41 @@ class InvoicesXmlImport extends Component
                     $finalFolderName = $fornitoreSlug;
                 }
                 
-                // Salva anche l'URL del primo allegato (o tutti come JSON)
+                // Salva gli URL degli allegati come JSON
                 $attachmentUrls = array_column($this->extracted_attachments, 'url');
                 $attachmentJson = json_encode($attachmentUrls);
+                
+                $invoiceData['fornitore_slug'] = $finalFolderName;
+                $invoiceData['attachments_folder'] = self::STORAGE_DRIVER === 's3' ? 'invoice-received/' . $finalFolderName : 'allegati_fatture/' . $finalFolderName;
+                $invoiceData['attachment'] = $attachmentJson;
+            }
+
+            $invoice = InvoiceReceived::create($invoiceData);
+
+            Log::info('Fattura creata con ID: ' . $invoice->id);
+
+            // Se ci sono allegati ma non è stato possibile salvare i campi, aggiorna dopo
+            if (!empty($this->extracted_attachments) && (empty($invoice->fornitore_slug) || empty($invoice->attachment))) {
+                $fornitoreSlug = $this->slugify($this->fornitore_denominazione);
+                $pivaFornitore = preg_replace('/[^A-Za-z0-9]/', '', $this->fornitore_partita_iva);
+                $finalFolderName = !empty($pivaFornitore) ? $fornitoreSlug . '_' . $pivaFornitore : $fornitoreSlug;
+                $attachmentUrls = array_column($this->extracted_attachments, 'url');
                 
                 $invoice->update([
                     'fornitore_slug' => $finalFolderName,
                     'attachments_folder' => self::STORAGE_DRIVER === 's3' ? 'invoice-received/' . $finalFolderName : 'allegati_fatture/' . $finalFolderName,
-                    'attachment' => $attachmentJson, // Salva gli URL degli allegati
+                    'attachment' => json_encode($attachmentUrls),
                 ]);
             }
 
+            // Salva le righe della fattura
             foreach ($this->rows as $index => $row) {
                 Log::info('Salvataggio riga ' . $index, ['description' => $row['description']]);
 
-                $aliquotaIvaPercentuale = $row['aliquota_iva'] ?? 0;  // Valore percentuale es. 10, 22, 0
+                $aliquotaIvaPercentuale = $row['aliquota_iva'] ?? 0;
                 $natura = $row['natura'] ?? null;
                 
-                // Cerca l'ID dell'aliquota IVA
                 $vatRateId = $this->findVatRateId($aliquotaIvaPercentuale, $natura);
-                
-                // Calcola il rate decimale per il campo vat_rate (legacy)
                 $vatRateDecimal = $aliquotaIvaPercentuale / 100;
             
                 InvoiceRow::create([
@@ -1551,8 +1564,8 @@ class InvoicesXmlImport extends Component
                     'quantity'            => $row['quantity'] ?? 1,
                     'unit_price'          => $row['unit_price'] ?? 0,
                     'discount_percentage' => $row['discount_percentage'] ?? 0,
-                    'vat_rate'            => $vatRateDecimal,        // Legacy: decimale
-                    'vat_rate_id'         => $vatRateId,             // NUOVO: foreign key
+                    'vat_rate'            => $vatRateDecimal,
+                    'vat_rate_id'         => $vatRateId,
                     'total'               => round(
                                                 ($row['quantity'] ?? 1) * ($row['unit_price'] ?? 0) *
                                                 (1 - ($row['discount_percentage'] ?? 0) / 100),
@@ -1563,6 +1576,7 @@ class InvoicesXmlImport extends Component
             
             $defaultStatus = config('gestionale.invoice_status.issued.code', 'issued');
 
+            // Salva i pagamenti
             foreach ($this->payments as $index => $payment) {
                 $dueDate = !empty($payment['due_date']) 
                     ? $payment['due_date'] 
@@ -1584,6 +1598,7 @@ class InvoicesXmlImport extends Component
                 ]);
             }
             
+            // Salva i riepiloghi IVA
             foreach ($this->vatSummaries as $summary) {
                 $invoice->vatSummaries()->create([
                     'tax_rate' => $summary['tax_rate'] ?? 0,
@@ -1597,15 +1612,13 @@ class InvoicesXmlImport extends Component
 
             DB::commit();
 
-            if (!empty($this->extracted_attachments)) {
-                Log::info('Allegati collegati alla fattura', [
-                    'invoice_id' => $invoice->id,
-                    'n_fattura' => $this->n_invoice,
-                    'allegati' => array_column($this->extracted_attachments, 'original_name')
-                ]);
+            $attachmentsCount = count($this->extracted_attachments);
+            $message = 'Fattura importata con successo!';
+            if ($attachmentsCount > 0) {
+                $message .= " {$attachmentsCount} allegato/i salvato/i su S3.";
             }
-
-            session()->flash('success', 'Fattura importata con successo! ' . count($this->extracted_attachments) . ' allegati salvati.');
+            
+            session()->flash('success', $message);
             return redirect()->route('admin.invoices-received.index');
 
         } catch (\Exception $e) {

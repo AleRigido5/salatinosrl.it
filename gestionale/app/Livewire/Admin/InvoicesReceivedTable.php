@@ -385,6 +385,12 @@ class InvoicesReceivedTable extends Component
             'updater', 
             'vatSummaries'
         ])->find($id);
+
+        // Aggiungi questo per caricare gli allegati
+        if ($this->selectedInvoice) {
+            $this->selectedInvoice->attachments_list = $this->selectedInvoice->getAllAttachmentsAttribute();
+        }
+
         $this->showModal = true;
     }
 

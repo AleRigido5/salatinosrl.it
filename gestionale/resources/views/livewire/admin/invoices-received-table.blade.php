@@ -376,14 +376,43 @@
                         <td class="px-4 py-3 text-right font-medium">{{ number_format($invoice->importo_totale, 2, ',', '.') }} €</td>
                         <td class="px-4 py-3 text-center">
                             <div class="flex items-center justify-center space-x-2">
+                                <!-- Icona Allegato -->
+                                @if($invoice->has_attachments)
+                                    @php
+                                        $firstAttachment = $invoice->getFirstAttachmentUrlAttribute();
+                                    @endphp
+                                    @if($firstAttachment)
+                                        <a href="{{ $firstAttachment }}" 
+                                        target="_blank" 
+                                        class="text-blue-600 hover:text-blue-900 transition-colors" 
+                                        title="Visualizza allegato">
+                                            <i class="fa-solid fa-file-pdf text-red-500 hover:text-red-700 text-lg"></i>
+                                        </a>
+                                    @endif
+                                @endif
+                                
+                                <!-- Altre icone esistenti... -->
                                 <a href="{{ route('admin.invoices-received.edit', $invoice->id) }}" 
                                 class="text-yellow-600 hover:text-yellow-900" 
                                 title="Modifica">
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </a>
-                                <a href="{{ route('admin.invoices-received.xml-view', $invoice->id) }}" target="_blank" class="text-purple-600 hover:text-purple-900" title="Visualizza XML"><i class="fa-solid fa-magnifying-glass"></i></a>
-                                <button wire:click="showDetails({{ $invoice->id }})" class="text-blue-600 hover:text-blue-900" title="Dettagli"><i class="fa-regular fa-eye"></i></button>
-                                <button wire:click="confirmDelete({{ $invoice->id }})" class="text-red-600 hover:text-red-900" title="Elimina"><i class="fa-solid fa-trash-can"></i></button>
+                                <a href="{{ route('admin.invoices-received.xml-view', $invoice->id) }}" 
+                                target="_blank" 
+                                class="text-purple-600 hover:text-purple-900" 
+                                title="Visualizza XML">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                </a>
+                                <button wire:click="showDetails({{ $invoice->id }})" 
+                                        class="text-blue-600 hover:text-blue-900" 
+                                        title="Dettagli">
+                                    <i class="fa-regular fa-eye"></i>
+                                </button>
+                                <button wire:click="confirmDelete({{ $invoice->id }})" 
+                                        class="text-red-600 hover:text-red-900" 
+                                        title="Elimina">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
                             </div>
                         </td>
                     </tr>

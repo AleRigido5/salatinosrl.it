@@ -36,6 +36,8 @@ class InvoiceReceived extends Model
         'imported_at',
         'created_by',  
         'updated_by',
+        'fornitore_slug',
+        'attachments_folder',
     ];
 
     protected $casts = [
@@ -75,33 +77,21 @@ class InvoiceReceived extends Model
         return $this->hasMany(InvoiceRow::class, 'document_id')->where('document_type', 'invoice_received');
     }
 
-    /**
-     * Relazione polimorfica pagamenti
-     */
     public function payments(): MorphMany
     {
         return $this->morphMany(InvoicePayment::class, 'payable');
     }
 
-    /**
-     * Relazione polimorfica con i riepiloghi IVA
-     */
     public function vatSummaries(): MorphMany
     {
         return $this->morphMany(InvoiceVatSummary::class, 'vatable');
     }
 
-    /**
-     * Relazione con l'amministratore che ha creato la fattura
-     */
     public function creator()
     {
         return $this->belongsTo(Administrator::class, 'created_by');
     }
 
-    /**
-     * Relazione con l'amministratore che ha modificato la fattura
-     */
     public function updater()
     {
         return $this->belongsTo(Administrator::class, 'updated_by');
@@ -120,21 +110,18 @@ class InvoiceReceived extends Model
     public function getStatusLabelAttribute(): string
     {
         $statuses = config('gestionale.invoice_status', []);
-        
         return $statuses[$this->status]['label'] ?? $this->status;
     }
 
     public function getTypeInvoiceLabelAttribute(): string
     {
         $tipoDocumento = config('gestionale.tipo_documento', []);
-        
         return $tipoDocumento[$this->type_invoice] ?? $this->type_invoice;
     }
 
     public function getStatusBadgeClassAttribute(): string
     {
         $statuses = config('gestionale.invoice_status', []);
-        
         return $statuses[$this->status]['badge_class'] ?? 'bg-gray-100 text-gray-800';
     }
 
@@ -175,39 +162,157 @@ class InvoiceReceived extends Model
     }
 
     /**
-     * Ottiene gli allegati della fattura da S3
+     * Verifica se la fattura ha allegati
      */
-    public function getAttachmentsAttribute(): array
+    public function getHasAttachmentsAttribute(): bool
+    {
+        return !empty($this->getFirstAttachmentUrlAttribute());
+    }
+
+    /**
+     * Ottiene l'URL del primo allegato (per l'icona nella tabella)
+     */
+    public function getFirstAttachmentUrlAttribute(): ?string
+    {
+        // Metodo 1: Dal campo attachment (JSON)
+        if ($this->attachment) {
+            $attachments = is_string($this->attachment) ? json_decode($this->attachment, true) : $this->attachment;
+            if (is_array($attachments) && !empty($attachments)) {
+                return $attachments[0];
+            }
+            // Se è una stringa semplice (URL diretto)
+            if (is_string($this->attachment) && filter_var($this->attachment, FILTER_VALIDATE_URL)) {
+                return $this->attachment;
+            }
+        }
+        
+        // Metodo 2: Dalla cartella fornitore_slug su S3
+        if (!empty($this->fornitore_slug)) {
+            try {
+                $disk = Storage::disk('s3');
+                $folderPath = 'invoice-received/' . $this->fornitore_slug;
+                
+                if ($disk->exists($folderPath)) {
+                    $files = $disk->files($folderPath);
+                    if (!empty($files)) {
+                        $bucket = config('filesystems.disks.s3.bucket', 'gestionale-152146163010-eu-north-1-an');
+                        $region = config('filesystems.disks.s3.region', 'eu-north-1');
+                        return "https://{$bucket}.s3.{$region}.amazonaws.com/{$files[0]}";
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('Errore nel recupero allegati da S3: ' . $e->getMessage());
+            }
+        }
+        
+        // Metodo 3: Dalla cartella attachments_folder
+        if (!empty($this->attachments_folder)) {
+            try {
+                $disk = Storage::disk('s3');
+                if ($disk->exists($this->attachments_folder)) {
+                    $files = $disk->files($this->attachments_folder);
+                    if (!empty($files)) {
+                        $bucket = config('filesystems.disks.s3.bucket', 'gestionale-152146163010-eu-north-1-an');
+                        $region = config('filesystems.disks.s3.region', 'eu-north-1');
+                        return "https://{$bucket}.s3.{$region}.amazonaws.com/{$files[0]}";
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('Errore nel recupero allegati da attachments_folder: ' . $e->getMessage());
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * Ottiene tutti gli allegati della fattura
+     */
+    public function getAllAttachmentsAttribute(): array
     {
         $attachments = [];
         
-        if (empty($this->fornitore_slug)) {
-            return $attachments;
-        }
-        
-        $basePath = 'invoice-received/' . $this->fornitore_slug;
-        $disk = Storage::disk('s3');
-        
-        if ($disk->exists($basePath)) {
-            $files = $disk->files($basePath);
-            
-            $bucket = 'gestionale-152146163010-eu-north-1-an';
-            $region = 'eu-north-1';
-            
-            foreach ($files as $file) {
-                $url = "https://{$bucket}.s3.{$region}.amazonaws.com/{$file}";
-                
+        // Metodo 1: Dal campo attachment JSON
+        if ($this->attachment) {
+            $decoded = is_string($this->attachment) ? json_decode($this->attachment, true) : $this->attachment;
+            if (is_array($decoded)) {
+                foreach ($decoded as $url) {
+                    $attachments[] = [
+                        'url' => $url,
+                        'name' => basename($url),
+                        'type' => 'json'
+                    ];
+                }
+            } elseif (is_string($this->attachment) && filter_var($this->attachment, FILTER_VALIDATE_URL)) {
                 $attachments[] = [
-                    'name' => basename($file),
-                    'path' => $file,
-                    'url' => $url,
-                    'size' => $disk->size($file),
-                    'last_modified' => $disk->lastModified($file)
+                    'url' => $this->attachment,
+                    'name' => basename($this->attachment),
+                    'type' => 'direct'
                 ];
             }
         }
         
+        // Metodo 2: Dalla cartella su S3 (fornitore_slug)
+        if (empty($attachments) && !empty($this->fornitore_slug)) {
+            try {
+                $disk = Storage::disk('s3');
+                $folderPath = 'invoice-received/' . $this->fornitore_slug;
+                
+                if ($disk->exists($folderPath)) {
+                    $files = $disk->files($folderPath);
+                    $bucket = config('filesystems.disks.s3.bucket', 'gestionale-152146163010-eu-north-1-an');
+                    $region = config('filesystems.disks.s3.region', 'eu-north-1');
+                    
+                    foreach ($files as $file) {
+                        $attachments[] = [
+                            'url' => "https://{$bucket}.s3.{$region}.amazonaws.com/{$file}",
+                            'name' => basename($file),
+                            'path' => $file,
+                            'size' => $disk->size($file),
+                            'last_modified' => $disk->lastModified($file),
+                            'type' => 's3'
+                        ];
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('Errore nel recupero allegati da S3 (fornitore_slug): ' . $e->getMessage());
+            }
+        }
+        
+        // Metodo 3: Dalla cartella attachments_folder
+        if (empty($attachments) && !empty($this->attachments_folder)) {
+            try {
+                $disk = Storage::disk('s3');
+                if ($disk->exists($this->attachments_folder)) {
+                    $files = $disk->files($this->attachments_folder);
+                    $bucket = config('filesystems.disks.s3.bucket', 'gestionale-152146163010-eu-north-1-an');
+                    $region = config('filesystems.disks.s3.region', 'eu-north-1');
+                    
+                    foreach ($files as $file) {
+                        $attachments[] = [
+                            'url' => "https://{$bucket}.s3.{$region}.amazonaws.com/{$file}",
+                            'name' => basename($file),
+                            'path' => $file,
+                            'size' => $disk->size($file),
+                            'last_modified' => $disk->lastModified($file),
+                            'type' => 's3'
+                        ];
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('Errore nel recupero allegati da S3 (attachments_folder): ' . $e->getMessage());
+            }
+        }
+        
         return $attachments;
+    }
+
+    /**
+     * Ottiene gli allegati della fattura da S3 (metodo originale per compatibilità)
+     */
+    public function getAttachmentsAttribute(): array
+    {
+        return $this->getAllAttachmentsAttribute();
     }
 
     /**

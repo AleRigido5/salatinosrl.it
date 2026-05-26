@@ -1014,6 +1014,30 @@
                     </tr>
                     @endforelse
                 </tbody>
+                 <!-- FOOTER TOTALI -->
+                @if($activities->count() > 0)
+                <tfoot class="bg-lime-50 border-t-2 border-lime-200">
+                    <tr>
+                        <td colspan="6" class="px-3 py-3 text-right font-bold text-gray-700">
+                            <i class="fas fa-calculator text-lime-500 mr-2"></i>
+                            TOTALI:
+                        </td>
+                        <td class="px-3 py-3 text-left font-bold text-lime-600">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-chart-line"></i>
+                                <span>{{ number_format($totalHa, 2) }} ha</span>
+                            </div>
+                        </td>
+                        <td colspan="2" class="px-3 py-3">
+                            @if($totalPiante > 0)
+                            <div class="text-sm text-gray-600">
+                                🌱 Piante totali: {{ number_format($totalPiante, 0) }}
+                            </div>
+                            @endif
+                        </td>
+                    </tr>
+                </tfoot>
+                @endif
             </table>
         </div>
     </div>

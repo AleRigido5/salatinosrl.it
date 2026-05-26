@@ -44,6 +44,10 @@ class ActivitiesTable extends Component
     public $showViewModal = false;
     public $viewingActivity = null;
     
+    // Totali
+    public $totalHa = 0;
+    public $totalPiante = 0;  // Se hai anche il campo piante
+
     // Loading states
     public $isLoading = false;
     
@@ -65,15 +69,13 @@ class ActivitiesTable extends Component
     protected $listeners = [
         'refreshActivities' => 'refreshActivities',
         'loadMore' => 'loadMore',
-        'dateRangeUpdated' => 'updateDateRange',  // AGGIUNGI QUESTO
+        'dateRangeUpdated' => 'updateDateRange',
     ];
     
     public function mount()
     {
         $this->perPage = (int) $this->perPage;
         
-        // Non impostare date qui se vengono dal componente
-        // Se vuoi solo valori iniziali, fallo solo se non ci sono date dalla request
         if (empty($this->dateFrom) && empty($this->dateTo)) {
             $now = Carbon::now();
             $this->dateFrom = $now->copy()->startOfMonth()->format('Y-m-d');
@@ -81,12 +83,12 @@ class ActivitiesTable extends Component
         }
     }
     
-    // AGGIUNGI QUESTO METODO
     public function updateDateRange($data)
     {
         $this->dateFrom = $data['date_from'];
         $this->dateTo = $data['date_to'];
         $this->resetPage();
+        $this->calculateTotals();
     }
     
     /**
@@ -120,26 +122,23 @@ class ActivitiesTable extends Component
             $query->where('id_entities', $this->entityFilter);
         }
         
-        // NUOVO FILTRO POSIZIONI
+        // Filtro POSIZIONI
         if ($this->positionFilter === 'aperte') {
-            // ATTIVITÀ APERTE: clienti esterni + fattura vuota
             $query->where(function($q) {
                 $q->whereNull('activities.invoice_references')
-                ->orWhere('activities.invoice_references', '');
+                  ->orWhere('activities.invoice_references', '');
             })->whereExists(function($q) {
                 $q->select(DB::raw(1))
-                ->from('cost_centers')
-                ->whereColumn('cost_centers.id', 'activities.id_cost_centers')
-                ->where('cost_centers.table_references', 'entities');
+                  ->from('cost_centers')
+                  ->whereColumn('cost_centers.id', 'activities.id_cost_centers')
+                  ->where('cost_centers.table_references', 'entities');
             });
-            
         } elseif ($this->positionFilter === 'interne') {
-            // ATTIVITÀ INTERNE: clienti interni (NON esterni)
             $query->whereNotExists(function($q) {
                 $q->select(DB::raw(1))
-                ->from('cost_centers')
-                ->whereColumn('cost_centers.id', 'activities.id_cost_centers')
-                ->where('cost_centers.table_references', 'entities');
+                  ->from('cost_centers')
+                  ->whereColumn('cost_centers.id', 'activities.id_cost_centers')
+                  ->where('cost_centers.table_references', 'entities');
             });
         }
         
@@ -148,9 +147,9 @@ class ActivitiesTable extends Component
             $searchTerm = '%' . $this->search . '%';
             $query->where(function($q) use ($searchTerm) {
                 $q->where('invoice_references', 'like', $searchTerm)
-                ->orWhere('note', 'like', $searchTerm)
-                ->orWhere('ha', 'like', $searchTerm)
-                ->orWhere('Lat_Long', 'like', $searchTerm);
+                  ->orWhere('note', 'like', $searchTerm)
+                  ->orWhere('ha', 'like', $searchTerm)
+                  ->orWhere('Lat_Long', 'like', $searchTerm);
             });
         }
         
@@ -159,6 +158,9 @@ class ActivitiesTable extends Component
             'activities.*',
             DB::raw('(SELECT SUM(n_ore) FROM activities_staff_lnk WHERE activities_staff_lnk.id_activities = activities.id) as total_ore')
         ]);
+        
+        // Calcola i totali PRIMA di applicare limit/pagination
+        $this->calculateTotalsFromQuery(clone $query);
         
         // Ordinamento
         $query->orderBy($this->sortField, $this->sortDirection);
@@ -170,7 +172,7 @@ class ActivitiesTable extends Component
             'entity:id_cliente,ragione_sociale,nome,cognome,partita_iva',
             'staffDetails' => function($q) {
                 $q->with('staff:id_personale,NomePers,CognomePers')
-                ->limit(3);
+                  ->limit(3);
             }
         ]);
         
@@ -187,7 +189,87 @@ class ActivitiesTable extends Component
         
         return $query->paginate($this->perPage);
     }
+    
+    /**
+     * Calcola il totale degli ettari (versione indipendente)
+     */
+    public function calculateTotals()
+    {
+        $query = Activity::query();
         
+        // Filtri data
+        if ($this->dateFrom && $this->dateTo) {
+            $query->whereBetween('data_activities', [$this->dateFrom, $this->dateTo]);
+        } elseif ($this->dateFrom) {
+            $query->whereDate('data_activities', '>=', $this->dateFrom);
+        } elseif ($this->dateTo) {
+            $query->whereDate('data_activities', '<=', $this->dateTo);
+        }
+        
+        // Centro di costo
+        if ($this->costCenterFilter) {
+            $query->where('id_cost_centers', $this->costCenterFilter);
+        }
+        
+        // Servizio
+        if ($this->serviceFilter) {
+            $query->where('id_services', $this->serviceFilter);
+        }
+        
+        // Entità
+        if ($this->entityFilter) {
+            $query->where('id_entities', $this->entityFilter);
+        }
+        
+        // Filtro posizioni
+        if ($this->positionFilter === 'aperte') {
+            $query->where(function($q) {
+                $q->whereNull('activities.invoice_references')
+                  ->orWhere('activities.invoice_references', '');
+            })->whereExists(function($q) {
+                $q->select(DB::raw(1))
+                  ->from('cost_centers')
+                  ->whereColumn('cost_centers.id', 'activities.id_cost_centers')
+                  ->where('cost_centers.table_references', 'entities');
+            });
+        } elseif ($this->positionFilter === 'interne') {
+            $query->whereNotExists(function($q) {
+                $q->select(DB::raw(1))
+                  ->from('cost_centers')
+                  ->whereColumn('cost_centers.id', 'activities.id_cost_centers')
+                  ->where('cost_centers.table_references', 'entities');
+            });
+        }
+        
+        // Ricerca generica
+        if ($this->search) {
+            $searchTerm = '%' . $this->search . '%';
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('invoice_references', 'like', $searchTerm)
+                  ->orWhere('note', 'like', $searchTerm)
+                  ->orWhere('ha', 'like', $searchTerm)
+                  ->orWhere('Lat_Long', 'like', $searchTerm);
+            });
+        }
+        
+        $this->totalHa = $query->sum('ha') ?? 0;
+        
+        // Se hai anche il campo piante
+        // $this->totalPiante = $query->sum('piante') ?? 0;
+    }
+    
+    /**
+     * Calcola i totali a partire da una query già costruita
+     */
+    public function calculateTotalsFromQuery($baseQuery)
+    {
+        $totalsQuery = clone $baseQuery;
+        $this->totalHa = $totalsQuery->sum('ha') ?? 0;
+        
+        // Se hai anche il campo piante
+        // $this->totalPiante = $totalsQuery->sum('piante') ?? 0;
+    }
+    
     // ==================== AUTOCOMPLETE METHODS ====================
     
     public function updatedCostCenterSearch()
@@ -197,8 +279,9 @@ class ActivitiesTable extends Component
             $this->costCenterFilter = '';
         }
         $this->resetPage();
+        $this->calculateTotals();
     }
-
+    
     public function updatedServiceSearch()
     {
         $this->showServiceDropdown = !empty($this->serviceSearch);
@@ -206,8 +289,9 @@ class ActivitiesTable extends Component
             $this->serviceFilter = '';
         }
         $this->resetPage();
+        $this->calculateTotals();
     }
-
+    
     public function updatedEntitySearch()
     {
         $this->showEntityDropdown = !empty($this->entitySearch);
@@ -215,8 +299,56 @@ class ActivitiesTable extends Component
             $this->entityFilter = '';
         }
         $this->resetPage();
+        $this->calculateTotals();
     }
-
+    
+    public function updatedPositionFilter()
+    {
+        $this->resetPage();
+        $this->calculateTotals();
+    }
+    
+    public function updatedSearch()
+    {
+        $this->resetPage();
+        $this->calculateTotals();
+    }
+    
+    public function updatedDateFrom()
+    {
+        $this->resetPage();
+        $this->calculateTotals();
+    }
+    
+    public function updatedDateTo()
+    {
+        $this->resetPage();
+        $this->calculateTotals();
+    }
+    
+    public function updatedCostCenterFilter()
+    {
+        $this->resetPage();
+        $this->calculateTotals();
+    }
+    
+    public function updatedServiceFilter()
+    {
+        $this->resetPage();
+        $this->calculateTotals();
+    }
+    
+    public function updatedEntityFilter()
+    {
+        $this->resetPage();
+        $this->calculateTotals();
+    }
+    
+    public function updatedPerPage()
+    {
+        $this->resetPage();
+    }
+    
     public function selectCostCenter($id, $name)
     {
         $this->costCenterFilter = $id;
@@ -224,8 +356,9 @@ class ActivitiesTable extends Component
         $this->costCenterName = $name;
         $this->showCostCenterDropdown = false;
         $this->resetPage();
+        $this->calculateTotals();
     }
-
+    
     public function selectService($id, $name)
     {
         $this->serviceFilter = $id;
@@ -233,8 +366,9 @@ class ActivitiesTable extends Component
         $this->serviceName = $name;
         $this->showServiceDropdown = false;
         $this->resetPage();
+        $this->calculateTotals();
     }
-
+    
     public function selectEntity($id, $name)
     {
         $this->entityFilter = $id;
@@ -242,8 +376,9 @@ class ActivitiesTable extends Component
         $this->entityName = $name;
         $this->showEntityDropdown = false;
         $this->resetPage();
+        $this->calculateTotals();
     }
-
+    
     public function clearCostCenter()
     {
         $this->costCenterFilter = '';
@@ -251,8 +386,9 @@ class ActivitiesTable extends Component
         $this->costCenterName = '';
         $this->showCostCenterDropdown = false;
         $this->resetPage();
+        $this->calculateTotals();
     }
-
+    
     public function clearService()
     {
         $this->serviceFilter = '';
@@ -260,8 +396,9 @@ class ActivitiesTable extends Component
         $this->serviceName = '';
         $this->showServiceDropdown = false;
         $this->resetPage();
+        $this->calculateTotals();
     }
-
+    
     public function clearEntity()
     {
         $this->entityFilter = '';
@@ -269,8 +406,9 @@ class ActivitiesTable extends Component
         $this->entityName = '';
         $this->showEntityDropdown = false;
         $this->resetPage();
+        $this->calculateTotals();
     }
-
+    
     public function getFilteredCostCentersProperty()
     {
         if (empty($this->costCenterSearch)) return collect();
@@ -281,7 +419,7 @@ class ActivitiesTable extends Component
             ->limit(10)
             ->get();
     }
-
+    
     public function getFilteredServicesProperty()
     {
         if (empty($this->serviceSearch)) return collect();
@@ -292,7 +430,7 @@ class ActivitiesTable extends Component
             ->limit(10)
             ->get();
     }
-
+    
     public function getFilteredEntitiesProperty()
     {
         if (empty($this->entitySearch)) return collect();
@@ -323,12 +461,6 @@ class ActivitiesTable extends Component
     
     // ==================== RESET METHODS ====================
     
-    public function updatingSearch() { $this->resetPage(); }
-    public function updatingPerPage() { $this->resetPage(); }
-    public function updatingCostCenterFilter() { $this->resetPage(); }
-    public function updatingServiceFilter() { $this->resetPage(); }
-    public function updatingEntityFilter() { $this->resetPage(); }
-    
     public function resetFilters()
     {
         $this->search = '';
@@ -345,8 +477,8 @@ class ActivitiesTable extends Component
         $this->dateFrom = '';
         $this->dateTo = '';
         $this->resetPage();
+        $this->calculateTotals();
         
-        // Resetta anche il componente date-range-filter
         $this->dispatch('resetDates');
     }
     
@@ -362,11 +494,12 @@ class ActivitiesTable extends Component
         try {
             Activity::where('id', $id)->update(['Lat_Long' => $value ?: null]);
             $this->dispatch('showSuccess', message: 'Coordinate aggiornate con successo!');
+            $this->calculateTotals();
         } catch (\Exception $e) {
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
-
+    
     public function updateHa($id, $value)
     {
         if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
@@ -378,6 +511,7 @@ class ActivitiesTable extends Component
             $value = str_replace(',', '.', $value);
             Activity::where('id', $id)->update(['ha' => $value ? floatval($value) : null]);
             $this->dispatch('showSuccess', message: 'Ettari aggiornati con successo!');
+            $this->calculateTotals();
         } catch (\Exception $e) {
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
@@ -420,6 +554,7 @@ class ActivitiesTable extends Component
     public function refreshActivities()
     {
         $this->resetPage();
+        $this->calculateTotals();
         $this->dispatch('$refresh');
     }
     
@@ -430,42 +565,31 @@ class ActivitiesTable extends Component
     {
         $params = [];
         
-        // Filtri data
         if ($this->dateFrom) {
             $params['date_from'] = $this->dateFrom;
         }
         if ($this->dateTo) {
             $params['date_to'] = $this->dateTo;
         }
-        
-        // Filtro centro di costo
         if ($this->costCenterFilter) {
             $params['cost_center_filter'] = $this->costCenterFilter;
         }
-        
-        // Filtro servizio
         if ($this->serviceFilter) {
             $params['service_filter'] = $this->serviceFilter;
         }
-        
-        // Filtro entità (cliente/fornitore)
         if ($this->entityFilter) {
             $params['entity_filter'] = $this->entityFilter;
         }
-        
-        // Filtro posizioni (aperte/interne)
         if ($this->positionFilter) {
             $params['position_filter'] = $this->positionFilter;
         }
-        
-        // Ricerca generica
         if ($this->search) {
             $params['search'] = $this->search;
         }
         
         return route('admin.activities.export-pdf', $params);
     }
-
+    
     /**
      * Genera l'URL per l'esportazione Excel con tutti i filtri attivi
      */
@@ -473,48 +597,37 @@ class ActivitiesTable extends Component
     {
         $params = [];
         
-        // Filtri data
         if ($this->dateFrom) {
             $params['date_from'] = $this->dateFrom;
         }
         if ($this->dateTo) {
             $params['date_to'] = $this->dateTo;
         }
-        
-        // Filtro centro di costo
         if ($this->costCenterFilter) {
             $params['cost_center_filter'] = $this->costCenterFilter;
         }
-        
-        // Filtro servizio
         if ($this->serviceFilter) {
             $params['service_filter'] = $this->serviceFilter;
         }
-        
-        // Filtro entità (cliente/fornitore)
         if ($this->entityFilter) {
             $params['entity_filter'] = $this->entityFilter;
         }
-        
-        // Filtro posizioni (aperte/interne)
         if ($this->positionFilter) {
             $params['position_filter'] = $this->positionFilter;
         }
-        
-        // Ricerca generica
         if ($this->search) {
             $params['search'] = $this->search;
         }
         
         return route('admin.activities.export-excel', $params);
     }
-
+    
     public function formatDate($date)
     {
         if (!$date) return '-';
         return Carbon::parse($date)->format('d/m/Y');
     }
-
+    
     public function render()
     {
         return view('livewire.admin.activities-table', [
@@ -522,6 +635,8 @@ class ActivitiesTable extends Component
             'filteredCostCenters' => $this->filteredCostCenters,
             'filteredServices' => $this->filteredServices,
             'filteredEntities' => $this->filteredEntities,
+            'totalHa' => $this->totalHa,
+            'totalPiante' => $this->totalPiante,
         ]);
     }
 }

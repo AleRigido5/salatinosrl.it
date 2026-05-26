@@ -1,4 +1,5 @@
 <?php
+// app/Models/InvoicePayment.php
 
 namespace App\Models;
 
@@ -49,10 +50,6 @@ class InvoicePayment extends Model
         return $this->morphTo();
     }
     
-    /**
-     * Relazione con le transazioni di pagamento (InstallmentTransaction)
-     * Questa relazione collega i pagamenti alle scritture contabili
-     */
     public function installmentTransactions(): HasMany
     {
         return $this->hasMany(InstallmentTransaction::class, 'id_invoice_payment', 'id');
@@ -75,15 +72,74 @@ class InvoicePayment extends Model
     }
     
     /**
-     * Ottiene l'importo residuo da pagare
+     * Accessor: Calcola il residuo dinamicamente
+     * IMPORTANTE: Il residuo è sempre amount - paid_amount
      */
     public function getResidualAmountAttribute($value)
     {
-        // Se residual_amount è 0, significa che deve essere uguale all'importo totale
-        if ($value == 0 && $this->paid_amount == 0) {
-            return $this->amount;
+        // Calcolo dinamico basato su amount e paid_amount
+        // Questo è il metodo più sicuro
+        $calculatedResidual = max(0, $this->amount - $this->paid_amount);
+        
+        // Log per debug (rimuovi in produzione)
+        if (abs($calculatedResidual - $value) > 0.01 && $value > 0) {
+            \Illuminate\Support\Facades\Log::warning('Residual mismatch', [
+                'payment_id' => $this->id,
+                'stored' => $value,
+                'calculated' => $calculatedResidual,
+                'amount' => $this->amount,
+                'paid_amount' => $this->paid_amount
+            ]);
         }
-        return $value > 0 ? $value : 0;
+        
+        return $calculatedResidual;
+    }
+    
+    /**
+     * Mutator: Assicura che residual_amount sia sempre amount - paid_amount
+     */
+    public function setResidualAmountAttribute($value)
+    {
+        // Ignora il valore passato, calcola da amount e paid_amount
+        $this->attributes['residual_amount'] = max(0, $this->amount - $this->paid_amount);
+    }
+    
+    /**
+     * Mutator per amount: quando cambia amount, ricalcola residual
+     */
+    public function setAmountAttribute($value)
+    {
+        $this->attributes['amount'] = $value;
+        if (isset($this->attributes['paid_amount'])) {
+            $this->attributes['residual_amount'] = max(0, $value - $this->attributes['paid_amount']);
+        }
+    }
+    
+    /**
+     * Mutator per paid_amount: quando cambia paid_amount, ricalcola residual e status
+     */
+    public function setPaidAmountAttribute($value)
+    {
+        $this->attributes['paid_amount'] = $value;
+        
+        if (isset($this->attributes['amount'])) {
+            $newResidual = max(0, $this->attributes['amount'] - $value);
+            $this->attributes['residual_amount'] = $newResidual;
+            
+            // Aggiorna automaticamente lo status
+            if ($newResidual <= 0.01) {
+                $this->attributes['status'] = 'paid';
+                if (empty($this->attributes['paid_at'])) {
+                    $this->attributes['paid_at'] = now();
+                }
+            } elseif ($value > 0) {
+                $this->attributes['status'] = 'partially_paid';
+                $this->attributes['paid_at'] = null;
+            } else {
+                $this->attributes['status'] = 'issued';
+                $this->attributes['paid_at'] = null;
+            }
+        }
     }
     
     /**
@@ -98,15 +154,14 @@ class InvoicePayment extends Model
         
         try {
             $this->paid_amount = $newPaidTotal;
-            $this->residual_amount = max(0, $newResidual);
+            // Il residual_amount verrà calcolato automaticamente dal mutator
             
             if ($newResidual <= 0) {
-                // Pagato completamente
                 $this->status = 'paid';
                 $this->paid_at = now();
             } else {
-                // Pagato parzialmente
                 $this->status = 'partially_paid';
+                $this->paid_at = null;
             }
             
             $this->save();
@@ -122,7 +177,6 @@ class InvoicePayment extends Model
     
     public function getStatusLabelAttribute(): string
     {
-        // Se è parzialmente pagato, mostra un label specifico
         if ($this->isPartiallyPaid() && $this->status !== 'paid') {
             return 'Parzialmente pagato (' . number_format($this->paid_amount, 2) . ' € su ' . number_format($this->amount, 2) . ' €)';
         }
@@ -150,5 +204,25 @@ class InvoicePayment extends Model
         ];
         
         return $statuses[$this->status] ?? 'bg-gray-100 text-gray-800';
+    }
+    
+    /**
+     * Override save per garantire che residual_amount sia sempre corretto
+     */
+    public function save(array $options = [])
+    {
+        // Prima di salvare, assicurati che residual_amount sia corretto
+        $this->attributes['residual_amount'] = max(0, $this->amount - $this->paid_amount);
+        
+        // Assicurati che lo status sia corretto
+        if ($this->attributes['residual_amount'] <= 0.01) {
+            $this->attributes['status'] = 'paid';
+        } elseif ($this->paid_amount > 0) {
+            $this->attributes['status'] = 'partially_paid';
+        } else {
+            $this->attributes['status'] = 'issued';
+        }
+        
+        return parent::save($options);
     }
 }

@@ -182,7 +182,9 @@
                         </td>
                         <td class="px-4 py-3 text-sm">{{ $invoice->n_invoice ?? '-' }}</td>
                         <td class="px-4 py-3 text-sm text-right font-medium">{{ number_format($payment->amount, 2, ',', '.') }} €</td>
-                        <td class="px-4 py-3 text-sm text-right font-medium text-orange-600">{{ number_format($residual, 2, ',', '.') }} €</td>
+                        <td class="px-4 py-3 text-sm text-right font-medium text-orange-600">
+                            {{ number_format($payment->residual_amount, 2, ',', '.') }} €
+                        </td>
                         <td class="px-4 py-3 text-sm">{{ $payment->payment_method_label ?? $payment->payment_method ?? '-' }}</td>
                         <td class="px-4 py-3 text-center">
                             @php

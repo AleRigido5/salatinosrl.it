@@ -56,8 +56,8 @@ class InvoicePaymentsTable extends Component
 
     protected $listeners = [
         'dateRangeUpdated' => 'updateDateRange',
-        'refreshPayments' => 'refreshTable',  
-        'paymentRegistered' => 'refreshTable', 
+        'refreshPayments' => 'refreshTable',
+        'paymentRegistered' => 'refreshTable',
         'refreshInvoices' => 'refreshTable',
     ];
 
@@ -94,10 +94,11 @@ class InvoicePaymentsTable extends Component
             return;
         }
 
-        $this->ownershipResults = Ownership::where(function($q) {
+        $this->ownershipResults = Ownership::where('valid', 1)
+            ->where(function($q) {
                 $q->where('RagAbbrev', 'like', '%' . $this->ownershipSearch . '%')
-                ->orWhere('Rag_Soc_intest', 'like', '%' . $this->ownershipSearch . '%')
-                ->orWhere('RagSocialePr', 'like', '%' . $this->ownershipSearch . '%');
+                  ->orWhere('Rag_Soc_intest', 'like', '%' . $this->ownershipSearch . '%')
+                  ->orWhere('RagSocialePr', 'like', '%' . $this->ownershipSearch . '%');
             })
             ->limit(10)
             ->get(['id_proprieta as id', 'RagAbbrev as name']);
@@ -147,8 +148,8 @@ class InvoicePaymentsTable extends Component
             ->whereIn('entity_type', ['fornitore', 'entrambi'])
             ->where(function($q) {
                 $q->where('ragione_sociale', 'like', '%' . $this->supplierSearch . '%')
-                ->orWhere('nome', 'like', '%' . $this->supplierSearch . '%')
-                ->orWhere('cognome', 'like', '%' . $this->supplierSearch . '%');
+                  ->orWhere('nome', 'like', '%' . $this->supplierSearch . '%')
+                  ->orWhere('cognome', 'like', '%' . $this->supplierSearch . '%');
             })
             ->limit(10)
             ->get(['id_cliente as id', 'ragione_sociale as name']);
@@ -216,14 +217,21 @@ class InvoicePaymentsTable extends Component
             ->with(['payable' => function($q) {
                 $q->with(['ownership', 'entity']);
             }])
-            // Mostra sia quelle in attesa che quelle parzialmente pagate (esclude solo quelle completamente pagate)
-            ->whereIn('status', ['issued', 'partially_paid'])
+            // IMPORTANTE: Mostra TUTTI i pagamenti che hanno un residuo > 0
+            // indipendentemente dallo stato memorizzato
+            ->where(function($q) {
+                $q->where('residual_amount', '>', 0.01)
+                  ->orWhereRaw('amount - paid_amount > 0.01');
+            })
             ->when($this->search, function($q) {
                 $q->whereHas('payable', function($sq) {
                     $sq->where('n_invoice', 'like', '%' . $this->search . '%');
                 });
             })
-            ->when($this->status, fn($q) => $q->where('status', $this->status))
+            ->when($this->status, function($q) {
+                // Filtra per stato solo se specificato
+                $q->where('status', $this->status);
+            })
             ->when($this->selectedOwnershipId, function($q) {
                 $q->whereHas('payable', fn($sq) => $sq->where('id_ownership', $this->selectedOwnershipId));
             })

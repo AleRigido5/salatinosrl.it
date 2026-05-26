@@ -13,9 +13,11 @@ use App\Models\InstallmentTransaction;
 use App\Models\BankAccount;
 use App\Models\InvoicePayment;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Collection;
 use Carbon\Carbon;
+use Livewire\Attributes\On;
 
 class RegisterPayment extends Component
 {
@@ -249,11 +251,9 @@ class RegisterPayment extends Component
             return;
         }
         
-        // Recupera tutte le fatture del fornitore con i relativi pagamenti (scadenze)
+        // Recupera TUTTE le fatture del fornitore (senza filtro sullo stato)
         $invoices = InvoiceReceived::where('id_entities', $this->selectedEntityId)
-            ->whereIn('status', ['issued', 'partially_paid'])
             ->with(['payments' => function($q) {
-                // Ordina i pagamenti per data scadenza
                 $q->orderBy('due_date', 'asc');
             }])
             ->orderBy('data_invoice', 'asc')
@@ -262,18 +262,21 @@ class RegisterPayment extends Component
         $this->availableInvoices = [];
         
         foreach ($invoices as $invoice) {
-            // Per ogni pagamento (scadenza) della fattura
             foreach ($invoice->payments as $payment) {
-                // Calcola il residuo per questa specifica scadenza
-                $residual = $payment->residual_amount;
+                // Calcola il residuo dinamicamente
+                $residual = $payment->residual_amount; // Usa l'accessor
                 
-                // Mostra solo se ha un residuo positivo
+                // Mostra ANCHE le scadenze con residuo positivo
                 if ($residual > 0.01) {
+                    $dueDateRaw = $payment->due_date;
+                    $dueDateFormatted = $dueDateRaw ? \Carbon\Carbon::parse($dueDateRaw)->format('d/m/Y') : '-';
+                    
                     $this->availableInvoices[] = [
-                        'id' => $payment->id,  // ID del pagamento, non della fattura
+                        'id' => $payment->id,
                         'invoice_id' => $invoice->id,
                         'invoice_number' => $invoice->n_invoice,
-                        'due_date' => $payment->due_date ? $payment->due_date->format('d/m/Y') : $invoice->data_invoice->format('d/m/Y'),
+                        'due_date' => $dueDateFormatted,
+                        'due_date_raw' => $dueDateRaw,
                         'total_amount' => $payment->amount,
                         'residual_amount' => $residual,
                         'selected' => false,
@@ -283,7 +286,7 @@ class RegisterPayment extends Component
             }
         }
     }
-        
+            
     public function toggleInvoice($index): void
     {
         if (!isset($this->availableInvoices[$index])) return;
@@ -368,13 +371,23 @@ class RegisterPayment extends Component
                 if (!$payment) continue;
                 
                 $paidAmount = $invoiceData['selected_amount'];
-                $newPaidAmount = $payment->paid_amount + $paidAmount;
+                $oldPaidAmount = $payment->paid_amount;
+                $newPaidAmount = $oldPaidAmount + $paidAmount;
                 $newResidual = $payment->amount - $newPaidAmount;
+                
+                Log::info('Aggiornamento pagamento', [
+                    'payment_id' => $payment->id,
+                    'old_paid' => $oldPaidAmount,
+                    'new_paid' => $paidAmount,
+                    'total_paid' => $newPaidAmount,
+                    'amount' => $payment->amount,
+                    'new_residual' => $newResidual
+                ]);
                 
                 // Aggiorna il pagamento (scadenza)
                 $payment->update([
                     'paid_amount' => $newPaidAmount,
-                    'residual_amount' => $newResidual,
+                    'residual_amount' => max(0, $newResidual),
                     'status' => $newResidual <= 0.01 ? 'paid' : 'partially_paid',
                     'paid_at' => $newResidual <= 0.01 ? now() : null,
                 ]);
@@ -386,15 +399,27 @@ class RegisterPayment extends Component
                     'allocated_amount' => $paidAmount,
                 ]);
                 
-                // Aggiorna lo stato della fattura se necessario
+                // Aggiorna lo stato della fattura in base a TUTTI i pagamenti
                 $invoice = $payment->payable;
                 if ($invoice) {
                     $totalResidual = $invoice->payments()->sum('residual_amount');
+                    $newInvoiceStatus = 'paid';
+                    
                     if ($totalResidual <= 0.01) {
-                        $invoice->update(['status' => 'paid']);
+                        $newInvoiceStatus = 'paid';
                     } elseif ($totalResidual < $invoice->importo_totale) {
-                        $invoice->update(['status' => 'partially_paid']);
+                        $newInvoiceStatus = 'partially_paid';
+                    } else {
+                        $newInvoiceStatus = 'issued';
                     }
+                    
+                    Log::info('Aggiornamento stato fattura', [
+                        'invoice_id' => $invoice->id,
+                        'total_residual' => $totalResidual,
+                        'new_status' => $newInvoiceStatus
+                    ]);
+                    
+                    $invoice->update(['status' => $newInvoiceStatus]);
                 }
             }
             
@@ -406,6 +431,7 @@ class RegisterPayment extends Component
             
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Errore registrazione pagamento: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
@@ -420,6 +446,15 @@ class RegisterPayment extends Component
     public function getPaymentMethodsProperty()
     {
         return PaymentMethod::where('is_active', true)->orderBy('sort_order')->get();
+    }
+
+    #[On('refreshAvailableInvoices')]
+    public function refreshAvailableInvoices(): void
+    {
+        if ($this->selectedEntityId) {
+            $this->loadAvailableInvoices();
+            $this->calculateTotal();
+        }
     }
     
     public function render()

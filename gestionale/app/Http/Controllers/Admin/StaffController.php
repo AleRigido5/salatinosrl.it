@@ -30,7 +30,7 @@ class StaffController extends Controller
     /**
      * Calculate working days from total hours
      */
-    protected function calculateWorkingDays($totalHours)
+    protected function calculateWorkingDays(int $totalHours): int
     {
         $hoursPerDay = $this->getHoursPerDay();
         $decimals = config('gestionale.round_decimals', 1);
@@ -40,7 +40,7 @@ class StaffController extends Controller
     /**
      * Display a listing of the staff.
      */
-    public function index()
+    public function index(): array|object
     {
         if (!Auth::guard('admin')->user()->hasPermission('view_staff')) {
             if (request()->ajax()) {

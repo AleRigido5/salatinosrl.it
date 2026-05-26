@@ -256,7 +256,7 @@ class InvoicesReceivedTable extends Component
             // Se la fattura è "Emessa", i pagamenti tornano "in_attesa" (non ancora pagati)
             if ($newStatus === 'viewed') {
                 // Fattura visionata -> i pagamenti sono in attesa di pagamento
-                $invoice->payments()->update(['status' => 'pending']);
+                $invoice->payments()->update(['status' => 'In attesa']);
             } elseif ($newStatus === 'issued') {
                 // Fattura emessa -> i pagamenti sono ancora in attesa (non pagati)
                 // Se vuoi resettare i pagamenti a "pending" quando torni a "emessa"

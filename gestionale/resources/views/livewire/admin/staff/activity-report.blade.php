@@ -664,7 +664,7 @@
             </div>
         </div>
 
-        <!-- Giornate Effettive con tooltip informativo e arrotondamento 0.5 -->
+        <!-- Giornate Effettive -->
         <div class="bg-white rounded-lg shadow p-4 border border-gray-200">
             <div class="flex items-center justify-between">
                 <div>
@@ -689,30 +689,42 @@
             </div>
         </div>
 
+        <!-- Maturato + Spese unite -->
         <div class="bg-white rounded-lg shadow p-4 border border-gray-200">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 uppercase">Maturato</p>
-                    <p class="text-2xl font-bold text-green-600" id="totalMaturatoDisplay">€ {{ number_format($totalMaturato, 2) }}</p>
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-sm text-gray-500 uppercase">Maturato &amp; Spese</p>
+                <div class="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-chart-line text-green-500 text-lg"></i>
                 </div>
-                <div class="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <i class="fas fa-chart-line text-green-500 text-xl"></i>
+            </div>
+            <div class="flex flex-col gap-1">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-400">Maturato</span>
+                    <span class="text-lg font-bold text-green-600" id="totalMaturatoDisplay">€ {{ number_format($totalMaturato, 2) }}</span>
+                </div>
+                <div class="border-t border-dashed border-gray-200 my-1"></div>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-400">Spese</span>
+                    <span class="text-lg font-bold text-orange-500" id="totalSpeseDisplay">€ {{ number_format($totalSpese, 2) }}</span>
                 </div>
             </div>
         </div>
 
+        <!-- Tariffe con ore associate -->
         <div class="bg-white rounded-lg shadow p-4 border border-gray-200">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 uppercase">Spese</p>
-                    <p class="text-2xl font-bold text-orange-600" id="totalSpeseDisplay">€ {{ number_format($totalSpese, 2) }}</p>
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-sm text-gray-500 uppercase">Tariffe / Ore</p>
+                <div class="h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                    <i class="fas fa-tags text-indigo-500 text-lg"></i>
                 </div>
-                <div class="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center">
-                    <i class="fas fa-receipt text-orange-500 text-xl"></i>
-                </div>
+            </div>
+            <div class="flex flex-col gap-1 overflow-y-auto max-h-[90px]" id="tariffeBreakdown">
+                {{-- Verrà popolato da JS --}}
+                <p class="text-xs text-gray-400 italic">Calcolo in corso...</p>
             </div>
         </div>
 
+        <!-- Totale -->
         <div class="bg-white rounded-lg shadow p-4 border border-gray-200 bg-gradient-to-r from-lime-50 to-lime-100">
             <div class="flex items-center justify-between">
                 <div>
@@ -741,26 +753,19 @@ function updateGiornateEffettive() {
     const hoursPerDay = {{ $hoursPerDay }};
     let totalOre = 0;
     
-    // Somma tutte le ore dalla tabella (colonna N. Ore)
     document.querySelectorAll('#activitiesTableBody tr:not(:has(td[colspan])) td:nth-child(4) span[x-text*="ore"]').forEach(span => {
         let ore = parseFloat(span.innerText);
         if (!isNaN(ore)) totalOre += ore;
     });
     
-    // Calcolo giornate effettive non arrotondate
     const giornateRaw = totalOre / hoursPerDay;
-    
-    // Arrotondamento con soglia 0.5 (Math.round prende già soglia 0.5)
-    // Ma per avere mezzo giorno (0.5) corretto: Math.round(numero * 2) / 2
     const giornateArrotondate = Math.round(giornateRaw * 2) / 2;
     
-    // Aggiorna il display principale
     const displayElement = document.getElementById('giornateEffettiveDisplay');
     if (displayElement) {
         displayElement.textContent = giornateArrotondate.toFixed(1) + ' gg';
     }
     
-    // Aggiorna il tooltip con il dettaglio del calcolo
     const tooltipElement = document.getElementById('giornateTooltipText');
     if (tooltipElement) {
         tooltipElement.innerHTML = `
@@ -772,21 +777,23 @@ function updateGiornateEffettive() {
         `;
     }
     
-    // Log in console per debug
     console.log(`Giornate Effettive: ${totalOre.toFixed(1)}h / ${hoursPerDay}h = ${giornateRaw.toFixed(4)}gg → arrotondato: ${giornateArrotondate.toFixed(1)}gg`);
     
     return giornateArrotondate;
 }
 
-// Funzione per aggiornare tutti i totali (Ore, Maturato, Spese, Totale)
+// Funzione per aggiornare tutti i totali (Ore, Maturato, Spese, Totale, Tariffe)
 function updateAllTotals() {
     const rows = document.querySelectorAll('#activitiesTableBody tr:not(:has(td[colspan]))');
     let totalOre = 0;
     let totalMaturato = 0;
     let totalSpese = 0;
-    
+
+    // Mappa tariffa → ore totali
+    const tariffeMap = {};
+
     rows.forEach(row => {
-        // Estrai ore (colonna 4)
+        // Ore (colonna 4)
         const oreCell = row.querySelector('td:nth-child(4) span[x-text*="ore"]');
         let ore = 0;
         if (oreCell) {
@@ -794,12 +801,11 @@ function updateAllTotals() {
             if (isNaN(ore)) ore = 0;
         }
         totalOre += ore;
-        
-        // Estrai costo orario (colonna 5)
+
+        // Costo orario (colonna 5)
         const costoCells = row.querySelectorAll('td:nth-child(5) span[x-text*="costoOrario"]');
         let costoOrario = 0;
         if (costoCells.length > 0) {
-            // Cerca il secondo span che contiene il valore numerico
             for (let span of costoCells) {
                 const text = span.innerText;
                 if (text && !isNaN(parseFloat(text))) {
@@ -808,35 +814,57 @@ function updateAllTotals() {
                 }
             }
         }
-        
-        // Estrai spese (colonna 6)
+
+        // Spese (colonna 6)
         const speseCell = row.querySelector('td:nth-child(6) span[x-text*="spese"]');
         let spese = 0;
         if (speseCell) {
             spese = parseFloat(speseCell.innerText);
             if (isNaN(spese)) spese = 0;
         }
-        
+
         totalMaturato += ore * costoOrario;
         totalSpese += spese;
+
+        // Raggruppa ore per tariffa
+        const tariffa = costoOrario.toFixed(2);
+        if (!tariffeMap[tariffa]) tariffeMap[tariffa] = 0;
+        tariffeMap[tariffa] += ore;
     });
-    
-    // Aggiorna i display
+
+    // Aggiorna display totali
     const totalOreDisplay = document.getElementById('totalHoursDisplay');
     if (totalOreDisplay) totalOreDisplay.textContent = totalOre.toFixed(1) + ' h';
-    
+
     const totalMaturatoDisplay = document.getElementById('totalMaturatoDisplay');
     if (totalMaturatoDisplay) totalMaturatoDisplay.textContent = '€ ' + totalMaturato.toFixed(2);
-    
+
     const totalSpeseDisplay = document.getElementById('totalSpeseDisplay');
     if (totalSpeseDisplay) totalSpeseDisplay.textContent = '€ ' + totalSpese.toFixed(2);
-    
+
     const totalTotaleDisplay = document.getElementById('totalTotaleDisplay');
     if (totalTotaleDisplay) totalTotaleDisplay.textContent = '€ ' + (totalMaturato + totalSpese).toFixed(2);
-    
-    // Aggiorna anche le giornate effettive
+
+    // Aggiorna card Tariffe / Ore
+    const tariffeEl = document.getElementById('tariffeBreakdown');
+    if (tariffeEl) {
+        const sorted = Object.entries(tariffeMap).sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]));
+        if (sorted.length === 0) {
+            tariffeEl.innerHTML = '<p class="text-xs text-gray-400 italic">Nessuna tariffa</p>';
+        } else {
+            tariffeEl.innerHTML = sorted.map(([tariffa, ore], index) => `
+                ${index > 0 ? '<div class="border-t border-dashed border-gray-100 my-0.5"></div>' : ''}
+                <div class="flex items-center justify-between text-xs">
+                    <span class="text-indigo-600 font-semibold">€ ${tariffa}/h</span>
+                    <span class="text-gray-600">${ore.toFixed(1)} h</span>
+                </div>
+            `).join('');
+        }
+    }
+
+    // Aggiorna giornate effettive
     updateGiornateEffettive();
-    
+
     return { totalOre, totalMaturato, totalSpese };
 }
 
@@ -924,7 +952,6 @@ function bulkUpdateCosto() {
                 this.showConfirmModal = false;
                 
                 if (data.success) {
-                    // Aggiorna le celle
                     document.querySelectorAll('td[data-staff-detail-id]').forEach(cell => {
                         const costoElement = cell.querySelector('[x-text*="costoOrario"]');
                         if (costoElement && costoElement.__x) {
@@ -932,7 +959,6 @@ function bulkUpdateCosto() {
                         }
                     });
                     
-                    // Aggiorna i totali
                     updateAllTotals();
                     
                     window.dispatchEvent(new CustomEvent('show-alert', {
@@ -1003,10 +1029,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Aggiorna i totali iniziali dopo il caricamento
+    // Aggiorna i totali iniziali dopo il caricamento della pagina
+    // Il timeout da 300ms garantisce che Alpine.js abbia inizializzato tutti i componenti
     setTimeout(() => {
         updateAllTotals();
-    }, 100);
+    }, 300);
     
     // Ascolta eventi di aggiornamento
     window.addEventListener('update-totals', updateAllTotals);

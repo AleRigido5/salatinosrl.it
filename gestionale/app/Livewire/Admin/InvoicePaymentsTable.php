@@ -393,7 +393,8 @@ class InvoicePaymentsTable extends Component
     public function getStatusesProperty(): array
     {
         return [
-            'issued' => ['label' => 'Emessa / In attesa', 'badge_class' => 'bg-yellow-100 text-yellow-800'],
+            'issued' => ['label' => 'In attesa', 'badge_class' => 'bg-yellow-100 text-yellow-800'],
+            'pending' => ['label' => 'In attesa', 'badge_class' => 'bg-yellow-100 text-yellow-800'],
             'partially_paid' => ['label' => 'Pagato parzialmente', 'badge_class' => 'bg-blue-100 text-blue-800'],
             'paid' => ['label' => 'Completamente pagato', 'badge_class' => 'bg-green-100 text-green-800'],
             'overdue' => ['label' => 'Scaduto', 'badge_class' => 'bg-red-100 text-red-800'],

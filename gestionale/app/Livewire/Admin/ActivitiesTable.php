@@ -423,6 +423,92 @@ class ActivitiesTable extends Component
         $this->dispatch('$refresh');
     }
     
+    /**
+     * Genera l'URL per l'esportazione PDF con tutti i filtri attivi
+     */
+    public function getExportPdfUrl()
+    {
+        $params = [];
+        
+        // Filtri data
+        if ($this->dateFrom) {
+            $params['date_from'] = $this->dateFrom;
+        }
+        if ($this->dateTo) {
+            $params['date_to'] = $this->dateTo;
+        }
+        
+        // Filtro centro di costo
+        if ($this->costCenterFilter) {
+            $params['cost_center_filter'] = $this->costCenterFilter;
+        }
+        
+        // Filtro servizio
+        if ($this->serviceFilter) {
+            $params['service_filter'] = $this->serviceFilter;
+        }
+        
+        // Filtro entità (cliente/fornitore)
+        if ($this->entityFilter) {
+            $params['entity_filter'] = $this->entityFilter;
+        }
+        
+        // Filtro posizioni (aperte/interne)
+        if ($this->positionFilter) {
+            $params['position_filter'] = $this->positionFilter;
+        }
+        
+        // Ricerca generica
+        if ($this->search) {
+            $params['search'] = $this->search;
+        }
+        
+        return route('admin.activities.export-pdf', $params);
+    }
+
+    /**
+     * Genera l'URL per l'esportazione Excel con tutti i filtri attivi
+     */
+    public function getExportExcelUrl()
+    {
+        $params = [];
+        
+        // Filtri data
+        if ($this->dateFrom) {
+            $params['date_from'] = $this->dateFrom;
+        }
+        if ($this->dateTo) {
+            $params['date_to'] = $this->dateTo;
+        }
+        
+        // Filtro centro di costo
+        if ($this->costCenterFilter) {
+            $params['cost_center_filter'] = $this->costCenterFilter;
+        }
+        
+        // Filtro servizio
+        if ($this->serviceFilter) {
+            $params['service_filter'] = $this->serviceFilter;
+        }
+        
+        // Filtro entità (cliente/fornitore)
+        if ($this->entityFilter) {
+            $params['entity_filter'] = $this->entityFilter;
+        }
+        
+        // Filtro posizioni (aperte/interne)
+        if ($this->positionFilter) {
+            $params['position_filter'] = $this->positionFilter;
+        }
+        
+        // Ricerca generica
+        if ($this->search) {
+            $params['search'] = $this->search;
+        }
+        
+        return route('admin.activities.export-excel', $params);
+    }
+
     public function formatDate($date)
     {
         if (!$date) return '-';

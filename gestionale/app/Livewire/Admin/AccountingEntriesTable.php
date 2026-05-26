@@ -168,6 +168,26 @@ class AccountingEntriesTable extends Component
     }
     
     /**
+     * Gestisce l'aggiornamento in tempo reale del tipo di operazione
+     */
+    public function updatedTypeValue($value)
+    {
+        // Puoi aggiungere qui qualsiasi logica aggiuntiva
+        // Ad esempio, cambiare il colore di sfondo del modale o mostrare un messaggio
+        if ($value === 'entrata') {
+            $this->dispatch('alert', [
+                'type' => 'info',
+                'message' => 'Hai selezionato ENTRATA - Operazione di incasso'
+            ]);
+        } elseif ($value === 'uscita') {
+            $this->dispatch('alert', [
+                'type' => 'info',
+                'message' => 'Hai selezionato USCITA - Operazione di pagamento'
+            ]);
+        }
+    }
+    
+    /**
      * Formatta l'importo quando l'utente esce dal campo
      */
     public function formatAmount()

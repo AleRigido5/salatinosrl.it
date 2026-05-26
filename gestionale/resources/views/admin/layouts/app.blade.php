@@ -748,6 +748,26 @@
                                         $breadcrumbs[] = ['name' => 'Modifica', 'url' => null, 'clickable' => false];
                                     }
                                 }
+                                // Prima Nota (Accounting Entries)
+                                elseif (str_starts_with($currentRoute, 'admin.accounting-entries.')) {
+                                    $breadcrumbs[] = ['name' => 'Prima Nota', 'url' => route('admin.accounting-entries.index'), 'clickable' => true];
+                                    
+                                    if ($currentRoute === 'admin.accounting-entries.create') {
+                                        $breadcrumbs[] = ['name' => 'Nuova Scrittura', 'url' => null, 'clickable' => false];
+                                    } elseif ($currentRoute === 'admin.accounting-entries.edit') {
+                                        $entry = $currentParams['accounting_entry'] ?? null;
+                                        if ($entry && is_object($entry)) {
+                                            $breadcrumbs[] = ['name' => 'Scrittura del ' . ($entry->entry_date ? date('d/m/Y', strtotime($entry->entry_date)) : ''), 'url' => null, 'clickable' => false];
+                                        }
+                                        $breadcrumbs[] = ['name' => 'Modifica', 'url' => null, 'clickable' => false];
+                                    } elseif ($currentRoute === 'admin.accounting-entries.show') {
+                                        $entry = $currentParams['accounting_entry'] ?? null;
+                                        if ($entry && is_object($entry)) {
+                                            $breadcrumbs[] = ['name' => 'Scrittura del ' . ($entry->entry_date ? date('d/m/Y', strtotime($entry->entry_date)) : ''), 'url' => null, 'clickable' => false];
+                                        }
+                                        $breadcrumbs[] = ['name' => 'Dettaglio', 'url' => null, 'clickable' => false];
+                                    }
+                                }
                                 // Impostazioni
                                 elseif (str_starts_with($currentRoute, 'admin.settings.')) {
                                     $breadcrumbs[] = ['name' => 'Impostazioni', 'url' => null, 'clickable' => false];

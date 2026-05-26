@@ -1037,26 +1037,16 @@
     </div>
     @endif
 
-    <div
-        x-data="{
-            dateFrom: '{{ $dateFrom }}',
-            dateTo: '{{ $dateTo }}',
-            basePdfUrl: '{{ route('admin.activities.export-pdf') }}',
-            baseExcelUrl: '{{ route('admin.activities.export-excel') }}',
-        }"
-        x-on:date-range-updated.window="
-            dateFrom = $event.detail.date_from || dateFrom;
-            dateTo   = $event.detail.date_to   || dateTo;
-        "
-        class="flex gap-3 justify-end" 
-    >
-        <a :href="basePdfUrl + '?date_from=' + dateFrom + '&date_to=' + dateTo"
-        class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium">
-            <i class="fas fa-file-pdf text-xl"></i> Esporta PDF
+    <div class="flex gap-3 justify-end">
+        <a href="{{ $this->getExportPdfUrl() }}" 
+        class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium transition-colors">
+            <i class="fas fa-file-pdf text-xl"></i> 
+            <span>Esporta PDF</span>
         </a>
-        <a :href="baseExcelUrl + '?date_from=' + dateFrom + '&date_to=' + dateTo"
-        class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium">
-            <i class="fas fa-file-excel text-xl"></i> Esporta Excel
+        <a href="{{ $this->getExportExcelUrl() }}" 
+        class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium transition-colors">
+            <i class="fas fa-file-excel text-xl"></i> 
+            <span>Esporta Excel</span>
         </a>
     </div>
 

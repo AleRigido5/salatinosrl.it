@@ -320,11 +320,23 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Tipo <span class="text-red-500">*</span></label>
-                                <select wire:model="type_value" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                                    <option value="">Seleziona tipo</option>
-                                    <option value="entrata">Entrata</option>
-                                    <option value="uscita">Uscita</option>
-                                </select>
+                                <div class="relative">
+                                    <select wire:model.live="type_value" class="w-full pl-9 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                        <option value="">Seleziona tipo</option>
+                                        <option value="entrata">Entrata</option>
+                                        <option value="uscita">Uscita</option>
+                                    </select>
+                                    <!-- Indicatore visivo del tipo selezionato -->
+                                    @if($type_value === 'entrata')
+                                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                            <i class="fas fa-arrow-down text-green-500"></i>
+                                        </div>
+                                    @elseif($type_value === 'uscita')
+                                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                            <i class="fas fa-arrow-up text-red-500"></i>
+                                        </div>
+                                    @endif
+                                </div>
                                 @error('type_value') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
                         </div>

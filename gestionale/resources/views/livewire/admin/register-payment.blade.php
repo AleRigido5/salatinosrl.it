@@ -99,7 +99,7 @@
                         
                         <!-- Cliente/Fornitore (Autocomplete) -->
                         <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Cliente / Fornitore <span class="text-red-500">*</span></label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Fornitore <span class="text-red-500">*</span></label>
                             <div class="relative">
                                 <i class="fas fa-user absolute left-3 top-2.5 text-gray-400 text-sm"></i>
                                 <input type="text" 

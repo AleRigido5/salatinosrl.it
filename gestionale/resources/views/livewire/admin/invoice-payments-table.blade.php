@@ -19,7 +19,7 @@
         
         <!-- Filtri -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <!-- Proprietà Autocomplete -->
+            <!-- Autocomplete Proprietà -->
             <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Proprietà</label>
                 <div class="relative">
@@ -35,20 +35,41 @@
                     @if($selectedOwnershipId)
                         <button type="button"
                             wire:click="clearOwnership"
+                            x-on:click="document.getElementById('ownership_input').value = ''"
                             class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
                             <i class="fas fa-times-circle text-sm"></i>
                         </button>
                     @endif
                 </div>
-                <div x-show="open && @entangle('showOwnershipDropdown')" class="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                    @foreach($ownershipResults as $item)
-                        <div x-on:click="open = false; $wire.selectOwnership({{ $item->id }}, '{{ addslashes($item->name) }}')" 
-                             class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm">{{ $item->name }}</div>
-                    @endforeach
+
+                <div x-show="open && @entangle('showOwnershipDropdown')"
+                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    @if($ownershipResults && $ownershipResults->count() > 0)
+                        @foreach($ownershipResults as $item)
+                            <div
+                                x-on:click="
+                                    open = false;
+                                    document.getElementById('ownership_input').value = '{{ addslashes($item->name) }}';
+                                    @this.set('ownershipSearch', '{{ addslashes($item->name) }}');
+                                    @this.set('selectedOwnershipId', '{{ $item->id }}');
+                                    @this.set('selectedOwnershipName', '{{ addslashes($item->name) }}');
+                                    @this.set('showOwnershipDropdown', false);
+                                    @this.call('resetPage');
+                                "
+                                class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                <div class="font-medium text-gray-800">{{ $item->name }}</div>
+                                @if($item->ragione_sociale)
+                                    <div class="text-xs text-gray-500">{{ $item->ragione_sociale }}</div>
+                                @endif
+                            </div>
+                        @endforeach
+                    @else
+                        <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato trovato</div>
+                    @endif
                 </div>
             </div>
-            
-            <!-- Fornitore Autocomplete -->
+
+            <!-- Autocomplete Fornitore -->
             <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Fornitore</label>
                 <div class="relative">
@@ -64,16 +85,37 @@
                     @if($selectedSupplierId)
                         <button type="button"
                             wire:click="clearSupplier"
+                            x-on:click="document.getElementById('supplier_input').value = ''"
                             class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
                             <i class="fas fa-times-circle text-sm"></i>
                         </button>
                     @endif
                 </div>
-                <div x-show="open && @entangle('showSupplierDropdown')" class="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                    @foreach($supplierResults as $item)
-                        <div x-on:click="open = false; $wire.selectSupplier({{ $item->id }}, '{{ addslashes($item->name) }}')" 
-                             class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm">{{ $item->name }}</div>
-                    @endforeach
+
+                <div x-show="open && @entangle('showSupplierDropdown')"
+                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    @if($supplierResults && $supplierResults->count() > 0)
+                        @foreach($supplierResults as $item)
+                            <div
+                                x-on:click="
+                                    open = false;
+                                    document.getElementById('supplier_input').value = '{{ addslashes($item->name) }}';
+                                    @this.set('supplierSearch', '{{ addslashes($item->name) }}');
+                                    @this.set('selectedSupplierId', '{{ $item->id }}');
+                                    @this.set('selectedSupplierName', '{{ addslashes($item->name) }}');
+                                    @this.set('showSupplierDropdown', false);
+                                    @this.call('resetPage');
+                                "
+                                class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                <div class="font-medium text-gray-800">{{ $item->name }}</div>
+                                @if($item->piva)
+                                    <div class="text-xs text-gray-500">P.IVA: {{ $item->piva }}</div>
+                                @endif
+                            </div>
+                        @endforeach
+                    @else
+                        <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato trovato</div>
+                    @endif
                 </div>
             </div>
             

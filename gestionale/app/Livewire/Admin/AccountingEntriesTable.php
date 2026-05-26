@@ -12,6 +12,7 @@ use App\Models\InvoiceReceived;
 use App\Models\InvoicePayment;
 use App\Models\InstallmentTransaction;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
@@ -510,6 +511,61 @@ class AccountingEntriesTable extends Component
         }
     }
     
+    // public function forceDeleteFromTrash(int $id): void
+    // {
+    //     try {
+    //         DB::beginTransaction();
+            
+    //         $entry = AccountingEntry::onlyTrashed()->find($id);
+    //         if ($entry) {
+    //             $description = $entry->description;
+                
+    //             // Verifica se questa scrittura è collegata a pagamenti di fatture
+    //             $installmentTransactions = InstallmentTransaction::onlyTrashed()
+    //                 ->where('id_accounting_entries', $entry->id)
+    //                 ->get();
+                
+    //             foreach ($installmentTransactions as $transaction) {
+    //                 $payment = $transaction->invoicePayment;
+    //                 if ($payment) {
+    //                     $invoice = $payment->payable;
+                        
+    //                     // Rimuovi l'importo allocato dal pagamento
+    //                     $newPaidAmount = max(0, $payment->paid_amount - $transaction->allocated_amount);
+    //                     $newResidual = $payment->amount - $newPaidAmount;
+                        
+    //                     $payment->update([
+    //                         'paid_amount' => $newPaidAmount,
+    //                         'residual_amount' => $newResidual,
+    //                         'status' => $newResidual <= 0.01 ? 'paid' : ($newPaidAmount > 0 ? 'partially_paid' : 'issued'),
+    //                         'paid_at' => $newResidual <= 0.01 ? now() : null,
+    //                     ]);
+                        
+    //                     // Aggiorna lo stato della fattura
+    //                     if ($invoice) {
+    //                         $this->updateInvoiceStatus($invoice);
+    //                     }
+    //                 }
+                    
+    //                 // Elimina definitivamente la transazione
+    //                 $transaction->forceDelete();
+    //             }
+                
+    //             // Elimina definitivamente la scrittura contabile
+    //             $entry->forceDelete();
+                
+    //             DB::commit();
+                
+    //             $this->dispatch('showSuccess', message: "Scrittura '{$description}' eliminata definitivamente.");
+    //             $this->dispatch('refreshAccountingEntries');
+    //             $this->dispatch('refreshPayments');
+    //         }
+    //     } catch (\Exception $e) {
+    //         DB::rollBack();
+    //         $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+    //     }
+    // }
+
     public function forceDeleteFromTrash(int $id): void
     {
         try {
@@ -517,37 +573,15 @@ class AccountingEntriesTable extends Component
             
             $entry = AccountingEntry::onlyTrashed()->find($id);
             if ($entry) {
-                $description = $entry->description;
+                $entryName = 'Scrittura del ' . $entry->entry_date->format('d/m/Y') . ' - ' . number_format($entry->amount, 2, ',', '.') . ' €';
                 
-                // Verifica se questa scrittura è collegata a pagamenti di fatture
-                $installmentTransactions = InstallmentTransaction::onlyTrashed()
-                    ->where('id_accounting_entries', $entry->id)
-                    ->get();
-                
-                foreach ($installmentTransactions as $transaction) {
-                    $payment = $transaction->invoicePayment;
-                    if ($payment) {
-                        $invoice = $payment->payable;
-                        
-                        // Rimuovi l'importo allocato dal pagamento
-                        $newPaidAmount = max(0, $payment->paid_amount - $transaction->allocated_amount);
-                        $newResidual = $payment->amount - $newPaidAmount;
-                        
-                        $payment->update([
-                            'paid_amount' => $newPaidAmount,
-                            'residual_amount' => $newResidual,
-                            'status' => $newResidual <= 0.01 ? 'paid' : ($newPaidAmount > 0 ? 'partially_paid' : 'issued'),
-                            'paid_at' => $newResidual <= 0.01 ? now() : null,
-                        ]);
-                        
-                        // Aggiorna lo stato della fattura
-                        if ($invoice) {
-                            $this->updateInvoiceStatus($invoice);
-                        }
-                    }
-                    
-                    // Elimina definitivamente la transazione
-                    $transaction->forceDelete();
+                // Elimina le installment_transactions collegate (senza SoftDeletes o con)
+                // Verifica se il model usa SoftDeletes
+                if (method_exists(InstallmentTransaction::class, 'onlyTrashed')) {
+                    $entry->installmentTransactions()->forceDelete();
+                } else {
+                    // Se non usa SoftDeletes, elimina direttamente
+                    $entry->installmentTransactions()->delete();
                 }
                 
                 // Elimina definitivamente la scrittura contabile
@@ -555,12 +589,13 @@ class AccountingEntriesTable extends Component
                 
                 DB::commit();
                 
-                $this->dispatch('showSuccess', message: "Scrittura '{$description}' eliminata definitivamente.");
+                $this->dispatch('showSuccess', message: "{$entryName} eliminata definitivamente.");
                 $this->dispatch('refreshAccountingEntries');
-                $this->dispatch('refreshPayments');
+                $this->closeTrashModal();
             }
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Errore force delete: ' . $e->getMessage());
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }

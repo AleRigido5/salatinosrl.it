@@ -4,10 +4,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InstallmentTransaction extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'installment_transactions';
     
     protected $fillable = [
@@ -18,6 +21,7 @@ class InstallmentTransaction extends Model
     
     protected $casts = [
         'allocated_amount' => 'decimal:2',
+        'deleted_at' => 'datetime',
     ];
     
     public function accountingEntry(): BelongsTo

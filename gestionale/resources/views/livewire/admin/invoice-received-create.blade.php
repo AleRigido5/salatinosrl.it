@@ -428,7 +428,7 @@
                                     <!-- Dropdown teleportato nel body, posizionato via JS -->
                                     <template x-teleport="body">
                                         <div
-                                            x-show="open && @entangle('showCostCenterDropdown.' . $index)"
+                                            x-show="open && {{ isset($costCenterResults[$index]) && count($costCenterResults[$index] ?? []) > 0 ? 'true' : 'false' }}"
                                             x-on:click.away="open = false"
                                             :style="`position:fixed; z-index:9999; width:250px; top:${triggerRect.bottom + window.scrollY}px; left:${triggerRect.left + window.scrollX}px;`"
                                             class="bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -490,7 +490,7 @@
                                     <!-- Dropdown teleportato nel body -->
                                     <template x-teleport="body">
                                         <div
-                                            x-show="open && @entangle('showVehicleDropdown.' . $index)"
+                                            x-show="open && {{ isset($vehicleResults[$index]) && count($vehicleResults[$index] ?? []) > 0 ? 'true' : 'false' }}"
                                             x-on:click.away="open = false"
                                             :style="`position:fixed; z-index:9999; width:250px; top:${triggerRect.bottom + window.scrollY}px; left:${triggerRect.left + window.scrollX}px;`"
                                             class="bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">

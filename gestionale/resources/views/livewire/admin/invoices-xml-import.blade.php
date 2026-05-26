@@ -234,9 +234,8 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach($rows as $index => $row)
-                                    <tr class="border-b hover:bg-gray-50" wire:key="row-{{ $index }}-{{ $row['id_cost_center'] ?? 'none' }}-{{ $row['id_vehicle'] ?? 'none' }}">
-
+                                    @foreach($rows as $index => $row)       
+                                    <tr class="border-b hover:bg-gray-50" wire:key="row-{{ $index }}">
                                         <!-- Codice Articolo -->
                                         <td class="px-3 py-2 align-top">
                                             @if(!empty($row['codice_articolo']))
@@ -309,7 +308,7 @@
                                         </td>
 
                                         <!-- Centro di Costo -->
-                                        <td class="px-3 py-2">
+                                        <td class="px-3 py-2" wire:key="cc-cell-{{ $index }}-{{ count($row_cost_center_results[$index] ?? []) }}">
                                             <div class="relative">
                                                 <input type="text" 
                                                     wire:model.live.debounce.300ms="row_cost_center_search.{{ $index }}"

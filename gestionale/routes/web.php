@@ -241,6 +241,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::prefix('accounting-entries')->name('accounting-entries.')->group(function () {
             Route::get('/', [App\Http\Controllers\Admin\AccountingEntryController::class, 'index'])->name('index');
         });
+
+        // =============================================
+        // FATTURE DI VENDITA
+        // =============================================        
+        Route::controller(App\Http\Controllers\Admin\InvoiceSalesController::class)->prefix('invoices-sales')->name('invoices-sales.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/create', 'create')->name('create');
+            Route::get('/{id}/edit', 'edit')->name('edit');
+            Route::get('/{id}', 'show')->name('show');
+        });
         
         // =============================================
         // GESTIONE SCADENZE (EXPIRATION)

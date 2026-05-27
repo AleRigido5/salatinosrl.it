@@ -245,7 +245,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // =============================================
         // FATTURE DI VENDITA
         // =============================================        
-        Route::controller(App\Http\Controllers\Admin\InvoiceSalesController::class)->prefix('invoices-sales')->name('invoices-sales.')->group(function () {
+        Route::controller(App\Http\Controllers\Admin\InvoiceSentController::class)->prefix('invoices-sent')->name('invoices-sent.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/create', 'create')->name('create');
             Route::get('/{id}/edit', 'edit')->name('edit');

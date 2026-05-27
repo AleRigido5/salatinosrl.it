@@ -4,6 +4,6 @@
 
 @section('content')
     <div>
-        @livewire('admin.invoice-sales-show', ['invoiceId' => $id])
+        @livewire('admin.invoice-sent-show', ['invoiceId' => $id])
     </div>
 @endsection

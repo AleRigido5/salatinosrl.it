@@ -1,11 +1,11 @@
 <?php
-// app/Livewire/Admin/InvoiceSalesTable.php
+// app/Livewire/Admin/InvoiceSentTable.php
 
 namespace App\Livewire\Admin;
 
 use Livewire\Component;
 use Livewire\WithPagination;
-use App\Models\InvoiceSales;
+use App\Models\InvoiceSent;
 use App\Models\Ownership;
 use App\Models\Entity;
 use App\Models\CostCenter;
@@ -13,7 +13,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
-class InvoiceSalesTable extends Component
+class InvoiceSentTable extends Component
 {
     use WithPagination;
 
@@ -234,7 +234,7 @@ class InvoiceSalesTable extends Component
     public function updateInvoiceStatus(int $id, string $newStatus): void
     {
         try {
-            $invoice = InvoiceSales::find($id);
+            $invoice = InvoiceSent::find($id);
             if (!$invoice) {
                 $this->dispatch('showError', message: 'Fattura non trovata');
                 return;
@@ -300,7 +300,7 @@ class InvoiceSalesTable extends Component
 
     public function getInvoicesProperty()
     {
-        $query = InvoiceSales::query()
+        $query = InvoiceSent::query()
             ->with(['ownership', 'entity', 'rows.costCenter'])
             ->when($this->search, fn($q) => $q->where('n_invoice', 'like', '%' . $this->search . '%'))
             ->when($this->status, fn($q) => $q->where('status', $this->status))
@@ -333,7 +333,7 @@ class InvoiceSalesTable extends Component
     // ==================== MODAL DETTAGLI ====================
     public function showDetails(int $id): void
     {
-        $this->selectedInvoice = InvoiceSales::with([
+        $this->selectedInvoice = InvoiceSent::with([
             'ownership', 'entity', 'rows.costCenter', 'rows.vehicle',
             'payments', 'creator', 'updater', 'vatSummaries', 'invoiceSeries'
         ])->find($id);
@@ -354,7 +354,7 @@ class InvoiceSalesTable extends Component
     // ==================== ELIMINAZIONE ====================
     public function confirmDelete(int $id): void
     {
-        $invoice = InvoiceSales::find($id);
+        $invoice = InvoiceSent::find($id);
         if (!$invoice) {
             $this->dispatch('showError', message: 'Fattura non trovata');
             return;
@@ -391,7 +391,7 @@ class InvoiceSalesTable extends Component
     // ==================== CESTINO ====================
     public function updateTrashCount(): void
     {
-        $this->trashCount = InvoiceSales::onlyTrashed()->count();
+        $this->trashCount = InvoiceSent::onlyTrashed()->count();
     }
 
     public function openTrashModal(): void
@@ -419,7 +419,7 @@ class InvoiceSalesTable extends Component
 
     public function getTrashedInvoicesProperty()
     {
-        $query = InvoiceSales::onlyTrashed()->with(['ownership', 'entity']);
+        $query = InvoiceSent::onlyTrashed()->with(['ownership', 'entity']);
         if ($this->trashSearch) {
             $searchTerm = '%' . $this->trashSearch . '%';
             $query->where(function($q) use ($searchTerm) {
@@ -433,7 +433,7 @@ class InvoiceSalesTable extends Component
     public function restoreFromTrash(int $id): void
     {
         try {
-            $invoice = InvoiceSales::onlyTrashed()->find($id);
+            $invoice = InvoiceSent::onlyTrashed()->find($id);
             if ($invoice) {
                 $name = 'Fattura n. ' . $invoice->n_invoice;
                 $invoice->restore();
@@ -448,7 +448,7 @@ class InvoiceSalesTable extends Component
     public function forceDeleteFromTrash(int $id): void
     {
         try {
-            $invoice = InvoiceSales::onlyTrashed()->find($id);
+            $invoice = InvoiceSent::onlyTrashed()->find($id);
             if ($invoice) {
                 $name = 'Fattura n. ' . $invoice->n_invoice;
                 $invoice->rows()->forceDelete();
@@ -473,7 +473,7 @@ class InvoiceSalesTable extends Component
 
     public function render()
     {
-        return view('livewire.admin.invoice-sales-table', [
+        return view('livewire.admin.invoice-sent-table', [
             'invoices' => $this->invoices,
             'statuses' => $this->statuses,
             'typeDocuments' => $this->typeDocuments,

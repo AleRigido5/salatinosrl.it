@@ -1,5 +1,5 @@
 <?php
-// app/Models/InvoiceSales.php
+// app/Models/InvoiceSent.php
 
 namespace App\Models;
 
@@ -9,11 +9,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
-class InvoiceSales extends Model
+class InvoiceSent extends Model
 {
     use SoftDeletes;
 
-    protected $table = 'invoices_sales';
+    protected $table = 'invoices_sent';
 
     protected $fillable = [
         'id_ownership',
@@ -64,7 +64,7 @@ class InvoiceSales extends Model
 
     public function rows(): HasMany
     {
-        return $this->hasMany(InvoiceRow::class, 'document_id')->where('document_type', 'invoice_sales');
+        return $this->hasMany(InvoiceRow::class, 'document_id')->where('document_type', 'invoice_sent');
     }
 
     public function payments(): MorphMany

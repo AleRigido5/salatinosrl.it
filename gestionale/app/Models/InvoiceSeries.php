@@ -35,7 +35,7 @@ class InvoiceSeries extends Model
 
     public function invoices(): HasMany
     {
-        return $this->hasMany(InvoiceSales::class, 'id_invoice_series');
+        return $this->hasMany(InvoiceSent::class, 'id_invoice_series');
     }
 
     // Helper per generare il numero fattura formattato

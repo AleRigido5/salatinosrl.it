@@ -467,10 +467,10 @@
                     @endif
 
                     <!-- Vendite -->
-                    @if($currentAdmin && $currentAdmin->hasPermission('view_sales'))
-                    <a href="{{ route('admin.invoices-sales.index') }}" 
-                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.invoices-sales.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
-                        <i class="fa-solid fa-briefcase w-5 h-5 text-gray-500 {{ request()->routeIs('admin.invoices-sales.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                    @if($currentAdmin && $currentAdmin->hasPermission('view_sent'))
+                    <a href="{{ route('admin.invoices-sent.index') }}" 
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.invoices-sent.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                        <i class="fa-solid fa-briefcase w-5 h-5 text-gray-500 {{ request()->routeIs('admin.invoices-sent.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
                         <span class="sidebar-link-text text-sm font-medium ml-3">Vendite</span>
                     </a>
                     @endif

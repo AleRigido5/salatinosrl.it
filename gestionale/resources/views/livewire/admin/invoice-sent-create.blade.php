@@ -135,7 +135,7 @@
             <i class="fas fa-plus-circle text-lime-500 mr-2"></i> Nuova Fattura di Vendita
         </h1>
         <div class="relative group">
-            <a href="{{ route('admin.invoices-sales.index') }}" 
+            <a href="{{ route('admin.invoices-sent.index') }}" 
                class="bg-gray-600 hover:bg-gray-900 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
                 <i class="fas fa-arrow-left"></i>
             </a>
@@ -161,7 +161,7 @@
                         @error('id_ownership') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
 
-                    <!-- Nella view invoice-sales-create.blade.php, dopo il campo Proprietà -->
+                    <!-- Nella view invoice-sent-create.blade.php, dopo il campo Proprietà -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Sezionale <span class="text-red-500">*</span></label>
                         <select wire:model.live="selectedSeriesId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500">
@@ -573,6 +573,9 @@
                                         wire:model.live="payments.{{ $index }}.iban" 
                                         placeholder="IT00 XXXX XXXX XXXX XXXX XXXX XXX"
                                         class="w-full px-2 py-1 text-sm border rounded-md">
+                                    @if(isset($payments[$index]['bank_name']) && $payments[$index]['bank_name'])
+                                        <div class="text-xs text-gray-500 mt-1">{{ $payments[$index]['bank_name'] }}</div>
+                                    @endif
                                 </td>
                                 <td class="px-3 py-2 text-center">
                                     <button type="button" 
@@ -617,7 +620,7 @@
         
         <!-- Bottoni -->
         <div class="mt-6 flex justify-end gap-3">
-            <a href="{{ route('admin.invoices-sales.index') }}" class="px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-gray-200 text-gray-700 hover:bg-gray-300">
+            <a href="{{ route('admin.invoices-sent.index') }}" class="px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-gray-200 text-gray-700 hover:bg-gray-300">
                 Annulla
             </a>
             <button type="submit" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">

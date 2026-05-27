@@ -1,10 +1,10 @@
 <?php
-// app/Livewire/Admin/InvoiceSalesCreate.php
+// app/Livewire/Admin/InvoiceSentCreate.php
 
 namespace App\Livewire\Admin;
 
 use Livewire\Component;
-use App\Models\InvoiceSales;
+use App\Models\InvoiceSent;
 use App\Models\InvoiceRow;
 use App\Models\InvoiceVatSummary;
 use App\Models\InvoiceSeries;
@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 
-class InvoiceSalesCreate extends Component
+class InvoiceSentCreate extends Component
 {
     public $id_ownership = '';
     public $type_invoice = 'TD01';
@@ -24,6 +24,8 @@ class InvoiceSalesCreate extends Component
     public $data_invoice = '';
     public $importo_totale = 0;
     public $causale = '';
+    public $companyIban = '';
+    public $companyBankName = '';
     
     public $availableSeries = [];
     public $selectedSeriesId = '';
@@ -33,14 +35,12 @@ class InvoiceSalesCreate extends Component
     public $total_discount = 0;
     public $vatSummary = [];
     
-    // Cliente
     public $customerSearch = '';
     public $customerResults = [];
     public $selectedCustomerId = '';
     public $selectedCustomerName = '';
     public $showCustomerDropdown = false;
     
-    // Nuovo cliente
     public $showCustomerModal = false;
     public $newCustomerName = '';
     public $newCustomerPiva = '';
@@ -52,30 +52,25 @@ class InvoiceSalesCreate extends Component
     public $newCustomerCity = '';
     public $newCustomerProvince = '';
     
-    // Righe fattura
     public $rows = [];
     public $unitMeasureList = [];
     
-    // Centri di costo
     public $costCenterSearch = [];
     public $costCenterResults = [];
     public $showCostCenterDropdown = [];
     public $selectedCostCenterId = [];
     public $selectedCostCenterName = [];
     
-    // Mezzi
     public $vehicleSearch = [];
     public $vehicleResults = [];
     public $showVehicleDropdown = [];
     public $selectedVehicleId = [];
     public $selectedVehicleName = [];
     
-    // Pagamenti
     public $payments = [];
     public $total_payments_amount = 0;
     public $paymentMethods = [];
     
-    // IVA
     public $vatRatesList = [];
     
     protected $rules = [
@@ -91,7 +86,11 @@ class InvoiceSalesCreate extends Component
     
     public function mount()
     {
+        Log::info('=== MOUNT InvoiceSentCreate ===');
+        
         $this->data_invoice = date('Y-m-d');
+        Log::info('Data fattura impostata: ' . $this->data_invoice);
+        
         $this->loadVatRates();
         $this->loadUnitMeasures();
         $this->loadPaymentMethods();
@@ -99,6 +98,8 @@ class InvoiceSalesCreate extends Component
         $this->calculateTotals();
         $this->addPayment();
         $this->calculatePaymentsTotal();
+        
+        Log::info('Mount completato');
     }
     
     public function loadVatRates()
@@ -117,6 +118,8 @@ class InvoiceSalesCreate extends Component
                 ];
             })
             ->toArray();
+            
+        Log::info('Aliquote IVA caricate: ' . count($this->vatRatesList));
     }
     
     public function loadUnitMeasures()
@@ -143,17 +146,54 @@ class InvoiceSalesCreate extends Component
         ];
     }
     
+    public function loadCompanyBankAccount()
+    {
+        Log::info('loadCompanyBankAccount - ID proprietà: ' . $this->id_ownership);
+        
+        if (!$this->id_ownership) {
+            $this->companyIban = '';
+            $this->companyBankName = '';
+            Log::info('Nessuna proprietà selezionata');
+            return;
+        }
+        
+        $bankAccount = DB::table('bank_accounts')
+            ->where('id_ownership', $this->id_ownership)
+            ->where('default_invoice', 1)
+            ->where('valid', 1)
+            ->first();
+        
+        if ($bankAccount) {
+            $this->companyIban = $bankAccount->iban ?? '';
+            $this->companyBankName = $bankAccount->name ?? '';
+            Log::info('IBAN trovato: ' . $this->companyIban . ' - Banca: ' . $this->companyBankName);
+            
+            if (count($this->payments) > 0) {
+                $this->payments[0]['iban'] = $this->companyIban;
+                $this->payments[0]['bank_name'] = $this->companyBankName;
+                Log::info('IBAN aggiornato nel pagamento');
+            }
+        } else {
+            $this->companyIban = '';
+            $this->companyBankName = '';
+            Log::warning('Nessun conto con default_invoice=1 per proprietà ID: ' . $this->id_ownership);
+        }
+    }
+    
     public function updatedIdOwnership()
     {
+        Log::info('updatedIdOwnership - Nuova proprietà: ' . $this->id_ownership);
         $this->loadAvailableSeries();
         $this->selectedSeriesId = '';
         $this->n_invoice = '';
+        $this->loadCompanyBankAccount();
     }
     
     public function loadAvailableSeries()
     {
         if (!$this->id_ownership) {
             $this->availableSeries = [];
+            Log::info('Nessuna proprietà selezionata per i sezionali');
             return;
         }
         
@@ -161,13 +201,20 @@ class InvoiceSalesCreate extends Component
             ->where('year', date('Y'))
             ->get()
             ->toArray();
+            
+        Log::info('Sezionali caricati per proprietà ' . $this->id_ownership . ': ' . count($this->availableSeries));
     }
     
     public function updatedSelectedSeriesId()
     {
+        Log::info('updatedSelectedSeriesId - Sezionale selezionato: ' . $this->selectedSeriesId);
+        
         $series = collect($this->availableSeries)->firstWhere('id', $this->selectedSeriesId);
         if ($series) {
             $this->n_invoice = $series['code'] . '/' . ($series['last_number'] + 1) . '/' . $series['year'];
+            Log::info('Numero fattura generato: ' . $this->n_invoice);
+        } else {
+            Log::warning('Sezionale non trovato per ID: ' . $this->selectedSeriesId);
         }
     }
     
@@ -201,6 +248,8 @@ class InvoiceSalesCreate extends Component
         $this->selectedVehicleName[$index] = '';
         
         $this->calculateTotals();
+        
+        Log::info('Riga aggiunta, totale righe: ' . count($this->rows));
     }
     
     public function removeRow($index)
@@ -208,6 +257,7 @@ class InvoiceSalesCreate extends Component
         unset($this->rows[$index]);
         $this->rows = array_values($this->rows);
         $this->calculateTotals();
+        Log::info('Riga rimossa, totale righe: ' . count($this->rows));
     }
     
     public function addPayment()
@@ -216,9 +266,11 @@ class InvoiceSalesCreate extends Component
             'due_date' => $this->data_invoice,
             'amount' => $this->importo_totale,
             'payment_method' => 'MP05',
-            'iban' => '',
+            'iban' => $this->companyIban,
+            'bank_name' => $this->companyBankName,
         ];
         $this->calculatePaymentsTotal();
+        Log::info('Pagamento aggiunto, totale pagamenti: ' . count($this->payments) . ', importo: ' . $this->importo_totale);
     }
     
     public function removePayment($index)
@@ -226,6 +278,7 @@ class InvoiceSalesCreate extends Component
         unset($this->payments[$index]);
         $this->payments = array_values($this->payments);
         $this->calculatePaymentsTotal();
+        Log::info('Pagamento rimosso, totale pagamenti: ' . count($this->payments));
     }
     
     public function updatedRows()
@@ -289,9 +342,10 @@ class InvoiceSalesCreate extends Component
             $this->payments[0]['amount'] = $this->importo_totale;
             $this->calculatePaymentsTotal();
         }
+        
+        Log::info('Totali calcolati - Imponibile: ' . $this->total_taxable . ', IVA: ' . $this->total_vat . ', Totale: ' . $this->importo_totale);
     }
     
-    // Autocomplete Cliente
     public function updatedCustomerSearch()
     {
         if (strlen($this->customerSearch) < 2) {
@@ -321,6 +375,7 @@ class InvoiceSalesCreate extends Component
         $this->selectedCustomerName = $name;
         $this->customerSearch = $name;
         $this->showCustomerDropdown = false;
+        Log::info('Cliente selezionato: ID=' . $id . ', Nome=' . $name);
     }
     
     public function clearCustomer()
@@ -328,9 +383,9 @@ class InvoiceSalesCreate extends Component
         $this->selectedCustomerId = '';
         $this->selectedCustomerName = '';
         $this->customerSearch = '';
+        Log::info('Cliente deselezionato');
     }
     
-    // Autocomplete Centro di Costo
     public function updatedCostCenterSearch($value, $index)
     {
         if (strlen($value) < 2) {
@@ -356,9 +411,9 @@ class InvoiceSalesCreate extends Component
         $this->costCenterSearch[$index] = $name;
         $this->showCostCenterDropdown[$index] = false;
         $this->calculateTotals();
+        Log::info('Centro di costo selezionato riga ' . $index . ': ' . $name);
     }
     
-    // Autocomplete Mezzi
     public function updatedVehicleSearch($value, $index)
     {
         if (strlen($value) < 2) {
@@ -388,18 +443,20 @@ class InvoiceSalesCreate extends Component
         $this->vehicleSearch[$index] = $name;
         $this->showVehicleDropdown[$index] = false;
         $this->calculateTotals();
+        Log::info('Mezzo selezionato riga ' . $index . ': ' . $name);
     }
     
-    // Modale nuovo cliente
     public function openCustomerModal()
     {
         $this->showCustomerModal = true;
+        Log::info('Apertura modale nuovo cliente');
     }
     
     public function closeCustomerModal()
     {
         $this->showCustomerModal = false;
         $this->resetNewCustomerFields();
+        Log::info('Chiusura modale nuovo cliente');
     }
     
     public function resetNewCustomerFields()
@@ -417,6 +474,8 @@ class InvoiceSalesCreate extends Component
     
     public function createCustomer()
     {
+        Log::info('Tentativo creazione nuovo cliente: ' . $this->newCustomerName);
+        
         $this->validate([
             'newCustomerName' => 'required|string|max:255',
         ]);
@@ -436,33 +495,64 @@ class InvoiceSalesCreate extends Component
                 'valid' => 1,
             ]);
             
+            Log::info('Cliente creato con successo, ID: ' . $customer->id_cliente);
+            
             $this->selectCustomer($customer->id_cliente, $this->newCustomerName);
             $this->showCustomerModal = false;
             $this->resetNewCustomerFields();
             session()->flash('success', 'Cliente creato con successo!');
         } catch (\Exception $e) {
+            Log::error('Errore creazione cliente: ' . $e->getMessage());
             session()->flash('error', 'Errore: ' . $e->getMessage());
         }
     }
     
-    // Salvataggio
     public function save()
     {
-        $this->validate();
+        Log::info('=== INIZIO SALVATAGGIO FATTURA VENDITA ===');
+        Log::info('Dati ricevuti:', [
+            'id_ownership' => $this->id_ownership,
+            'type_invoice' => $this->type_invoice,
+            'selectedSeriesId' => $this->selectedSeriesId,
+            'data_invoice' => $this->data_invoice,
+            'selectedCustomerId' => $this->selectedCustomerId,
+            'total_rows' => count($this->rows),
+            'total_payments' => count($this->payments),
+            'importo_totale' => $this->importo_totale
+        ]);
+        
+        // Validazione
+        Log::info('Step 1: Validazione dati...');
+        try {
+            $this->validate();
+            Log::info('✅ Validazione superata');
+        } catch (\Exception $e) {
+            Log::error('❌ Errore validazione: ' . $e->getMessage());
+            Log::error('Validation errors: ' . json_encode($this->getErrorBag()));
+            session()->flash('error', 'Errore validazione: ' . $e->getMessage());
+            return null;
+        }
         
         try {
             DB::beginTransaction();
+            Log::info('Step 2: Transazione iniziata');
             
             // Aggiorna sezionale
+            Log::info('Step 3: Verifica sezionale ID: ' . $this->selectedSeriesId);
             $series = InvoiceSeries::find($this->selectedSeriesId);
             if (!$series) {
-                throw new \Exception('Sezionale non trovato');
+                throw new \Exception('Sezionale non trovato per ID: ' . $this->selectedSeriesId);
             }
+            Log::info('✅ Sezionale trovato: ' . $series->code . ' - Ultimo numero: ' . $series->last_number);
+            
+            $oldNumber = $series->last_number;
             $series->last_number += 1;
             $series->save();
+            Log::info('✅ Sezionale aggiornato: ' . $oldNumber . ' → ' . $series->last_number);
             
             // Crea fattura
-            $invoice = InvoiceSales::create([
+            Log::info('Step 4: Creazione fattura...');
+            $invoiceData = [
                 'id_ownership' => $this->id_ownership,
                 'id_entities' => $this->selectedCustomerId,
                 'id_invoice_series' => $this->selectedSeriesId,
@@ -476,31 +566,59 @@ class InvoiceSalesCreate extends Component
                 'is_manual' => true,
                 'created_by' => Auth::guard('admin')->id(),
                 'updated_by' => Auth::guard('admin')->id(),
-            ]);
+            ];
+            Log::info('Dati fattura:', $invoiceData);
+            
+            $invoice = InvoiceSent::create($invoiceData);
+            Log::info('✅ Fattura creata con ID: ' . $invoice->id);
             
             // Salva righe
-            foreach ($this->rows as $row) {
-                InvoiceRow::create([
+            Log::info('Step 5: Salvataggio righe fattura (totale: ' . count($this->rows) . ')');
+            
+            foreach ($this->rows as $index => $row) {
+                Log::info('--- Riga ' . $index . ' ---');
+                Log::info('Dati riga:', [
+                    'description' => $row['description'] ?? 'null',
+                    'quantity' => $row['quantity'] ?? 0,
+                    'unit_price' => $row['unit_price'] ?? 0,
+                    'vat_rate' => $row['vat_rate'] ?? 0,
+                    'discount_percentage' => $row['discount_percentage'] ?? 0,
+                    'taxable_amount' => $row['taxable_amount'] ?? 0,
+                ]);
+                
+                $rowData = [
                     'document_id' => $invoice->id,
-                    'document_type' => 'invoice_sales',
+                    'document_type' => 'invoice_sent',
                     'code' => $row['code'] ?? null,
                     'description' => $row['description'],
-                    'quantity' => $row['quantity'],
-                    'unit_price' => $row['unit_price'],
+                    'quantity' => floatval($row['quantity'] ?? 1),
+                    'unit_price' => floatval($row['unit_price'] ?? 0),
                     'unit_measure' => $row['unit_measure'] ?? 'pz',
-                    'discount_percentage' => $row['discount_percentage'] ?? 0,
-                    'vat_rate' => $row['vat_rate'] * 100,
-                    'total' => $row['taxable_amount'],
+                    'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
+                    'vat_rate' => floatval($row['vat_rate'] ?? 0) * 100,
+                    'total' => floatval($row['taxable_amount'] ?? 0),
                     'id_cost_center' => $row['id_cost_center'] ?? null,
                     'id_vehicle' => $row['id_vehicle'] ?? null,
-                ]);
+                ];
+                Log::info('Dati per InvoiceRow:', $rowData);
+                
+                InvoiceRow::create($rowData);
+                Log::info('✅ Riga ' . $index . ' salvata con successo');
             }
             
             // Salva riepiloghi IVA
-            foreach ($this->vatSummary as $vat) {
+            Log::info('Step 6: Salvataggio riepiloghi IVA (totale: ' . count($this->vatSummary) . ')');
+            
+            foreach ($this->vatSummary as $index => $vat) {
+                Log::info('Riepilogo IVA ' . $index . ':', [
+                    'rate' => $vat['rate'] * 100,
+                    'taxable_amount' => $vat['taxable_amount'],
+                    'vat_amount' => $vat['vat_amount']
+                ]);
+                
                 DB::table('invoice_vat_summaries')->insert([
                     'vatable_id' => $invoice->id,
-                    'vatable_type' => InvoiceSales::class,
+                    'vatable_type' => InvoiceSent::class,
                     'tax_rate' => $vat['rate'] * 100,
                     'taxable_amount' => $vat['taxable_amount'],
                     'tax_amount' => $vat['vat_amount'],
@@ -508,34 +626,56 @@ class InvoiceSalesCreate extends Component
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+                Log::info('✅ Riepilogo IVA ' . $index . ' salvato');
             }
             
             // Salva pagamenti
-            foreach ($this->payments as $payment) {
+            Log::info('Step 7: Salvataggio pagamenti (totale: ' . count($this->payments) . ')');
+            
+            foreach ($this->payments as $index => $payment) {
                 if ($payment['amount'] > 0) {
-                    DB::table('invoice_payments')->insert([
+                    $iban = $payment['iban'] ?? $this->companyIban;
+                    if (empty($iban)) {
+                        $bankAccount = DB::table('bank_accounts')
+                            ->where('id_ownership', $this->id_ownership)
+                            ->where('default_invoice', 1)
+                            ->where('valid', 1)
+                            ->first();
+                        $iban = $bankAccount->iban ?? null;
+                    }
+                    
+                    $paymentData = [
                         'payable_id' => $invoice->id,
-                        'payable_type' => InvoiceSales::class,
+                        'payable_type' => InvoiceSent::class,
                         'due_date' => $payment['due_date'],
                         'amount' => $payment['amount'],
                         'paid_amount' => 0,
-                        'residual_amount' => $payment['amount'],  // ✅ AGGIUNGI QUESTO - Il residuo è l'intero importo
-                        'payment_method' => $payment['payment_method'] ?? null,
-                        'iban' => $payment['iban'] ?? null,
-                        'status' => 'issued',  // ✅ CORRETTO: 'issued' invece di 'pending'
+                        'residual_amount' => $payment['amount'],
+                        'payment_method' => $payment['payment_method'] ?? 'MP05',
+                        'iban' => $iban,
+                        'status' => 'issued',
                         'created_at' => now(),
                         'updated_at' => now(),
-                    ]);
+                    ];
+                    Log::info('Dati pagamento ' . $index . ':', $paymentData);
+                    
+                    DB::table('invoice_payments')->insert($paymentData);
+                    Log::info('✅ Pagamento ' . $index . ' salvato');
                 }
             }
             
             DB::commit();
+            Log::info('✅✅✅ TRANSIZIONE COMPLETATA CON SUCCESSO! Fattura ID: ' . $invoice->id);
             
             session()->flash('success', 'Fattura ' . $this->n_invoice . ' creata con successo!');
-            return redirect()->route('admin.invoices-sales.index');
+            return redirect()->route('admin.invoices-sent.index');
             
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('❌❌❌ ERRORE GENERALE: ' . $e->getMessage());
+            Log::error('File: ' . $e->getFile() . ':' . $e->getLine());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            
             session()->flash('error', 'Errore: ' . $e->getMessage());
             return null;
         }
@@ -548,12 +688,17 @@ class InvoiceSalesCreate extends Component
     
     public function getTypeDocumentsProperty()
     {
-        return config('gestionale.tipo_documento', []);
+        return config('gestionale.tipo_documento', [
+            'TD01' => 'Fattura',
+            'TD04' => 'Nota di Credito',
+            'TD05' => 'Nota di Debito',
+            'TD20' => 'Autofattura',
+        ]);
     }
     
     public function render()
     {
-        return view('livewire.admin.invoice-sales-create', [
+        return view('livewire.admin.invoice-sent-create', [
             'ownerships' => $this->ownerships,
             'typeDocuments' => $this->typeDocuments,
             'vatRatesList' => $this->vatRatesList,

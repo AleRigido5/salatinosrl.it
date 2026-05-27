@@ -6,7 +6,7 @@
         </h1>
         <div class="flex gap-2">
             <!-- Pulsante per creazione manuale -->
-            <a href="{{ route('admin.invoices-sales.create') }}" 
+            <a href="{{ route('admin.invoices-sent.create') }}" 
             class="bg-gradient-to-r from-blue-400 to-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" title="Crea Nuova Fattura">
                 <i class="fas fa-plus"></i> Nuova Fattura
             </a>
@@ -386,7 +386,7 @@
                                 @endif
                                 
                                 <!-- Azioni -->
-                                <a href="{{ route('admin.invoices-sales.edit', $invoice->id) }}" 
+                                <a href="{{ route('admin.invoices-sent.edit', $invoice->id) }}" 
                                 class="text-yellow-600 hover:text-yellow-900" 
                                 title="Modifica">
                                     <i class="fa-solid fa-pen-to-square"></i>

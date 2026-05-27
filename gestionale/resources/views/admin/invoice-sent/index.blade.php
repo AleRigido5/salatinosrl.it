@@ -4,6 +4,6 @@
 
 @section('content')
     <div>
-        @livewire('admin.invoice-sales-table')
+        @livewire('admin.invoice-sent-table')
     </div>
 @endsection

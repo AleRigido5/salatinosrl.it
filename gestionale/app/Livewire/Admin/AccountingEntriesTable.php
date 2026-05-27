@@ -38,11 +38,11 @@ class AccountingEntriesTable extends Component
     public bool $showOwnershipDropdown = false;
     
     // Autocomplete Fornitore
-    public string $supplierSearch = '';
-    public Collection $supplierResults;
-    public string $selectedSupplierId = '';
-    public string $selectedSupplierName = '';
-    public bool $showSupplierDropdown = false;
+    public string $entitySearch = '';
+    public Collection $filteredEntities;
+    public $entityFilter = null;
+    public string $entityName = '';
+    public bool $showEntityDropdown = false;
     
     public $sortField = 'entry_date';
     public $sortDirection = 'desc';
@@ -98,6 +98,7 @@ class AccountingEntriesTable extends Component
         $this->entry_date = date('Y-m-d');
         $this->dateFrom = date('Y-m-01');
         $this->dateTo = date('Y-m-t');
+        $this->filteredEntities = new Collection();
     }
     
     public function refreshTable(): void
@@ -125,6 +126,11 @@ class AccountingEntriesTable extends Component
     public function resetFilters()
     {
         $this->search = '';
+        $this->entitySearch = '';
+        $this->entityFilter = null;
+        $this->entityName = '';
+        $this->filteredEntities = new Collection();
+        $this->showEntityDropdown = false;
         $this->type = '';
         $this->bankAccountId = '';
         $this->paymentMethodId = '';
@@ -232,53 +238,45 @@ class AccountingEntriesTable extends Component
     }
 
     // ==================== AUTOCOMPLETE FORNITORE ====================
-    public function updatedSupplierSearch(): void
+    public function updatedEntitySearch(): void
     {
-        if ($this->selectedSupplierId && $this->supplierSearch === $this->selectedSupplierName) {
-            $this->showSupplierDropdown = false;
+        if ($this->entityFilter && $this->entitySearch === $this->entityName) {
+            $this->showEntityDropdown = false;
             return;
         }
 
-        if ($this->selectedSupplierId) {
-            $this->selectedSupplierId = '';
-            $this->selectedSupplierName = '';
+        if ($this->entityFilter) {
+            $this->entityFilter = null;
+            $this->entityName = '';
             $this->resetPage();
         }
 
-        if (strlen($this->supplierSearch) < 2) {
-            $this->supplierResults = new Collection();
-            $this->showSupplierDropdown = false;
+        if (strlen($this->entitySearch) < 2) {
+            $this->filteredEntities = new Collection();
+            $this->showEntityDropdown = false;
             return;
         }
 
-        $this->supplierResults = Entity::where('valid', 1)
+        $this->filteredEntities = Entity::where('valid', 1)
             ->where(function($q) {
-                $q->where('ragione_sociale', 'like', '%' . $this->supplierSearch . '%')
-                ->orWhere('nome', 'like', '%' . $this->supplierSearch . '%')
-                ->orWhere('cognome', 'like', '%' . $this->supplierSearch . '%');
+                $q->where('ragione_sociale', 'like', '%' . $this->entitySearch . '%')
+                ->orWhere('nome', 'like', '%' . $this->entitySearch . '%')
+                ->orWhere('cognome', 'like', '%' . $this->entitySearch . '%');
             })
             ->limit(10)
-            ->get(['id_cliente as id', 'ragione_sociale as name', 'entity_type', 'piva']);
-        
-        $this->showSupplierDropdown = $this->supplierResults->isNotEmpty();
+            ->get(['id_cliente', 'ragione_sociale', 'nome', 'cognome', 'entity_type', 'partita_iva']);
+
+        $this->showEntityDropdown = $this->filteredEntities->isNotEmpty();
     }
 
-    public function selectSupplier(int $id, string $name): void
+    public function clearEntity(): void
     {
-        $this->selectedSupplierId = (string)$id;
-        $this->selectedSupplierName = $name;
-        $this->supplierSearch = $name;
-        $this->showSupplierDropdown = false;
+        $this->entityFilter = null;
+        $this->entityName = '';
+        $this->entitySearch = '';
+        $this->filteredEntities = new Collection();
+        $this->showEntityDropdown = false;
         $this->resetPage();
-    }
-
-    public function clearSupplier(): void
-    {
-        $this->selectedSupplierId = '';
-        $this->selectedSupplierName = '';
-        $this->supplierSearch = '';
-        $this->resetPage();
-        $this->dispatch('clearSupplierInput');
     }
     
     /**
@@ -754,8 +752,8 @@ class AccountingEntriesTable extends Component
         if ($this->search) {
             $query->where(function($q) {
                 $q->where('description', 'like', '%' . $this->search . '%')
-                  ->orWhereHas('bankAccount', fn($sq) => $sq->where('name', 'like', '%' . $this->search . '%'))
-                  ->orWhereHas('paymentMethod', fn($sq) => $sq->where('name', 'like', '%' . $this->search . '%'));
+                ->orWhereHas('bankAccount', fn($sq) => $sq->where('name', 'like', '%' . $this->search . '%'))
+                ->orWhereHas('paymentMethod', fn($sq) => $sq->where('name', 'like', '%' . $this->search . '%'));
             });
         }
         
@@ -778,11 +776,19 @@ class AccountingEntriesTable extends Component
         if ($this->paymentMethodId) {
             $query->where('id_payments_methods', $this->paymentMethodId);
         }
+
+        if ($this->selectedOwnershipId) {
+            $query->whereHas('bankAccount', fn($q) => $q->where('id_ownership', $this->selectedOwnershipId));
+        }
+
+        if ($this->entityFilter) {
+            $query->whereHas('invoice', fn($q) => $q->where('id_entities', $this->entityFilter));
+        }
         
-        if ($this->perPage == 10000) {
+        if ($this->perPage == 100000) {
             $results = $query->orderBy($this->sortField, $this->sortDirection)->get();
             $page = \Illuminate\Pagination\Paginator::resolveCurrentPage();
-            $perPage = $results->count();
+            $perPage = $results->count() ?: 1;
             return new \Illuminate\Pagination\LengthAwarePaginator(
                 $results->forPage($page, $perPage),
                 $results->count(),
@@ -793,7 +799,7 @@ class AccountingEntriesTable extends Component
         }
         
         return $query->orderBy($this->sortField, $this->sortDirection)
-                     ->paginate($this->perPage);
+                    ->paginate($this->perPage);
     }
     
     public function getBankAccountsProperty()

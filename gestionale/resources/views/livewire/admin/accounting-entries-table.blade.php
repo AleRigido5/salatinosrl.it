@@ -98,49 +98,57 @@
                     </div>
                 </div>
 
-                <!-- Autocomplete Cliente / Fornitore -->
+                <!-- Cliente/Fornitore Autocomplete -->
                 <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
                     <label class="block text-xs font-medium text-gray-500 mb-1">Cliente / Fornitore</label>
                     <div class="relative">
                         <i class="fas fa-user absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-                        <input type="text"
-                            id="supplier_input"
-                            wire:model.live.debounce.300ms="supplierSearch"
+                        <input type="text" 
+                            id="entity_input"
+                            wire:model.live.debounce.300ms="entitySearch" 
                             x-on:focus="open = true"
-                            x-on:input="open = true; @this.set('supplierSearch', $event.target.value)"
-                            placeholder="Cerca fornitore..."
+                            x-on:input="open = true; @this.set('entitySearch', $event.target.value)"
+                            placeholder="Cerca cliente/fornitore..."
                             class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                             autocomplete="off">
-                        @if($selectedSupplierId)
-                            <button type="button" wire:click="clearSupplier"
-                                x-on:click="document.getElementById('supplier_input').value = ''"
-                                class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
-                                <i class="fas fa-times-circle text-sm"></i>
+                        @if($entityFilter)
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
+                            <i class="fas fa-users mr-1"></i> {{ $entityName }}
+                            <button wire:click="clearEntity" class="ml-1 hover:text-lime-900">
+                                <i class="fas fa-times text-xs"></i>
                             </button>
+                        </span>
                         @endif
                     </div>
-                    <div x-show="open && @entangle('showSupplierDropdown')"
+                    
+                    <div x-show="open && @entangle('showEntityDropdown')" 
                         class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                        @if($supplierResults && $supplierResults->count() > 0)
-                            @foreach($supplierResults as $item)
-                                <div x-on:click="
-                                        open = false;
-                                        document.getElementById('supplier_input').value = '{{ addslashes($item->name) }}';
-                                        @this.set('supplierSearch', '{{ addslashes($item->name) }}');
-                                        @this.set('selectedSupplierId', '{{ $item->id }}');
-                                        @this.set('selectedSupplierName', '{{ addslashes($item->name) }}');
-                                        @this.set('showSupplierDropdown', false);
-                                        @this.call('resetPage');
-                                    "
-                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                    <div class="font-medium text-gray-800">{{ $item->name }}</div>
-                                    @if($item->piva)
-                                        <div class="text-xs text-gray-500">P.IVA: {{ $item->piva }}</div>
-                                    @endif
-                                </div>
+                        @if($filteredEntities && $filteredEntities->count() > 0)
+                            @foreach($filteredEntities as $entity)
+                            @php
+                                $entityName = addslashes($entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome));
+                            @endphp
+                            <div 
+                                x-on:click="
+                                    open = false;
+                                    document.getElementById('entity_input').value = '{{ $entityName }}';
+                                    @this.set('entitySearch', '{{ $entityName }}');
+                                    @this.set('entityFilter', {{ $entity->id_cliente }});
+                                    @this.set('entityName', '{{ $entityName }}');
+                                    @this.set('showEntityDropdown', false);
+                                    @this.call('resetPage');
+                                " 
+                                class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                <div class="font-medium text-gray-800">{{ $entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome) }}</div>
+                                @if($entity->partita_iva)
+                                <div class="text-xs text-gray-500">P.IVA: {{ $entity->partita_iva }}</div>
+                                @endif
+                            </div>
                             @endforeach
                         @else
-                            <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato trovato</div>
+                            <div class="px-3 py-2 text-sm text-gray-500 text-center">
+                                Nessun risultato trovato
+                            </div>
                         @endif
                     </div>
                 </div>
@@ -190,7 +198,7 @@
             </div>
 
             <!-- Active Filters Tags -->
-            @if($search || $type || $bankAccountId || $paymentMethodId || $dateFrom || $dateTo)
+            @if($search || $type || $bankAccountId || $paymentMethodId || $dateFrom || $dateTo || $entityFilter)
             <div class="mt-4 pt-3 border-t border-gray-200 flex flex-wrap items-center gap-2">
                 <span class="text-xs text-gray-500">Filtri attivi:</span>
                 

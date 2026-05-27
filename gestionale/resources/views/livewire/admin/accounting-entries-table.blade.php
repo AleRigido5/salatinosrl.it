@@ -38,15 +38,110 @@
         
         <!-- RIGA INFERIORE: Filtri -->
         <div class="p-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+
                 <!-- Ricerca -->
-                <div>
+                <div class="xl:col-span-1">
                     <label class="block text-xs font-medium text-gray-500 mb-1">Ricerca</label>
                     <div class="relative">
                         <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-                        <input type="text" wire:model.live.debounce.300ms="search" 
-                            placeholder="Cerca in descrizione..." 
+                        <input type="text" wire:model.live.debounce.300ms="search"
+                            placeholder="Cerca in descrizione..."
                             class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                    </div>
+                </div>
+
+                <!-- Autocomplete Proprietà -->
+                <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Proprietà</label>
+                    <div class="relative">
+                        <i class="fas fa-building absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                        <input type="text"
+                            id="ownership_input"
+                            wire:model.live.debounce.300ms="ownershipSearch"
+                            x-on:focus="open = true"
+                            x-on:input="open = true; @this.set('ownershipSearch', $event.target.value)"
+                            placeholder="Cerca proprietà..."
+                            class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                            autocomplete="off">
+                        @if($selectedOwnershipId)
+                            <button type="button" wire:click="clearOwnership"
+                                x-on:click="document.getElementById('ownership_input').value = ''"
+                                class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
+                                <i class="fas fa-times-circle text-sm"></i>
+                            </button>
+                        @endif
+                    </div>
+                    <div x-show="open && @entangle('showOwnershipDropdown')"
+                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        @if($ownershipResults && $ownershipResults->count() > 0)
+                            @foreach($ownershipResults as $item)
+                                <div x-on:click="
+                                        open = false;
+                                        document.getElementById('ownership_input').value = '{{ addslashes($item->RagAbbrev ?? $item->Rag_Soc_intest) }}';
+                                        @this.set('ownershipSearch', '{{ addslashes($item->RagAbbrev ?? $item->Rag_Soc_intest) }}');
+                                        @this.set('selectedOwnershipId', '{{ $item->id_proprieta }}');
+                                        @this.set('selectedOwnershipName', '{{ addslashes($item->RagAbbrev ?? $item->Rag_Soc_intest) }}');
+                                        @this.set('showOwnershipDropdown', false);
+                                        @this.call('resetPage');
+                                    "
+                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                    <div class="font-medium text-gray-800">{{ $item->RagAbbrev ?? $item->Rag_Soc_intest }}</div>
+                                    @if($item->RagSocialePr)
+                                        <div class="text-xs text-gray-500">{{ $item->RagSocialePr }}</div>
+                                    @endif
+                                </div>
+                            @endforeach
+                        @else
+                            <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato trovato</div>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Autocomplete Fornitore -->
+                <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Fornitore</label>
+                    <div class="relative">
+                        <i class="fas fa-user absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                        <input type="text"
+                            id="supplier_input"
+                            wire:model.live.debounce.300ms="supplierSearch"
+                            x-on:focus="open = true"
+                            x-on:input="open = true; @this.set('supplierSearch', $event.target.value)"
+                            placeholder="Cerca fornitore..."
+                            class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                            autocomplete="off">
+                        @if($selectedSupplierId)
+                            <button type="button" wire:click="clearSupplier"
+                                x-on:click="document.getElementById('supplier_input').value = ''"
+                                class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
+                                <i class="fas fa-times-circle text-sm"></i>
+                            </button>
+                        @endif
+                    </div>
+                    <div x-show="open && @entangle('showSupplierDropdown')"
+                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        @if($supplierResults && $supplierResults->count() > 0)
+                            @foreach($supplierResults as $item)
+                                <div x-on:click="
+                                        open = false;
+                                        document.getElementById('supplier_input').value = '{{ addslashes($item->name) }}';
+                                        @this.set('supplierSearch', '{{ addslashes($item->name) }}');
+                                        @this.set('selectedSupplierId', '{{ $item->id }}');
+                                        @this.set('selectedSupplierName', '{{ addslashes($item->name) }}');
+                                        @this.set('showSupplierDropdown', false);
+                                        @this.call('resetPage');
+                                    "
+                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                    <div class="font-medium text-gray-800">{{ $item->name }}</div>
+                                    @if($item->piva)
+                                        <div class="text-xs text-gray-500">P.IVA: {{ $item->piva }}</div>
+                                    @endif
+                                </div>
+                            @endforeach
+                        @else
+                            <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato trovato</div>
+                        @endif
                     </div>
                 </div>
 
@@ -66,7 +161,7 @@
                     <select wire:model.live="bankAccountId" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
                         <option value="">Tutti</option>
                         @foreach($bankAccounts as $account)
-                            <option value="{{ $account->id }}">{{ $account->name }} - {{ $account->n_conto }}</option>
+                            <option value="{{ $account->id }}">{{ $account->name }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -86,13 +181,12 @@
                 <div>
                     <label class="block text-xs font-medium text-gray-500 mb-1">Per pagina</label>
                     <select wire:model.live="perPage" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
-                        <option value="10000">Tutti</option>
+                        <option value="100000">Tutti</option>
                         <option value="200">200</option>
                         <option value="100">100</option>
-                        <option value="50">50</option>
-                        <option value="25">25</option>
                     </select>
                 </div>
+
             </div>
 
             <!-- Active Filters Tags -->

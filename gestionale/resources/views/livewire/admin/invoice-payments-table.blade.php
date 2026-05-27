@@ -18,7 +18,7 @@
         <div class="border-t border-gray-200 my-4"></div>
         
         <!-- Filtri -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
             <!-- Autocomplete Proprietà -->
             <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Proprietà</label>
@@ -118,6 +118,22 @@
                     @endif
                 </div>
             </div>
+
+            <!-- N. Fattura -->
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">N. Fattura</label>
+                <div class="relative">
+                    <i class="fas fa-file-invoice absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                    <input type="text" wire:model.live.debounce.300ms="invoiceSearch"
+                        placeholder="Cerca n. fattura..."
+                        class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                    @if($invoiceSearch)
+                        <button wire:click="$set('invoiceSearch', '')" class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
+                            <i class="fas fa-times-circle text-sm"></i>
+                        </button>
+                    @endif
+                </div>
+            </div>
             
             <!-- Stato -->
             <div>
@@ -137,10 +153,9 @@
             <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1">Per pagina</label>
                 <select wire:model.live="perPage" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
-                    <option value="50">50</option>
-                    <option value="100">100</option>
+                    <option value="100000">Tutti</option>
                     <option value="200">200</option>
-                    <option value="500">500</option>
+                    <option value="100">100</option>
                 </select>
             </div>
         </div>

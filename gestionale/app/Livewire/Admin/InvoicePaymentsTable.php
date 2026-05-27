@@ -20,6 +20,7 @@ class InvoicePaymentsTable extends Component
     // Filtri ricerca
     public string $search = '';
     public string $status = '';
+    public string $invoiceSearch = '';
     
     // Autocomplete Proprietà
     public string $ownershipSearch = '';
@@ -192,6 +193,7 @@ class InvoicePaymentsTable extends Component
     {
         $this->search = '';
         $this->status = '';
+        $this->invoiceSearch = '';
         $this->clearOwnership();
         $this->clearSupplier();
         $this->dateFrom = '';
@@ -231,6 +233,9 @@ class InvoicePaymentsTable extends Component
             ->when($this->status, function($q) {
                 // Filtra per stato solo se specificato
                 $q->where('status', $this->status);
+            })
+            ->when($this->invoiceSearch, function($q) {
+                $q->whereHas('payable', fn($sq) => $sq->where('n_invoice', 'like', '%' . $this->invoiceSearch . '%'));
             })
             ->when($this->selectedOwnershipId, function($q) {
                 $q->whereHas('payable', fn($sq) => $sq->where('id_ownership', $this->selectedOwnershipId));
@@ -393,12 +398,8 @@ class InvoicePaymentsTable extends Component
     public function getStatusesProperty(): array
     {
         return [
-            'issued' => ['label' => 'In attesa', 'badge_class' => 'bg-yellow-100 text-yellow-800'],
-            'pending' => ['label' => 'In attesa', 'badge_class' => 'bg-yellow-100 text-yellow-800'],
+            'issued' => ['label' => 'Emessa / In attesa', 'badge_class' => 'bg-yellow-100 text-yellow-800'],
             'partially_paid' => ['label' => 'Pagato parzialmente', 'badge_class' => 'bg-blue-100 text-blue-800'],
-            'paid' => ['label' => 'Completamente pagato', 'badge_class' => 'bg-green-100 text-green-800'],
-            'overdue' => ['label' => 'Scaduto', 'badge_class' => 'bg-red-100 text-red-800'],
-            'cancelled' => ['label' => 'Annullato', 'badge_class' => 'bg-gray-100 text-gray-800'],
         ];
     }
 

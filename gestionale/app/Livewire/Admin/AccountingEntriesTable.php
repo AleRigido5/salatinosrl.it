@@ -9,12 +9,15 @@ use App\Models\AccountingEntry;
 use App\Models\BankAccount;
 use App\Models\PaymentMethod;
 use App\Models\InvoiceReceived;
+use App\Models\Entity;
+use App\Models\Ownership;
 use App\Models\InvoicePayment;
 use App\Models\InstallmentTransaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 class AccountingEntriesTable extends Component
 {
@@ -26,6 +29,20 @@ class AccountingEntriesTable extends Component
     public $dateTo = '';
     public $bankAccountId = '';
     public $paymentMethodId = '';
+
+    // Autocomplete Proprietà
+    public string $ownershipSearch = '';
+    public Collection $ownershipResults;
+    public string $selectedOwnershipId = '';
+    public string $selectedOwnershipName = '';
+    public bool $showOwnershipDropdown = false;
+    
+    // Autocomplete Fornitore
+    public string $supplierSearch = '';
+    public Collection $supplierResults;
+    public string $selectedSupplierId = '';
+    public string $selectedSupplierName = '';
+    public bool $showSupplierDropdown = false;
     
     public $sortField = 'entry_date';
     public $sortDirection = 'desc';
@@ -73,6 +90,7 @@ class AccountingEntriesTable extends Component
         'refreshAccountingEntries' => '$refresh',
         'refreshPayments' => 'refreshTable',
         'refreshInvoices' => 'refreshTable',
+        'dateRangeUpdated' => 'handleDateRangeUpdated',
     ];
     
     public function mount()
@@ -87,6 +105,13 @@ class AccountingEntriesTable extends Component
         $this->resetPage();
     }
     
+    public function handleDateRangeUpdated(array $data): void
+    {
+        $this->dateFrom = $data['date_from'] ?? '';
+        $this->dateTo   = $data['date_to']   ?? '';
+        $this->resetPage();
+    }
+
     public function sortBy($field)
     {
         if ($this->sortField === $field) {
@@ -154,6 +179,107 @@ class AccountingEntriesTable extends Component
         $this->isAmountChanged = false;
         $this->amountDifference = 0;
         $this->showModal = true;
+    }
+
+    // ==================== AUTOCOMPLETE PROPRIETÀ ====================
+    public function updatedOwnershipSearch(): void
+    {
+        if ($this->selectedOwnershipId && $this->ownershipSearch === $this->selectedOwnershipName) {
+            $this->showOwnershipDropdown = false;
+            return;
+        }
+
+        if ($this->selectedOwnershipId) {
+            $this->selectedOwnershipId = '';
+            $this->selectedOwnershipName = '';
+            $this->resetPage();
+        }
+
+        if (strlen($this->ownershipSearch) < 2) {
+            $this->ownershipResults = new Collection();
+            $this->showOwnershipDropdown = false;
+            return;
+        }
+
+        $this->ownershipResults = Ownership::where('valid', 1)
+            ->where(function($q) {
+                $q->where('RagAbbrev', 'like', '%' . $this->ownershipSearch . '%')
+                  ->orWhere('Rag_Soc_intest', 'like', '%' . $this->ownershipSearch . '%')
+                  ->orWhere('RagSocialePr', 'like', '%' . $this->ownershipSearch . '%');
+            })
+            ->limit(10)
+            ->get(['id_proprieta as id', 'RagAbbrev as name']);
+        
+        $this->showOwnershipDropdown = $this->ownershipResults->isNotEmpty();
+    }
+
+    public function selectOwnership(int $id, string $name): void
+    {
+        $this->selectedOwnershipId = (string)$id;
+        $this->selectedOwnershipName = $name;
+        $this->ownershipSearch = $name;
+        $this->showOwnershipDropdown = false;
+        $this->resetPage();
+    }
+
+    public function clearOwnership(): void
+    {
+        $this->selectedOwnershipId = '';
+        $this->selectedOwnershipName = '';
+        $this->ownershipSearch = '';
+        $this->resetPage();
+        $this->dispatch('clearOwnershipInput');
+    }
+
+    // ==================== AUTOCOMPLETE FORNITORE ====================
+    public function updatedSupplierSearch(): void
+    {
+        if ($this->selectedSupplierId && $this->supplierSearch === $this->selectedSupplierName) {
+            $this->showSupplierDropdown = false;
+            return;
+        }
+
+        if ($this->selectedSupplierId) {
+            $this->selectedSupplierId = '';
+            $this->selectedSupplierName = '';
+            $this->resetPage();
+        }
+
+        if (strlen($this->supplierSearch) < 2) {
+            $this->supplierResults = new Collection();
+            $this->showSupplierDropdown = false;
+            return;
+        }
+
+        $this->supplierResults = Entity::where('valid', 1)
+            ->whereIn('entity_type', ['fornitore', 'entrambi'])
+            ->where(function($q) {
+                $q->where('ragione_sociale', 'like', '%' . $this->supplierSearch . '%')
+                  ->orWhere('nome', 'like', '%' . $this->supplierSearch . '%')
+                  ->orWhere('cognome', 'like', '%' . $this->supplierSearch . '%');
+            })
+            ->limit(10)
+            ->get(['id_cliente as id', 'ragione_sociale as name']);
+        
+        $this->showSupplierDropdown = $this->supplierResults->isNotEmpty();
+    }
+
+    public function selectSupplier(int $id, string $name): void
+    {
+        $this->selectedSupplierId = (string)$id;
+        $this->selectedSupplierName = $name;
+        $this->supplierSearch = $name;
+        $this->showSupplierDropdown = false;
+        $this->resetPage();
+    }
+
+    public function clearSupplier(): void
+    {
+        $this->selectedSupplierId = '';
+        $this->selectedSupplierName = '';
+        $this->supplierSearch = '';
+        $this->resetPage();
+        $this->dispatch('clearSupplierInput');
     }
     
     /**

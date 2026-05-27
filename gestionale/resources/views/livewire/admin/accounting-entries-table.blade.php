@@ -98,17 +98,17 @@
                     </div>
                 </div>
 
-                <!-- Autocomplete Fornitore -->
+                <!-- Autocomplete Cliente / Fornitore -->
                 <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Fornitore</label>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Cliente / Fornitore</label>
                     <div class="relative">
-                        <i class="fas fa-user absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                        <i class="fas fa-users absolute left-3 top-2.5 text-gray-400 text-sm"></i>
                         <input type="text"
                             id="supplier_input"
                             wire:model.live.debounce.300ms="supplierSearch"
                             x-on:focus="open = true"
                             x-on:input="open = true; @this.set('supplierSearch', $event.target.value)"
-                            placeholder="Cerca fornitore..."
+                            placeholder="Cerca cliente o fornitore..."
                             class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                             autocomplete="off">
                         @if($selectedSupplierId)
@@ -133,9 +133,20 @@
                                         @this.call('resetPage');
                                     "
                                     class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                    <div class="font-medium text-gray-800">{{ $item->name }}</div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-medium text-gray-800">{{ $item->name }}</span>
+                                        @php
+                                            $typeLabels = [
+                                                'fornitore' => ['label' => 'Fornitore', 'class' => 'bg-orange-100 text-orange-700'],
+                                                'cliente'   => ['label' => 'Cliente',   'class' => 'bg-blue-100 text-blue-700'],
+                                                'entrambi'  => ['label' => 'Cli/For',   'class' => 'bg-purple-100 text-purple-700'],
+                                            ];
+                                            $typeInfo = $typeLabels[$item->entity_type] ?? ['label' => $item->entity_type, 'class' => 'bg-gray-100 text-gray-600'];
+                                        @endphp
+                                        <span class="text-xs px-1.5 py-0.5 rounded {{ $typeInfo['class'] }}">{{ $typeInfo['label'] }}</span>
+                                    </div>
                                     @if($item->piva)
-                                        <div class="text-xs text-gray-500">P.IVA: {{ $item->piva }}</div>
+                                        <div class="text-xs text-gray-500 mt-0.5">P.IVA: {{ $item->piva }}</div>
                                     @endif
                                 </div>
                             @endforeach

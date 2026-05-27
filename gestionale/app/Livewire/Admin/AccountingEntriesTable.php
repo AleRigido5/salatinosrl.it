@@ -252,14 +252,13 @@ class AccountingEntriesTable extends Component
         }
 
         $this->supplierResults = Entity::where('valid', 1)
-            ->whereIn('entity_type', ['fornitore', 'entrambi'])
             ->where(function($q) {
                 $q->where('ragione_sociale', 'like', '%' . $this->supplierSearch . '%')
-                  ->orWhere('nome', 'like', '%' . $this->supplierSearch . '%')
-                  ->orWhere('cognome', 'like', '%' . $this->supplierSearch . '%');
+                ->orWhere('nome', 'like', '%' . $this->supplierSearch . '%')
+                ->orWhere('cognome', 'like', '%' . $this->supplierSearch . '%');
             })
             ->limit(10)
-            ->get(['id_cliente as id', 'ragione_sociale as name']);
+            ->get(['id_cliente as id', 'ragione_sociale as name', 'entity_type', 'piva']);
         
         $this->showSupplierDropdown = $this->supplierResults->isNotEmpty();
     }

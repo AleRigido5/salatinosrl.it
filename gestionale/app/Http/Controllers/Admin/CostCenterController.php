@@ -183,26 +183,26 @@ class CostCenterController extends Controller
         ]);
 
         $costCenter = CostCenter::create([
-            'id_references' => $request->id_references,
-            'table_references' => $request->table_references,
-            'nome' => $request->nome,
-            'contrada' => $request->contrada,
-            'localita' => $request->localita,
-            'foglio' => $request->foglio,
-            'particella' => $request->particella,
-            'superficie' => $request->superficie ?? 0,
-            'coltura' => $request->coltura,
-            'note' => $request->note,
-            'valid' => $request->boolean('valid'),
-            'costo_h' => $request->costo_h ?? 7.00,
-            'num_h' => $request->num_h ?? 8,
-            'competenza' => $request->competenza ?? 'Solare',
-            'created_by' => Auth::guard('admin')->id(),
-            'updated_by' => Auth::guard('admin')->id()
+            'id_references'   => $request->id_references,
+            'table_references'=> $request->table_references,
+            'Nome'            => $request->nome,
+            'Contrada'        => $request->contrada,
+            'Localita'        => $request->localita,
+            'Foglio'          => $request->foglio,
+            'Particella'      => $request->particella,
+            'Superficie'      => $request->superficie ?? 0,
+            'Coltura'         => $request->coltura,
+            'Note'            => $request->note,
+            'valid'           => $request->boolean('valid'),
+            'CostoH'          => $request->costo_h ?? 7.00,
+            'NumH'            => $request->num_h ?? 8,
+            'Competenza'      => $request->competenza ?? 'Solare',
+            'created_by'      => Auth::guard('admin')->id(),
+            'updated_by'      => Auth::guard('admin')->id()
         ]);
 
         return redirect()->route('admin.cost_centers.index')
-            ->with('success', "Centro di Costo '{$costCenter->nome}' creato con successo!");
+            ->with('success', "Centro di Costo '{$costCenter->Nome}' creato con successo!");
     }
 
     public function edit($id)
@@ -242,25 +242,25 @@ class CostCenterController extends Controller
         ]);
 
         $costCenter->update([
-            'id_references' => $request->id_references,
-            'table_references' => $request->table_references,
-            'nome' => $request->nome,
-            'contrada' => $request->contrada,
-            'localita' => $request->localita,
-            'foglio' => $request->foglio,
-            'particella' => $request->particella,
-            'superficie' => $request->superficie ?? 0,
-            'coltura' => $request->coltura,
-            'note' => $request->note,
-            'valid' => $request->boolean('valid'),
-            'costo_h' => $request->costo_h ?? 7.00,
-            'num_h' => $request->num_h ?? 8,
-            'competenza' => $request->competenza ?? 'Solare',
-            'updated_by' => Auth::guard('admin')->id()
+            'id_references'   => $request->id_references,
+            'table_references'=> $request->table_references,
+            'Nome'            => $request->nome,
+            'Contrada'        => $request->contrada,
+            'Localita'        => $request->localita,
+            'Foglio'          => $request->foglio,
+            'Particella'      => $request->particella,
+            'Superficie'      => $request->superficie ?? 0,
+            'Coltura'         => $request->coltura,
+            'Note'            => $request->note,
+            'valid'           => $request->boolean('valid'),
+            'CostoH'          => $request->costo_h ?? 7.00,
+            'NumH'            => $request->num_h ?? 8,
+            'Competenza'      => $request->competenza ?? 'Solare',
+            'updated_by'      => Auth::guard('admin')->id()
         ]);
 
         return redirect()->route('admin.cost_centers.index')
-            ->with('success', "Centro di Costo '{$costCenter->nome}' aggiornato con successo!");
+            ->with('success', "Centro di Costo '{$costCenter->Nome}' aggiornato con successo!");
     }
 
     public function destroy($id)

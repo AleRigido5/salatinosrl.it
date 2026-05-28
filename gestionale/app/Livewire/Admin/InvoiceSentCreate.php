@@ -688,12 +688,7 @@ class InvoiceSentCreate extends Component
     
     public function getTypeDocumentsProperty()
     {
-        return config('gestionale.tipo_documento', [
-            'TD01' => 'Fattura',
-            'TD04' => 'Nota di Credito',
-            'TD05' => 'Nota di Debito',
-            'TD20' => 'Autofattura',
-        ]);
+        return config('gestionale.tipo_documento', []);
     }
     
     public function render()

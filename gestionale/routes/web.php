@@ -181,28 +181,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('/{id}/toggle-status', [CostCenterController::class, 'toggleStatus'])->name('toggle-status');
         });
 
-        // API per centri di costo
-        Route::get('/api/references/{type}', function ($type) {
-            if ($type === 'ownership') {
-                $items = Ownership::where('valid', 1)->get();
-                return response()->json($items->map(function($item) {
-                    return [
-                        'id' => $item->id_proprieta,
-                        'name' => $item->RagAbbrev ?? $item->Rag_Soc_intest ?? 'Proprietà ' . $item->id_proprieta
-                    ];
-                }));
-            } elseif ($type === 'entities') {
-                $items = Entity::where('valid', 1)->get();
-                return response()->json($items->map(function($item) {
-                    return [
-                        'id' => $item->id_cliente,
-                        'name' => $item->ragione_sociale ?? ($item->nome . ' ' . $item->cognome)
-                    ];
-                }));
-            }
-            return response()->json([]);
-        })->name('api.references');
-
         // =============================================
         // FATTURE DI ACQUISTO (INVOICES RECEIVED)
         // =============================================
@@ -396,6 +374,31 @@ Route::prefix('admin')->name('admin.')->group(function () {
             // ===== API PER ACTIVITIES =====
             // API per Centri di Costo
             Route::get('/search-cost-centers', [CostCenterController::class, 'search'])->name('search-cost-centers');
+            // Dentro il gruppo Route::prefix('api')...
+            Route::get('/references/search', [CostCenterController::class, 'searchReferences'])->name('references.search');
+            Route::get('/references/{type}/{id}', [CostCenterController::class, 'getReferenceById'])->name('references.get');
+
+            // API per centri di costo
+            Route::get('/api/references/{type}', function ($type) {
+                if ($type === 'ownership') {
+                    $items = Ownership::where('valid', 1)->get();
+                    return response()->json($items->map(function($item) {
+                        return [
+                            'id' => $item->id_proprieta,
+                            'name' => $item->RagAbbrev ?? $item->Rag_Soc_intest ?? 'Proprietà ' . $item->id_proprieta
+                        ];
+                    }));
+                } elseif ($type === 'entities') {
+                    $items = Entity::where('valid', 1)->get();
+                    return response()->json($items->map(function($item) {
+                        return [
+                            'id' => $item->id_cliente,
+                            'name' => $item->ragione_sociale ?? ($item->nome . ' ' . $item->cognome)
+                        ];
+                    }));
+                }
+                return response()->json([]);
+            })->name('api.references');
             
             // API per recuperare il cliente associato a un centro di costo
             Route::get('/cost-center-client', [CostCenterController::class, 'getClientByCostCenter'])->name('cost-center-client');

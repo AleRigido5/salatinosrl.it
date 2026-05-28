@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 class InvoiceReceivedEdit extends Component
 {
     public $invoiceId;
+    public $invoiceData = [];
     public $id_ownership = '';
     public $type_invoice = '';
     public $n_invoice = '';
@@ -57,6 +58,18 @@ class InvoiceReceivedEdit extends Component
     // Unità di Misura
     public $unitMeasureList = [];
     
+    // Aggiungi queste proprietà dopo $all_vehicles = [];
+    public $cost_center_all_search = '';
+    public $cost_center_all_results = [];
+    public $show_cost_center_all_dropdown = false;
+
+    public $vehicle_all_search = '';
+    public $vehicle_all_results = [];
+    public $show_vehicle_all_dropdown = false;
+
+    public array $all_costCenters = [];
+    public array $all_vehicles_list = [];
+
     // Centri di costo per righe
     public $costCenterSearch = [];
     public $costCenterResults = [];
@@ -95,9 +108,50 @@ class InvoiceReceivedEdit extends Component
         $this->loadVatRates();
         $this->loadUnitMeasures();
         $this->loadPaymentMethods();
+        // $this->loadAllData();
         $this->loadInvoice();
     }
+
+    public bool $updatingFromSearch = false;
+
+    public function hydrate()
+    {
+        // Non fare nulla durante l'idratazione per evitare loop
+        // I dati necessari sono già stati caricati in mount()
+    }
     
+    // AGGIUNGI QUESTO METODO PER GESTIRE I DATI CORROTTI
+    public function recoverFromCorruptData()
+    {
+        try {
+            $this->loadAllData();
+            $this->loadInvoice();
+            $this->dispatch('alert', type: 'success', message: 'Componente ripristinato con successo');
+        } catch (\Exception $e) {
+            $this->dispatch('alert', type: 'error', message: 'Errore nel ripristino: ' . $e->getMessage());
+        }
+    }
+
+    public function loadAllData()
+    {
+        $this->all_costCenters = CostCenter::where('valid', 1)
+            ->select('id', 'Nome as name')
+            ->orderBy('Nome')
+            ->get()
+            ->map(fn($item) => ['id' => $item->id, 'name' => $item->name])
+            ->toArray();
+
+        $this->all_vehicles_list = DB::table('vehicles')
+            ->where('valid', 1)
+            ->select('id', 'marca', 'modello', 'targa')
+            ->get()
+            ->map(fn($item) => [
+                'id' => $item->id,
+                'name' => trim($item->marca . ' ' . $item->modello . ' (' . $item->targa . ')'),
+            ])
+            ->toArray();
+    }
+
     public function loadVatRates()
     {
         $this->vatRatesList = DB::table('vat_rates')
@@ -727,6 +781,101 @@ class InvoiceReceivedEdit extends Component
         $this->selectedCostCenterId[$index] = '';
         $this->selectedCostCenterName[$index] = '';
         $this->showCostCenterDropdown[$index] = false;
+    }
+
+    public function updatedCostCenterAllSearch()
+    {
+        if ($this->updatingFromSearch) return;
+        $this->updatingFromSearch = true;
+        
+        try {
+            if (empty($this->cost_center_all_search) || strlen($this->cost_center_all_search) < 2) {
+                $this->cost_center_all_results = [];
+                $this->show_cost_center_all_dropdown = false;
+                return;
+            }
+    
+            $this->cost_center_all_results = CostCenter::where('valid', 1)
+                ->where('Nome', 'like', '%' . $this->cost_center_all_search . '%')
+                ->limit(10)
+                ->get(['id', 'Nome as name'])
+                ->toArray();
+    
+            $this->show_cost_center_all_dropdown = !empty($this->cost_center_all_results);
+        } finally {
+            $this->updatingFromSearch = false;
+        }
+    }
+
+    public function applyCostCenterToAllRows($id)
+    {
+        $cc = collect($this->all_costCenters)->firstWhere('id', (int)$id);
+        if ($cc) {
+            foreach ($this->rows as $index => $row) {
+                $this->rows[$index]['id_cost_center'] = (int)$id;
+                $this->rows[$index]['cost_center_name'] = $cc['name'];
+                $this->costCenterSearch[$index] = $cc['name'];
+                $this->costCenterResults[$index] = [];
+                $this->showCostCenterDropdown[$index] = false;
+                $this->selectedCostCenterId[$index] = (int)$id;
+                $this->selectedCostCenterName[$index] = $cc['name'];
+            }
+            $this->cost_center_all_search = $cc['name'];
+            $this->cost_center_all_results = [];
+            $this->show_cost_center_all_dropdown = false;
+            $this->dispatch('alert', type: 'success', message: "Centro di costo '{$cc['name']}' applicato a tutte le " . count($this->rows) . " righe");
+        }
+    }
+
+    public function updatedVehicleAllSearch()
+    {
+        if ($this->updatingFromSearch) return;
+        $this->updatingFromSearch = true;
+        
+        try {
+            if (empty($this->vehicle_all_search) || strlen($this->vehicle_all_search) < 2) {
+                $this->vehicle_all_results = [];
+                $this->show_vehicle_all_dropdown = false;
+                return;
+            }
+    
+            $this->vehicle_all_results = DB::table('vehicles')
+                ->where('valid', 1)
+                ->where(function($q) {
+                    $q->where('targa', 'like', '%' . $this->vehicle_all_search . '%')
+                    ->orWhere('marca', 'like', '%' . $this->vehicle_all_search . '%')
+                    ->orWhere('modello', 'like', '%' . $this->vehicle_all_search . '%');
+                })
+                ->limit(10)
+                ->get(['id', DB::raw("TRIM(CONCAT(marca, ' ', modello, ' (', targa, ')')) as name")])
+                ->map(fn($v) => ['id' => $v->id, 'name' => $v->name])
+                ->toArray();
+    
+            $this->show_vehicle_all_dropdown = !empty($this->vehicle_all_results);
+        } finally {
+            $this->updatingFromSearch = false;
+        }
+    }
+
+
+    public function applyVehicleToAllRows($id)
+    {
+        $vehicle = collect($this->all_vehicles_list)->firstWhere('id', (int)$id);
+        if ($vehicle) {
+            foreach ($this->rows as $index => $row) {
+                $this->rows[$index]['id_vehicle'] = (int)$id;
+                $this->rows[$index]['vehicle_name'] = $vehicle['name'];
+                $this->vehicleSearch[$index] = $vehicle['name'];
+                $this->vehicleResults[$index] = [];
+                $this->showVehicleDropdown[$index] = false;
+                $this->selectedVehicleId[$index] = (int)$id;
+                $this->selectedVehicleName[$index] = $vehicle['name'];
+            }
+            $this->vehicle_all_search = $vehicle['name'];
+            $this->vehicle_all_results = [];
+            $this->show_vehicle_all_dropdown = false;
+            $this->dispatch('alert', type: 'success', message: "Mezzo '{$vehicle['name']}' applicato a tutte le " . count($this->rows) . " righe");
+        }
     }
     
     // ==================== AUTOCOMPLETE MEZZI ====================

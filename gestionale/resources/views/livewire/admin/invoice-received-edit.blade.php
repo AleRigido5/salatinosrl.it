@@ -284,6 +284,60 @@
                 </div>
             </div>
         </div>
+
+        {{-- CENTRO DI COSTO - Applica a TUTTE le righe --}}
+        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mt-6">
+            <label class="block text-sm font-medium mb-2 text-blue-800">
+                Applica Centro di Costo a TUTTE le {{ count($rows) }} righe
+            </label>
+            <div class="relative">
+                <input type="text"
+                    wire:model.live.debounce.500ms="cost_center_all_search"
+                    class="w-full border rounded-lg px-3 py-2"
+                    placeholder="Cerca centro di costo..."
+                    autocomplete="off">
+                @if(!empty($cost_center_all_results))
+                    <div class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        @foreach($cost_center_all_results as $cc)
+                            <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                wire:click="applyCostCenterToAllRows({{ $cc['id'] }})">
+                                {{ $cc['name'] }}
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+            @if($cost_center_all_search)
+                <div class="text-xs text-blue-600 mt-2">✅ Selezionato: "{{ $cost_center_all_search }}"</div>
+            @endif
+        </div>
+
+        {{-- MEZZO - Applica a TUTTE le righe --}}
+        <div class="bg-green-50 p-4 rounded-lg border border-green-200 mt-4">
+            <label class="block text-sm font-medium mb-2 text-green-800">
+                Applica Mezzo a TUTTE le {{ count($rows) }} righe
+            </label>
+            <div class="relative">
+                <input type="text"
+                    wire:model.live.debounce.500ms="vehicle_all_search"
+                    class="w-full border rounded-lg px-3 py-2"
+                    placeholder="Cerca mezzo (targa, marca, modello)..."
+                    autocomplete="off">
+                @if(!empty($vehicle_all_results))
+                    <div class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        @foreach($vehicle_all_results as $vehicle)
+                            <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                wire:click="applyVehicleToAllRows({{ $vehicle['id'] }})">
+                                {{ $vehicle['name'] }}
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+            @if($vehicle_all_search)
+                <div class="text-xs text-green-600 mt-2">✅ Selezionato: "{{ $vehicle_all_search }}"</div>
+            @endif
+        </div>
         
         <!-- RIGHE FATTURA -->
         <div class="mt-6">

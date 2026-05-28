@@ -16,6 +16,7 @@ class InvoiceRow extends Model
         'document_id',
         'document_type',
         'id_cost_center',
+        'id_service',
         'id_vehicle',
         'description',
         'quantity',
@@ -43,6 +44,11 @@ class InvoiceRow extends Model
     public function costCenter(): BelongsTo
     {
         return $this->belongsTo(CostCenter::class, 'id_cost_center');
+    }
+
+    public function service(): BelongsTo
+    {
+        return $this->belongsTo(Service::class, 'id_service');
     }
 
     public function vehicle()

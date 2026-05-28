@@ -61,11 +61,11 @@ class InvoiceSentCreate extends Component
     public $selectedCostCenterId = [];
     public $selectedCostCenterName = [];
     
-    public $vehicleSearch = [];
-    public $vehicleResults = [];
-    public $showVehicleDropdown = [];
-    public $selectedVehicleId = [];
-    public $selectedVehicleName = [];
+    public array $serviceSearch = [];
+    public array $serviceResults = [];
+    public array $selectedServiceId = [];
+    public array $selectedServiceName = [];
+    public array $showServiceDropdown = [];
     
     public $payments = [];
     public $total_payments_amount = 0;
@@ -230,7 +230,7 @@ class InvoiceSentCreate extends Component
             'discount_percentage' => 0,
             'vat_rate' => 0.22,
             'id_cost_center' => null,
-            'id_vehicle' => null,
+            'id_service' => null,
             'taxable_amount' => 0,
             'vat_amount' => 0,
         ];
@@ -241,11 +241,11 @@ class InvoiceSentCreate extends Component
         $this->selectedCostCenterId[$index] = '';
         $this->selectedCostCenterName[$index] = '';
         
-        $this->vehicleSearch[$index] = '';
-        $this->vehicleResults[$index] = [];
-        $this->showVehicleDropdown[$index] = false;
-        $this->selectedVehicleId[$index] = '';
-        $this->selectedVehicleName[$index] = '';
+        $this->serviceSearch[$index]       = '';
+        $this->serviceResults[$index]      = [];
+        $this->selectedServiceId[$index]   = null;
+        $this->selectedServiceName[$index] = '';
+        $this->showServiceDropdown[$index] = false;
         
         $this->calculateTotals();
         
@@ -254,8 +254,34 @@ class InvoiceSentCreate extends Component
     
     public function removeRow($index)
     {
+        // Rimuovi la riga
         unset($this->rows[$index]);
         $this->rows = array_values($this->rows);
+
+        // Rimuovi e reindicizza costCenter
+        if (isset($this->costCenterSearch[$index])) unset($this->costCenterSearch[$index]);
+        if (isset($this->costCenterResults[$index])) unset($this->costCenterResults[$index]);
+        if (isset($this->selectedCostCenterId[$index])) unset($this->selectedCostCenterId[$index]);
+        if (isset($this->selectedCostCenterName[$index])) unset($this->selectedCostCenterName[$index]);
+        if (isset($this->showCostCenterDropdown[$index])) unset($this->showCostCenterDropdown[$index]);
+        $this->costCenterSearch = array_values($this->costCenterSearch);
+        $this->costCenterResults = array_values($this->costCenterResults);
+        $this->selectedCostCenterId = array_values($this->selectedCostCenterId);
+        $this->selectedCostCenterName = array_values($this->selectedCostCenterName);
+        $this->showCostCenterDropdown = array_values($this->showCostCenterDropdown);
+
+        // Rimuovi e reindicizza service
+        if (isset($this->serviceSearch[$index])) unset($this->serviceSearch[$index]);
+        if (isset($this->serviceResults[$index])) unset($this->serviceResults[$index]);
+        if (isset($this->selectedServiceId[$index])) unset($this->selectedServiceId[$index]);
+        if (isset($this->selectedServiceName[$index])) unset($this->selectedServiceName[$index]);
+        if (isset($this->showServiceDropdown[$index])) unset($this->showServiceDropdown[$index]);
+        $this->serviceSearch = array_values($this->serviceSearch);
+        $this->serviceResults = array_values($this->serviceResults);
+        $this->selectedServiceId = array_values($this->selectedServiceId);
+        $this->selectedServiceName = array_values($this->selectedServiceName);
+        $this->showServiceDropdown = array_values($this->showServiceDropdown);
+
         $this->calculateTotals();
         Log::info('Riga rimossa, totale righe: ' . count($this->rows));
     }
@@ -385,7 +411,8 @@ class InvoiceSentCreate extends Component
         $this->customerSearch = '';
         Log::info('Cliente deselezionato');
     }
-    
+
+     // ==================== AUTOCOMPLETE CENTRI DI COSTO ====================
     public function updatedCostCenterSearch($value, $index)
     {
         if (strlen($value) < 2) {
@@ -414,36 +441,59 @@ class InvoiceSentCreate extends Component
         Log::info('Centro di costo selezionato riga ' . $index . ': ' . $name);
     }
     
-    public function updatedVehicleSearch($value, $index)
+    // ==================== AUTOCOMPLETE SERVIZI ====================
+    public function updatedServiceSearch($value, $index): void
     {
-        if (strlen($value) < 2) {
-            $this->vehicleResults[$index] = [];
-            $this->showVehicleDropdown[$index] = false;
+        $idx = (int)$index;
+        
+        if (isset($this->selectedServiceId[$idx]) && 
+            $this->serviceSearch[$idx] === ($this->selectedServiceName[$idx] ?? '')) {
+            $this->showServiceDropdown[$idx] = false;
             return;
         }
-        
-        $this->vehicleResults[$index] = Vehicles::where('valid', 1)
-            ->where(function($q) use ($value) {
-                $q->where('targa', 'like', '%' . $value . '%')
-                  ->orWhere('modello', 'like', '%' . $value . '%')
-                  ->orWhere('marca', 'like', '%' . $value . '%');
-            })
+
+        if (strlen($value) < 2) {
+            $this->serviceResults[$idx] = [];
+            $this->showServiceDropdown[$idx] = false;
+            return;
+        }
+
+        $results = \App\Models\Service::where('Stato', 1)
+            ->where('Titolo', 'like', '%' . $value . '%')
             ->limit(10)
-            ->get(['id', DB::raw("CONCAT(marca, ' ', modello, ' - ', targa) as name"), 'targa as plate'])
-            ->toArray();
-        
-        $this->showVehicleDropdown[$index] = count($this->vehicleResults[$index]) > 0;
+            ->get(['id', 'Titolo', 'Descr_fattura', 'Prezzo_un']);
+
+        $this->serviceResults[$idx] = $results->map(fn($s) => [
+            'id'           => $s->id,
+            'name'         => $s->Titolo,
+            'descr_fattura'=> $s->Descr_fattura ?? '',
+            'prezzo_un'    => $s->Prezzo_un,
+        ])->toArray();
+
+        $this->showServiceDropdown[$idx] = count($this->serviceResults[$idx]) > 0;
     }
-    
-    public function selectVehicle($id, $name, $index)
+
+    public function selectService(int $index, int $serviceId, string $serviceName, string $descrFattura, $prezzoUn): void
     {
-        $this->rows[$index]['id_vehicle'] = $id;
-        $this->selectedVehicleId[$index] = $id;
-        $this->selectedVehicleName[$index] = $name;
-        $this->vehicleSearch[$index] = $name;
-        $this->showVehicleDropdown[$index] = false;
+        $this->rows[$index]['id_service']  = $serviceId;
+        $this->selectedServiceId[$index]   = $serviceId;
+        $this->selectedServiceName[$index] = $serviceName;
+        $this->serviceSearch[$index]       = $serviceName;
+        $this->showServiceDropdown[$index] = false;
+
+        // Auto-popola la descrizione con Descr_fattura se presente, altrimenti usa il titolo
+        if (!empty($descrFattura)) {
+            $this->rows[$index]['description'] = $descrFattura;
+        } else {
+            $this->rows[$index]['description'] = $serviceName;
+        }
+
+        // Auto-popola il prezzo se presente e la riga ha prezzo vuoto/zero
+        if ($prezzoUn && (!isset($this->rows[$index]['unit_price']) || $this->rows[$index]['unit_price'] == 0)) {
+            $this->rows[$index]['unit_price'] = $prezzoUn;
+        }
+
         $this->calculateTotals();
-        Log::info('Mezzo selezionato riga ' . $index . ': ' . $name);
     }
     
     public function openCustomerModal()

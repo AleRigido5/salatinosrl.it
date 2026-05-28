@@ -10,20 +10,20 @@
         .col-discount { width: 80px; min-width: 80px; }
         .col-vat { width: 180px; min-width: 180px; }
         .col-cost-center { width: 160px; min-width: 160px; }
-        .col-vehicle { width: 160px; min-width: 160px; }
+        .col-services { width: 160px; min-width: 160px; }
         .col-actions { width: 50px; min-width: 50px; }
         
         @media (min-width: 1920px) {
             .col-description { width: 300px; min-width: 300px; }
             .col-cost-center { width: 200px; min-width: 200px; }
-            .col-vehicle { width: 200px; min-width: 200px; }
+            .col-services { width: 200px; min-width: 200px; }
             .col-vat { width: 220px; min-width: 220px; }
         }
         
         @media (max-width: 1400px) {
             .col-description { width: 200px; min-width: 200px; }
             .col-cost-center { width: 150px; min-width: 150px; }
-            .col-vehicle { width: 150px; min-width: 150px; }
+            .col-services { width: 150px; min-width: 150px; }
             .col-vat { width: 160px; min-width: 160px; }
         }
         
@@ -355,7 +355,7 @@
                             <th class="col-vat px-2 py-2 text-left text-xs font-medium">Aliquota IVA</th>
                             <th class="col-taxable px-2 py-2 text-right text-xs font-medium">Imponibile</th>
                             <th class="col-cost-center px-2 py-2 text-left text-xs font-medium">Centro Costo</th>
-                            <th class="col-vehicle px-2 py-2 text-left text-xs font-medium">Mezzo</th>
+                            <th class="col-services px-2 py-2 text-left text-xs font-medium">Servizio</th>
                             <th class="col-actions px-2 py-2 text-center text-xs font-medium"></th>
                         </tr>
                     </thead>
@@ -460,46 +460,41 @@
                                 </div>
                             </td>
 
-                            <!-- Campo Autocomplete Mezzi -->
-                            <td class="col-vehicle px-2 py-1">
+                            <!-- Campo Autocomplete Servizio -->
+                            <td class="col-services px-2 py-1">
                                 <div class="w-full relative" x-data="{ open: false }" x-on:click.away="open = false">
-                                    <i class="fas fa-truck absolute left-2 top-2 text-gray-400 text-xs z-10"></i>
+                                    <i class="fas fa-concierge-bell absolute left-2 top-2 text-gray-400 text-xs z-10"></i>
                                     <input type="text"
-                                        id="vehicle_input_{{ $index }}"
-                                        wire:model.live.debounce.300ms="vehicleSearch.{{ $index }}"
+                                        id="service_input_{{ $index }}"
+                                        wire:model.live.debounce.300ms="serviceSearch.{{ $index }}"
                                         x-on:focus="open = true"
                                         x-on:input="open = true"
-                                        placeholder="Cerca mezzo..."
+                                        placeholder="Cerca servizio..."
                                         class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                                         autocomplete="off">
                                     
-                                    <div x-show="open && @entangle('showVehicleDropdown.' . $index)" 
-                                        class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
-                                        style="min-width: 200px;">
-                                        @if(isset($vehicleResults[$index]) && count($vehicleResults[$index]) > 0)
-                                            @foreach($vehicleResults[$index] as $vehicle)
+                                    <div x-show="open && @entangle('showServiceDropdown.' . $index)" 
+                                        class="absolute w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                                        style="min-width: 250px; z-index: 9999;">
+                                        @if(isset($serviceResults[$index]) && count($serviceResults[$index]) > 0)
+                                            @foreach($serviceResults[$index] as $svc)
                                                 <div
-                                                    x-on:click="
-                                                        open = false;
-                                                        document.getElementById('vehicle_input_{{ $index }}').value = '{{ addslashes($vehicle['name']) }}';
-                                                        @this.set('vehicleSearch.{{ $index }}', '{{ addslashes($vehicle['name']) }}');
-                                                        @this.set('rows.{{ $index }}.id_vehicle', '{{ $vehicle['id'] }}');
-                                                        @this.set('selectedVehicleId.{{ $index }}', '{{ $vehicle['id'] }}');
-                                                        @this.set('selectedVehicleName.{{ $index }}', '{{ addslashes($vehicle['name']) }}');
-                                                        @this.set('showVehicleDropdown.{{ $index }}', false);
-                                                        @this.call('calculateTotals');
-                                                    "
+                                                    wire:click="selectService({{ $index }}, {{ $svc['id'] }}, '{{ addslashes($svc['name']) }}', '{{ addslashes($svc['descr_fattura']) }}', '{{ $svc['prezzo_un'] }}')"
+                                                    x-on:click="open = false; document.getElementById('service_input_{{ $index }}').value = '{{ addslashes($svc['name']) }}'"
                                                     class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                                    <div class="font-medium text-gray-800">{{ $vehicle['name'] }}</div>
-                                                    @if($vehicle['plate'] ?? false)
-                                                        <div class="text-xs text-gray-500">Targa: {{ $vehicle['plate'] }}</div>
+                                                    <div class="font-medium text-gray-800">{{ $svc['name'] }}</div>
+                                                    @if($svc['descr_fattura'])
+                                                        <div class="text-xs text-gray-500 truncate">{{ Str::limit($svc['descr_fattura'], 50) }}</div>
+                                                    @endif
+                                                    @if($svc['prezzo_un'])
+                                                        <div class="text-xs text-lime-600 font-semibold">€ {{ number_format($svc['prezzo_un'], 3) }}</div>
                                                     @endif
                                                 </div>
                                             @endforeach
                                         @else
                                             <div class="px-3 py-2 text-sm text-gray-500 text-center">
-                                                @if(strlen($vehicleSearch[$index] ?? '') >= 2)
-                                                    Nessun mezzo trovato
+                                                @if(strlen($serviceSearch[$index] ?? '') >= 2)
+                                                    Nessun servizio trovato
                                                 @else
                                                     Digita almeno 2 caratteri
                                                 @endif

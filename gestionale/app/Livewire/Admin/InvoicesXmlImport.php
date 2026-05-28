@@ -1091,20 +1091,38 @@ class InvoicesXmlImport extends Component
                 $this->supplier_display .= ' (P.IVA: ' . $this->fornitore_partita_iva . ')';
             }
         }
-
-        // CERCA PROPRIETÀ
-        if (!empty($this->committente_partita_iva)) {
-            $pulitaPivaComm = $this->cleanUtf8String($this->committente_partita_iva);
-            $ownership = Ownership::where('PivaPr', $pulitaPivaComm)->first();
-
+        
+        // CERCA PROPRIETÀ - versione per denominazione
+        if (!empty($this->committente_denominazione)) {
+            $denominazione = $this->cleanUtf8String($this->committente_denominazione);
+            Log::info('Cerco ownership per denominazione: ' . $denominazione);
+            
+            // Prova vari match
+            $ownership = Ownership::where('RagSocialePr', 'LIKE', '%' . $denominazione . '%')
+                ->orWhere('Rag_Soc_intest', 'LIKE', '%' . $denominazione . '%')
+                ->first();
+            
+            // Se non trovato, prova con parole chiave (es. "SALATINO")
             if (!$ownership) {
-                $pivaNoPrefix = preg_replace('/^[A-Z]{2}/i', '', $pulitaPivaComm);
-                $ownership = Ownership::where('PivaPr', $pivaNoPrefix)->first();
+                // Estrai parole dalla denominazione
+                $parole = explode(' ', $denominazione);
+                foreach ($parole as $parola) {
+                    if (strlen($parola) > 3) {  // ignora parole corte
+                        $ownership = Ownership::where('RagSocialePr', 'LIKE', '%' . $parola . '%')
+                            ->orWhere('Rag_Soc_intest', 'LIKE', '%' . $parola . '%')
+                            ->first();
+                        if ($ownership) break;
+                    }
+                }
             }
-
+            
             if ($ownership) {
                 $this->id_ownership = $ownership->id_proprieta;
                 $this->ownership_display = $this->cleanUtf8String($ownership->Rag_Soc_intest ?: $ownership->RagSocialePr);
+                Log::info('✅ Ownership trovata! id=' . $this->id_ownership);
+            } else {
+                Log::warning('❌ Ownership non trovata per denominazione: ' . $denominazione);
+                $this->ownership_display = 'N/D';
             }
         }
 

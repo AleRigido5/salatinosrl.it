@@ -506,6 +506,7 @@ class InvoiceReceivedEdit extends Component
         $this->total_payments_amount = $total;
     }
     
+    
     /**
      * calculateTotals — vat_rate nelle righe è SEMPRE in percentuale (es. 22)
      */

@@ -952,6 +952,15 @@ class InvoicesXmlImport extends Component
             if (preg_match('/<Divisa>(.*?)<\/Divisa>/i', $datiGeneraliXml, $match)) $this->divisa = $this->cleanUtf8String(trim($match[1]));
             if (preg_match('/<Data>(.*?)<\/Data>/i', $datiGeneraliXml, $match)) $this->data_invoice = $this->cleanUtf8String(trim($match[1]));
             if (preg_match('/<Numero>(.*?)<\/Numero>/i', $datiGeneraliXml, $match)) $this->n_invoice = $this->cleanUtf8String(trim($match[1]));
+            
+            // CAUSALE: concatena tutte le occorrenze
+            $causali = [];
+            if (preg_match_all('/<Causale>(.*?)<\/Causale>/i', $datiGeneraliXml, $causaleMatches)) {
+                foreach ($causaleMatches[1] as $causale) {
+                    $causali[] = $this->cleanUtf8String(trim($causale));
+                }
+            }
+            $this->causale = implode(' | ', $causali);
         }
 
         // TOTALE: prende ImportoPagamento (somma di tutti i DettaglioPagamento)
@@ -979,37 +988,37 @@ class InvoicesXmlImport extends Component
         if (preg_match_all('/<DettaglioLinee>(.*?)<\/DettaglioLinee>/is', $cleanXml, $lineeMatches)) {
             foreach ($lineeMatches[1] as $index => $lineaXml) {
                 $row = [
-                    'description'         => '',
-                    'quantity'            => 1,
-                    'unit_price'          => 0,
-                    'discount_percentage' => 0,
-                    'aliquota_iva'        => 0,
-                    'id_cost_center'      => null,
-                    'cost_center_name'    => '',
-                    'id_vehicle'          => null,   
-                    'vehicle_name'        => '', 
-                    'codice_articolo'     => [],
-                    'unita_misura'        => '',
-                    'natura'              => '',
+                    'description'                => '',
+                    'quantity'                   => 1,
+                    'unit_price'                 => 0,
+                    'discount_percentage'        => 0,
+                    'aliquota_iva'               => 0,
+                    'id_cost_center'             => null,
+                    'cost_center_name'           => '',
+                    'id_vehicle'                 => null,
+                    'vehicle_name'               => '',
+                    'codice_articolo'            => [],
+                    'unita_misura'               => '',
+                    'natura'                     => '',
                     'riferimento_amministrativo' => '',
                 ];
 
                 if (preg_match('/<Descrizione>(.*?)<\/Descrizione>/i', $lineaXml, $match)) {
                     $row['description'] = $this->cleanUtf8String(trim($match[1]));
                 }
-                
+
                 if (preg_match('/<Quantita>(.*?)<\/Quantita>/i', $lineaXml, $match)) {
                     $row['quantity'] = floatval(str_replace(',', '.', trim($match[1])));
                 }
-                
+
                 if (preg_match('/<PrezzoUnitario>(.*?)<\/PrezzoUnitario>/i', $lineaXml, $match)) {
                     $row['unit_price'] = floatval(str_replace(',', '.', trim($match[1])));
                 }
-                
+
                 if (preg_match('/<UnitaMisura>(.*?)<\/UnitaMisura>/i', $lineaXml, $match)) {
                     $row['unita_misura'] = $this->cleanUtf8String(trim($match[1]));
                 }
-                
+
                 if (preg_match('/<AliquotaIVA>(.*?)<\/AliquotaIVA>/i', $lineaXml, $match)) {
                     $row['aliquota_iva'] = floatval(str_replace(',', '.', trim($match[1])));
                 }
@@ -1019,18 +1028,18 @@ class InvoicesXmlImport extends Component
                         $row['discount_percentage'] = floatval(str_replace(',', '.', trim($percMatch[1])));
                     }
                 }
-                
+
                 if (preg_match('/<Natura>(.*?)<\/Natura>/i', $lineaXml, $match)) {
                     $row['natura'] = $this->cleanUtf8String(trim($match[1]));
                 }
-                
+
                 if (preg_match('/<RiferimentoAmministrativo>(.*?)<\/RiferimentoAmministrativo>/i', $lineaXml, $match)) {
                     $row['riferimento_amministrativo'] = $this->cleanUtf8String(trim($match[1]));
                 }
-                
+
                 if (preg_match_all('/<CodiceArticolo>(.*?)<\/CodiceArticolo>/is', $lineaXml, $codiceMatches)) {
                     foreach ($codiceMatches[1] as $codiceXml) {
-                        $codiceTipo = '';
+                        $codiceTipo   = '';
                         $codiceValore = '';
                         if (preg_match('/<CodiceTipo>(.*?)<\/CodiceTipo>/i', $codiceXml, $tipoMatch)) {
                             $codiceTipo = $this->cleanUtf8String(trim($tipoMatch[1]));
@@ -1040,8 +1049,8 @@ class InvoicesXmlImport extends Component
                         }
                         if (!empty($codiceTipo) || !empty($codiceValore)) {
                             $row['codice_articolo'][] = [
-                                'tipo' => $codiceTipo,
-                                'valore' => $codiceValore
+                                'tipo'   => $codiceTipo,
+                                'valore' => $codiceValore,
                             ];
                         }
                     }
@@ -1052,21 +1061,21 @@ class InvoicesXmlImport extends Component
         }
 
         // CERCA FORNITORE NEL DB
-        $this->supplier_found = false;
+        $this->supplier_found    = false;
         $this->supplier_not_found = false;
 
         if (!empty($this->fornitore_partita_iva)) {
-            $pulitaPiva = $this->cleanUtf8String($this->fornitore_partita_iva);
+            $pulitaPiva   = $this->cleanUtf8String($this->fornitore_partita_iva);
             $pivaNoPrefix = preg_replace('/^[A-Z]{2}/i', '', $pulitaPiva);
-            
+
             $entity = Entity::where('partita_iva', $pulitaPiva)
                 ->orWhere('partita_iva', $pivaNoPrefix)
                 ->first();
 
             if ($entity) {
-                $this->supplier_found = true;
-                $this->id_entities = $entity->id_cliente;
-                $this->supplier_display = $this->cleanUtf8String($entity->ragione_sociale ?? ($entity->nome . ' ' . $entity->cognome));
+                $this->supplier_found           = true;
+                $this->id_entities              = $entity->id_cliente;
+                $this->supplier_display         = $this->cleanUtf8String($entity->ragione_sociale ?? ($entity->nome . ' ' . $entity->cognome));
                 $this->supplier_created_by_system = $entity->created_by_system ?? false;
                 if (!empty($entity->partita_iva)) {
                     $this->supplier_display .= ' (P.IVA: ' . $entity->partita_iva . ')';
@@ -1077,37 +1086,60 @@ class InvoicesXmlImport extends Component
         if (!$this->supplier_found && !empty($this->fornitore_codice_fiscale)) {
             $entity = Entity::where('codice_fiscale', $this->cleanUtf8String($this->fornitore_codice_fiscale))->first();
             if ($entity) {
-                $this->supplier_found = true;
-                $this->id_entities = $entity->id_cliente;
-                $this->supplier_display = $this->cleanUtf8String($entity->ragione_sociale ?? ($entity->nome . ' ' . $entity->cognome));
+                $this->supplier_found             = true;
+                $this->id_entities                = $entity->id_cliente;
+                $this->supplier_display           = $this->cleanUtf8String($entity->ragione_sociale ?? ($entity->nome . ' ' . $entity->cognome));
                 $this->supplier_created_by_system = $entity->created_by_system ?? false;
             }
         }
 
         if (!$this->supplier_found) {
             $this->supplier_not_found = true;
-            $this->supplier_display = $this->fornitore_denominazione;
+            $this->supplier_display   = $this->fornitore_denominazione;
             if (!empty($this->fornitore_partita_iva)) {
                 $this->supplier_display .= ' (P.IVA: ' . $this->fornitore_partita_iva . ')';
             }
         }
-        
-        // CERCA PROPRIETÀ - versione per denominazione
-        if (!empty($this->committente_denominazione)) {
+
+        // CERCA PROPRIETÀ - priorità: P.IVA > Codice Fiscale > Denominazione
+        $ownership = null;
+
+        // 1. Match per P.IVA committente (il più affidabile)
+        if (!empty($this->committente_partita_iva)) {
+            $pivaCommittente      = $this->cleanUtf8String($this->committente_partita_iva);
+            $pivaCommittenteClean = preg_replace('/^[A-Z]{2}/i', '', $pivaCommittente);
+
+            Log::info('Cerco ownership per P.IVA committente: ' . $pivaCommittente);
+
+            $ownership = Ownership::where('PivaPr', $pivaCommittente)
+                ->orWhere('PivaPr', $pivaCommittenteClean)
+                ->first();
+        }
+
+        // 2. Fallback: Codice Fiscale committente
+        if (!$ownership && !empty($this->committente_codice_fiscale)) {
+            $cfCommittente = $this->cleanUtf8String($this->committente_codice_fiscale);
+
+            Log::info('Cerco ownership per CF committente: ' . $cfCommittente);
+
+            $ownership = Ownership::where('CodFiscPr', $cfCommittente)->first();
+        }
+
+        // 3. Fallback: denominazione esatta
+        if (!$ownership && !empty($this->committente_denominazione)) {
             $denominazione = $this->cleanUtf8String($this->committente_denominazione);
+
             Log::info('Cerco ownership per denominazione: ' . $denominazione);
-            
-            // Prova vari match
+
             $ownership = Ownership::where('RagSocialePr', 'LIKE', '%' . $denominazione . '%')
                 ->orWhere('Rag_Soc_intest', 'LIKE', '%' . $denominazione . '%')
                 ->first();
-            
-            // Se non trovato, prova con parole chiave (es. "SALATINO")
+
+            // 4. Ultimo fallback: parole chiave (>3 caratteri)
             if (!$ownership) {
-                // Estrai parole dalla denominazione
                 $parole = explode(' ', $denominazione);
                 foreach ($parole as $parola) {
-                    if (strlen($parola) > 3) {  // ignora parole corte
+                    if (strlen($parola) > 3) {
                         $ownership = Ownership::where('RagSocialePr', 'LIKE', '%' . $parola . '%')
                             ->orWhere('Rag_Soc_intest', 'LIKE', '%' . $parola . '%')
                             ->first();
@@ -1115,15 +1147,15 @@ class InvoicesXmlImport extends Component
                     }
                 }
             }
-            
-            if ($ownership) {
-                $this->id_ownership = $ownership->id_proprieta;
-                $this->ownership_display = $this->cleanUtf8String($ownership->Rag_Soc_intest ?: $ownership->RagSocialePr);
-                Log::info('✅ Ownership trovata! id=' . $this->id_ownership);
-            } else {
-                Log::warning('❌ Ownership non trovata per denominazione: ' . $denominazione);
-                $this->ownership_display = 'N/D';
-            }
+        }
+
+        if ($ownership) {
+            $this->id_ownership      = $ownership->id_proprieta;
+            $this->ownership_display = $this->cleanUtf8String($ownership->Rag_Soc_intest ?: $ownership->RagSocialePr);
+            Log::info('✅ Ownership trovata! id=' . $this->id_ownership . ' - ' . $this->ownership_display);
+        } else {
+            Log::warning('❌ Ownership non trovata per committente: ' . ($this->committente_partita_iva ?? $this->committente_denominazione ?? 'N/D'));
+            $this->ownership_display = 'N/D';
         }
 
         // ESTRAZIONE PAGAMENTI
@@ -1132,28 +1164,28 @@ class InvoicesXmlImport extends Component
         if (preg_match_all('/<DettaglioPagamento>(.*?)<\/DettaglioPagamento>/is', $cleanXml, $dettaglioMatches)) {
             foreach ($dettaglioMatches[1] as $dettaglioXml) {
                 $payment = [
-                    'due_date' => null,
-                    'amount' => 0,
+                    'due_date'       => null,
+                    'amount'         => 0,
                     'payment_method' => null,
-                    'iban' => null,
+                    'iban'           => null,
                 ];
-                
+
                 if (preg_match('/<DataScadenzaPagamento>(.*?)<\/DataScadenzaPagamento>/i', $dettaglioXml, $match)) {
                     $payment['due_date'] = $this->cleanUtf8String(trim($match[1]));
                 }
-                
+
                 if (preg_match('/<ImportoPagamento>(.*?)<\/ImportoPagamento>/i', $dettaglioXml, $match)) {
                     $payment['amount'] = floatval(str_replace(',', '.', trim($match[1])));
                 }
-                
+
                 if (preg_match('/<ModalitaPagamento>(.*?)<\/ModalitaPagamento>/i', $dettaglioXml, $match)) {
                     $payment['payment_method'] = $this->cleanUtf8String(trim($match[1]));
                 }
-                
+
                 if (preg_match('/<IBAN>(.*?)<\/IBAN>/i', $dettaglioXml, $match)) {
                     $payment['iban'] = $this->cleanUtf8String(trim($match[1]));
                 }
-                
+
                 $this->payments[] = $payment;
             }
         }
@@ -1161,12 +1193,12 @@ class InvoicesXmlImport extends Component
         // POST-ELABORAZIONE PAGAMENTI
         if (empty($this->payments)) {
             Log::info('Nessun pagamento trovato nell\'XML, utilizzo data fattura come scadenza');
-            
+
             $this->payments[] = [
-                'due_date' => $this->data_invoice,
-                'amount' => $this->importo_totale,
+                'due_date'       => $this->data_invoice,
+                'amount'         => $this->importo_totale,
                 'payment_method' => null,
-                'iban' => null,
+                'iban'           => null,
             ];
         } else {
             foreach ($this->payments as &$payment) {
@@ -1175,6 +1207,7 @@ class InvoicesXmlImport extends Component
                     Log::info('Pagamento senza data scadenza, impostata data fattura: ' . $this->data_invoice);
                 }
             }
+            unset($payment);
         }
 
         Log::info('Pagamenti estratti', ['count' => count($this->payments)]);
@@ -1184,14 +1217,14 @@ class InvoicesXmlImport extends Component
         if (preg_match_all('/<DatiRiepilogo>(.*?)<\/DatiRiepilogo>/is', $cleanXml, $riepilogoMatches)) {
             foreach ($riepilogoMatches[1] as $riepilogoXml) {
                 $summary = [
-                    'tax_rate' => 0,
-                    'sdi_nature' => null,
-                    'taxable_amount' => 0,
-                    'tax_amount' => 0,
+                    'tax_rate'          => 0,
+                    'sdi_nature'        => null,
+                    'taxable_amount'    => 0,
+                    'tax_amount'        => 0,
                     'vat_law_reference' => null,
-                    'esigibilita_iva' => 'I',
+                    'esigibilita_iva'   => 'I',
                 ];
-                
+
                 if (preg_match('/<AliquotaIVA>(.*?)<\/AliquotaIVA>/i', $riepilogoXml, $match)) {
                     $summary['tax_rate'] = floatval(str_replace(',', '.', trim($match[1])));
                 }
@@ -1210,7 +1243,7 @@ class InvoicesXmlImport extends Component
                 if (preg_match('/<EsigibilitaIVA>(.*?)<\/EsigibilitaIVA>/i', $riepilogoXml, $match)) {
                     $summary['esigibilita_iva'] = $this->cleanUtf8String(trim($match[1]));
                 }
-                
+
                 $this->vatSummaries[] = $summary;
             }
         }
@@ -1218,29 +1251,29 @@ class InvoicesXmlImport extends Component
         $this->status = 'issued';
 
         // INIZIALIZZA ARRAY PER AUTOCOMPLETE
-        $this->row_cost_center_search = [];
-        $this->row_cost_center_results = [];
+        $this->row_cost_center_search     = [];
+        $this->row_cost_center_results    = [];
         $this->show_row_cost_center_dropdown = [];
-        $this->row_vehicle_search = [];           
-        $this->row_vehicle_results = [];          
-        $this->show_row_vehicle_dropdown = [];
+        $this->row_vehicle_search         = [];
+        $this->row_vehicle_results        = [];
+        $this->show_row_vehicle_dropdown  = [];
 
         foreach ($this->rows as $index => $row) {
-            $this->row_cost_center_search[$index] = $row['cost_center_name'] ?? '';
-            $this->row_cost_center_results[$index] = [];
+            $this->row_cost_center_search[$index]        = $row['cost_center_name'] ?? '';
+            $this->row_cost_center_results[$index]       = [];
             $this->show_row_cost_center_dropdown[$index] = false;
-            $this->row_vehicle_search[$index] = $row['vehicle_name'] ?? '';      
-            $this->row_vehicle_results[$index] = [];                              
-            $this->show_row_vehicle_dropdown[$index] = false; 
+            $this->row_vehicle_search[$index]            = $row['vehicle_name'] ?? '';
+            $this->row_vehicle_results[$index]           = [];
+            $this->show_row_vehicle_dropdown[$index]     = false;
         }
 
-        $this->cost_center_all_search = '';
-        $this->cost_center_all_results = [];
+        $this->cost_center_all_search       = '';
+        $this->cost_center_all_results      = [];
         $this->show_cost_center_all_dropdown = false;
-        $this->vehicle_all_search = '';        
-        $this->vehicle_all_results = [];       
-        $this->show_vehicle_all_dropdown = false;
-    }       
+        $this->vehicle_all_search           = '';
+        $this->vehicle_all_results          = [];
+        $this->show_vehicle_all_dropdown    = false;
+    }
 
     public function getNaturaLabel($natura)
     {

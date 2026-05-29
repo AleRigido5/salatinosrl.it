@@ -214,7 +214,7 @@ class InvoiceReceivedEdit extends Component
         $this->type_invoice = $invoice->type_invoice;
         $this->n_invoice = $invoice->n_invoice;
         $this->data_invoice = $invoice->data_invoice->format('Y-m-d');
-        $this->importo_totale = $invoice->importo_totale;
+        $this->importo_totale = abs($invoice->importo_totale); // Forza positivo
         $this->causale = $invoice->causale ?? '';
         
         // Carica il fornitore
@@ -238,7 +238,7 @@ class InvoiceReceivedEdit extends Component
         $this->selectedVehicleId = [];
         $this->selectedVehicleName = [];
 
-        // Prepara una mappa dell'IVA dai vatSummaries per le fatture importate
+        // Prepara una mappa dell'IVA dai vatSummaries
         $vatSummaryMap = [];
         foreach ($invoice->vatSummaries as $vs) {
             $key = (string)(float)$vs->tax_rate;
@@ -252,11 +252,19 @@ class InvoiceReceivedEdit extends Component
             }
         }
         
-        // Carica le righe
+        // Carica le righe - CON CORREZIONE DEI VALORI ANOMALI
         foreach ($invoice->rows as $index => $row) {
+            // FORZA valori positivi per quantità e prezzo
+            $quantity = abs(floatval($row->quantity ?? 1));
+            $unitPrice = abs(floatval($row->unit_price ?? 0));
+            $discountPercentage = floatval($row->discount_percentage ?? 0);
+            
+            // Calcola il totale corretto (positivo)
+            $grossAmount = $quantity * $unitPrice;
+            $discountAmount = $grossAmount * ($discountPercentage / 100);
+            $taxable = $grossAmount - $discountAmount;
+            
             $vatRateRaw = floatval($row->vat_rate ?? 0);
-
-            // Converte da decimale a percentuale se necessario
             if ($vatRateRaw > 0 && $vatRateRaw <= 1) {
                 $vatRatePercent = round($vatRateRaw * 100, 2);
             } elseif ($vatRateRaw > 1) {
@@ -264,8 +272,9 @@ class InvoiceReceivedEdit extends Component
             } else {
                 $vatRatePercent = 0;
             }
-
-            // Tentativo 1: da vat_rate_id
+            
+            $vatAmount = $taxable * ($vatRatePercent / 100);
+            
             $natureCode = null;
             $vatInfo = null;
             
@@ -273,45 +282,9 @@ class InvoiceReceivedEdit extends Component
                 $vatInfo = collect($this->vatRatesList)->firstWhere('id', $row->vat_rate_id);
                 if ($vatInfo) {
                     $vatRatePercent = $vatInfo['rate_percent'];
-                    // if ($vatRatePercent == 0 && !empty($vatInfo['sdi_nature'])) {
-                    //     $natureCode = $vatInfo['sdi_nature'];
-                    // }
-                    // ✅ Salva sempre la natura se presente, indipendentemente dall'aliquota
                     $natureCode = !empty($vatInfo['sdi_nature']) ? $vatInfo['sdi_nature'] : null;
                 }
             }
-            
-            // Tentativo 2: cerca nei vatSummaries se abbiamo solo un'aliquota
-            if ($vatRatePercent == 0 && !$natureCode) {
-                $positiveSummaries = collect($invoice->vatSummaries)
-                    ->where('tax_rate', '>', 0);
-                if ($positiveSummaries->count() === 1) {
-                    $vatRatePercent = (float) $positiveSummaries->first()->tax_rate;
-                }
-                
-                // Cerca anche nature per IVA 0%
-                $zeroSummaries = collect($invoice->vatSummaries)
-                    ->where('tax_rate', '==', 0);
-                if ($zeroSummaries->count() === 1 && !empty($zeroSummaries->first()->sdi_nature)) {
-                    $natureCode = $zeroSummaries->first()->sdi_nature;
-                    $vatRatePercent = 0;
-                }
-            }
-            
-            // Tentativo 3: cerca nella lista delle aliquote per trovare una corrispondenza
-            if (!$vatInfo) {
-                $vatInfo = collect($this->vatRatesList)->first(function($v) use ($vatRatePercent) {
-                    return abs($v['rate_percent'] - $vatRatePercent) < 0.01;
-                });
-                if ($vatInfo && $vatRatePercent == 0 && !empty($vatInfo['sdi_nature'])) {
-                    $natureCode = $vatInfo['sdi_nature'];
-                }
-            }
-            
-            // Calcola l'imponibile per la riga
-            $grossAmount = $row->quantity * $row->unit_price;
-            $discountAmount = $grossAmount * ($row->discount_percentage / 100);
-            $taxable = $grossAmount - $discountAmount;
             
             $vehicleName = '';
             if ($row->vehicle) {
@@ -322,29 +295,27 @@ class InvoiceReceivedEdit extends Component
                 'id' => $row->id,
                 'code' => $row->code ?? '',
                 'description' => $row->description,
-                'quantity' => $row->quantity,
-                'unit_price' => $row->unit_price,
+                'quantity' => $quantity,  // POSITIVO
+                'unit_price' => $unitPrice,  // POSITIVO
                 'unit_measure' => $row->unit_measure ?? '',
-                'discount_percentage' => $row->discount_percentage,
+                'discount_percentage' => $discountPercentage,
                 'vat_rate_id' => $row->vat_rate_id, 
                 'vat_rate' => $vatRatePercent,
-                'nature_code' => $natureCode,  // Salva il codice natura per IVA 0%
+                'nature_code' => $natureCode,
                 'id_cost_center' => $row->id_cost_center,
                 'cost_center_name' => $row->costCenter ? $row->costCenter->Nome : '',
                 'id_vehicle' => $row->id_vehicle,
                 'vehicle_name' => $vehicleName,
-                'taxable_amount' => $taxable,
-                'vat_amount' => $taxable * ($vatRatePercent / 100),
+                'taxable_amount' => $taxable,  // POSITIVO
+                'vat_amount' => $vatAmount,  // POSITIVO
             ];
             
-            // Centro di costo
             $this->costCenterSearch[$index] = $row->costCenter ? $row->costCenter->Nome : '';
             $this->costCenterResults[$index] = [];
             $this->showCostCenterDropdown[$index] = false;
             $this->selectedCostCenterId[$index] = $row->id_cost_center ?? '';
             $this->selectedCostCenterName[$index] = $row->costCenter ? $row->costCenter->Nome : '';
             
-            // Mezzo
             $this->vehicleSearch[$index] = $vehicleName;
             $this->vehicleResults[$index] = [];
             $this->showVehicleDropdown[$index] = false;
@@ -352,18 +323,17 @@ class InvoiceReceivedEdit extends Component
             $this->selectedVehicleName[$index] = $vehicleName;
         }
         
-        // Se non ci sono righe, aggiungine una
         if (empty($this->rows)) {
             $this->addRow();
         }
         
-        // Scadenze — includi SEMPRE status
+        // Scadenze
         $this->payments = [];
         foreach ($invoice->payments as $payment) {
             $this->payments[] = [
                 'id' => $payment->id,
                 'due_date' => $payment->due_date ? $payment->due_date->format('Y-m-d') : '',
-                'amount' => $payment->amount,
+                'amount' => abs($payment->amount), // FORZA positivo
                 'payment_method' => $payment->payment_method ?? '',
                 'iban' => $payment->iban ?? '',
                 'status' => $payment->status ?? 'issued',
@@ -377,9 +347,8 @@ class InvoiceReceivedEdit extends Component
         $this->calculateTotals();
         $this->calculatePaymentsTotal();
 
-        // Per fatture importate, il totale ufficiale è quello del DB
         if (!$this->is_manual) {
-            $this->importo_totale = (float) $invoice->importo_totale;
+            $this->importo_totale = abs($invoice->importo_totale); // FORZA positivo
             if (count($this->payments) > 0) {
                 $this->payments[0]['amount'] = $this->importo_totale;
                 $this->calculatePaymentsTotal();
@@ -1014,8 +983,28 @@ class InvoiceReceivedEdit extends Component
             
             $invoice = InvoiceReceived::findOrFail($this->invoiceId);
             
+            // NORMALIZZA i dati PRIMA del salvataggio (per entrambi i tipi)
+            foreach ($this->rows as $index => &$row) {
+                // Forza valori positivi per quantità e prezzo
+                $row['quantity'] = abs(floatval($row['quantity'] ?? 1));
+                $row['unit_price'] = abs(floatval($row['unit_price'] ?? 0));
+                $row['discount_percentage'] = max(0, floatval($row['discount_percentage'] ?? 0));
+                
+                // Ricalcola i totali con valori positivi
+                $grossAmount = $row['quantity'] * $row['unit_price'];
+                $discountAmount = $grossAmount * ($row['discount_percentage'] / 100);
+                $row['taxable_amount'] = round($grossAmount - $discountAmount, 2);
+                
+                $vatRatePercent = floatval($row['vat_rate'] ?? 0);
+                $row['vat_amount'] = round($row['taxable_amount'] * ($vatRatePercent / 100), 2);
+            }
+            
+            // Ricalcola i totali generali con i dati normalizzati
+            $this->calculateTotals();
+            
             if (!$this->is_manual) {
-                // Fattura importata: aggiorna solo causale, centri costo e mezzi
+                // ==================== FATTURA IMPORTATA DA XML ====================
+                // Aggiorna solo causale, centri costo e mezzi
                 $invoice->update([
                     'causale' => $this->causale,
                     'updated_by' => Auth::guard('admin')->id(),
@@ -1024,64 +1013,83 @@ class InvoiceReceivedEdit extends Component
                 foreach ($this->rows as $index => $row) {
                     if (isset($row['id']) && $row['id']) {
                         $updateData = [];
-                        if (isset($this->selectedCostCenterId[$index]) && $this->selectedCostCenterId[$index]) {
+                        
+                        // Centro di costo
+                        if (isset($this->selectedCostCenterId[$index]) && !empty($this->selectedCostCenterId[$index])) {
                             $updateData['id_cost_center'] = $this->selectedCostCenterId[$index];
+                        } elseif (isset($row['id_cost_center']) && !empty($row['id_cost_center'])) {
+                            $updateData['id_cost_center'] = $row['id_cost_center'];
                         } else {
-                            $updateData['id_cost_center'] = $row['id_cost_center'] ?? null;
+                            $updateData['id_cost_center'] = null;
                         }
-                        if (isset($this->selectedVehicleId[$index]) && $this->selectedVehicleId[$index]) {
+                        
+                        // Mezzo
+                        if (isset($this->selectedVehicleId[$index]) && !empty($this->selectedVehicleId[$index])) {
                             $updateData['id_vehicle'] = $this->selectedVehicleId[$index];
+                        } elseif (isset($row['id_vehicle']) && !empty($row['id_vehicle'])) {
+                            $updateData['id_vehicle'] = $row['id_vehicle'];
                         } else {
-                            $updateData['id_vehicle'] = $row['id_vehicle'] ?? null;
+                            $updateData['id_vehicle'] = null;
                         }
+                        
                         InvoiceRow::where('id', $row['id'])->update($updateData);
                     }
                 }
+                
             } else {
-                // Fattura manuale: aggiorna tutti i campi
+                // ==================== FATTURA MANUALE ====================
+                // Aggiorna tutti i campi della fattura
                 $invoice->update([
                     'id_ownership' => $this->id_ownership,
                     'id_entities' => $this->selectedSupplierId,
                     'type_invoice' => $this->type_invoice,
                     'n_invoice' => $this->n_invoice,
                     'data_invoice' => $this->data_invoice,
-                    'importo_totale' => $this->importo_totale,
+                    'importo_totale' => abs($this->importo_totale), // Forza positivo
                     'causale' => $this->causale,
                     'updated_by' => Auth::guard('admin')->id(),
                 ]);
                 
+                // Gestione righe fattura
                 $existingRowIds = [];
                 
                 foreach ($this->rows as $row) {
-                    $vatRatePercent = floatval($row['vat_rate'] ?? 0);
-
-                    // Cerca l'aliquota corrispondente
-                    $vatRateRecord = collect($this->vatRatesList)->first(function($v) use ($vatRatePercent, $row) {
-                        // Per IVA 0%, dobbiamo anche considerare se c'è una natura specifica
-                        if ($vatRatePercent == 0 && isset($row['nature_code'])) {
-                            return $v['rate_percent'] == 0 && $v['sdi_nature'] == $row['nature_code'];
-                        }
-                        return abs($v['rate_percent'] - $vatRatePercent) < 0.01;
-                    });
-
-                    $vatRateId      = !empty($row['vat_rate_id']) ? (int)$row['vat_rate_id'] : null;
+                    // Normalizza i valori della riga
+                    $quantity = abs(floatval($row['quantity'] ?? 1));
+                    $unitPrice = abs(floatval($row['unit_price'] ?? 0));
+                    $discountPercentage = max(0, floatval($row['discount_percentage'] ?? 0));
+                    $grossAmount = $quantity * $unitPrice;
+                    $discountAmount = $grossAmount * ($discountPercentage / 100);
+                    $taxableAmount = round($grossAmount - $discountAmount, 2);
+                    
                     $vatRatePercent = floatval($row['vat_rate'] ?? 0);
                     $vatRateDecimal = $vatRatePercent / 100;
-
+                    $vatAmount = round($taxableAmount * $vatRateDecimal, 2);
+                    $totalAmount = round($taxableAmount + $vatAmount, 2);
+                    
+                    // Cerca l'aliquota corrispondente
+                    $vatRateId = !empty($row['vat_rate_id']) ? (int)$row['vat_rate_id'] : null;
+                    if (!$vatRateId && $vatRatePercent > 0) {
+                        $vatRateRecord = collect($this->vatRatesList)->first(function($v) use ($vatRatePercent) {
+                            return abs($v['rate_percent'] - $vatRatePercent) < 0.01;
+                        });
+                        $vatRateId = $vatRateRecord['id'] ?? null;
+                    }
+                    
                     $rowData = [
                         'document_id' => $invoice->id,
                         'document_type' => 'invoice_received',
                         'id_cost_center' => $row['id_cost_center'] ?? null,
                         'id_vehicle' => $row['id_vehicle'] ?? null,
                         'code' => $row['code'] ?? null,
-                        'description' => $row['description'],
-                        'quantity' => floatval($row['quantity'] ?? 1),
-                        'unit_price' => floatval($row['unit_price'] ?? 0),
+                        'description' => $row['description'] ?? '',
+                        'quantity' => $quantity,
+                        'unit_price' => $unitPrice,
                         'unit_measure' => $row['unit_measure'] ?? null,
-                        'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
+                        'discount_percentage' => $discountPercentage,
                         'vat_rate' => $vatRateDecimal,
-                        'vat_rate_id' => $vatRateId,  // Aggiungi questo campo
-                        'total' => floatval($row['taxable_amount'] ?? 0),
+                        'vat_rate_id' => $vatRateId,
+                        'total' => $totalAmount,
                     ];
                     
                     if (isset($row['id']) && $row['id']) {
@@ -1096,18 +1104,23 @@ class InvoiceReceivedEdit extends Component
                     }
                 }
                 
+                // Elimina righe rimosse
                 InvoiceRow::where('document_id', $invoice->id)
                     ->where('document_type', 'invoice_received')
                     ->whereNotIn('id', $existingRowIds)
                     ->delete();
                 
-                // Aggiorna scadenze
+                // Gestione pagamenti
                 $existingPaymentIds = [];
+                $totalPaymentsAmount = 0;
                 
                 foreach ($this->payments as $payment) {
+                    $paymentAmount = abs(floatval($payment['amount'] ?? 0));
+                    $totalPaymentsAmount += $paymentAmount;
+                    
                     $paymentData = [
-                        'due_date' => $payment['due_date'],
-                        'amount' => floatval($payment['amount']),
+                        'due_date' => $payment['due_date'] ?? $this->data_invoice,
+                        'amount' => $paymentAmount,
                         'payment_method' => $payment['payment_method'] ?? null,
                         'iban' => $payment['iban'] ?? null,
                         'status' => $payment['status'] ?? 'issued',
@@ -1125,16 +1138,25 @@ class InvoiceReceivedEdit extends Component
                     }
                 }
                 
+                // Se il totale dei pagamenti non corrisponde al totale fattura, aggiorna la prima scadenza
+                if (abs($totalPaymentsAmount - $this->importo_totale) > 0.01 && count($this->payments) > 0) {
+                    $firstPayment = $invoice->payments()->first();
+                    if ($firstPayment) {
+                        $firstPayment->update(['amount' => $this->importo_totale]);
+                    }
+                }
+                
+                // Elimina pagamenti rimossi
                 $invoice->payments()->whereNotIn('id', $existingPaymentIds)->delete();
-
+                
                 // Aggiorna i riepiloghi IVA
                 $invoice->vatSummaries()->delete();
                 foreach ($this->vatSummary as $vat) {
                     $invoice->vatSummaries()->create([
-                        'tax_rate' => $vat['rate'] * 100, // salva in percentuale
+                        'tax_rate' => round($vat['rate'] * 100, 2), // salva in percentuale
                         'sdi_nature' => $vat['nature_code'] ?? null,
-                        'taxable_amount' => $vat['taxable_amount'],
-                        'tax_amount' => $vat['vat_amount'],
+                        'taxable_amount' => round($vat['taxable_amount'], 2),
+                        'tax_amount' => round($vat['vat_amount'], 2),
                         'esigibilita_iva' => 'I',
                     ]);
                 }
@@ -1147,7 +1169,10 @@ class InvoiceReceivedEdit extends Component
             
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Errore aggiornamento fattura: ' . $e->getMessage());
+            Log::error('Errore aggiornamento fattura: ' . $e->getMessage(), [
+                'invoice_id' => $this->invoiceId,
+                'trace' => $e->getTraceAsString()
+            ]);
             $this->dispatch('alert', type: 'error', message: 'Errore: ' . $e->getMessage());
         }
     }

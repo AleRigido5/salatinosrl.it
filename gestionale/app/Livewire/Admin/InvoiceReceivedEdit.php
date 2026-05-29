@@ -54,6 +54,7 @@ class InvoiceReceivedEdit extends Component
     
     // Righe fattura
     public $rows = [];
+    public array $rowUpdates = [];  
 
     // Unità di Misura
     public $unitMeasureList = [];
@@ -108,7 +109,7 @@ class InvoiceReceivedEdit extends Component
         $this->loadVatRates();
         $this->loadUnitMeasures();
         $this->loadPaymentMethods();
-        // $this->loadAllData();
+        $this->loadAllData();
         $this->loadInvoice();
     }
 
@@ -200,11 +201,17 @@ class InvoiceReceivedEdit extends Component
         $invoice = InvoiceReceived::with([
             'entity', 
             'ownership', 
+            'rows' => function($query) {
+                $query->orderBy('id', 'asc');
+            },
             'rows.costCenter', 
             'rows.vehicle', 
             'payments', 
             'vatSummaries'
         ])->findOrFail($this->invoiceId);
+        
+        // Inizializza rowUpdates come array vuoto
+        $this->rowUpdates = [];
         
         $this->is_manual = $invoice->is_manual ?? false;
         $this->isReadonly = !$this->is_manual;
@@ -214,7 +221,7 @@ class InvoiceReceivedEdit extends Component
         $this->type_invoice = $invoice->type_invoice;
         $this->n_invoice = $invoice->n_invoice;
         $this->data_invoice = $invoice->data_invoice->format('Y-m-d');
-        $this->importo_totale = abs($invoice->importo_totale); // Forza positivo
+        $this->importo_totale = abs($invoice->importo_totale);
         $this->causale = $invoice->causale ?? '';
         
         // Carica il fornitore
@@ -252,14 +259,12 @@ class InvoiceReceivedEdit extends Component
             }
         }
         
-        // Carica le righe - CON CORREZIONE DEI VALORI ANOMALI
+        // Carica le righe
         foreach ($invoice->rows as $index => $row) {
-            // FORZA valori positivi per quantità e prezzo
             $quantity = abs(floatval($row->quantity ?? 1));
             $unitPrice = abs(floatval($row->unit_price ?? 0));
             $discountPercentage = floatval($row->discount_percentage ?? 0);
             
-            // Calcola il totale corretto (positivo)
             $grossAmount = $quantity * $unitPrice;
             $discountAmount = $grossAmount * ($discountPercentage / 100);
             $taxable = $grossAmount - $discountAmount;
@@ -276,7 +281,6 @@ class InvoiceReceivedEdit extends Component
             $vatAmount = $taxable * ($vatRatePercent / 100);
             
             $natureCode = null;
-            $vatInfo = null;
             
             if ($row->vat_rate_id) {
                 $vatInfo = collect($this->vatRatesList)->firstWhere('id', $row->vat_rate_id);
@@ -293,11 +297,9 @@ class InvoiceReceivedEdit extends Component
 
             $this->rows[] = [
                 'id' => $row->id,
-                'code' => $row->code ?? '',
                 'description' => $row->description,
-                'quantity' => $quantity,  // POSITIVO
-                'unit_price' => $unitPrice,  // POSITIVO
-                'unit_measure' => $row->unit_measure ?? '',
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
                 'discount_percentage' => $discountPercentage,
                 'vat_rate_id' => $row->vat_rate_id, 
                 'vat_rate' => $vatRatePercent,
@@ -306,21 +308,29 @@ class InvoiceReceivedEdit extends Component
                 'cost_center_name' => $row->costCenter ? $row->costCenter->Nome : '',
                 'id_vehicle' => $row->id_vehicle,
                 'vehicle_name' => $vehicleName,
-                'taxable_amount' => $taxable,  // POSITIVO
-                'vat_amount' => $vatAmount,  // POSITIVO
+                'taxable_amount' => $taxable,
+                'vat_amount' => $vatAmount,
             ];
             
             $this->costCenterSearch[$index] = $row->costCenter ? $row->costCenter->Nome : '';
             $this->costCenterResults[$index] = [];
             $this->showCostCenterDropdown[$index] = false;
-            $this->selectedCostCenterId[$index] = $row->id_cost_center ?? '';
+            $this->selectedCostCenterId[$index] = $row->id_cost_center ?? null;
             $this->selectedCostCenterName[$index] = $row->costCenter ? $row->costCenter->Nome : '';
             
             $this->vehicleSearch[$index] = $vehicleName;
             $this->vehicleResults[$index] = [];
             $this->showVehicleDropdown[$index] = false;
-            $this->selectedVehicleId[$index] = $row->id_vehicle ?? '';
+            $this->selectedVehicleId[$index] = $row->id_vehicle ?? null;
             $this->selectedVehicleName[$index] = $vehicleName;
+            
+            // POPOLA rowUpdates con l'ID della riga come chiave
+            $this->rowUpdates[$row->id] = [
+                'id_cost_center' => $row->id_cost_center,
+                'cost_center_name' => $row->costCenter ? $row->costCenter->Nome : '',
+                'id_vehicle' => $row->id_vehicle,
+                'vehicle_name' => $vehicleName,
+            ];
         }
         
         if (empty($this->rows)) {
@@ -333,7 +343,7 @@ class InvoiceReceivedEdit extends Component
             $this->payments[] = [
                 'id' => $payment->id,
                 'due_date' => $payment->due_date ? $payment->due_date->format('Y-m-d') : '',
-                'amount' => abs($payment->amount), // FORZA positivo
+                'amount' => abs($payment->amount),
                 'payment_method' => $payment->payment_method ?? '',
                 'iban' => $payment->iban ?? '',
                 'status' => $payment->status ?? 'issued',
@@ -347,12 +357,9 @@ class InvoiceReceivedEdit extends Component
         $this->calculateTotals();
         $this->calculatePaymentsTotal();
 
-        if (!$this->is_manual) {
-            $this->importo_totale = abs($invoice->importo_totale); // FORZA positivo
-            if (count($this->payments) > 0) {
-                $this->payments[0]['amount'] = $this->importo_totale;
-                $this->calculatePaymentsTotal();
-            }
+        if (!$this->is_manual && count($this->payments) > 0) {
+            $this->payments[0]['amount'] = $this->importo_totale;
+            $this->calculatePaymentsTotal();
         }
     }
         
@@ -735,12 +742,24 @@ class InvoiceReceivedEdit extends Component
     
     public function selectCostCenter($id, $name, $index)
     {
-        $this->rows[$index]['id_cost_center'] = $id;
+        $rowId = $this->rows[$index]['id'] ?? null;
+        
+        $this->rows[$index]['id_cost_center'] = (int)$id;
         $this->rows[$index]['cost_center_name'] = $name;
-        $this->selectedCostCenterId[$index] = $id;
+        $this->selectedCostCenterId[$index] = (int)$id;
         $this->selectedCostCenterName[$index] = $name;
         $this->costCenterSearch[$index] = $name;
         $this->showCostCenterDropdown[$index] = false;
+        
+        // Aggiorna rowUpdates
+        if ($rowId) {
+            $this->rowUpdates[$rowId] = [
+                'id_cost_center' => (int)$id,
+                'cost_center_name' => $name,
+                'id_vehicle' => $this->rowUpdates[$rowId]['id_vehicle'] ?? $this->rows[$index]['id_vehicle'] ?? null,
+                'vehicle_name' => $this->rowUpdates[$rowId]['vehicle_name'] ?? $this->rows[$index]['vehicle_name'] ?? '',
+            ];
+        }
     }
     
     public function clearCostCenter($index)
@@ -782,17 +801,35 @@ class InvoiceReceivedEdit extends Component
         $cc = collect($this->all_costCenters)->firstWhere('id', (int)$id);
         if ($cc) {
             foreach ($this->rows as $index => $row) {
+                // Aggiorna la riga
                 $this->rows[$index]['id_cost_center'] = (int)$id;
                 $this->rows[$index]['cost_center_name'] = $cc['name'];
+                
+                // Aggiorna gli array di ricerca
                 $this->costCenterSearch[$index] = $cc['name'];
                 $this->costCenterResults[$index] = [];
                 $this->showCostCenterDropdown[$index] = false;
                 $this->selectedCostCenterId[$index] = (int)$id;
                 $this->selectedCostCenterName[$index] = $cc['name'];
+                
+                // IMPORTANTE: Aggiorna anche rowUpdates se la riga ha un ID
+                if (isset($row['id']) && $row['id']) {
+                    $this->rowUpdates[$row['id']] = [
+                        'id_cost_center' => (int)$id,
+                        'cost_center_name' => $cc['name'],
+                        'id_vehicle' => $this->rowUpdates[$row['id']]['id_vehicle'] ?? $row['id_vehicle'] ?? null,
+                        'vehicle_name' => $this->rowUpdates[$row['id']]['vehicle_name'] ?? $row['vehicle_name'] ?? '',
+                    ];
+                }
             }
+            
             $this->cost_center_all_search = $cc['name'];
             $this->cost_center_all_results = [];
             $this->show_cost_center_all_dropdown = false;
+            
+            // Ricalcola i totali
+            $this->calculateTotals();
+            
             $this->dispatch('alert', type: 'success', message: "Centro di costo '{$cc['name']}' applicato a tutte le " . count($this->rows) . " righe");
         }
     }
@@ -833,21 +870,39 @@ class InvoiceReceivedEdit extends Component
         $vehicle = collect($this->all_vehicles_list)->firstWhere('id', (int)$id);
         if ($vehicle) {
             foreach ($this->rows as $index => $row) {
+                // Aggiorna la riga
                 $this->rows[$index]['id_vehicle'] = (int)$id;
                 $this->rows[$index]['vehicle_name'] = $vehicle['name'];
+                
+                // Aggiorna gli array di ricerca
                 $this->vehicleSearch[$index] = $vehicle['name'];
                 $this->vehicleResults[$index] = [];
                 $this->showVehicleDropdown[$index] = false;
                 $this->selectedVehicleId[$index] = (int)$id;
                 $this->selectedVehicleName[$index] = $vehicle['name'];
+                
+                // IMPORTANTE: Aggiorna anche rowUpdates se la riga ha un ID
+                if (isset($row['id']) && $row['id']) {
+                    $this->rowUpdates[$row['id']] = [
+                        'id_vehicle' => (int)$id,
+                        'vehicle_name' => $vehicle['name'],
+                        'id_cost_center' => $this->rowUpdates[$row['id']]['id_cost_center'] ?? $row['id_cost_center'] ?? null,
+                        'cost_center_name' => $this->rowUpdates[$row['id']]['cost_center_name'] ?? $row['cost_center_name'] ?? '',
+                    ];
+                }
             }
+            
             $this->vehicle_all_search = $vehicle['name'];
             $this->vehicle_all_results = [];
             $this->show_vehicle_all_dropdown = false;
+            
+            // Ricalcola i totali
+            $this->calculateTotals();
+            
             $this->dispatch('alert', type: 'success', message: "Mezzo '{$vehicle['name']}' applicato a tutte le " . count($this->rows) . " righe");
         }
     }
-    
+        
     // ==================== AUTOCOMPLETE MEZZI ====================
     public function updatedVehicleSearch($value, $index)
     {
@@ -892,12 +947,24 @@ class InvoiceReceivedEdit extends Component
     
     public function selectVehicle($id, $name, $index)
     {
-        $this->rows[$index]['id_vehicle'] = $id;
+        $rowId = $this->rows[$index]['id'] ?? null;
+        
+        $this->rows[$index]['id_vehicle'] = (int)$id;
         $this->rows[$index]['vehicle_name'] = $name;
-        $this->selectedVehicleId[$index] = $id;
+        $this->selectedVehicleId[$index] = (int)$id;
         $this->selectedVehicleName[$index] = $name;
         $this->vehicleSearch[$index] = $name;
         $this->showVehicleDropdown[$index] = false;
+        
+        // Aggiorna rowUpdates
+        if ($rowId) {
+            $this->rowUpdates[$rowId] = [
+                'id_vehicle' => (int)$id,
+                'vehicle_name' => $name,
+                'id_cost_center' => $this->rowUpdates[$rowId]['id_cost_center'] ?? $this->rows[$index]['id_cost_center'] ?? null,
+                'cost_center_name' => $this->rowUpdates[$rowId]['cost_center_name'] ?? $this->rows[$index]['cost_center_name'] ?? '',
+            ];
+        }
     }
     
     public function clearVehicle($index)

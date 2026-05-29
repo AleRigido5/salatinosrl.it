@@ -292,6 +292,8 @@
             </label>
             <div class="relative">
                 <input type="text"
+                    id="cost_center_all_input"
+                    value="{{ $cost_center_all_search }}"
                     wire:model.live.debounce.500ms="cost_center_all_search"
                     class="w-full border rounded-lg px-3 py-2"
                     placeholder="Cerca centro di costo..."
@@ -300,7 +302,8 @@
                     <div class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                         @foreach($cost_center_all_results as $cc)
                             <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                                wire:click="applyCostCenterToAllRows({{ $cc['id'] }})">
+                                wire:click="applyCostCenterToAllRows({{ $cc['id'] }})"
+                                onclick="(function(){var el=document.getElementById('cost_center_all_input'); if(el){ el.value='{{ addslashes($cc['name']) }}'; el.dispatchEvent(new Event('input',{bubbles:true})); } })()">
                                 {{ $cc['name'] }}
                             </div>
                         @endforeach
@@ -319,6 +322,8 @@
             </label>
             <div class="relative">
                 <input type="text"
+                    id="vehicle_all_input"
+                    value="{{ $vehicle_all_search }}"
                     wire:model.live.debounce.500ms="vehicle_all_search"
                     class="w-full border rounded-lg px-3 py-2"
                     placeholder="Cerca mezzo (targa, marca, modello)..."
@@ -327,7 +332,8 @@
                     <div class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                         @foreach($vehicle_all_results as $vehicle)
                             <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                                wire:click="applyVehicleToAllRows({{ $vehicle['id'] }})">
+                                wire:click="applyVehicleToAllRows({{ $vehicle['id'] }})"
+                                onclick="(function(){var el=document.getElementById('vehicle_all_input'); if(el){ el.value='{{ addslashes($vehicle['name']) }}'; el.dispatchEvent(new Event('input',{bubbles:true})); } })()">
                                 {{ $vehicle['name'] }}
                             </div>
                         @endforeach

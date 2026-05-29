@@ -419,93 +419,85 @@
 
                             <!-- Campo Autocomplete Centro Di Costo -->
                             <td class="col-cost-center px-2 py-1">
-                                <div class="w-full relative" x-data="{ open: false }" x-on:click.away="open = false">
+                                <div class="w-full relative">
                                     <i class="fas fa-building absolute left-2 top-2 text-gray-400 text-xs z-10"></i>
                                     <input type="text"
                                         id="cost_center_input_{{ $index }}"
+                                        value="{{ $costCenterSearch[$index] ?? '' }}"
                                         wire:model.live.debounce.300ms="costCenterSearch.{{ $index }}"
-                                        x-on:focus="open = true"
-                                        x-on:input="open = true"
+                                        wire:focus="showCostCenterDropdown[{{ $index }}] = true"
                                         placeholder="Cerca centro..."
                                         class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                                         autocomplete="off">
                                     
-                                    <div x-show="open && @entangle('showCostCenterDropdown.' . $index)" 
-                                        class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
-                                        style="min-width: 200px;">
-                                        @if(isset($costCenterResults[$index]) && count($costCenterResults[$index]) > 0)
-                                            @foreach($costCenterResults[$index] as $cc)
-                                                <div
-                                                    x-on:click="
-                                                        open = false;
-                                                        document.getElementById('cost_center_input_{{ $index }}').value = '{{ addslashes($cc['name']) }}';
-                                                        @this.set('costCenterSearch.{{ $index }}', '{{ addslashes($cc['name']) }}');
-                                                        @this.set('rows.{{ $index }}.id_cost_center', '{{ $cc['id'] }}');
-                                                        @this.set('selectedCostCenterId.{{ $index }}', '{{ $cc['id'] }}');
-                                                        @this.set('selectedCostCenterName.{{ $index }}', '{{ addslashes($cc['name']) }}');
-                                                        @this.set('showCostCenterDropdown.{{ $index }}', false);
-                                                        @this.call('calculateTotals');
-                                                    "
-                                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                                    <div class="font-medium text-gray-800">{{ $cc['name'] }}</div>
+                                    @if(isset($showCostCenterDropdown[$index]) && $showCostCenterDropdown[$index])
+                                        <div class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                                            style="min-width: 200px;">
+                                            @if(isset($costCenterResults[$index]) && count($costCenterResults[$index]) > 0)
+                                                @foreach($costCenterResults[$index] as $cc)
+                                                    <div 
+                                                        wire:click="selectCostCenter({{ $cc['id'] }}, '{{ addslashes($cc['name']) }}', {{ $index }})"
+                                                        class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                                        <div class="font-medium text-gray-800">{{ $cc['name'] }}</div>
+                                                    </div>
+                                                @endforeach
+                                            @else
+                                                <div class="px-3 py-2 text-sm text-gray-500 text-center">
+                                                    @if(strlen($costCenterSearch[$index] ?? '') >= 2)
+                                                        Nessun centro di costo trovato
+                                                    @else
+                                                        Digita almeno 2 caratteri
+                                                    @endif
                                                 </div>
-                                            @endforeach
-                                        @else
-                                            <div class="px-3 py-2 text-sm text-gray-500 text-center">
-                                                @if(strlen($costCenterSearch[$index] ?? '') >= 2)
-                                                    Nessun centro di costo trovato
-                                                @else
-                                                    Digita almeno 2 caratteri
-                                                @endif
-                                            </div>
-                                        @endif
-                                    </div>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </div>
-                             </td>
+                            </td>
 
                             <!-- Campo Autocomplete Servizio -->
                             <td class="col-services px-2 py-1">
-                                <div class="w-full relative" x-data="{ open: false }" x-on:click.away="open = false">
+                                <div class="w-full relative">
                                     <i class="fas fa-concierge-bell absolute left-2 top-2 text-gray-400 text-xs z-10"></i>
                                     <input type="text"
                                         id="service_input_{{ $index }}"
+                                        value="{{ $serviceSearch[$index] ?? '' }}"
                                         wire:model.live.debounce.300ms="serviceSearch.{{ $index }}"
-                                        x-on:focus="open = true"
-                                        x-on:input="open = true"
+                                        wire:focus="showServiceDropdown[{{ $index }}] = true"
                                         placeholder="Cerca servizio..."
                                         class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                                         autocomplete="off">
                                     
-                                    <div x-show="open && @entangle('showServiceDropdown.' . $index)" 
-                                        class="absolute w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
-                                        style="min-width: 250px; z-index: 9999;">
-                                        @if(isset($serviceResults[$index]) && count($serviceResults[$index]) > 0)
-                                            @foreach($serviceResults[$index] as $svc)
-                                                <div
-                                                    wire:click="selectService({{ $index }}, {{ $svc['id'] }}, '{{ addslashes($svc['name']) }}', '{{ addslashes($svc['descr_fattura']) }}', '{{ $svc['prezzo_un'] }}')"
-                                                    x-on:click="open = false; document.getElementById('service_input_{{ $index }}').value = '{{ addslashes($svc['name']) }}'"
-                                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                                    <div class="font-medium text-gray-800">{{ $svc['name'] }}</div>
-                                                    @if($svc['descr_fattura'])
-                                                        <div class="text-xs text-gray-500 truncate">{{ Str::limit($svc['descr_fattura'], 50) }}</div>
-                                                    @endif
-                                                    @if($svc['prezzo_un'])
-                                                        <div class="text-xs text-lime-600 font-semibold">€ {{ number_format($svc['prezzo_un'], 3) }}</div>
+                                    @if(isset($showServiceDropdown[$index]) && $showServiceDropdown[$index])
+                                        <div class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                                            style="min-width: 250px;">
+                                            @if(isset($serviceResults[$index]) && count($serviceResults[$index]) > 0)
+                                                @foreach($serviceResults[$index] as $svc)
+                                                    <div 
+                                                        wire:click="selectService({{ $index }}, {{ $svc['id'] }}, '{{ addslashes($svc['name']) }}', '{{ addslashes($svc['descr_fattura']) }}', '{{ $svc['prezzo_un'] }}')"
+                                                        class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                                        <div class="font-medium text-gray-800">{{ $svc['name'] }}</div>
+                                                        @if($svc['descr_fattura'])
+                                                            <div class="text-xs text-gray-500 truncate">{{ Str::limit($svc['descr_fattura'], 50) }}</div>
+                                                        @endif
+                                                        @if($svc['prezzo_un'])
+                                                            <div class="text-xs text-lime-600 font-semibold">€ {{ number_format($svc['prezzo_un'], 3) }}</div>
+                                                        @endif
+                                                    </div>
+                                                @endforeach
+                                            @else
+                                                <div class="px-3 py-2 text-sm text-gray-500 text-center">
+                                                    @if(strlen($serviceSearch[$index] ?? '') >= 2)
+                                                        Nessun servizio trovato
+                                                    @else
+                                                        Digita almeno 2 caratteri
                                                     @endif
                                                 </div>
-                                            @endforeach
-                                        @else
-                                            <div class="px-3 py-2 text-sm text-gray-500 text-center">
-                                                @if(strlen($serviceSearch[$index] ?? '') >= 2)
-                                                    Nessun servizio trovato
-                                                @else
-                                                    Digita almeno 2 caratteri
-                                                @endif
-                                            </div>
-                                        @endif
-                                    </div>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </div>
-                             </td>
+                            </td>
 
                             <td class="col-actions px-2 py-1 text-center">
                                 @if($index > 0)

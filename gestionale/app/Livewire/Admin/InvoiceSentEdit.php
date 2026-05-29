@@ -571,7 +571,7 @@ class InvoiceSentEdit extends Component
         
         $this->showCostCenterDropdown[$index] = count($this->costCenterResults[$index]) > 0;
     }
-    
+
     public function selectCostCenter($id, $name, $index)
     {
         $this->rows[$index]['id_cost_center'] = $id;
@@ -580,6 +580,8 @@ class InvoiceSentEdit extends Component
         $this->costCenterSearch[$index] = $name;
         $this->showCostCenterDropdown[$index] = false;
         $this->calculateTotals();
+        
+        Log::info('Centro di costo selezionato riga ' . $index . ': ' . $name);
     }
     
     // ==================== AUTOCOMPLETE SERVIZI ====================
@@ -633,6 +635,19 @@ class InvoiceSentEdit extends Component
         }
 
         $this->calculateTotals();
+    }
+
+    public function closeDropdowns()
+    {
+        // Chiudi tutti i dropdown dei centri di costo
+        foreach ($this->showCostCenterDropdown as $index => $value) {
+            $this->showCostCenterDropdown[$index] = false;
+        }
+        
+        // Chiudi tutti i dropdown dei servizi
+        foreach ($this->showServiceDropdown as $index => $value) {
+            $this->showServiceDropdown[$index] = false;
+        }
     }
     
     public function openCustomerModal()

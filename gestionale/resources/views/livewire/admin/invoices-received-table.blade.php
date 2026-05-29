@@ -739,17 +739,27 @@
     <!-- ==================== MODAL CESTINO ==================== -->
     @if($showTrashModal)
     <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" x-data="{ show: true }" x-show="show" x-transition.opacity.duration.200ms>
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl p-6 max-h-[90vh] overflow-y-auto" x-on:click.away="show = false; $wire.closeTrashModal()" x-transition.scale.origin.top>
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl p-6 max-h-[90vh] overflow-y-auto" x-on:click.away="show = false; $wire.closeTrashModal()" x-transition.scale.origin.top">
             <div class="flex justify-between items-center mb-6 border-b pb-3">
-                <h2 class="text-2xl font-bold text-gray-800"><i class="fas fa-trash-alt mr-2 text-red-600"></i>Cestino - Fatture Eliminate</h2>
-                <button wire:click="closeTrashModal" class="text-gray-400 hover:text-gray-600 transition-colors"><i class="fas fa-times text-2xl"></i></button>
+                <h2 class="text-2xl font-bold text-gray-800">
+                    <i class="fas fa-trash-alt mr-2 text-red-600"></i>
+                    Cestino - Fatture Eliminate
+                    @if($trashCount > 0)
+                        <span class="text-sm font-normal text-gray-500 ml-2">({{ $trashCount }} fatture)</span>
+                    @endif
+                </h2>
+                <button wire:click="closeTrashModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
             </div>
+            
             <div class="bg-gray-50 rounded-lg p-4 mb-6">
                 <div class="relative">
                     <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
                     <input type="text" wire:model.live="trashSearch" placeholder="Cerca per numero fattura o fornitore..." class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
                 </div>
             </div>
+            
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -778,8 +788,16 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $invoice->deleted_at ? $invoice->deleted_at->format('d/m/Y H:i') : '-' }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <div class="flex space-x-3">
-                                    <button wire:click="restoreFromTrash({{ $invoice->id }})" class="text-green-600 hover:text-green-900 transition-colors" title="Ripristina"><i class="fas fa-trash-restore text-lg"></i></button>
-                                    <button wire:click="forceDeleteFromTrash({{ $invoice->id }})" onclick="return confirm('Eliminazione definitiva incluse le righe? Operazione non reversibile.')" class="text-red-600 hover:text-red-900 transition-colors" title="Elimina definitivamente"><i class="fas fa-skull-crosswalk text-lg"></i></button>
+                                    <button wire:click="restoreFromTrash({{ $invoice->id }})" class="text-green-600 hover:text-green-900 transition-colors" title="Ripristina">
+                                        <i class="fas fa-trash-restore text-lg"></i>
+                                    </button>
+                                    <!-- Icona ELIMINA DEFINITIVAMENTE con conferma Alpine.js -->
+                                    <button 
+                                        x-on:click="if(confirm('⚠️ ELIMINAZIONE DEFINITIVA! Questa operazione non è reversibile. Sei sicuro di voler eliminare permanentemente la fattura {{ $invoice->n_invoice }}?')) $wire.forceDeleteFromTrash({{ $invoice->id }})" 
+                                        class="text-red-600 hover:text-red-900 transition-colors" 
+                                        title="Elimina definitivamente">
+                                        <i class="fas fa-trash-alt text-lg"></i>
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -794,14 +812,29 @@
                     </tbody>
                 </table>
             </div>
+            
             @if($trashedInvoices->hasPages())
             <div class="mt-4">
                 <div class="text-sm text-gray-500 mb-2">{{ $trashedInvoices->firstItem() }} - {{ $trashedInvoices->lastItem() }} di {{ $trashedInvoices->total() }} elementi</div>
                 <div class="flex justify-center">{{ $trashedInvoices->links() }}</div>
             </div>
             @endif
-            <div class="flex justify-end mt-6 pt-4 border-t">
-                <button wire:click="closeTrashModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors"><i class="fas fa-times mr-2"></i> Chiudi</button>
+            
+            <!-- Footer con bottoni: Svuota cestino a sinistra, Chiudi a destra -->
+            <div class="flex justify-between items-center mt-6 pt-4 border-t">
+                @if($trashCount > 0)
+                <button 
+                    x-on:click="if(confirm('⚠️ ATTENZIONE! Questa operazione eliminerà DEFINITIVAMENTE tutte le {{ $trashCount }} fatture presenti nel cestino. L\'operazione non è reversibile. Sei sicuro?')) $wire.emptyTrash()" 
+                    class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">
+                    <i class="fas fa-trash-alt mr-2"></i> Svuota cestino ({{ $trashCount }})
+                </button>
+                @else
+                <div></div> <!-- Spazio vuoto per mantenere l'allineamento -->
+                @endif
+                
+                <button wire:click="closeTrashModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
+                    <i class="fas fa-times mr-2"></i> Chiudi
+                </button>
             </div>
         </div>
     </div>

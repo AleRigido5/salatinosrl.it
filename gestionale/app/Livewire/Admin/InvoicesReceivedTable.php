@@ -576,6 +576,51 @@ class InvoicesReceivedTable extends Component
         }
     }
 
+    /**
+     * Svuota completamente il cestino (elimina definitivamente tutte le fatture)
+     */
+    public function emptyTrash(): void
+    {
+        try {
+            $trashedInvoices = InvoiceReceived::onlyTrashed()->get();
+            $count = $trashedInvoices->count();
+            
+            if ($count === 0) {
+                $this->dispatch('showInfo', message: 'Il cestino è già vuoto.');
+                return;
+            }
+            
+            DB::beginTransaction();
+            
+            foreach ($trashedInvoices as $invoice) {
+                // Elimina le righe associate
+                $invoice->rows()->forceDelete();
+                
+                // Elimina i pagamenti associati
+                $invoice->payments()->delete();
+                
+                // Elimina i riepiloghi IVA associati
+                $invoice->vatSummaries()->delete();
+                
+                // Elimina la fattura definitivamente
+                $invoice->forceDelete();
+            }
+            
+            DB::commit();
+            
+            $this->dispatch('showSuccess', message: "Cestino svuotato! {$count} fattura/e eliminate definitivamente.");
+            $this->updateTrashCount();
+            
+            // Ricarica la lista delle fatture nel cestino (resetta la ricerca)
+            $this->trashSearch = '';
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Errore svuotamento cestino: ' . $e->getMessage());
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+
     public function getStatusesProperty(): array
     {
         return (array) config('gestionale.invoice_status', []);

@@ -113,22 +113,22 @@
 
                 <div x-show="open && @entangle('showSupplierDropdown')"
                     class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                    @if($supplierResults && $supplierResults->count() > 0)
+                    @if($supplierResults && count($supplierResults) > 0)
                         @foreach($supplierResults as $item)
                             <div
                                 x-on:click="
                                     open = false;
-                                    document.getElementById('supplier_input').value = '{{ addslashes($item->name) }}';
-                                    @this.set('supplierSearch', '{{ addslashes($item->name) }}');
-                                    @this.set('selectedSupplierId', '{{ $item->id }}');
-                                    @this.set('selectedSupplierName', '{{ addslashes($item->name) }}');
+                                    document.getElementById('supplier_input').value = '{{ addslashes($item['name']) }}';
+                                    @this.set('supplierSearch', '{{ addslashes($item['name']) }}');
+                                    @this.set('selectedSupplierId', '{{ $item['id'] }}');
+                                    @this.set('selectedSupplierName', '{{ addslashes($item['name']) }}');
                                     @this.set('showSupplierDropdown', false);
                                     @this.call('resetPage');
                                 "
                                 class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                <div class="font-medium text-gray-800">{{ $item->name }}</div>
-                                @if($item->piva)
-                                    <div class="text-xs text-gray-500">P.IVA: {{ $item->piva }}</div>
+                                <div class="font-medium text-gray-800">{{ $item['name'] }}</div>
+                                @if($item['piva'])
+                                    <div class="text-xs text-gray-500">P.IVA: {{ $item['piva'] }}</div>
                                 @endif
                             </div>
                         @endforeach

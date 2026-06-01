@@ -230,6 +230,7 @@
                                                     @this.set('selectedCustomerId', '{{ $item['id'] }}');
                                                     @this.set('selectedCustomerName', '{{ addslashes($item['name']) }}');
                                                     @this.set('showCustomerDropdown', false);
+                                                    @this.call('resetPage');
                                                 "
                                                 class="autocomplete-item">
                                                 <div class="font-medium text-gray-800">{{ $item['name'] }}</div>

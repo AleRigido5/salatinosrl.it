@@ -10,6 +10,7 @@ use App\Models\InvoiceSeries;
 use App\Models\Ownership;
 use App\Models\Entity;
 use App\Models\CostCenter;
+use App\Models\UnitaMisura;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -273,15 +274,14 @@ class InvoiceSentEdit extends Component
     
     public function loadUnitMeasures()
     {
-        $this->unitMeasureList = [
-            ['codice' => 'pz', 'nome' => 'Pezzi'],
-            ['codice' => 'ore', 'nome' => 'Ore'],
-            ['codice' => 'm', 'nome' => 'Metri'],
-            ['codice' => 'kg', 'nome' => 'Chilogrammi'],
-            ['codice' => 'lt', 'nome' => 'Litri'],
-            ['codice' => 'giorno', 'nome' => 'Giorni'],
-            ['codice' => 'mese', 'nome' => 'Mesi'],
-        ];
+        $this->unitMeasureList = UnitaMisura::where('valid',1)
+        ->orderBy('ordinamento')
+        ->get(['id_um', 'nome', 'codice'])
+        ->map(fn($um) => [
+            'codice' => $um->codice,
+            'nome' => $um->nome,
+        ])
+        ->toArray();
     }
     
     public function loadPaymentMethods()

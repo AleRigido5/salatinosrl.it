@@ -11,6 +11,7 @@ use App\Models\InvoiceSeries;
 use App\Models\Ownership;
 use App\Models\Entity;
 use App\Models\CostCenter;
+use App\Models\Service;
 use App\Models\Vehicles;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -60,12 +61,12 @@ class InvoiceSentCreate extends Component
     public $showCostCenterDropdown = [];
     public $selectedCostCenterId = [];
     public $selectedCostCenterName = [];
-    
-    public array $serviceSearch = [];
-    public array $serviceResults = [];
-    public array $selectedServiceId = [];
-    public array $selectedServiceName = [];
-    public array $showServiceDropdown = [];
+
+    public $serviceSearch = [];
+    public $serviceResults = [];
+    public $showServiceDropdown = [];
+    public $selectedServiceId = [];
+    public $selectedServiceName = [];
     
     public $payments = [];
     public $total_payments_amount = 0;
@@ -412,22 +413,21 @@ class InvoiceSentCreate extends Component
         Log::info('Cliente deselezionato');
     }
 
-     // ==================== AUTOCOMPLETE CENTRI DI COSTO ====================
-    public function updatedCostCenterSearch($value, $index)
+    // ==================== AUTOCOMPLETE CENTRI DI COSTO ====================
+    public function updatedCostCenterSearch($value, $key)
     {
+        $index = (int) $key;
+        
         if (strlen($value) < 2) {
             $this->costCenterResults[$index] = [];
-            $this->showCostCenterDropdown[$index] = false;
             return;
         }
-        
+
         $this->costCenterResults[$index] = CostCenter::where('valid', 1)
             ->where('Nome', 'like', '%' . $value . '%')
             ->limit(10)
             ->get(['id', 'Nome as name'])
-            ->toArray();
-        
-        $this->showCostCenterDropdown[$index] = count($this->costCenterResults[$index]) > 0;
+            ->values()->toArray();
     }
     
     public function selectCostCenter($id, $name, $index)
@@ -442,57 +442,58 @@ class InvoiceSentCreate extends Component
     }
     
     // ==================== AUTOCOMPLETE SERVIZI ====================
-    public function updatedServiceSearch($value, $index): void
+    public function updatedServiceSearch($value, $key)
     {
-        $idx = (int)$index;
+        $index = (int) $key; // cast a intero!
         
-        if (isset($this->selectedServiceId[$idx]) && 
-            $this->serviceSearch[$idx] === ($this->selectedServiceName[$idx] ?? '')) {
-            $this->showServiceDropdown[$idx] = false;
-            return;
-        }
-
         if (strlen($value) < 2) {
-            $this->serviceResults[$idx] = [];
-            $this->showServiceDropdown[$idx] = false;
+            $this->serviceResults[$index] = [];
             return;
         }
 
-        $results = \App\Models\Service::where('Stato', 1)
+        $this->serviceResults[$index] = Service::where('Stato', 1)
             ->where('Titolo', 'like', '%' . $value . '%')
+            ->orderBy('Titolo')
             ->limit(10)
-            ->get(['id', 'Titolo', 'Descr_fattura', 'Prezzo_un']);
-
-        $this->serviceResults[$idx] = $results->map(fn($s) => [
-            'id'           => $s->id,
-            'name'         => $s->Titolo,
-            'descr_fattura'=> $s->Descr_fattura ?? '',
-            'prezzo_un'    => $s->Prezzo_un,
-        ])->toArray();
-
-        $this->showServiceDropdown[$idx] = count($this->serviceResults[$idx]) > 0;
+            ->get()
+            ->map(fn($s) => [
+                'id'            => $s->id,
+                'name'          => $s->Titolo,
+                'descr_fattura' => $s->Descr_fattura ?? '',
+                'prezzo_un'     => $s->Prezzo_un ?? 0,
+            ])->values()->toArray(); // ->values() forza array indicizzato
     }
-
-    public function selectService(int $index, int $serviceId, string $serviceName, string $descrFattura, $prezzoUn): void
+    
+    /**
+     * Seleziona un servizio e popola i campi della riga
+     */
+    public function selectService($index, $serviceId, $serviceName, $descrFattura, $prezzoUn)
     {
-        $this->rows[$index]['id_service']  = $serviceId;
-        $this->selectedServiceId[$index]   = $serviceId;
+        Log::info("Selezionato servizio - Index: {$index}, ID: {$serviceId}, Nome: {$serviceName}");
+        
+        // Salva l'ID del servizio
+        $this->rows[$index]['id_service'] = $serviceId;
+        $this->selectedServiceId[$index] = $serviceId;
         $this->selectedServiceName[$index] = $serviceName;
-        $this->serviceSearch[$index]       = $serviceName;
+        $this->serviceSearch[$index] = $serviceName;
         $this->showServiceDropdown[$index] = false;
-
-        // Auto-popola la descrizione con Descr_fattura se presente, altrimenti usa il titolo
+        
+        // Popola la descrizione con Descr_fattura se presente, altrimenti usa il titolo
         if (!empty($descrFattura)) {
             $this->rows[$index]['description'] = $descrFattura;
+            Log::info("Descrizione impostata da Descr_fattura: " . $descrFattura);
         } else {
             $this->rows[$index]['description'] = $serviceName;
+            Log::info("Descrizione impostata dal titolo: " . $serviceName);
         }
-
-        // Auto-popola il prezzo se presente e la riga ha prezzo vuoto/zero
-        if ($prezzoUn && (!isset($this->rows[$index]['unit_price']) || $this->rows[$index]['unit_price'] == 0)) {
+        
+        // Popola il prezzo se presente e la riga ha prezzo vuoto/zero
+        if ($prezzoUn > 0 && (empty($this->rows[$index]['unit_price']) || $this->rows[$index]['unit_price'] == 0)) {
             $this->rows[$index]['unit_price'] = $prezzoUn;
+            Log::info("Prezzo impostato: " . $prezzoUn);
         }
-
+        
+        // Ricalcola i totali
         $this->calculateTotals();
     }
     

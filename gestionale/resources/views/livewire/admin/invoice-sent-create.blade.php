@@ -416,90 +416,89 @@
 
                             <!-- Campo Autocomplete Centro Di Costo -->
                             <td class="col-cost-center px-2 py-1">
-                                <div class="w-full relative" x-data="{ open: false }" x-on:click.away="open = false">
+                                <div class="w-full relative" 
+                                    x-data="{ open: false, idx: {{ $index }} }" 
+                                    x-on:click.away="open = false">
                                     <i class="fas fa-building absolute left-2 top-2 text-gray-400 text-xs z-10"></i>
                                     <input type="text"
                                         id="cost_center_input_{{ $index }}"
-                                        wire:model.live.debounce.300ms="costCenterSearch.{{ $index }}"
                                         x-on:focus="open = true"
-                                        x-on:input="open = true"
+                                        x-on:input="open = true; $wire.set('costCenterSearch.{{ $index }}', $event.target.value)"
+                                        :value="$wire.costCenterSearch[{{ $index }}] ?? ''"
                                         placeholder="Cerca centro..."
                                         class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                                         autocomplete="off">
-                                    
-                                    <div x-show="open && @entangle('showCostCenterDropdown.' . $index)" 
-                                        class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+
+                                    <div x-show="open && $wire.costCenterResults[{{ $index }}] && $wire.costCenterResults[{{ $index }}].length > 0"
+                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
                                         style="min-width: 200px;">
-                                        @if(isset($costCenterResults[$index]) && count($costCenterResults[$index]) > 0)
-                                            @foreach($costCenterResults[$index] as $cc)
-                                                <div
-                                                    x-on:click="
-                                                        open = false;
-                                                        document.getElementById('cost_center_input_{{ $index }}').value = '{{ addslashes($cc['name']) }}';
-                                                        @this.set('costCenterSearch.{{ $index }}', '{{ addslashes($cc['name']) }}');
-                                                        @this.set('rows.{{ $index }}.id_cost_center', '{{ $cc['id'] }}');
-                                                        @this.set('selectedCostCenterId.{{ $index }}', '{{ $cc['id'] }}');
-                                                        @this.set('selectedCostCenterName.{{ $index }}', '{{ addslashes($cc['name']) }}');
-                                                        @this.set('showCostCenterDropdown.{{ $index }}', false);
-                                                        @this.call('calculateTotals');
-                                                    "
-                                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                                    <div class="font-medium text-gray-800">{{ $cc['name'] }}</div>
-                                                </div>
-                                            @endforeach
-                                        @else
-                                            <div class="px-3 py-2 text-sm text-gray-500 text-center">
-                                                @if(strlen($costCenterSearch[$index] ?? '') >= 2)
-                                                    Nessun centro di costo trovato
-                                                @else
-                                                    Digita almeno 2 caratteri
-                                                @endif
+                                        <template x-for="cc in (Array.isArray($wire.costCenterResults[{{ $index }}]) ? $wire.costCenterResults[{{ $index }}] : [])" :key="cc.id">
+                                            <div class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0"
+                                                x-on:click="
+                                                    open = false;
+                                                    $wire.set('costCenterSearch.{{ $index }}', cc.name);
+                                                    $wire.set('rows.{{ $index }}.id_cost_center', cc.id);
+                                                    $wire.set('selectedCostCenterId.{{ $index }}', cc.id);
+                                                    $wire.set('selectedCostCenterName.{{ $index }}', cc.name);
+                                                    $wire.call('calculateTotals');
+                                                ">
+                                                <div class="font-medium text-gray-800" x-text="cc.name"></div>
                                             </div>
-                                        @endif
+                                        </template>
+                                    </div>
+
+                                    <div x-show="open && ($wire.costCenterSearch[{{ $index }}] ?? '').length >= 2 && (!$wire.costCenterResults[{{ $index }}] || $wire.costCenterResults[{{ $index }}].length === 0)"
+                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                                        <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun centro trovato</div>
+                                    </div>
+
+                                    <div x-show="open && ($wire.costCenterSearch[{{ $index }}] ?? '').length > 0 && ($wire.costCenterSearch[{{ $index }}] ?? '').length < 2"
+                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                                        <div class="px-3 py-2 text-sm text-gray-500 text-center">Digita almeno 2 caratteri</div>
                                     </div>
                                 </div>
                             </td>
 
                             <!-- Campo Autocomplete Servizio -->
                             <td class="col-services px-2 py-1">
-                                <div class="w-full relative" x-data="{ open: false }" x-on:click.away="open = false">
+                                <div class="w-full relative"
+                                    x-data="{ open: false }"
+                                    x-on:click.away="open = false">
                                     <i class="fas fa-concierge-bell absolute left-2 top-2 text-gray-400 text-xs z-10"></i>
                                     <input type="text"
                                         id="service_input_{{ $index }}"
-                                        wire:model.live.debounce.300ms="serviceSearch.{{ $index }}"
                                         x-on:focus="open = true"
-                                        x-on:input="open = true"
+                                        x-on:input="open = true; $wire.set('serviceSearch.{{ $index }}', $event.target.value)"
+                                        :value="$wire.serviceSearch[{{ $index }}] ?? ''"
                                         placeholder="Cerca servizio..."
                                         class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                                         autocomplete="off">
-                                    
-                                    <div x-show="open && @entangle('showServiceDropdown.' . $index)" 
-                                        class="absolute w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
-                                        style="min-width: 250px; z-index: 9999;">
-                                        @if(isset($serviceResults[$index]) && count($serviceResults[$index]) > 0)
-                                            @foreach($serviceResults[$index] as $svc)
-                                                <div
-                                                    wire:click="selectService({{ $index }}, {{ $svc['id'] }}, '{{ addslashes($svc['name']) }}', '{{ addslashes($svc['descr_fattura']) }}', '{{ $svc['prezzo_un'] }}')"
-                                                    x-on:click="open = false; document.getElementById('service_input_{{ $index }}').value = '{{ addslashes($svc['name']) }}'"
-                                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                                    <div class="font-medium text-gray-800">{{ $svc['name'] }}</div>
-                                                    @if($svc['descr_fattura'])
-                                                        <div class="text-xs text-gray-500 truncate">{{ Str::limit($svc['descr_fattura'], 50) }}</div>
-                                                    @endif
-                                                    @if($svc['prezzo_un'])
-                                                        <div class="text-xs text-lime-600 font-semibold">€ {{ number_format($svc['prezzo_un'], 3) }}</div>
-                                                    @endif
-                                                </div>
-                                            @endforeach
-                                        @else
-                                            <div class="px-3 py-2 text-sm text-gray-500 text-center">
-                                                @if(strlen($serviceSearch[$index] ?? '') >= 2)
-                                                    Nessun servizio trovato
-                                                @else
-                                                    Digita almeno 2 caratteri
-                                                @endif
+
+                                    <div x-show="open && $wire.serviceResults[{{ $index }}] && $wire.serviceResults[{{ $index }}].length > 0"
+                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                                        style="min-width: 250px;">
+                                        <template x-for="service in (Array.isArray($wire.serviceResults[{{ $index }}]) ? $wire.serviceResults[{{ $index }}] : [])" :key="service.id">
+                                            <div class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0"
+                                                x-on:click="
+                                                    open = false;
+                                                    $wire.call('selectService', {{ $index }}, service.id, service.name, service.descr_fattura, service.prezzo_un);
+                                                    $wire.set('serviceSearch.{{ $index }}', service.name);
+                                                ">
+                                                <div class="font-medium text-gray-800" x-text="service.name"></div>
+                                                <div x-show="service.descr_fattura" class="text-xs text-gray-500 truncate" x-text="service.descr_fattura"></div>
+                                                <div x-show="service.prezzo_un > 0" class="text-xs text-lime-600 font-semibold" x-text="'€ ' + parseFloat(service.prezzo_un).toFixed(3)"></div>
                                             </div>
-                                        @endif
+                                        </template>
+                                    </div>
+
+                                    <div x-show="open && ($wire.serviceSearch[{{ $index }}] ?? '').length >= 2 && (!$wire.serviceResults[{{ $index }}] || $wire.serviceResults[{{ $index }}].length === 0)"
+                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                                        <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun servizio trovato</div>
+                                    </div>
+
+                                    <div x-show="open && ($wire.serviceSearch[{{ $index }}] ?? '').length > 0 && ($wire.serviceSearch[{{ $index }}] ?? '').length < 2"
+                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                                        <div class="px-3 py-2 text-sm text-gray-500 text-center">Digita almeno 2 caratteri</div>
                                     </div>
                                 </div>
                             </td>

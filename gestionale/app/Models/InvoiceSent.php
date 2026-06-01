@@ -97,4 +97,9 @@ class InvoiceSent extends Model
     {
         return $this->ownership?->RagAbbrev ?? $this->ownership?->Rag_Soc_intest ?? 'N/D';
     }
+
+    public function getAllAttachmentsAttribute()
+    {
+        return collect([]); // array vuoto se non hai allegati
+    }
 }

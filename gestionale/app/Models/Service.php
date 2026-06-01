@@ -9,6 +9,8 @@ class Service extends Model
 {
     protected $table = 'services';
     protected $primaryKey = 'id';
+    public $incrementing = true;
+    public $keyType = 'int';
 
     // ATTIVA i timestamp (importante!)
     public $timestamps = true;

@@ -103,14 +103,13 @@ class InvoiceSentTable extends Component
             return;
         }
 
-        $this->ownershipResults = Ownership::where('valid', 1)
-            ->where(function($q) {
+        $this->ownershipResults = Ownership::where(function($q) {
                 $q->where('RagAbbrev', 'like', '%' . $this->ownershipSearch . '%')
-                  ->orWhere('Rag_Soc_intest', 'like', '%' . $this->ownershipSearch . '%')
-                  ->orWhere('RagSocialePr', 'like', '%' . $this->ownershipSearch . '%');
+                ->orWhere('Rag_Soc_intest', 'like', '%' . $this->ownershipSearch . '%')
+                ->orWhere('RagSocialePr', 'like', '%' . $this->ownershipSearch . '%');
             })
             ->limit(10)
-            ->get(['id_proprieta as id', 'RagAbbrev as name']);
+            ->get(['id_proprieta as id', 'RagAbbrev as name', 'Rag_Soc_intest as ragione_sociale', 'valid']);
         
         $this->showOwnershipDropdown = $this->ownershipResults->isNotEmpty();
     }

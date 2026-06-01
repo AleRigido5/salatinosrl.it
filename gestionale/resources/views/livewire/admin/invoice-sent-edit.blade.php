@@ -423,7 +423,6 @@
                                     <i class="fas fa-building absolute left-2 top-2 text-gray-400 text-xs z-10"></i>
                                     <input type="text"
                                         id="cost_center_input_{{ $index }}"
-                                        value="{{ $costCenterSearch[$index] ?? '' }}"
                                         wire:model.live.debounce.300ms="costCenterSearch.{{ $index }}"
                                         wire:focus="showCostCenterDropdown[{{ $index }}] = true"
                                         placeholder="Cerca centro..."
@@ -461,7 +460,6 @@
                                     <i class="fas fa-concierge-bell absolute left-2 top-2 text-gray-400 text-xs z-10"></i>
                                     <input type="text"
                                         id="service_input_{{ $index }}"
-                                        value="{{ $serviceSearch[$index] ?? '' }}"
                                         wire:model.live.debounce.300ms="serviceSearch.{{ $index }}"
                                         wire:focus="showServiceDropdown[{{ $index }}] = true"
                                         placeholder="Cerca servizio..."

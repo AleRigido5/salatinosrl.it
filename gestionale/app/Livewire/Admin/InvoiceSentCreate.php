@@ -18,7 +18,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 
-
 class InvoiceSentCreate extends Component
 {
     public $id_ownership = '';
@@ -623,7 +622,7 @@ class InvoiceSentCreate extends Component
             
             $invoice = InvoiceSent::create($invoiceData);
             Log::info('✅ Fattura creata con ID: ' . $invoice->id);
-            
+
             // Salva righe
             Log::info('Step 5: Salvataggio righe fattura (totale: ' . count($this->rows) . ')');
             
@@ -650,6 +649,7 @@ class InvoiceSentCreate extends Component
                     'vat_rate' => floatval($row['vat_rate'] ?? 0) * 100,
                     'total' => floatval($row['taxable_amount'] ?? 0),
                     'id_cost_center' => $row['id_cost_center'] ?? null,
+                    'id_service' => $row['id_service'] ?? null,
                     'id_vehicle' => $row['id_vehicle'] ?? null,
                 ];
                 Log::info('Dati per InvoiceRow:', $rowData);

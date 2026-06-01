@@ -430,7 +430,7 @@
                                         autocomplete="off">
 
                                     <div x-show="open && $wire.costCenterResults[{{ $index }}] && $wire.costCenterResults[{{ $index }}].length > 0"
-                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                                        class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
                                         style="min-width: 200px;">
                                         <template x-for="cc in (Array.isArray($wire.costCenterResults[{{ $index }}]) ? $wire.costCenterResults[{{ $index }}] : [])" :key="cc.id">
                                             <div class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0"
@@ -448,12 +448,12 @@
                                     </div>
 
                                     <div x-show="open && ($wire.costCenterSearch[{{ $index }}] ?? '').length >= 2 && (!$wire.costCenterResults[{{ $index }}] || $wire.costCenterResults[{{ $index }}].length === 0)"
-                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                                        class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
                                         <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun centro trovato</div>
                                     </div>
 
                                     <div x-show="open && ($wire.costCenterSearch[{{ $index }}] ?? '').length > 0 && ($wire.costCenterSearch[{{ $index }}] ?? '').length < 2"
-                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                                        class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
                                         <div class="px-3 py-2 text-sm text-gray-500 text-center">Digita almeno 2 caratteri</div>
                                     </div>
                                 </div>
@@ -475,7 +475,7 @@
                                         autocomplete="off">
 
                                     <div x-show="open && $wire.serviceResults[{{ $index }}] && $wire.serviceResults[{{ $index }}].length > 0"
-                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                                        class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
                                         style="min-width: 250px;">
                                         <template x-for="service in (Array.isArray($wire.serviceResults[{{ $index }}]) ? $wire.serviceResults[{{ $index }}] : [])" :key="service.id">
                                             <div class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0"
@@ -492,12 +492,12 @@
                                     </div>
 
                                     <div x-show="open && ($wire.serviceSearch[{{ $index }}] ?? '').length >= 2 && (!$wire.serviceResults[{{ $index }}] || $wire.serviceResults[{{ $index }}].length === 0)"
-                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                                        class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
                                         <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun servizio trovato</div>
                                     </div>
 
                                     <div x-show="open && ($wire.serviceSearch[{{ $index }}] ?? '').length > 0 && ($wire.serviceSearch[{{ $index }}] ?? '').length < 2"
-                                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                                        class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
                                         <div class="px-3 py-2 text-sm text-gray-500 text-center">Digita almeno 2 caratteri</div>
                                     </div>
                                 </div>

@@ -56,19 +56,19 @@
                     @endif
                 </div>
 
-                <div x-show="open && $wire.showOwnershipDropdown" 
-                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
-                    x-on:click.stop>
+                <div x-show="open && @entangle('showOwnershipDropdown')"
+                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                     @if($ownershipResults && $ownershipResults->count() > 0)
                         @foreach($ownershipResults as $item)
                             <div
                                 x-on:click="
                                     open = false;
-                                    $wire.set('ownershipSearch', '{{ addslashes($item->name) }}');
-                                    $wire.set('selectedOwnershipId', '{{ $item->id }}');
-                                    $wire.set('selectedOwnershipName', '{{ addslashes($item->name) }}');
-                                    $wire.set('showOwnershipDropdown', false);
-                                    $wire.call('resetPage');
+                                    document.getElementById('ownership_input').value = '{{ addslashes($item->name) }}';
+                                    @this.set('ownershipSearch', '{{ addslashes($item->name) }}');
+                                    @this.set('selectedOwnershipId', '{{ $item->id }}');
+                                    @this.set('selectedOwnershipName', '{{ addslashes($item->name) }}');
+                                    @this.set('showOwnershipDropdown', false);
+                                    @this.call('resetPage');
                                 "
                                 class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
                                 <div class="font-medium text-gray-800">{{ $item->name }}</div>

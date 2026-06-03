@@ -79,6 +79,7 @@ class InvoiceSentCreate extends Component
         'id_ownership' => 'required',
         'type_invoice' => 'required',
         'selectedSeriesId' => 'required',
+        'n_invoice' => 'required|string',
         'data_invoice' => 'required|date',
         'selectedCustomerId' => 'required',
         'rows.*.description' => 'required|string',

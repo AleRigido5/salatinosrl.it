@@ -743,7 +743,6 @@ class InvoiceSentEdit extends Component
                 // Se la riga ha un ID e non è marcata per eliminazione, aggiorna
                 if (isset($row['id']) && $row['id'] && !isset($row['_delete'])) {
                     InvoiceRow::where('id', $row['id'])->update([
-                        'code' => $row['code'] ?? null,
                         'description' => $row['description'],
                         'quantity' => floatval($row['quantity'] ?? 1),
                         'unit_price' => floatval($row['unit_price'] ?? 0),
@@ -762,7 +761,6 @@ class InvoiceSentEdit extends Component
                     $newRow = InvoiceRow::create([
                         'document_id' => $this->invoiceId,
                         'document_type' => 'invoice_sent',
-                        'code' => $row['code'] ?? null,
                         'description' => $row['description'],
                         'quantity' => floatval($row['quantity'] ?? 1),
                         'unit_price' => floatval($row['unit_price'] ?? 0),

@@ -47,7 +47,7 @@
                         id="ownership_input"
                         wire:model.live.debounce.300ms="ownershipSearch"
                         x-on:focus="open = true"
-                        x-on:input="open = true; @this.set('ownershipSearch', $event.target.value)"
+                        x-on:keydown="open = true"
                         placeholder="Cerca proprietà..."
                         class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                         autocomplete="off">
@@ -97,7 +97,7 @@
                         id="supplier_input"
                         wire:model.live.debounce.300ms="supplierSearch"
                         x-on:focus="open = true"
-                        x-on:input="open = true; @this.set('supplierSearch', $event.target.value)"
+                        x-on:keydown="open = true"
                         placeholder="Cerca fornitore..."
                         class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                         autocomplete="off">
@@ -147,7 +147,7 @@
                         id="cost_center_input"
                         wire:model.live.debounce.300ms="costCenterSearch"
                         x-on:focus="open = true"
-                        x-on:input="open = true; @this.set('costCenterSearch', $event.target.value)"
+                        x-on:keydown="open = true"
                         placeholder="Cerca centro di costo..."
                         class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                         autocomplete="off">

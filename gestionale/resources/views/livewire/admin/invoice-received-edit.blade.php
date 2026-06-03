@@ -315,7 +315,6 @@
             @endif
         </div>
 
-        
         {{-- MEZZO - Applica a TUTTE le righe --}}
         <div class="bg-green-50 p-4 rounded-lg border border-green-200 mt-4">
             <label class="block text-sm font-medium mb-2 text-green-800">

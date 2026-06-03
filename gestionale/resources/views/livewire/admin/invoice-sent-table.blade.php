@@ -39,10 +39,9 @@
                 <div class="relative">
                     <i class="fas fa-building absolute left-3 top-2.5 text-gray-400 text-sm"></i>
                     <input type="text"
-                        id="ownership_input"
                         wire:model.live.debounce.300ms="ownershipSearch"
                         x-on:focus="open = true"
-                        x-on:input="open = true; @this.set('ownershipSearch', $event.target.value)"
+                        x-on:keydown="open = true"
                         placeholder="Cerca proprietà..."
                         class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                         autocomplete="off">
@@ -92,7 +91,7 @@
                         id="customer_input"
                         wire:model.live.debounce.300ms="customerSearch"
                         x-on:focus="open = true"
-                        x-on:input="open = true; @this.set('customerSearch', $event.target.value)"
+                        x-on:keydown="open = true"
                         placeholder="Cerca cliente..."
                         class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                         autocomplete="off">
@@ -133,7 +132,7 @@
                 </div>
             </div>
             
-            
+
             <!-- Autocomplete Centro di Costo -->
             <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Centro di Costo</label>
@@ -143,7 +142,7 @@
                         id="cost_center_input"
                         wire:model.live.debounce.300ms="costCenterSearch"
                         x-on:focus="open = true"
-                        x-on:input="open = true; @this.set('costCenterSearch', $event.target.value)"
+                        x-on:keydown="open = true"
                         placeholder="Cerca centro di costo..."
                         class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                         autocomplete="off">

@@ -86,18 +86,20 @@ class InvoiceSentTable extends Component
     // ==================== AUTOCOMPLETE PROPRIETÀ ====================
     public function updatedOwnershipSearch(): void
     {
-        if ($this->selectedOwnershipId && $this->ownershipSearch === $this->selectedOwnershipName) {
+        // Chiudi solo se c'è una selezione attiva E il testo corrisponde esattamente
+        if ($this->selectedOwnershipId !== '' && $this->ownershipSearch === $this->selectedOwnershipName) {
             $this->showOwnershipDropdown = false;
             return;
         }
 
-        if ($this->selectedOwnershipId) {
+        // Reset selezione se l'utente ha modificato il testo dopo aver selezionato
+        if ($this->selectedOwnershipId !== '') {
             $this->selectedOwnershipId = '';
             $this->selectedOwnershipName = '';
             $this->resetPage();
         }
 
-        if (strlen($this->ownershipSearch) < 2) {
+        if (strlen(trim($this->ownershipSearch)) < 2) {
             $this->ownershipResults = new Collection();
             $this->showOwnershipDropdown = false;
             return;
@@ -109,8 +111,8 @@ class InvoiceSentTable extends Component
                 ->orWhere('RagSocialePr', 'like', '%' . $this->ownershipSearch . '%');
             })
             ->limit(10)
-            ->get(['id_proprieta as id', 'RagAbbrev as name', 'Rag_Soc_intest as ragione_sociale', 'valid']);
-        
+            ->get(['id_proprieta as id', 'RagAbbrev as name', 'Rag_Soc_intest as ragione_sociale']);
+
         $this->showOwnershipDropdown = $this->ownershipResults->isNotEmpty();
     }
 

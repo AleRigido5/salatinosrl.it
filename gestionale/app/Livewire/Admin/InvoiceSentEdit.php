@@ -23,6 +23,7 @@ class InvoiceSentEdit extends Component
     public $id_ownership = '';
     public $type_invoice = '';
     public $n_invoice = '';
+    public $n_invoice_ext = '';
     public $data_invoice = '';
     public $importo_totale = 0;
     public $causale = '';

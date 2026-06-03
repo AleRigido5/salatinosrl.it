@@ -443,6 +443,19 @@
     </div>
     @endif
 
+    <div class="flex gap-3 justify-end mt-5">
+        <a href="{{ $this->getExportPdfUrl() }}" 
+        class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium transition-colors">
+            <i class="fas fa-file-pdf text-xl"></i> 
+            <span>Esporta PDF</span>
+        </a>
+        <a href="{{ $this->getExportExcelUrl() }}" 
+        class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium transition-colors">
+            <i class="fas fa-file-excel text-xl"></i> 
+            <span>Esporta Excel</span>
+        </a>
+    </div>
+
     <!-- ==================== MODAL DETTAGLI FATTURA ==================== -->
     @if($showModal && $selectedInvoice)
     <div x-data="{ open: true }" x-show="open" x-init="$watch('open', value => { if (!value) $wire.closeModal() })" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">

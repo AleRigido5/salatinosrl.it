@@ -352,6 +352,76 @@ class InvoiceSentTable extends Component
         $this->selectedInvoice = null;
     }
 
+    /**
+     * Genera l'URL per l'esportazione PDF con tutti i filtri attivi
+     */
+    public function getExportPdfUrl()
+    {
+        $params = [];
+        
+        if ($this->dateFrom) {
+            $params['date_from'] = $this->dateFrom;
+        }
+        if ($this->dateTo) {
+            $params['date_to'] = $this->dateTo;
+        }
+        if ($this->selectedOwnershipId) {
+            $params['ownership_id'] = $this->selectedOwnershipId;
+        }
+        if ($this->selectedCustomerId) {
+            $params['customer_id'] = $this->selectedCustomerId;
+        }
+        if ($this->selectedCostCenterId) {
+            $params['cost_center_id'] = $this->selectedCostCenterId;
+        }
+        if ($this->status) {
+            $params['status'] = $this->status;
+        }
+        if ($this->type_invoice) {
+            $params['type_invoice'] = $this->type_invoice;
+        }
+        if ($this->search) {
+            $params['search'] = $this->search;
+        }
+        
+        return route('admin.invoices-sent.export-pdf', $params);
+    }
+
+    /**
+     * Genera l'URL per l'esportazione Excel con tutti i filtri attivi
+     */
+    public function getExportExcelUrl()
+    {
+        $params = [];
+        
+        if ($this->dateFrom) {
+            $params['date_from'] = $this->dateFrom;
+        }
+        if ($this->dateTo) {
+            $params['date_to'] = $this->dateTo;
+        }
+        if ($this->selectedOwnershipId) {
+            $params['ownership_id'] = $this->selectedOwnershipId;
+        }
+        if ($this->selectedCustomerId) {
+            $params['customer_id'] = $this->selectedCustomerId;
+        }
+        if ($this->selectedCostCenterId) {
+            $params['cost_center_id'] = $this->selectedCostCenterId;
+        }
+        if ($this->status) {
+            $params['status'] = $this->status;
+        }
+        if ($this->type_invoice) {
+            $params['type_invoice'] = $this->type_invoice;
+        }
+        if ($this->search) {
+            $params['search'] = $this->search;
+        }
+        
+        return route('admin.invoices-sent.export-excel', $params);
+    }
+
     // ==================== ELIMINAZIONE ====================
     public function confirmDelete(int $id): void
     {

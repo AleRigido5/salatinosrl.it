@@ -21,6 +21,7 @@ class InvoiceSent extends Model
         'id_invoice_series',
         'type_invoice',
         'n_invoice',
+        'n_invoice_ext',
         'data_invoice',
         'importo_totale',
         'causale',

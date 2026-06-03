@@ -23,6 +23,7 @@ class InvoiceSentCreate extends Component
     public $id_ownership = '';
     public $type_invoice = 'TD01';
     public $n_invoice = '';
+    public $n_invoice_ext = '';
     public $data_invoice = '';
     public $importo_totale = 0;
     public $causale = '';
@@ -80,6 +81,7 @@ class InvoiceSentCreate extends Component
         'type_invoice' => 'required',
         'selectedSeriesId' => 'required',
         'n_invoice' => 'required|string',
+        'n_invoice_ext' => 'nullable|string|max:100', 
         'data_invoice' => 'required|date',
         'selectedCustomerId' => 'required',
         'rows.*.description' => 'required|string',
@@ -213,11 +215,32 @@ class InvoiceSentCreate extends Component
         
         $series = collect($this->availableSeries)->firstWhere('id', $this->selectedSeriesId);
         if ($series) {
-            $this->n_invoice = $series['code'] . '/' . ($series['last_number'] + 1) . '/' . $series['year'];
+            // Calcola il nuovo progressivo (ultimo numero + 1)
+            $nextNumber = $series['last_number'] + 1;
+            
+            // Formato: progressivo/codice sezionale-anno
+            // Esempio: 1/A-2026
+            $this->n_invoice = $nextNumber . '/' . $series['code'] . '-' . $series['year'];
+            
             Log::info('Numero fattura generato: ' . $this->n_invoice);
         } else {
             Log::warning('Sezionale non trovato per ID: ' . $this->selectedSeriesId);
         }
+    }
+
+    public function getPreviewInvoiceNumberAttribute()
+    {
+        if (!$this->selectedSeriesId) {
+            return '';
+        }
+        
+        $series = collect($this->availableSeries)->firstWhere('id', $this->selectedSeriesId);
+        if ($series) {
+            $nextNumber = $series['last_number'] + 1;
+            return $nextNumber . '/' . $series['code'] . '-' . $series['year'];
+        }
+        
+        return '';
     }
     
     public function addRow()
@@ -610,6 +633,7 @@ class InvoiceSentCreate extends Component
                 'id_invoice_series' => $this->selectedSeriesId,
                 'type_invoice' => $this->type_invoice,
                 'n_invoice' => $this->n_invoice,
+                'n_invoice_ext' => $this->n_invoice_ext,
                 'data_invoice' => $this->data_invoice,
                 'importo_totale' => $this->importo_totale,
                 'causale' => $this->causale,

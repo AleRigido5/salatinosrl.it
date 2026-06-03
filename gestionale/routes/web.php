@@ -199,12 +199,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/{invoice}/edit', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'edit'])->name('edit');
             Route::put('/{invoice}', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'update'])->name('update');
             
+            // Export PDF ed Excel (DEVONO essere PRIMA della route {invoice})
+            Route::get('/export-pdf', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'exportPdf'])->name('export-pdf');
+            Route::get('/export-excel', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'exportExcel'])->name('export-excel');
+
             // Questa rotta con parametro {invoice} DEVE andare DOPO
             Route::get('/{invoice}', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'show'])->name('show');
             Route::delete('/{invoice}', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'destroy'])->name('destroy');
-            
-            Route::get('/export/pdf', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'exportPdf'])->name('export.pdf');
-        });
+            });
 
         // =============================================
         // SCADENZE PAGAMENTI (INVOICE PAYMENTS)
@@ -230,11 +232,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // =============================================
         // FATTURE DI VENDITA
         // =============================================        
-        Route::controller(App\Http\Controllers\Admin\InvoiceSentController::class)->prefix('invoices-sent')->name('invoices-sent.')->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::get('/create', 'create')->name('create');
-            Route::get('/{id}/edit', 'edit')->name('edit');
-            Route::get('/{id}', 'show')->name('show');
+        Route::prefix('invoices-sent')->name('invoices-sent.')->group(function () {
+            // Export PDF ed Excel (DEVONO essere PRIMA delle route con {id})
+            Route::get('/export-pdf', [App\Http\Controllers\Admin\InvoiceSentController::class, 'exportPdf'])->name('export-pdf');
+            Route::get('/export-excel', [App\Http\Controllers\Admin\InvoiceSentController::class, 'exportExcel'])->name('export-excel');
+            
+            // Altre route
+            Route::get('/', [App\Http\Controllers\Admin\InvoiceSentController::class, 'index'])->name('index');
+            Route::get('/create', [App\Http\Controllers\Admin\InvoiceSentController::class, 'create'])->name('create');
+            Route::get('/{id}/edit', [App\Http\Controllers\Admin\InvoiceSentController::class, 'edit'])->name('edit');
+            Route::get('/{id}', [App\Http\Controllers\Admin\InvoiceSentController::class, 'show'])->name('show');
         });
         
         // =============================================

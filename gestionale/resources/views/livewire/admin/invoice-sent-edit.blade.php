@@ -190,6 +190,24 @@
                         <input type="text" wire:model="n_invoice" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100" readonly>
                         @error('n_invoice') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            N. Fattura Esterno 
+                            <span class="text-gray-400 text-xs font-normal">(opzionale)</span>
+                        </label>
+                        <div class="relative">
+                            <i class="fas fa-file-invoice absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                            <input type="text" 
+                                wire:model="n_invoice_ext" 
+                                placeholder="Numero fattura del fornitore/cliente..."
+                                class="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500">
+                        </div>
+                        @error('n_invoice_ext') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        <p class="text-xs text-gray-400 mt-1">
+                            <i class="fas fa-info-circle"></i> Numero fattura originale del fornitore/cliente
+                        </p>
+                    </div>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -355,7 +373,7 @@
                             <th class="col-price px-2 py-2 text-right text-xs font-medium">Prezzo Unit.</th>
                             <th class="col-um px-2 py-2 text-center text-xs font-medium">UM</th>
                             <th class="col-discount px-2 py-2 text-right text-xs font-medium">Sconto%</th>
-                            <th class="col-vat px-2 py-2 text-left text-xs font-medium">Aliquota IVA</th>
+                            <th class="col-vat px-2 py-2 text-left text-xs font-medium" style="width: 120px; min-width: 120px;">Aliquota IVA</th>
                             <th class="col-taxable px-2 py-2 text-right text-xs font-medium">Imponibile</th>
                             <th class="col-cost-center px-2 py-2 text-left text-xs font-medium">Centro Costo</th>
                             <th class="col-services px-2 py-2 text-left text-xs font-medium">Servizio</th>
@@ -365,25 +383,26 @@
                     <tbody>
                         @foreach($rows as $index => $row)
                         <tr class="border-b hover:bg-gray-50" wire:key="row-{{ $index }}">
-                            <td class="col-code px-2 py-1">
+                            <td class="col-code px-2 py-1 align-top">
                                 <input type="text" wire:model.live="rows.{{ $index }}.code" class="w-full px-1 py-1 text-sm border rounded-md">
                             </td>
-                            <td class="col-description px-2 py-1">
-                                <input type="text" wire:model.live="rows.{{ $index }}.description"
-                                    class="w-full px-1 py-1 text-sm border rounded-md @error('rows.' . $index . '.description') field-error @enderror"
-                                    required>
+                            <td class="col-description px-2 py-1 align-top">
+                                <textarea wire:model.live="rows.{{ $index }}.description"
+                                    rows="3"
+                                    class="w-full px-1 py-1 text-sm border rounded-md resize-y @error('rows.' . $index . '.description') field-error @enderror"
+                                    placeholder="Descrizione articolo/servizio..."></textarea>
                             </td>
-                            <td class="col-quantity px-2 py-1">
+                            <td class="col-quantity px-2 py-1 align-top">
                                 <input type="number" step="0.001" wire:model.live="rows.{{ $index }}.quantity"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right @error('rows.' . $index . '.quantity') field-error @enderror"
                                     required>
                             </td>
-                            <td class="col-price px-2 py-1">
+                            <td class="col-price px-2 py-1 align-top">
                                 <input type="number" step="0.0001" wire:model.live="rows.{{ $index }}.unit_price"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right @error('rows.' . $index . '.unit_price') field-error @enderror"
                                     required>
                             </td>
-                            <td class="col-um px-2 py-1">
+                            <td class="col-um px-2 py-1 align-top">
                                 <select wire:model.live="rows.{{ $index }}.id_unit_measure"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-center">
                                     @foreach($unitMeasureList as $um)
@@ -393,10 +412,11 @@
                                     @endforeach
                                 </select>
                             </td>
-                            <td class="col-discount px-2 py-1">
-                                <input type="number" step="0.01" wire:model.live="rows.{{ $index }}.discount_percentage" class="w-full px-1 py-1 text-sm border rounded-md text-right" placeholder="0">
+                            <td class="col-discount px-2 py-1 align-top">
+                                <input type="number" step="0.01" wire:model.live="rows.{{ $index }}.discount_percentage" 
+                                    class="w-full px-1 py-1 text-sm border rounded-md text-right" placeholder="0">
                             </td>
-                            <td class="col-vat px-2 py-1">
+                            <td class="col-vat px-2 py-1 align-top" style="width: 120px; min-width: 120px;">
                                 <select wire:model.live="rows.{{ $index }}.vat_rate"
                                     class="w-full px-1 py-1 text-sm border rounded-md">
                                     <option value="0">Seleziona IVA</option>
@@ -409,16 +429,13 @@
                                         </option>
                                     @endforeach
                                 </select>
-                             </td>
-
-                            <td class="col-taxable px-2 py-1">
+                            </td>
+                            <td class="col-taxable px-2 py-1 align-top">
                                 <input type="text" readonly
                                     value="{{ number_format($row['taxable_amount'] ?? 0, 2, ',', '.') }}"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right bg-gray-100 font-semibold">
-                             </td>
-
-                            <!-- Campo Autocomplete Centro Di Costo -->
-                            <td class="col-cost-center px-2 py-1">
+                            </td>
+                            <td class="col-cost-center px-2 py-1 align-top">
                                 <div class="w-full relative">
                                     <i class="fas fa-building absolute left-2 top-2 text-gray-400 text-xs z-10"></i>
                                     <input type="text"
@@ -430,7 +447,7 @@
                                         autocomplete="off">
                                     
                                     @if(isset($showCostCenterDropdown[$index]) && $showCostCenterDropdown[$index])
-                                        <div class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                                        <div class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
                                             style="min-width: 200px;">
                                             @if(isset($costCenterResults[$index]) && count($costCenterResults[$index]) > 0)
                                                 @foreach($costCenterResults[$index] as $cc)
@@ -453,9 +470,7 @@
                                     @endif
                                 </div>
                             </td>
-
-                            <!-- Campo Autocomplete Servizio -->
-                            <td class="col-services px-2 py-1">
+                            <td class="col-services px-2 py-1 align-top">
                                 <div class="w-full relative">
                                     <i class="fas fa-concierge-bell absolute left-2 top-2 text-gray-400 text-xs z-10"></i>
                                     <input type="text"
@@ -467,7 +482,7 @@
                                         autocomplete="off">
                                     
                                     @if(isset($showServiceDropdown[$index]) && $showServiceDropdown[$index])
-                                        <div class="relative w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                                        <div class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
                                             style="min-width: 250px;">
                                             @if(isset($serviceResults[$index]) && count($serviceResults[$index]) > 0)
                                                 @foreach($serviceResults[$index] as $svc)
@@ -496,15 +511,14 @@
                                     @endif
                                 </div>
                             </td>
-
-                            <td class="col-actions px-2 py-1 text-center">
+                            <td class="col-actions px-2 py-1 text-center align-top">
                                 @if($index > 0)
                                     <button type="button" wire:click="removeRow({{ $index }})" class="text-red-500 hover:text-red-700 transition-colors">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 @endif
-                             </td>
-                         </tr>
+                            </td>
+                        </tr>
                         @endforeach
                     </tbody>
                 </table>

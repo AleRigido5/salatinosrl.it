@@ -86,18 +86,18 @@ class InvoicesReceivedTable extends Component
     // ==================== AUTOCOMPLETE PROPRIETÀ ====================
     public function updatedOwnershipSearch(): void
     {
-        if ($this->selectedOwnershipId && $this->ownershipSearch === $this->selectedOwnershipName) {
+        if ($this->selectedOwnershipId !== '' && $this->ownershipSearch === $this->selectedOwnershipName) {
             $this->showOwnershipDropdown = false;
             return;
         }
 
-        if ($this->selectedOwnershipId) {
+        if ($this->selectedOwnershipId !== '') {
             $this->selectedOwnershipId = '';
             $this->selectedOwnershipName = '';
             $this->resetPage();
         }
 
-        if (strlen($this->ownershipSearch) < 2) {
+        if (strlen(trim($this->ownershipSearch)) < 2) {
             $this->ownershipResults = new Collection();
             $this->showOwnershipDropdown = false;
             return;
@@ -110,7 +110,7 @@ class InvoicesReceivedTable extends Component
             })
             ->limit(10)
             ->get(['id_proprieta as id', 'RagAbbrev as name', 'Rag_Soc_intest as ragione_sociale', 'valid']);
-        
+
         $this->showOwnershipDropdown = $this->ownershipResults->isNotEmpty();
     }
 
@@ -135,18 +135,18 @@ class InvoicesReceivedTable extends Component
     // ==================== AUTOCOMPLETE FORNITORE ====================
     public function updatedSupplierSearch(): void
     {
-        if ($this->selectedSupplierId && $this->supplierSearch === $this->selectedSupplierName) {
+        if ($this->selectedSupplierId !== '' && $this->supplierSearch === $this->selectedSupplierName) {
             $this->showSupplierDropdown = false;
             return;
         }
 
-        if ($this->selectedSupplierId) {
+        if ($this->selectedSupplierId !== '') {
             $this->selectedSupplierId = '';
             $this->selectedSupplierName = '';
             $this->resetPage();
         }
 
-        if (strlen($this->supplierSearch) < 2) {
+        if (strlen(trim($this->supplierSearch)) < 2) {
             $this->supplierResults = new Collection();
             $this->showSupplierDropdown = false;
             return;
@@ -162,9 +162,10 @@ class InvoicesReceivedTable extends Component
             })
             ->limit(10)
             ->get(['id_cliente as id', 'ragione_sociale as name', 'partita_iva as piva']);
-        
+
         $this->showSupplierDropdown = $this->supplierResults->isNotEmpty();
     }
+
 
     public function selectSupplier(int $id, string $name): void
     {
@@ -187,18 +188,18 @@ class InvoicesReceivedTable extends Component
     // ==================== AUTOCOMPLETE CENTRO DI COSTO ====================
     public function updatedCostCenterSearch(): void
     {
-        if ($this->selectedCostCenterId && $this->costCenterSearch === $this->selectedCostCenterName) {
+        if ($this->selectedCostCenterId !== '' && $this->costCenterSearch === $this->selectedCostCenterName) {
             $this->showCostCenterDropdown = false;
             return;
         }
 
-        if ($this->selectedCostCenterId) {
+        if ($this->selectedCostCenterId !== '') {
             $this->selectedCostCenterId = '';
             $this->selectedCostCenterName = '';
             $this->resetPage();
         }
 
-        if (strlen($this->costCenterSearch) < 2) {
+        if (strlen(trim($this->costCenterSearch)) < 2) {
             $this->costCenterResults = new Collection();
             $this->showCostCenterDropdown = false;
             return;
@@ -207,7 +208,7 @@ class InvoicesReceivedTable extends Component
         $this->costCenterResults = CostCenter::where('Nome', 'like', '%' . $this->costCenterSearch . '%')
             ->limit(10)
             ->get(['id', 'Nome', 'Localita']);
-        
+
         $this->showCostCenterDropdown = $this->costCenterResults->isNotEmpty();
     }
 

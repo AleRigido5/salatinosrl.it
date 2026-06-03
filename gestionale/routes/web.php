@@ -214,6 +214,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         // =============================================
+        // SCADENZE INCASSO (INVOICE PAYMENTS SENT)
+        // =============================================
+        Route::prefix('invoice-payments-sent')->name('invoice-payments-sent.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\InvoicePaymentSentController::class, 'index'])->name('index');
+        });
+
+        // =============================================
         // PRIMA NOTA - SCRITTURE CONTABILI (ACCOUNTING ENTRIES)
         // =============================================
         Route::prefix('accounting-entries')->name('accounting-entries.')->group(function () {

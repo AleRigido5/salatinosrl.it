@@ -384,10 +384,10 @@
                                     required>
                             </td>
                             <td class="col-um px-2 py-1">
-                                <select wire:model.live="rows.{{ $index }}.unit_measure" 
-                                        class="w-full px-1 py-1 text-sm border rounded-md text-center">
+                                <select wire:model.live="rows.{{ $index }}.id_unit_measure"
+                                    class="w-full px-1 py-1 text-sm border rounded-md text-center">
                                     @foreach($unitMeasureList as $um)
-                                        <option value="{{ $um['codice'] }}">
+                                        <option value="{{ $um['id'] }}">
                                             {{ $um['nome'] }} ({{ $um['codice'] }})
                                         </option>
                                     @endforeach

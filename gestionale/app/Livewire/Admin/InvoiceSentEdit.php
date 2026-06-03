@@ -176,7 +176,7 @@ class InvoiceSentEdit extends Component
                 'description' => $row->description,
                 'quantity' => $row->quantity,
                 'unit_price' => $row->unit_price,
-                'unit_measure' => $row->unit_measure ?? 'pz',
+                'id_unit_measure' => $row->id_unit_measure ?? 1,
                 'discount_percentage' => $row->discount_percentage,
                 'vat_rate' => $vatRate,
                 'id_cost_center' => $row->id_cost_center,
@@ -278,6 +278,7 @@ class InvoiceSentEdit extends Component
         ->orderBy('ordinamento')
         ->get(['id_um', 'nome', 'codice'])
         ->map(fn($um) => [
+            'id' => $um->id_um,
             'codice' => $um->codice,
             'nome' => $um->nome,
         ])
@@ -362,7 +363,7 @@ class InvoiceSentEdit extends Component
             'description' => '',
             'quantity' => 1,
             'unit_price' => 0,
-            'unit_measure' => 'pz',
+            'id_unit_measure' => 1,
             'discount_percentage' => 0,
             'vat_rate' => 0.22,
             'id_cost_center' => null,
@@ -743,10 +744,11 @@ class InvoiceSentEdit extends Component
                 // Se la riga ha un ID e non è marcata per eliminazione, aggiorna
                 if (isset($row['id']) && $row['id'] && !isset($row['_delete'])) {
                     InvoiceRow::where('id', $row['id'])->update([
+                        'code' => $row['code'] ?? '',
                         'description' => $row['description'],
                         'quantity' => floatval($row['quantity'] ?? 1),
                         'unit_price' => floatval($row['unit_price'] ?? 0),
-                        'unit_measure' => $row['unit_measure'] ?? 'pz',
+                        'id_unit_measure' => intval($row['id_unit_measure'] ?? 1),
                         'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
                         'vat_rate' => floatval($row['vat_rate'] ?? 0) * 100,
                         'total' => floatval($row['taxable_amount'] ?? 0),
@@ -764,7 +766,6 @@ class InvoiceSentEdit extends Component
                         'description' => $row['description'],
                         'quantity' => floatval($row['quantity'] ?? 1),
                         'unit_price' => floatval($row['unit_price'] ?? 0),
-                        'unit_measure' => $row['unit_measure'] ?? 'pz',
                         'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
                         'vat_rate' => floatval($row['vat_rate'] ?? 0) * 100,
                         'total' => floatval($row['taxable_amount'] ?? 0),

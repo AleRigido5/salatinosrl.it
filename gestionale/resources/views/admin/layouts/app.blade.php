@@ -466,11 +466,49 @@
 
                     <!-- Vendite -->
                     @if($currentAdmin && $currentAdmin->hasPermission('view_sent'))
-                    <a href="{{ route('admin.invoices-sent.index') }}" 
-                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.invoices-sent.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
-                        <i class="fa-solid fa-briefcase w-5 h-5 text-gray-500 {{ request()->routeIs('admin.invoices-sent.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
-                        <span class="sidebar-link-text text-sm font-medium ml-3">Vendite</span>
-                    </a>
+                    <div x-data="{ 
+                        openVendite: false,
+                        init() {
+                            window.addEventListener('sidebar-closed', () => {
+                                this.openVendite = false;
+                            });
+                        }
+                    }">
+                        <a href="#" 
+                        @click.prevent="$store.sidebar.isExpanded ? openVendite = !openVendite : null"
+                        class="sidebar-link flex items-center justify-between px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.invoices-sent.*') || request()->routeIs('admin.invoice-payments-sent.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                            <div class="flex items-center">
+                                <i class="fa-solid fa-briefcase w-5 h-5 {{ request()->routeIs('admin.invoices-sent.*') || request()->routeIs('admin.invoice-payments-sent.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                                <span class="sidebar-link-text text-sm font-medium ml-3">Vendite</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-xs transition-transform duration-200 ml-4 mr-1" 
+                            :class="{ 'rotate-180': openVendite }" 
+                            x-show="$store.sidebar.isExpanded"
+                            style="min-width: 12px;"></i>
+                        </a>
+                        
+                        <div x-show="openVendite && $store.sidebar.isExpanded" 
+                            x-transition:enter="transition ease-out duration-200" 
+                            x-transition:enter-start="opacity-0 transform -translate-y-2" 
+                            x-transition:enter-end="opacity-100 transform translate-y-0"
+                            x-transition:leave="transition ease-in duration-100" 
+                            x-transition:leave-start="opacity-100 transform translate-y-0" 
+                            x-transition:leave-end="opacity-0 transform -translate-y-2"
+                            class="ml-6 mt-1 space-y-1">
+                            
+                            <a href="{{ route('admin.invoices-sent.index') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.invoices-sent.*') && !request()->routeIs('admin.invoice-payments-sent.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fas fa-file-invoice-dollar w-4 h-4 mr-2"></i>
+                                <span>Elenco fatture</span>
+                            </a>
+                            
+                            <a href="{{ route('admin.invoice-payments-sent.index') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.invoice-payments-sent.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fas fa-calendar-alt w-4 h-4 mr-2"></i>
+                                <span>Elenco scadenze</span>
+                            </a>
+                        </div>
+                    </div>
                     @endif
 
                     <!-- Prima Nota -->
@@ -739,6 +777,40 @@
                                             $breadcrumbs[] = ['name' => 'Pagamento del ' . ($payment->due_date ? date('d/m/Y', strtotime($payment->due_date)) : ''), 'url' => null, 'clickable' => false];
                                         }
                                         $breadcrumbs[] = ['name' => 'Modifica', 'url' => null, 'clickable' => false];
+                                    }
+                                }
+                                // Vendite - Fatture di Vendita e Scadenze Incasso
+                                elseif (str_starts_with($currentRoute, 'admin.invoices-sent.') || str_starts_with($currentRoute, 'admin.invoice-payments-sent.')) {
+                                    $breadcrumbs[] = ['name' => 'Vendite', 'url' => null, 'clickable' => false];
+                                    
+                                    if (str_starts_with($currentRoute, 'admin.invoices-sent.')) {
+                                        $breadcrumbs[] = ['name' => 'Fatture di Vendita', 'url' => route('admin.invoices-sent.index'), 'clickable' => true];
+                                        
+                                        if ($currentRoute === 'admin.invoices-sent.create') {
+                                            $breadcrumbs[] = ['name' => 'Nuova Fattura', 'url' => null, 'clickable' => false];
+                                        } elseif ($currentRoute === 'admin.invoices-sent.edit') {
+                                            $invoice = $currentParams['id'] ?? null;
+                                            if ($invoice && is_object($invoice)) {
+                                                $breadcrumbs[] = ['name' => 'Fattura n. ' . ($invoice->n_fattura ?? ''), 'url' => null, 'clickable' => false];
+                                            }
+                                            $breadcrumbs[] = ['name' => 'Modifica', 'url' => null, 'clickable' => false];
+                                        } elseif ($currentRoute === 'admin.invoices-sent.show') {
+                                            $invoice = $currentParams['id'] ?? null;
+                                            if ($invoice && is_object($invoice)) {
+                                                $breadcrumbs[] = ['name' => 'Fattura n. ' . ($invoice->n_fattura ?? ''), 'url' => null, 'clickable' => false];
+                                            }
+                                            $breadcrumbs[] = ['name' => 'Dettaglio', 'url' => null, 'clickable' => false];
+                                        }
+                                    } elseif (str_starts_with($currentRoute, 'admin.invoice-payments-sent.')) {
+                                        $breadcrumbs[] = ['name' => 'Scadenze Incasso', 'url' => route('admin.invoice-payments-sent.index'), 'clickable' => true];
+                                        
+                                        if ($currentRoute === 'admin.invoice-payments-sent.edit') {
+                                            $payment = $currentParams['payment'] ?? null;
+                                            if ($payment && is_object($payment)) {
+                                                $breadcrumbs[] = ['name' => 'Scadenza del ' . ($payment->due_date ? date('d/m/Y', strtotime($payment->due_date)) : ''), 'url' => null, 'clickable' => false];
+                                            }
+                                            $breadcrumbs[] = ['name' => 'Modifica', 'url' => null, 'clickable' => false];
+                                        }
                                     }
                                 }
                                 // Prima Nota (Accounting Entries)

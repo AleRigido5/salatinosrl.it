@@ -220,6 +220,7 @@ class InvoicesReceivedTable extends Component
         $this->showCostCenterDropdown = false;
         $this->resetPage();
     }
+    
 
     public function clearCostCenter(): void
     {

@@ -146,9 +146,9 @@
                         placeholder="Cerca centro di costo..."
                         class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                         autocomplete="off">
-                    @if($selectedCustomerId)
+                    @if($selectedCostCenterId)
                         <button type="button"
-                            wire:click="clearCustomer"
+                            wire:click="clearCostCenter"
                             x-on:click="document.getElementById('cost_center_input').value = ''"
                             class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
                             <i class="fas fa-times-circle text-sm"></i>

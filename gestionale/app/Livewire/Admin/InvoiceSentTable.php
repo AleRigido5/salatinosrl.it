@@ -534,7 +534,24 @@ class InvoiceSentTable extends Component
 
     public function getStatusesProperty(): array
     {
-        return (array) config('gestionale.invoice_status', []);
+        // Prendi la configurazione esistente o usa array vuoto
+        $configStatuses = config('gestionale.invoice_status', []);
+        
+        // Se non ha 'approved', aggiungilo manualmente
+        if (!isset($configStatuses['approved'])) {
+            $configStatuses['approved'] = [
+                'label' => 'Approvata',
+                'badge_class' => 'bg-lime-100 text-lime-800'
+            ];
+        }
+        
+        // Assicurati che 'issued' abbia il label corretto
+        if (isset($configStatuses['issued'])) {
+            $configStatuses['issued']['label'] = 'Emessa';
+            $configStatuses['issued']['badge_class'] = 'bg-yellow-100 text-yellow-800';
+        }
+        
+        return $configStatuses;
     }
 
     public function getTypeDocumentsProperty(): array

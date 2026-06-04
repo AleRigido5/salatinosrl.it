@@ -475,23 +475,23 @@
                             <span class="text-sm font-medium text-gray-600">Stato fattura:</span>
                         </div>
                         <div class="flex items-center gap-4">
-                            <!-- Switch Button per Emessa / Pagata -->
+                            <!-- Switch Button per Emessa / Approvata (NON Pagata) -->
                             <div class="flex items-center gap-3">
                                 <span class="text-sm {{ $selectedInvoice->status === 'issued' ? 'font-bold text-red-600' : 'text-gray-400' }}">
                                     <i class="fas fa-pen mr-1"></i>Emessa
                                 </span>
                                 <button 
-                                    wire:click="updateInvoiceStatus({{ $selectedInvoice->id }}, '{{ $selectedInvoice->status === 'issued' ? 'paid' : 'issued' }}')"
+                                    wire:click="updateInvoiceStatus({{ $selectedInvoice->id }}, '{{ $selectedInvoice->status === 'issued' ? 'approved' : 'issued' }}')"
                                     class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-2"
-                                    style="background-color: {{ $selectedInvoice->status === 'paid' ? '#22c55e' : '#e5e7eb' }}"
+                                    style="background-color: {{ $selectedInvoice->status === 'approved' ? '#84cc16' : '#e5e7eb' }}"
                                 >
                                     <span class="sr-only">Cambia stato</span>
                                     <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm"
-                                        style="transform: translateX({{ $selectedInvoice->status === 'paid' ? 'calc(1.25rem)' : '0.125rem' }})">
+                                        style="transform: translateX({{ $selectedInvoice->status === 'approved' ? 'calc(1.25rem)' : '0.125rem' }})">
                                     </span>
                                 </button>
-                                <span class="text-sm {{ $selectedInvoice->status === 'paid' ? 'font-bold text-green-600' : 'text-gray-400' }}">
-                                    <i class="fas fa-euro-sign mr-1"></i>Pagata
+                                <span class="text-sm {{ $selectedInvoice->status === 'approved' ? 'font-bold text-lime-600' : 'text-gray-400' }}">
+                                    <i class="fas fa-check-circle mr-1"></i>Approvata
                                 </span>
                             </div>
                             

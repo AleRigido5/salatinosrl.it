@@ -802,7 +802,7 @@
                                             $breadcrumbs[] = ['name' => 'Dettaglio', 'url' => null, 'clickable' => false];
                                         }
                                     } elseif (str_starts_with($currentRoute, 'admin.invoice-payments-sent.')) {
-                                        $breadcrumbs[] = ['name' => 'Scadenze Incasso', 'url' => route('admin.invoice-payments-sent.index'), 'clickable' => true];
+                                        $breadcrumbs[] = ['name' => 'Scadenze Vendita', 'url' => route('admin.invoice-payments-sent.index'), 'clickable' => true];
                                         
                                         if ($currentRoute === 'admin.invoice-payments-sent.edit') {
                                             $payment = $currentParams['payment'] ?? null;

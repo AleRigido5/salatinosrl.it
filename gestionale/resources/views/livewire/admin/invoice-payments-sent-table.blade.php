@@ -1,3 +1,7 @@
+<?php
+use App\Models\InstallmentTransaction;
+?>
+
 <div>
     <!-- Header con titolo -->
     <div class="flex justify-between items-center mb-6">
@@ -5,6 +9,9 @@
             <i class="fas fa-calendar-alt mr-3 text-lime-600"></i>
             Scadenze Vendite
         </h1>
+
+        <!-- Componente per il nuovo pagamento -->
+        @livewire('admin.register-payment', ['invoiceType' => 'vendita'])
     </div>
 
     <!-- Card filtri -->
@@ -25,34 +32,33 @@
                         id="ownership_input"
                         wire:model.live.debounce.300ms="ownershipSearch"
                         x-on:focus="open = true"
-                        x-on:input="open = true; @this.set('ownershipSearch', $event.target.value)"
+                        x-on:input="open = true"
                         placeholder="Cerca proprietà..."
                         class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                         autocomplete="off">
                     @if($selectedOwnershipId)
                         <button type="button"
                             wire:click="clearOwnership"
-                            x-on:click="document.getElementById('ownership_input').value = ''"
                             class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
                             <i class="fas fa-times-circle text-sm"></i>
                         </button>
                     @endif
                 </div>
 
-                <div x-show="open && @entangle('showOwnershipDropdown')"
+                <div x-show="open && $wire.showOwnershipDropdown"
+                    x-cloak
                     class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                     @if($ownershipResults && $ownershipResults->count() > 0)
                         @foreach($ownershipResults as $item)
                             <div
                                 x-on:click="
                                     open = false;
-                                    document.getElementById('ownership_input').value = '{{ addslashes($item['name']) }}';
-                                    @this.call('selectOwnership', '{{ $item['id'] }}', '{{ addslashes($item['name']) }}');
+                                    $wire.selectOwnership({{ $item->id }}, '{{ addslashes($item->name) }}');
                                 "
                                 class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                <div class="font-medium text-gray-800">{{ $item['name'] }}</div>
-                                @if($item['ragione_sociale'] ?? false)
-                                    <div class="text-xs text-gray-500">{{ $item['ragione_sociale'] }}</div>
+                                <div class="font-medium text-gray-800">{{ $item->name }}</div>
+                                @if($item->ragione_sociale ?? false)
+                                    <div class="text-xs text-gray-500">{{ $item->ragione_sociale }}</div>
                                 @endif
                             </div>
                         @endforeach
@@ -71,34 +77,33 @@
                         id="client_input"
                         wire:model.live.debounce.300ms="clientSearch"
                         x-on:focus="open = true"
-                        x-on:input="open = true; @this.set('clientSearch', $event.target.value)"
+                        x-on:input="open = true"
                         placeholder="Cerca cliente..."
                         class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                         autocomplete="off">
                     @if($selectedClientId)
                         <button type="button"
                             wire:click="clearClient"
-                            x-on:click="document.getElementById('client_input').value = ''"
                             class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
                             <i class="fas fa-times-circle text-sm"></i>
                         </button>
                     @endif
                 </div>
 
-                <div x-show="open && @entangle('showClientDropdown')"
+                <div x-show="open && $wire.showClientDropdown"
+                    x-cloak
                     class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                     @if($clientResults && $clientResults->count() > 0)
                         @foreach($clientResults as $item)
                             <div
                                 x-on:click="
                                     open = false;
-                                    document.getElementById('client_input').value = '{{ addslashes($item['name']) }}';
-                                    @this.call('selectClient', '{{ $item['id'] }}', '{{ addslashes($item['name']) }}');
+                                    $wire.selectClient({{ $item->id }}, '{{ addslashes($item->name) }}');
                                 "
                                 class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                <div class="font-medium text-gray-800">{{ $item['name'] }}</div>
-                                @if($item['piva'] ?? false)
-                                    <div class="text-xs text-gray-500">P.IVA: {{ $item['piva'] }}</div>
+                                <div class="font-medium text-gray-800">{{ $item->name }}</div>
+                                @if($item->piva ?? false)
+                                    <div class="text-xs text-gray-500">P.IVA: {{ $item->piva }}</div>
                                 @endif
                             </div>
                         @endforeach
@@ -132,7 +137,9 @@
                     <select wire:model.live="statusFilter" class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md">
                         <option value="">Tutti gli stati</option>
                         @foreach($statuses as $value => $statusData)
-                            <option value="{{ $value }}">{{ $statusData['label'] }}</option>
+                            @if($value !== 'paid')
+                                <option value="{{ $value }}">{{ $statusData['label'] }}</option>
+                            @endif
                         @endforeach
                     </select>
                 </div>
@@ -145,6 +152,8 @@
                     <option value="100000">Tutti</option>
                     <option value="200">200</option>
                     <option value="100">100</option>
+                    <option value="50">50</option>
+                    <option value="25">25</option>
                 </select>
             </div>
         </div>
@@ -192,24 +201,36 @@
         @endif
     </div>
 
-    <!-- Tabella Scadenze -->
+    <!-- Tabella Scadenze Vendite -->
     <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100">Proprietà</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100">Cliente</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('ownership_name')">
+                            Proprietà
+                            @if($sortField === 'ownership_name')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('client_name')">
+                            Cliente
+                            @if($sortField === 'client_name')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
+                        </th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('due_date')">
                             Data Scadenza
                             @if($sortField === 'due_date')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
                         </th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">N. Fattura</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('invoice_number')">
+                            N. Fattura
+                            @if($sortField === 'invoice_number')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
+                        </th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('amount')">
                             Importo
                             @if($sortField === 'amount')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
                         </th>
-                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">Residuo</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('residual_amount')">
+                            Residuo
+                            @if($sortField === 'residual_amount')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
+                        </th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Modalità Pagamento</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500">Stato</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500">Azioni</th>
@@ -219,9 +240,9 @@
                     @forelse($payments as $payment)
                     @php
                         $invoice = $payment->payable;
-                        $isOverdue = $payment->due_date && $payment->due_date->isPast() && $payment->status !== 'paid';
+                        $isOverdue = $payment->due_date && $payment->due_date->isPast() && $payment->residual_amount > 0;
                         $rowClass = $isOverdue ? 'bg-red-50' : '';
-                        $residual = $payment->residual_amount > 0 ? $payment->residual_amount : $payment->amount;
+                        $residual = $payment->residual_amount > 0 ? $payment->residual_amount : ($payment->amount - $payment->paid_amount);
                     @endphp
                     <tr class="hover:bg-gray-50 {{ $rowClass }}" wire:key="payment-{{ $payment->id }}">
                         <td class="px-4 py-3 text-sm">{{ $invoice->ownership->RagAbbrev ?? $invoice->ownership->Rag_Soc_intest ?? '-' }}</td>
@@ -235,12 +256,18 @@
                         <td class="px-4 py-3 text-sm">{{ $invoice->n_invoice ?? '-' }}</td>
                         <td class="px-4 py-3 text-sm text-right font-medium">{{ number_format($payment->amount, 2, ',', '.') }} €</td>
                         <td class="px-4 py-3 text-sm text-right font-medium text-orange-600">
-                            {{ number_format($residual, 2, ',', '.') }} €
+                            {{ number_format(max(0, $residual), 2, ',', '.') }} €
                         </td>
                         <td class="px-4 py-3 text-sm">{{ $payment->payment_method ?? '-' }}</td>
                         <td class="px-4 py-3 text-center">
                             @php
-                                $statusConfig = $statuses[$payment->status] ?? ['label' => $payment->status, 'badge_class' => 'bg-gray-100 text-gray-800'];
+                                $currentStatus = $payment->status;
+                                if ($residual <= 0.01) {
+                                    $currentStatus = 'paid';
+                                } elseif ($payment->paid_amount > 0) {
+                                    $currentStatus = 'partially_paid';
+                                }
+                                $statusConfig = $statuses[$currentStatus] ?? ['label' => $currentStatus, 'badge_class' => 'bg-gray-100 text-gray-800'];
                             @endphp
                             <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $statusConfig['badge_class'] }}">
                                 {{ $statusConfig['label'] }}
@@ -254,7 +281,10 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="9" class="text-center py-8 text-gray-500">Nessuna scadenza trovata</td>
+                        <td colspan="9" class="text-center py-8 text-gray-500">
+                            <i class="fas fa-calendar-check text-4xl mb-2 text-gray-300 block"></i>
+                            Nessuna scadenza trovata
+                        </td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -269,14 +299,14 @@
     </div>
     @endif
 
-    <!-- MODAL DETTAGLI SCADENZA -->
+    <!-- MODAL DETTAGLI SCADENZA VENDITA -->
     @if($showModal && $selectedPayment)
     @php
         $invoiceModal = $selectedPayment->payable;
-        $residualModal = $selectedPayment->residual_amount > 0 ? $selectedPayment->residual_amount : $selectedPayment->amount;
+        $residualModal = $selectedPayment->residual_amount > 0 ? $selectedPayment->residual_amount : ($selectedPayment->amount - $selectedPayment->paid_amount);
         
-        // Recupera tutti i pagamenti associati a questa fattura
-        $paymentHistory = \App\Models\InstallmentTransaction::whereHas('invoicePayment', function($q) use ($invoiceModal) {
+        // Recupera tutti i pagamenti associati a questa scadenza
+        $paymentHistory = InstallmentTransaction::whereHas('invoicePayment', function($q) use ($invoiceModal) {
             $q->where('payable_id', $invoiceModal->id)->where('payable_type', 'App\\Models\\InvoiceSent');
         })->with(['accountingEntry', 'invoicePayment'])->orderBy('created_at', 'desc')->get();
         
@@ -284,7 +314,7 @@
             $paymentHistory = collect($paymentHistory);
         }
     @endphp
-    <div x-data="{}" x-show="$wire.showModal" x-on:click.away="$wire.closeModal()" class="fixed inset-0 z-50 overflow-y-auto">
+    <div x-data="{}" x-show="$wire.showModal" x-on:click.away="$wire.closeModal()" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
             <div class="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -330,7 +360,7 @@
                         </div>
                         <div class="bg-gray-50 p-3 rounded-lg">
                             <label class="text-xs text-gray-500 uppercase font-semibold">RESIDUO</label>
-                            <p class="font-bold text-lg text-orange-600 mt-1">{{ number_format($residualModal, 2, ',', '.') }} €</p>
+                            <p class="font-bold text-lg text-orange-600 mt-1">{{ number_format(max(0, $residualModal), 2, ',', '.') }} €</p>
                         </div>
                     </div>
                     
@@ -343,7 +373,13 @@
                         <div class="bg-gray-50 p-3 rounded-lg">
                             <label class="text-xs text-gray-500 uppercase font-semibold">STATO</label>
                             @php
-                                $statusConfigModal = $statuses[$selectedPayment->status] ?? ['label' => $selectedPayment->status, 'badge_class' => 'bg-gray-100'];
+                                $currentStatusModal = $selectedPayment->status;
+                                if ($residualModal <= 0.01) {
+                                    $currentStatusModal = 'paid';
+                                } elseif ($selectedPayment->paid_amount > 0) {
+                                    $currentStatusModal = 'partially_paid';
+                                }
+                                $statusConfigModal = $statuses[$currentStatusModal] ?? ['label' => $currentStatusModal, 'badge_class' => 'bg-gray-100'];
                             @endphp
                             <p class="mt-1"><span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $statusConfigModal['badge_class'] }}">{{ $statusConfigModal['label'] }}</span></p>
                         </div>
@@ -352,7 +388,7 @@
                     <!-- CRONOLOGIA PAGAMENTI EFFETTUATI -->
                     @if($paymentHistory->count() > 0)
                         <div class="mt-4">
-                            <label class="text-xs text-gray-500 uppercase font-semibold mb-2 block">CRONOLOGIA PAGAMENTI</label>
+                            <label class="text-xs text-gray-500 uppercase font-semibold mb-2 block">CRONOLOGIA PAGAMENTI EFFETTUATI</label>
                             <div class="border rounded-lg overflow-hidden">
                                 <table class="min-w-full divide-y divide-gray-200">
                                     <thead class="bg-gray-100">

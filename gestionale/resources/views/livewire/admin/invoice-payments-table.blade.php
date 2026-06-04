@@ -7,7 +7,7 @@
         </h1>
         
         <!-- Aggiungi il componente per il nuovo pagamento -->
-        @livewire('admin.register-payment')
+        @livewire('admin.register-payment', ['invoiceType' => 'acquisto'])
     </div>
 
     <!-- Card filtri -->

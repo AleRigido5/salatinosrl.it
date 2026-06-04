@@ -38,6 +38,8 @@ class RegisterPayment extends Component
     public string $selectedEntityName = '';
     public string $selectedEntityType = '';
     public bool $showEntityDropdown = false;
+
+    public string $invoiceType = 'acquisto';
     
     // STEP 2
     public $paymentDate = '';
@@ -66,12 +68,13 @@ class RegisterPayment extends Component
         'paymentMethod.required' => 'Il metodo di pagamento è obbligatorio',
     ];
     
-    public function mount(): void
+    public function mount(string $invoiceType = 'acquisto'): void
     {
+        $this->invoiceType = $invoiceType;
         $this->paymentDate = date('Y-m-d');
         $this->ownershipResults = new Collection();
         $this->entityResults = new Collection();
-        $this->loadBankAccounts(); 
+        $this->loadBankAccounts();
     }
     
     public function openModal(): void
@@ -182,8 +185,13 @@ class RegisterPayment extends Component
             return;
         }
 
+        // vendita = cliente/entrambi, acquisto = tutti e tre
+        $entityTypes = $this->invoiceType === 'vendita'
+            ? ['cliente', 'entrambi']
+            : ['fornitore', 'cliente', 'entrambi'];
+
         $this->entityResults = Entity::where('valid', 1)
-            ->whereIn('entity_type', ['fornitore', 'entrambi'])  // Solo fornitori e entrambi
+            ->whereIn('entity_type', $entityTypes)
             ->where(function($q) {
                 $q->where('ragione_sociale', 'like', '%' . $this->entitySearch . '%')
                 ->orWhere('nome', 'like', '%' . $this->entitySearch . '%')
@@ -191,16 +199,18 @@ class RegisterPayment extends Component
                 ->orWhere('partita_iva', 'like', '%' . $this->entitySearch . '%');
             })
             ->limit(10)
-            ->get(['id_cliente as id', 
+            ->get([
+                'id_cliente as id',
                 DB::raw("CASE 
                     WHEN ragione_sociale IS NOT NULL AND ragione_sociale != '' THEN ragione_sociale 
                     ELSE CONCAT(nome, ' ', cognome) 
-                END as name"), 
-                'entity_type as type']);
-        
+                END as name"),
+                'entity_type as type'
+            ]);
+
         $this->showEntityDropdown = $this->entityResults->isNotEmpty();
     }
-    
+        
     public function selectEntity($id, $name, $type): void
     {
         $this->selectedEntityId = $id;
@@ -250,37 +260,35 @@ class RegisterPayment extends Component
             $this->availableInvoices = [];
             return;
         }
-        
-        // Recupera TUTTE le fatture del fornitore (senza filtro sullo stato)
-        $invoices = InvoiceReceived::where('id_entities', $this->selectedEntityId)
-            ->with(['payments' => function($q) {
-                $q->orderBy('due_date', 'asc');
-            }])
-            ->orderBy('data_invoice', 'asc')
-            ->get();
-        
+
+        if ($this->invoiceType === 'vendita') {
+            $invoices = \App\Models\InvoiceSent::where('id_entities', $this->selectedEntityId)
+                ->with(['payments' => fn($q) => $q->orderBy('due_date', 'asc')])
+                ->orderBy('data_invoice', 'asc')
+                ->get();
+        } else {
+            $invoices = InvoiceReceived::where('id_entities', $this->selectedEntityId)
+                ->with(['payments' => fn($q) => $q->orderBy('due_date', 'asc')])
+                ->orderBy('data_invoice', 'asc')
+                ->get();
+        }
+
         $this->availableInvoices = [];
-        
+
         foreach ($invoices as $invoice) {
             foreach ($invoice->payments as $payment) {
-                // Calcola il residuo dinamicamente
-                $residual = $payment->residual_amount; // Usa l'accessor
-                
-                // Mostra ANCHE le scadenze con residuo positivo
+                $residual = $payment->residual_amount;
                 if ($residual > 0.01) {
-                    $dueDateRaw = $payment->due_date;
-                    $dueDateFormatted = $dueDateRaw ? \Carbon\Carbon::parse($dueDateRaw)->format('d/m/Y') : '-';
-                    
                     $this->availableInvoices[] = [
-                        'id' => $payment->id,
-                        'invoice_id' => $invoice->id,
+                        'id'             => $payment->id,
+                        'invoice_id'     => $invoice->id,
                         'invoice_number' => $invoice->n_invoice,
-                        'due_date' => $dueDateFormatted,
-                        'due_date_raw' => $dueDateRaw,
-                        'total_amount' => $payment->amount,
-                        'residual_amount' => $residual,
-                        'selected' => false,
-                        'selected_amount' => 0,
+                        'due_date'       => $payment->due_date ? \Carbon\Carbon::parse($payment->due_date)->format('d/m/Y') : '-',
+                        'due_date_raw'   => $payment->due_date,
+                        'total_amount'   => $payment->amount,
+                        'residual_amount'=> $residual,
+                        'selected'       => false,
+                        'selected_amount'=> 0,
                     ];
                 }
             }
@@ -348,16 +356,16 @@ class RegisterPayment extends Component
             
             // === 1. REGISTRAZIONE IN PRIMA NOTA ===
             $accountingEntry = AccountingEntry::create([
-                'entry_date' => $this->paymentDate,
-                'description' => 'Pagamento fatture ' . $this->selectedEntityName . ($this->notes ? ' - ' . $this->notes : ''),
-                'type' => 'uscita',
+                'entry_date'          => $this->paymentDate,
+                'description'         => 'Pagamento fatture ' . $this->selectedEntityName . ($this->notes ? ' - ' . $this->notes : ''),
+                'type'                => $this->invoiceType === 'vendita' ? 'entrata' : 'uscita',
                 'id_payments_methods' => $this->getPaymentMethodId(),
-                'bank_account_id' => $this->bankAccountId ?: null,
-                'invoice_id' => null,
-                'invoice_payment_id' => null,
-                'amount' => $this->totalSelectedAmount,
-                'created_by' => $adminId,
-                'updated_by' => $adminId,
+                'bank_account_id'     => $this->bankAccountId ?: null,
+                'invoice_id'          => null,
+                'invoice_payment_id'  => null,
+                'amount'              => $this->totalSelectedAmount,
+                'created_by'          => $adminId,
+                'updated_by'          => $adminId,
             ]);
             
             // === 2. REGISTRA I PAGAMENTI SULLE SINGOLE SCADENZE ===
@@ -403,8 +411,7 @@ class RegisterPayment extends Component
                 $invoice = $payment->payable;
                 if ($invoice) {
                     $totalResidual = $invoice->payments()->sum('residual_amount');
-                    $newInvoiceStatus = 'paid';
-                    
+
                     if ($totalResidual <= 0.01) {
                         $newInvoiceStatus = 'paid';
                     } elseif ($totalResidual < $invoice->importo_totale) {
@@ -412,13 +419,7 @@ class RegisterPayment extends Component
                     } else {
                         $newInvoiceStatus = 'issued';
                     }
-                    
-                    Log::info('Aggiornamento stato fattura', [
-                        'invoice_id' => $invoice->id,
-                        'total_residual' => $totalResidual,
-                        'new_status' => $newInvoiceStatus
-                    ]);
-                    
+
                     $invoice->update(['status' => $newInvoiceStatus]);
                 }
             }

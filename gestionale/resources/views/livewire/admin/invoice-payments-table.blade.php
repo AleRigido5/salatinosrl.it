@@ -69,6 +69,7 @@
                 </div>
             </div>
 
+            
             <!-- Autocomplete Fornitore -->
             <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Fornitore</label>

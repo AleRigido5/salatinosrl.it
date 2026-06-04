@@ -302,8 +302,7 @@
                     <div class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                         @foreach($cost_center_all_results as $cc)
                             <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                                wire:click="applyCostCenterToAllRows({{ $cc['id'] }})"
-                                onclick="(function(){var el=document.getElementById('cost_center_all_input'); if(el){ el.value='{{ addslashes($cc['name']) }}'; el.dispatchEvent(new Event('input',{bubbles:true})); } })()">
+                                wire:click="applyCostCenterToAllRows({{ $cc['id'] }})">
                                 {{ $cc['name'] }}
                             </div>
                         @endforeach
@@ -448,9 +447,10 @@
                                         <input type="text"
                                             id="cost_center_input_{{ $index }}"
                                             wire:model.live.debounce.300ms="costCenterSearch.{{ $index }}"
-                                            value="{{ is_array($costCenterSearch) ? ($costCenterSearch[$index] ?? '') : $costCenterSearch }}"
+                                            x-ref="ccInput"
                                             x-on:focus="updateRect(); open = true"
-                                            x-on:input="updateRect(); open = true; @this.set('costCenterSearch.{{ $index }}', $event.target.value)"
+                                            x-on:input="updateRect(); open = true"
+                                            x-effect="$el.value = $wire.costCenterSearch[{{ $index }}] ?? ''"
                                             placeholder="Cerca centro..."
                                             class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                                             autocomplete="off">
@@ -511,9 +511,10 @@
                                         <input type="text"
                                             id="vehicle_input_{{ $index }}"
                                             wire:model.live.debounce.300ms="vehicleSearch.{{ $index }}"
-                                            value="{{ is_array($vehicleSearch) ? ($vehicleSearch[$index] ?? '') : $vehicleSearch }}"
+                                            x-ref="vhInput"
                                             x-on:focus="updateRect(); open = true"
-                                            x-on:input="updateRect(); open = true; @this.set('vehicleSearch.{{ $index }}', $event.target.value)"
+                                            x-on:input="updateRect(); open = true"
+                                            x-effect="$el.value = $wire.vehicleSearch[{{ $index }}] ?? ''"
                                             placeholder="Cerca mezzo..."
                                             class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                                             autocomplete="off">

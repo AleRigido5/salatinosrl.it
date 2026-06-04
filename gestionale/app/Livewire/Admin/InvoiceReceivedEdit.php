@@ -735,6 +735,10 @@ class InvoiceReceivedEdit extends Component
         
         $this->costCenterResults[$index] = $results->toArray();
         $this->showCostCenterDropdown[$index] = count($this->costCenterResults[$index]) > 0;
+
+        foreach ($this->showCostCenterDropdown as $i => $v) {
+            if ($i != $index) $this->showCostCenterDropdown[$i] = false;
+        }
         
         // Forza l'aggiornamento della vista
         $this->dispatch('refresh-autocomplete');
@@ -798,40 +802,79 @@ class InvoiceReceivedEdit extends Component
 
     public function applyCostCenterToAllRows($id)
     {
+        Log::info('=== applyCostCenterToAllRows START ===', ['id' => $id]);
+
         $cc = collect($this->all_costCenters)->firstWhere('id', (int)$id);
-        if ($cc) {
-            foreach ($this->rows as $index => $row) {
-                // Aggiorna la riga
-                $this->rows[$index]['id_cost_center'] = (int)$id;
-                $this->rows[$index]['cost_center_name'] = $cc['name'];
-                
-                // Aggiorna gli array di ricerca
-                $this->costCenterSearch[$index] = $cc['name'];
-                $this->costCenterResults[$index] = [];
-                $this->showCostCenterDropdown[$index] = false;
-                $this->selectedCostCenterId[$index] = (int)$id;
-                $this->selectedCostCenterName[$index] = $cc['name'];
-                
-                // IMPORTANTE: Aggiorna anche rowUpdates se la riga ha un ID
-                if (isset($row['id']) && $row['id']) {
-                    $this->rowUpdates[$row['id']] = [
-                        'id_cost_center' => (int)$id,
-                        'cost_center_name' => $cc['name'],
-                        'id_vehicle' => $this->rowUpdates[$row['id']]['id_vehicle'] ?? $row['id_vehicle'] ?? null,
-                        'vehicle_name' => $this->rowUpdates[$row['id']]['vehicle_name'] ?? $row['vehicle_name'] ?? '',
-                    ];
-                }
-            }
-            
-            $this->cost_center_all_search = $cc['name'];
-            $this->cost_center_all_results = [];
-            $this->show_cost_center_all_dropdown = false;
-            
-            // Ricalcola i totali
-            $this->calculateTotals();
-            
-            $this->dispatch('alert', type: 'success', message: "Centro di costo '{$cc['name']}' applicato a tutte le " . count($this->rows) . " righe");
+        if (!$cc) {
+            Log::info('CC NOT FOUND', ['id' => $id]);
+            return;
         }
+
+        Log::info('CC FOUND', ['cc' => $cc]);
+
+        $newRows = [];
+        foreach ($this->rows as $index => $row) {
+            $before = ['id_cost_center' => $row['id_cost_center'] ?? null, 'cost_center_name' => $row['cost_center_name'] ?? null];
+            
+            $row['id_cost_center']   = (int)$id;
+            $row['cost_center_name'] = $cc['name'];
+            $newRows[] = $row;
+
+            $this->costCenterSearch[$index]       = $cc['name'];
+            $this->costCenterResults[$index]      = [];
+            $this->showCostCenterDropdown[$index] = false;
+            $this->selectedCostCenterId[$index]   = (int)$id;
+            $this->selectedCostCenterName[$index] = $cc['name'];
+
+            $rowId = $row['id'] ?? null;
+            if ($rowId) {
+                $this->rowUpdates[$rowId] = [
+                    'id_cost_center'   => (int)$id,
+                    'cost_center_name' => $cc['name'],
+                    'id_vehicle'       => $this->rowUpdates[$rowId]['id_vehicle'] ?? $row['id_vehicle'] ?? null,
+                    'vehicle_name'     => $this->rowUpdates[$rowId]['vehicle_name'] ?? $row['vehicle_name'] ?? '',
+                ];
+            }
+
+            Log::info("ROW $index", [
+                'row_id' => $rowId,
+                'before' => $before,
+                'after'  => ['id_cost_center' => $row['id_cost_center'], 'cost_center_name' => $row['cost_center_name']],
+            ]);
+        }
+
+        Log::info('BEFORE $this->rows = $newRows', [
+            'newRows'    => array_map(fn($r) => ['id' => $r['id'], 'id_cost_center' => $r['id_cost_center']], $newRows),
+            'this_rows'  => array_map(fn($r) => ['id' => $r['id'], 'id_cost_center' => $r['id_cost_center']], $this->rows),
+        ]);
+
+        $this->rows = $newRows;
+
+        Log::info('AFTER $this->rows = $newRows', [
+            'this_rows'          => array_map(fn($r) => ['id' => $r['id'], 'id_cost_center' => $r['id_cost_center']], $this->rows),
+            'costCenterSearch'   => $this->costCenterSearch,
+            'selectedCostCenterId' => $this->selectedCostCenterId,
+        ]);
+
+        $this->cost_center_all_search        = $cc['name'];
+        $this->cost_center_all_results       = [];
+        $this->show_cost_center_all_dropdown = false;
+
+        $this->calculateTotals();
+
+        Log::info('AFTER calculateTotals', [
+            'this_rows'        => array_map(fn($r) => ['id' => $r['id'], 'id_cost_center' => $r['id_cost_center']], $this->rows),
+            'costCenterSearch' => $this->costCenterSearch,
+        ]);
+
+        $this->dispatch('force-update-inputs',
+            costCenterSearch: $this->costCenterSearch,
+            vehicleSearch: $this->vehicleSearch
+        );
+
+        $this->dispatch('alert', type: 'success', message: "Centro di costo '{$cc['name']}' applicato a tutte le " . count($this->rows) . " righe");
+
+        Log::info('=== applyCostCenterToAllRows END ===');
     }
 
     public function updatedVehicleAllSearch()
@@ -867,40 +910,79 @@ class InvoiceReceivedEdit extends Component
 
     public function applyVehicleToAllRows($id)
     {
+        Log::info('=== applyVehicleToAllRows START ===', ['id' => $id]);
+
         $vehicle = collect($this->all_vehicles_list)->firstWhere('id', (int)$id);
-        if ($vehicle) {
-            foreach ($this->rows as $index => $row) {
-                // Aggiorna la riga
-                $this->rows[$index]['id_vehicle'] = (int)$id;
-                $this->rows[$index]['vehicle_name'] = $vehicle['name'];
-                
-                // Aggiorna gli array di ricerca
-                $this->vehicleSearch[$index] = $vehicle['name'];
-                $this->vehicleResults[$index] = [];
-                $this->showVehicleDropdown[$index] = false;
-                $this->selectedVehicleId[$index] = (int)$id;
-                $this->selectedVehicleName[$index] = $vehicle['name'];
-                
-                // IMPORTANTE: Aggiorna anche rowUpdates se la riga ha un ID
-                if (isset($row['id']) && $row['id']) {
-                    $this->rowUpdates[$row['id']] = [
-                        'id_vehicle' => (int)$id,
-                        'vehicle_name' => $vehicle['name'],
-                        'id_cost_center' => $this->rowUpdates[$row['id']]['id_cost_center'] ?? $row['id_cost_center'] ?? null,
-                        'cost_center_name' => $this->rowUpdates[$row['id']]['cost_center_name'] ?? $row['cost_center_name'] ?? '',
-                    ];
-                }
-            }
-            
-            $this->vehicle_all_search = $vehicle['name'];
-            $this->vehicle_all_results = [];
-            $this->show_vehicle_all_dropdown = false;
-            
-            // Ricalcola i totali
-            $this->calculateTotals();
-            
-            $this->dispatch('alert', type: 'success', message: "Mezzo '{$vehicle['name']}' applicato a tutte le " . count($this->rows) . " righe");
+        if (!$vehicle) {
+            Log::info('VEHICLE NOT FOUND', ['id' => $id]);
+            return;
         }
+
+        Log::info('VEHICLE FOUND', ['vehicle' => $vehicle]);
+
+        $newRows = [];
+        foreach ($this->rows as $index => $row) {
+            $before = ['id_vehicle' => $row['id_vehicle'] ?? null, 'vehicle_name' => $row['vehicle_name'] ?? null];
+
+            $row['id_vehicle']   = (int)$id;
+            $row['vehicle_name'] = $vehicle['name'];
+            $newRows[] = $row;
+
+            $this->vehicleSearch[$index]       = $vehicle['name'];
+            $this->vehicleResults[$index]      = [];
+            $this->showVehicleDropdown[$index] = false;
+            $this->selectedVehicleId[$index]   = (int)$id;
+            $this->selectedVehicleName[$index] = $vehicle['name'];
+
+            $rowId = $row['id'] ?? null;
+            if ($rowId) {
+                $this->rowUpdates[$rowId] = [
+                    'id_vehicle'       => (int)$id,
+                    'vehicle_name'     => $vehicle['name'],
+                    'id_cost_center'   => $this->rowUpdates[$rowId]['id_cost_center'] ?? $row['id_cost_center'] ?? null,
+                    'cost_center_name' => $this->rowUpdates[$rowId]['cost_center_name'] ?? $row['cost_center_name'] ?? '',
+                ];
+            }
+
+            Log::info("ROW $index", [
+                'row_id' => $rowId,
+                'before' => $before,
+                'after'  => ['id_vehicle' => $row['id_vehicle'], 'vehicle_name' => $row['vehicle_name']],
+            ]);
+        }
+
+        Log::info('BEFORE $this->rows = $newRows', [
+            'newRows'   => array_map(fn($r) => ['id' => $r['id'], 'id_vehicle' => $r['id_vehicle']], $newRows),
+            'this_rows' => array_map(fn($r) => ['id' => $r['id'], 'id_vehicle' => $r['id_vehicle']], $this->rows),
+        ]);
+
+        $this->rows = $newRows;
+
+        Log::info('AFTER $this->rows = $newRows', [
+            'this_rows'      => array_map(fn($r) => ['id' => $r['id'], 'id_vehicle' => $r['id_vehicle']], $this->rows),
+            'vehicleSearch'  => $this->vehicleSearch,
+            'selectedVehicleId' => $this->selectedVehicleId,
+        ]);
+
+        $this->vehicle_all_search        = $vehicle['name'];
+        $this->vehicle_all_results       = [];
+        $this->show_vehicle_all_dropdown = false;
+
+        $this->calculateTotals();
+
+        Log::info('AFTER calculateTotals', [
+            'this_rows'     => array_map(fn($r) => ['id' => $r['id'], 'id_vehicle' => $r['id_vehicle']], $this->rows),
+            'vehicleSearch' => $this->vehicleSearch,
+        ]);
+
+        $this->dispatch('force-update-inputs',
+            costCenterSearch: $this->costCenterSearch,
+            vehicleSearch: $this->vehicleSearch
+        );
+
+        $this->dispatch('alert', type: 'success', message: "Mezzo '{$vehicle['name']}' applicato a tutte le " . count($this->rows) . " righe");
+
+        Log::info('=== applyVehicleToAllRows END ===');
     }
         
     // ==================== AUTOCOMPLETE MEZZI ====================
@@ -1044,98 +1126,114 @@ class InvoiceReceivedEdit extends Component
     
     public function update()
     {
+        Log::info('=== UPDATE START ===', [
+            'is_manual' => $this->is_manual,
+            'rows' => array_map(fn($r) => [
+                'id'               => $r['id'],
+                'id_cost_center'   => $r['id_cost_center'],
+                'cost_center_name' => $r['cost_center_name'],
+                'id_vehicle'       => $r['id_vehicle'],
+                'vehicle_name'     => $r['vehicle_name'],
+            ], $this->rows),
+            'costCenterSearch'     => $this->costCenterSearch,
+            'selectedCostCenterId' => $this->selectedCostCenterId,
+            'vehicleSearch'        => $this->vehicleSearch,
+            'selectedVehicleId'    => $this->selectedVehicleId,
+        ]);
+
         $this->validate();
-        
+
         try {
             DB::beginTransaction();
-            
+
             $invoice = InvoiceReceived::findOrFail($this->invoiceId);
-            
-            // NORMALIZZA i dati PRIMA del salvataggio (per entrambi i tipi)
+
             foreach ($this->rows as $index => &$row) {
-                // Forza valori positivi per quantità e prezzo
-                $row['quantity'] = abs(floatval($row['quantity'] ?? 1));
-                $row['unit_price'] = abs(floatval($row['unit_price'] ?? 0));
+                $row['quantity']            = abs(floatval($row['quantity'] ?? 1));
+                $row['unit_price']          = abs(floatval($row['unit_price'] ?? 0));
                 $row['discount_percentage'] = max(0, floatval($row['discount_percentage'] ?? 0));
-                
-                // Ricalcola i totali con valori positivi
-                $grossAmount = $row['quantity'] * $row['unit_price'];
-                $discountAmount = $grossAmount * ($row['discount_percentage'] / 100);
-                $row['taxable_amount'] = round($grossAmount - $discountAmount, 2);
-                
-                $vatRatePercent = floatval($row['vat_rate'] ?? 0);
-                $row['vat_amount'] = round($row['taxable_amount'] * ($vatRatePercent / 100), 2);
+                $grossAmount                = $row['quantity'] * $row['unit_price'];
+                $discountAmount             = $grossAmount * ($row['discount_percentage'] / 100);
+                $row['taxable_amount']      = round($grossAmount - $discountAmount, 2);
+                $vatRatePercent             = floatval($row['vat_rate'] ?? 0);
+                $row['vat_amount']          = round($row['taxable_amount'] * ($vatRatePercent / 100), 2);
             }
-            
-            // Ricalcola i totali generali con i dati normalizzati
+            unset($row);
+
             $this->calculateTotals();
-            
+
             if (!$this->is_manual) {
-                // ==================== FATTURA IMPORTATA DA XML ====================
-                // Aggiorna solo causale, centri costo e mezzi
+
                 $invoice->update([
-                    'causale' => $this->causale,
+                    'causale'    => $this->causale,
                     'updated_by' => Auth::guard('admin')->id(),
                 ]);
-                
+
+                Log::info('SAVING ROWS (XML mode)', [
+                    'rows' => array_map(fn($r) => [
+                        'id'             => $r['id'],
+                        'id_cost_center' => $r['id_cost_center'],
+                        'id_vehicle'     => $r['id_vehicle'],
+                    ], $this->rows),
+                ]);
+
                 foreach ($this->rows as $index => $row) {
-                    if (isset($row['id']) && $row['id']) {
-                        $updateData = [];
-                        
-                        // Centro di costo
-                        if (isset($this->selectedCostCenterId[$index]) && !empty($this->selectedCostCenterId[$index])) {
-                            $updateData['id_cost_center'] = $this->selectedCostCenterId[$index];
-                        } elseif (isset($row['id_cost_center']) && !empty($row['id_cost_center'])) {
-                            $updateData['id_cost_center'] = $row['id_cost_center'];
-                        } else {
-                            $updateData['id_cost_center'] = null;
-                        }
-                        
-                        // Mezzo
-                        if (isset($this->selectedVehicleId[$index]) && !empty($this->selectedVehicleId[$index])) {
-                            $updateData['id_vehicle'] = $this->selectedVehicleId[$index];
-                        } elseif (isset($row['id_vehicle']) && !empty($row['id_vehicle'])) {
-                            $updateData['id_vehicle'] = $row['id_vehicle'];
-                        } else {
-                            $updateData['id_vehicle'] = null;
-                        }
-                        
-                        InvoiceRow::where('id', $row['id'])->update($updateData);
+                    if (!isset($row['id']) || !$row['id']) {
+                        Log::info("ROW $index SKIPPED (no id)");
+                        continue;
                     }
+
+                    $dataToSave = [
+                        'id_cost_center' => $row['id_cost_center'] ?: null,
+                        'id_vehicle'     => $row['id_vehicle'] ?: null,
+                    ];
+
+                    Log::info("UPDATING ROW $index", [
+                        'row_id'     => $row['id'],
+                        'dataToSave' => $dataToSave,
+                    ]);
+
+                    $affected = InvoiceRow::where('id', $row['id'])->update($dataToSave);
+
+                    Log::info("ROW $index UPDATE RESULT", [
+                        'row_id'   => $row['id'],
+                        'affected' => $affected,
+                    ]);
+
+                    $fromDb = InvoiceRow::find($row['id']);
+                    Log::info("ROW $index FROM DB AFTER UPDATE", [
+                        'id_cost_center' => $fromDb->id_cost_center,
+                        'id_vehicle'     => $fromDb->id_vehicle,
+                    ]);
                 }
-                
+
             } else {
-                // ==================== FATTURA MANUALE ====================
-                // Aggiorna tutti i campi della fattura
+
                 $invoice->update([
-                    'id_ownership' => $this->id_ownership,
-                    'id_entities' => $this->selectedSupplierId,
-                    'type_invoice' => $this->type_invoice,
-                    'n_invoice' => $this->n_invoice,
-                    'data_invoice' => $this->data_invoice,
-                    'importo_totale' => abs($this->importo_totale), // Forza positivo
-                    'causale' => $this->causale,
-                    'updated_by' => Auth::guard('admin')->id(),
+                    'id_ownership'  => $this->id_ownership,
+                    'id_entities'   => $this->selectedSupplierId,
+                    'type_invoice'  => $this->type_invoice,
+                    'n_invoice'     => $this->n_invoice,
+                    'data_invoice'  => $this->data_invoice,
+                    'importo_totale'=> abs($this->importo_totale),
+                    'causale'       => $this->causale,
+                    'updated_by'    => Auth::guard('admin')->id(),
                 ]);
-                
-                // Gestione righe fattura
+
                 $existingRowIds = [];
-                
+
                 foreach ($this->rows as $row) {
-                    // Normalizza i valori della riga
-                    $quantity = abs(floatval($row['quantity'] ?? 1));
-                    $unitPrice = abs(floatval($row['unit_price'] ?? 0));
+                    $quantity           = abs(floatval($row['quantity'] ?? 1));
+                    $unitPrice          = abs(floatval($row['unit_price'] ?? 0));
                     $discountPercentage = max(0, floatval($row['discount_percentage'] ?? 0));
-                    $grossAmount = $quantity * $unitPrice;
-                    $discountAmount = $grossAmount * ($discountPercentage / 100);
-                    $taxableAmount = round($grossAmount - $discountAmount, 2);
-                    
-                    $vatRatePercent = floatval($row['vat_rate'] ?? 0);
-                    $vatRateDecimal = $vatRatePercent / 100;
-                    $vatAmount = round($taxableAmount * $vatRateDecimal, 2);
-                    $totalAmount = round($taxableAmount + $vatAmount, 2);
-                    
-                    // Cerca l'aliquota corrispondente
+                    $grossAmount        = $quantity * $unitPrice;
+                    $discountAmount     = $grossAmount * ($discountPercentage / 100);
+                    $taxableAmount      = round($grossAmount - $discountAmount, 2);
+                    $vatRatePercent     = floatval($row['vat_rate'] ?? 0);
+                    $vatRateDecimal     = $vatRatePercent / 100;
+                    $vatAmount          = round($taxableAmount * $vatRateDecimal, 2);
+                    $totalAmount        = round($taxableAmount + $vatAmount, 2);
+
                     $vatRateId = !empty($row['vat_rate_id']) ? (int)$row['vat_rate_id'] : null;
                     if (!$vatRateId && $vatRatePercent > 0) {
                         $vatRateRecord = collect($this->vatRatesList)->first(function($v) use ($vatRatePercent) {
@@ -1143,23 +1241,23 @@ class InvoiceReceivedEdit extends Component
                         });
                         $vatRateId = $vatRateRecord['id'] ?? null;
                     }
-                    
+
                     $rowData = [
-                        'document_id' => $invoice->id,
-                        'document_type' => 'invoice_received',
-                        'id_cost_center' => $row['id_cost_center'] ?? null,
-                        'id_vehicle' => $row['id_vehicle'] ?? null,
-                        'code' => $row['code'] ?? null,
-                        'description' => $row['description'] ?? '',
-                        'quantity' => $quantity,
-                        'unit_price' => $unitPrice,
-                        'unit_measure' => $row['unit_measure'] ?? null,
-                        'discount_percentage' => $discountPercentage,
-                        'vat_rate' => $vatRateDecimal,
-                        'vat_rate_id' => $vatRateId,
-                        'total' => $totalAmount,
+                        'document_id'        => $invoice->id,
+                        'document_type'      => 'invoice_received',
+                        'id_cost_center'     => $row['id_cost_center'] ?? null,
+                        'id_vehicle'         => $row['id_vehicle'] ?? null,
+                        'code'               => $row['code'] ?? null,
+                        'description'        => $row['description'] ?? '',
+                        'quantity'           => $quantity,
+                        'unit_price'         => $unitPrice,
+                        'unit_measure'       => $row['unit_measure'] ?? null,
+                        'discount_percentage'=> $discountPercentage,
+                        'vat_rate'           => $vatRateDecimal,
+                        'vat_rate_id'        => $vatRateId,
+                        'total'              => $totalAmount,
                     ];
-                    
+
                     if (isset($row['id']) && $row['id']) {
                         $invoiceRow = InvoiceRow::find($row['id']);
                         if ($invoiceRow) {
@@ -1167,33 +1265,31 @@ class InvoiceReceivedEdit extends Component
                             $existingRowIds[] = $row['id'];
                         }
                     } else {
-                        $newRow = InvoiceRow::create($rowData);
+                        $newRow        = InvoiceRow::create($rowData);
                         $existingRowIds[] = $newRow->id;
                     }
                 }
-                
-                // Elimina righe rimosse
+
                 InvoiceRow::where('document_id', $invoice->id)
                     ->where('document_type', 'invoice_received')
                     ->whereNotIn('id', $existingRowIds)
                     ->delete();
-                
-                // Gestione pagamenti
-                $existingPaymentIds = [];
+
+                $existingPaymentIds  = [];
                 $totalPaymentsAmount = 0;
-                
+
                 foreach ($this->payments as $payment) {
-                    $paymentAmount = abs(floatval($payment['amount'] ?? 0));
+                    $paymentAmount        = abs(floatval($payment['amount'] ?? 0));
                     $totalPaymentsAmount += $paymentAmount;
-                    
+
                     $paymentData = [
-                        'due_date' => $payment['due_date'] ?? $this->data_invoice,
-                        'amount' => $paymentAmount,
+                        'due_date'       => $payment['due_date'] ?? $this->data_invoice,
+                        'amount'         => $paymentAmount,
                         'payment_method' => $payment['payment_method'] ?? null,
-                        'iban' => $payment['iban'] ?? null,
-                        'status' => $payment['status'] ?? 'issued',
+                        'iban'           => $payment['iban'] ?? null,
+                        'status'         => $payment['status'] ?? 'issued',
                     ];
-                    
+
                     if (isset($payment['id']) && $payment['id']) {
                         $invoicePayment = $invoice->payments()->find($payment['id']);
                         if ($invoicePayment) {
@@ -1201,45 +1297,43 @@ class InvoiceReceivedEdit extends Component
                             $existingPaymentIds[] = $payment['id'];
                         }
                     } else {
-                        $newPayment = $invoice->payments()->create($paymentData);
+                        $newPayment           = $invoice->payments()->create($paymentData);
                         $existingPaymentIds[] = $newPayment->id;
                     }
                 }
-                
-                // Se il totale dei pagamenti non corrisponde al totale fattura, aggiorna la prima scadenza
+
                 if (abs($totalPaymentsAmount - $this->importo_totale) > 0.01 && count($this->payments) > 0) {
                     $firstPayment = $invoice->payments()->first();
                     if ($firstPayment) {
                         $firstPayment->update(['amount' => $this->importo_totale]);
                     }
                 }
-                
-                // Elimina pagamenti rimossi
+
                 $invoice->payments()->whereNotIn('id', $existingPaymentIds)->delete();
-                
-                // Aggiorna i riepiloghi IVA
+
                 $invoice->vatSummaries()->delete();
                 foreach ($this->vatSummary as $vat) {
                     $invoice->vatSummaries()->create([
-                        'tax_rate' => round($vat['rate'] * 100, 2), // salva in percentuale
-                        'sdi_nature' => $vat['nature_code'] ?? null,
+                        'tax_rate'       => round($vat['rate'] * 100, 2),
+                        'sdi_nature'     => $vat['nature_code'] ?? null,
                         'taxable_amount' => round($vat['taxable_amount'], 2),
-                        'tax_amount' => round($vat['vat_amount'], 2),
-                        'esigibilita_iva' => 'I',
+                        'tax_amount'     => round($vat['vat_amount'], 2),
+                        'esigibilita_iva'=> 'I',
                     ]);
                 }
             }
-            
+
             DB::commit();
-            
+            Log::info('=== UPDATE COMMITTED ===');
+
             session()->flash('success', 'Fattura aggiornata con successo!');
             return redirect()->route('admin.invoices-received.index');
-            
+
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Errore aggiornamento fattura: ' . $e->getMessage(), [
                 'invoice_id' => $this->invoiceId,
-                'trace' => $e->getTraceAsString()
+                'trace'      => $e->getTraceAsString(),
             ]);
             $this->dispatch('alert', type: 'error', message: 'Errore: ' . $e->getMessage());
         }

@@ -260,6 +260,7 @@ class InvoiceSentTable extends Component
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
+    
 
     // ==================== FILTRI E QUERY ====================
     public function sortBy(string $field): void

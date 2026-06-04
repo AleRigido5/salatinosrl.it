@@ -252,7 +252,7 @@ class InvoiceSentTable extends Component
 
             DB::commit();
 
-            $statusLabel = $newStatus === 'issued' ? 'Emessa' : 'Pagata';
+            $statusLabel = $newStatus === 'issued' ? 'Emessa' : 'Approvata';
             $this->dispatch('showSuccess', message: "Stato fattura aggiornato a '{$statusLabel}'");
 
         } catch (\Exception $e) {

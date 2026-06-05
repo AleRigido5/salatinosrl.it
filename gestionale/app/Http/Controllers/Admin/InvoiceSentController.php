@@ -53,7 +53,80 @@ class InvoiceSentController extends Controller
     }
 
     /**
-     * Esporta le fatture in PDF con i filtri applicati
+     * Genera il PDF di una singola fattura
+     */
+    // public function generatePdf($id)
+    // {
+    //     $invoice = InvoiceSent::with([
+    //         'ownership',
+    //         'entity',
+    //         'rows.costCenter',
+    //         'rows.vehicle',
+    //         'payments'
+    //     ])->findOrFail($id);
+
+    //     $data = [
+    //         'invoice' => $invoice,
+    //         'company' => config('gestionale.company', [
+    //             'name' => 'LA TUA AZIENDA S.r.l.',
+    //             'address' => 'via Costantino, 2 - 70010 SAMMICHELE DI BARI (BA)',
+    //             'vat' => 'IT12345678901',
+    //             'capital' => '€ 20.000,00 i.v.',
+    //             'email' => 'info@azienda.it',
+    //             'website' => 'www.azienda.it',
+    //             'iban' => 'IT00 X000 0000 0000 0000 0000 000',
+    //             'bank' => 'Intestato a Azienda S.r.l.'
+    //         ]),
+    //         'typeDocuments' => config('gestionale.tipo_documento', []),
+    //         'statuses' => config('gestionale.invoice_status', []),
+    //     ];
+
+    //     $pdf = Pdf::loadView('admin.invoice-sent.invoice-sent-pdf', $data);
+    //     $pdf->setPaper('a4', 'portrait');
+
+    //     $nInvoiceSafe = str_replace(['/', '\\'], '-', $invoice->n_invoice);
+    //     return $pdf->download('fattura_' . $nInvoiceSafe . '_' . $invoice->data_invoice->format('Ymd') . '.pdf');
+    // }
+
+
+    /**
+     * Anteprima PDF di una singola fattura nel browser
+     */
+    public function previewPdf($id)
+    {
+        $invoice = InvoiceSent::with([
+            'ownership',
+            'entity',
+            'rows.costCenter',
+            'rows.vehicle',
+            'payments'
+        ])->findOrFail($id);
+
+        $data = [
+            'invoice' => $invoice,
+            'company' => config('gestionale.company', [
+                'name' => 'LA TUA AZIENDA S.r.l.',
+                'address' => 'via Costantino, 2 - 70010 SAMMICHELE DI BARI (BA)',
+                'vat' => 'IT12345678901',
+                'capital' => '€ 20.000,00 i.v.',
+                'email' => 'info@azienda.it',
+                'website' => 'www.azienda.it',
+                'iban' => 'IT00 X000 0000 0000 0000 0000 000',
+                'bank' => 'Intestato a Azienda S.r.l.'
+            ]),
+            'typeDocuments' => config('gestionale.tipo_documento', []),
+            'statuses' => config('gestionale.invoice_status', []),
+        ];
+
+        $pdf = Pdf::loadView('admin.invoice-sent.invoice-sent-pdf', $data);
+        $pdf->setPaper('a4', 'portrait');
+
+        $nInvoiceSafe = str_replace(['/', '\\'], '-', $invoice->n_invoice);
+        return $pdf->stream('fattura_' . $nInvoiceSafe . '.pdf');
+    }
+
+    /**
+     * Esporta le fatture in PDF con i filtri applicati (lista)
      */
     public function exportPdf(Request $request)
     {
@@ -98,7 +171,7 @@ class InvoiceSentController extends Controller
     }
     
     /**
-     * Genera l'HTML per il PDF
+     * Genera l'HTML per il PDF della lista fatture
      */
     private function generatePdfHtml($invoices, $request)
     {
@@ -186,6 +259,7 @@ class InvoiceSentController extends Controller
                     font-size: 8px;
                 }
                 .badge-issued { background: #fef3c7; color: #92400e; }
+                .badge-approved { background: #d9f99d; color: #4d7c0f; }
                 .badge-paid { background: #dcfce7; color: #166534; }
                 .badge-cancelled { background: #fee2e2; color: #991b1b; }
             </style>
@@ -197,7 +271,7 @@ class InvoiceSentController extends Controller
             </div>
             
             <div class="filters">
-                <table>
+                <table width="100%">
                     <tr>
                         <td width="25%"><strong>Filtri applicati:</strong></td>
                         <td width="75%">';
@@ -250,6 +324,7 @@ class InvoiceSentController extends Controller
         foreach ($invoices as $invoice) {
             $badgeClass = match($invoice->status) {
                 'issued' => 'badge-issued',
+                'approved' => 'badge-approved',
                 'paid' => 'badge-paid',
                 'cancelled' => 'badge-cancelled',
                 default => 'badge-issued'
@@ -278,7 +353,7 @@ class InvoiceSentController extends Controller
             </table>
             
             <div class="footer">
-                <p>Documento generato automaticamente dal gestionale Gruppo Salatino</p>
+                <p>Documento generato automaticamente dal gestionale</p>
             </div>
         </body>
         </html>';

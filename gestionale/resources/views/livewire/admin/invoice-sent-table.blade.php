@@ -386,6 +386,19 @@
                                 @endif
                                 
                                 <!-- Azioni -->
+                                <a href="{{ route('admin.invoices-sent.preview', $invoice->id) }}" 
+                                target="_blank"
+                                class="text-red-600 hover:text-red-900 transition-colors" 
+                                title="Anteprima PDF">
+                                    <i class="fa-regular fa-file-pdf text-lg"></i>
+                                </a>
+                                
+                                {{-- <a href="{{ route('admin.invoices-sent.pdf', $invoice->id) }}" 
+                                class="text-red-600 hover:text-red-900 transition-colors" 
+                                title="Scarica PDF">
+                                    <i class="fa-solid fa-download text-lg"></i>
+                                </a> --}}
+                                
                                 <a href="{{ route('admin.invoices-sent.edit', $invoice->id) }}" 
                                 class="text-yellow-600 hover:text-yellow-900" 
                                 title="Modifica">

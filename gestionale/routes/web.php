@@ -242,6 +242,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/create', [App\Http\Controllers\Admin\InvoiceSentController::class, 'create'])->name('create');
             Route::get('/{id}/edit', [App\Http\Controllers\Admin\InvoiceSentController::class, 'edit'])->name('edit');
             Route::get('/{id}', [App\Http\Controllers\Admin\InvoiceSentController::class, 'show'])->name('show');
+
+            // Route::get('/{id}/pdf', [App\Http\Controllers\Admin\InvoiceSentController::class, 'generatePdf'])->name('pdf');
+            Route::get('/{id}/preview', [App\Http\Controllers\Admin\InvoiceSentController::class, 'previewPdf'])->name('preview');
         });
         
         // =============================================

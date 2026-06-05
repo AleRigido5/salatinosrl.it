@@ -14,6 +14,22 @@ return [
     |--------------------------------------------------------------------------
     */
     'round_decimals' => 1,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Dati Azienda per PDF
+    |--------------------------------------------------------------------------
+    */
+    'company' => [
+        'name' => env('COMPANY_NAME', 'SALATINO s.r.l.'),
+        'address' => env('COMPANY_ADDRESS', 'via Costantino, 2 - 70010 SAMMICHELE DI BARI (BA)'),
+        'vat' => env('COMPANY_VAT', 'IT07595790721'),
+        'capital' => env('COMPANY_CAPITAL', '€ 20.000,00 i.v.'),
+        'email' => env('COMPANY_EMAIL', 'info@salatinosrl.it'),
+        'website' => env('COMPANY_WEBSITE', 'www.salatinosrl.it'),
+        'iban' => env('COMPANY_IBAN', ' IT63 Y083 3841 6600 0600 7002 698'),
+        'bank' => env('COMPANY_BANK', 'Intestato a Salatino s.r.l.'),
+    ],
     
     /*
     |--------------------------------------------------------------------------

@@ -78,7 +78,8 @@ class ActivityController extends Controller
         Log::info('Request data:', $request->all());
         
         // Recupera i filtri dalla request
-        $filters = $request->input('filters', []);
+        // $filters = $request->input('filters', []);
+        $filters = session('activities_filters', []);
         
         try {
             // VALIDAZIONE - Rendi id_entities nullable
@@ -145,8 +146,10 @@ class ActivityController extends Controller
             Log::info('=== UPDATE COMPLETATO CON SUCCESSO ===');
             Log::info("Activity ID: {$activity->id}, Staff inseriti: {$staffInserted}");
             
+            // return redirect()->route('admin.activities.index', $filters)
+            //     ->with('success', "Attività modificata con successo! ({$staffInserted} persone associate)");
             return redirect()->route('admin.activities.index', $filters)
-                ->with('success', "Attività modificata con successo! ({$staffInserted} persone associate)");
+                   ->with('success', "Attività modificata con successo!");
                 
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();

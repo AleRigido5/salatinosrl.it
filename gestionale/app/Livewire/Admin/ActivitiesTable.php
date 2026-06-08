@@ -75,7 +75,29 @@ class ActivitiesTable extends Component
     public function mount()
     {
         $this->perPage = (int) $this->perPage;
+
+        // Ripristina filtri dalla sessione SE presenti (solo una volta, poi li cancella)
+        $savedFilters = session('activities_filters');
         
+        if (!empty($savedFilters)) {
+            $this->dateFrom = $savedFilters['date_from'] ?? '';
+            $this->dateTo = $savedFilters['date_to'] ?? '';
+            $this->costCenterFilter = $savedFilters['cost_center_filter'] ?? '';
+            $this->costCenterSearch = $savedFilters['cost_center_search'] ?? '';
+            $this->costCenterName = $savedFilters['cost_center_name'] ?? '';
+            $this->serviceFilter = $savedFilters['service_filter'] ?? '';
+            $this->serviceSearch = $savedFilters['service_search'] ?? '';
+            $this->serviceName = $savedFilters['service_name'] ?? '';
+            $this->entityFilter = $savedFilters['entity_filter'] ?? '';
+            $this->entitySearch = $savedFilters['entity_search'] ?? '';
+            $this->entityName = $savedFilters['entity_name'] ?? '';
+            $this->positionFilter = $savedFilters['position_filter'] ?? '';
+            $this->search = $savedFilters['search'] ?? '';
+            
+            // Cancella subito dopo aver letto — così al prossimo caricamento diretto riparte pulito
+            session()->forget('activities_filters');
+        }
+
         if (empty($this->dateFrom) && empty($this->dateTo)) {
             $now = Carbon::now();
             $this->dateFrom = $now->copy()->startOfMonth()->format('Y-m-d');
@@ -550,7 +572,28 @@ class ActivitiesTable extends Component
         $this->showViewModal = false;
         $this->viewingActivity = null;
     }
-    
+
+    public function editActivity($id)
+    {
+        session(['activities_filters' => [
+            'date_from' => $this->dateFrom,
+            'date_to' => $this->dateTo,
+            'cost_center_filter' => $this->costCenterFilter,
+            'cost_center_search' => $this->costCenterSearch,
+            'cost_center_name' => $this->costCenterName,
+            'service_filter' => $this->serviceFilter,
+            'service_search' => $this->serviceSearch,
+            'service_name' => $this->serviceName,
+            'entity_filter' => $this->entityFilter,
+            'entity_search' => $this->entitySearch,
+            'entity_name' => $this->entityName,
+            'position_filter' => $this->positionFilter,
+            'search' => $this->search,
+        ]]);
+
+        return redirect()->route('admin.activities.edit', $id);
+    }
+
     public function refreshActivities()
     {
         $this->resetPage();

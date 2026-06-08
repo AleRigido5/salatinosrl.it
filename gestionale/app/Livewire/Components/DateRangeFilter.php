@@ -18,9 +18,18 @@ class DateRangeFilter extends Component
 
     public function mount(): void
     {
-        $this->selectedMonth = Carbon::now()->month;
-        $this->selectedYear  = Carbon::now()->year;
-        $this->syncDatesFromSelects();
+        // Se arrivano date dalla sessione/parent, usale
+        if (!empty($this->dateFrom) && !empty($this->dateTo)) {
+            $date = Carbon::parse($this->dateFrom);
+            $this->selectedMonth = $date->month;
+            $this->selectedYear  = $date->year;
+            // NON chiamare syncDatesFromSelects() — le date sono già settate
+        } else {
+            // Comportamento originale: mese corrente
+            $this->selectedMonth = Carbon::now()->month;
+            $this->selectedYear  = Carbon::now()->year;
+            $this->syncDatesFromSelects();
+        }
     }
 
     // Ogni volta che cambia il select mese → aggiorna gli input data

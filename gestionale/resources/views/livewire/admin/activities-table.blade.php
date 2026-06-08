@@ -3,7 +3,10 @@
     <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
         <!-- Filtri Data con componente DateRangeFilter -->
         <div class="p-4">
-            @livewire('components.date-range-filter', ['dateFrom' => $dateFrom, 'dateTo' => $dateTo])
+            @livewire('components.date-range-filter', [
+                'dateFrom' => $dateFrom, 
+                'dateTo' => $dateTo
+            ], key('date-filter-' . $dateFrom . $dateTo))
         </div>
         
         <!-- Filtri Avanzati con Autocomplete (invariati) -->
@@ -987,11 +990,11 @@
                                 </button>
                                 @endif
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
-                                <a href="{{ route('admin.activities.edit', $activity->id) }}" 
+                                <button wire:click="editActivity({{ $activity->id }})" 
                                         class="text-yellow-500 hover:text-yellow-700 transition-colors p-1" 
                                         title="Modifica">
                                     <i class="fa-solid fa-pen-to-square"></i>
-                                </a>
+                                </button>
                                 @endif
                             </div>
                         </td>

@@ -73,6 +73,30 @@ class InvoicesReceivedTable extends Component
         $this->ownershipResults = new Collection();
         $this->supplierResults = new Collection();
         $this->costCenterResults = new Collection();
+
+        // Ripristina filtri dalla sessione (solo al ritorno da edit)
+        $savedFilters = session()->pull('invoices_received_filters');
+
+        if (!empty($savedFilters)) {
+            $this->dateFrom = $savedFilters['date_from'] ?? '';
+            $this->dateTo = $savedFilters['date_to'] ?? '';
+            $this->ownershipSearch = $savedFilters['ownership_search'] ?? '';
+            $this->selectedOwnershipId = $savedFilters['selected_ownership_id'] ?? '';
+            $this->selectedOwnershipName = $savedFilters['selected_ownership_name'] ?? '';
+            $this->supplierSearch = $savedFilters['supplier_search'] ?? '';
+            $this->selectedSupplierId = $savedFilters['selected_supplier_id'] ?? '';
+            $this->selectedSupplierName = $savedFilters['selected_supplier_name'] ?? '';
+            $this->costCenterSearch = $savedFilters['cost_center_search'] ?? '';
+            $this->selectedCostCenterId = $savedFilters['selected_cost_center_id'] ?? '';
+            $this->selectedCostCenterName = $savedFilters['selected_cost_center_name'] ?? '';
+            $this->status = $savedFilters['status'] ?? '';
+            $this->type_invoice = $savedFilters['type_invoice'] ?? '';
+            $this->search = $savedFilters['search'] ?? '';
+            $this->sortField = $savedFilters['sort_field'] ?? 'data_invoice';
+            $this->sortDirection = $savedFilters['sort_direction'] ?? 'desc';
+            $this->perPage = $savedFilters['per_page'] ?? 100000;
+        }
+
         $this->updateTrashCount();
     }
 
@@ -297,6 +321,8 @@ class InvoicesReceivedTable extends Component
 
     public function resetFilters(): void
     {
+        session()->forget('invoices_received_filters'); // ← aggiungi questa riga
+
         $this->search = '';
         $this->status = '';
         $this->type_invoice = '';
@@ -307,7 +333,7 @@ class InvoicesReceivedTable extends Component
         $this->dateTo = '';
         $this->resetPage();
         $this->dispatch('resetDates');
-        $this->dispatch('resetDateRangeFilterWithoutApply');  
+        $this->dispatch('resetDateRangeFilterWithoutApply');
         $this->dispatch('resetAllFilters');
     }
 
@@ -370,6 +396,32 @@ class InvoicesReceivedTable extends Component
         }
         
         return $query->paginate($this->perPage);
+    }
+
+    // ==================== NAVIGAZIONE CON FILTRI ====================
+    public function editInvoice(int $id): mixed
+    {
+        session(['invoices_received_filters' => [
+            'date_from' => $this->dateFrom,
+            'date_to' => $this->dateTo,
+            'ownership_search' => $this->ownershipSearch,
+            'selected_ownership_id' => $this->selectedOwnershipId,
+            'selected_ownership_name' => $this->selectedOwnershipName,
+            'supplier_search' => $this->supplierSearch,
+            'selected_supplier_id' => $this->selectedSupplierId,
+            'selected_supplier_name' => $this->selectedSupplierName,
+            'cost_center_search' => $this->costCenterSearch,
+            'selected_cost_center_id' => $this->selectedCostCenterId,
+            'selected_cost_center_name' => $this->selectedCostCenterName,
+            'status' => $this->status,
+            'type_invoice' => $this->type_invoice,
+            'search' => $this->search,
+            'sort_field' => $this->sortField,
+            'sort_direction' => $this->sortDirection,
+            'per_page' => $this->perPage,
+        ]]);
+
+        return redirect()->route('admin.invoices-received.edit', $id);
     }
 
     // ==================== MODAL DETTAGLI ====================

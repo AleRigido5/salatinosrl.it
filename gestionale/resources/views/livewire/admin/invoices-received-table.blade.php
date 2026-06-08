@@ -31,7 +31,10 @@
     <!-- Card unica: Date Range + Filtri di Ricerca -->
     <div class="bg-white rounded-lg shadow p-4 mb-4 border border-gray-200">
         <!-- RIGA SUPERIORE: Date Range Filter -->
-        @livewire('components.date-range-filter', ['dateFrom' => $dateFrom, 'dateTo' => $dateTo])
+        @livewire('components.date-range-filter', [
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo
+        ], key('date-filter-' . $dateFrom . $dateTo))
         
         <!-- Linea di separazione -->
         <div class="border-t border-gray-200 my-4"></div>
@@ -392,11 +395,11 @@
                                 @endif
                                 
                                 <!-- Altre icone esistenti... -->
-                                <a href="{{ route('admin.invoices-received.edit', $invoice->id) }}" 
-                                class="text-yellow-600 hover:text-yellow-900" 
-                                title="Modifica">
+                                <button wire:click="editInvoice({{ $invoice->id }})" 
+                                        class="text-yellow-600 hover:text-yellow-900" 
+                                        title="Modifica">
                                     <i class="fa-solid fa-pen-to-square"></i>
-                                </a>
+                                </button>
                                 <a href="{{ route('admin.invoices-received.xml-view', $invoice->id) }}" 
                                 target="_blank" 
                                 class="text-purple-600 hover:text-purple-900" 

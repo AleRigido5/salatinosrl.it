@@ -191,13 +191,6 @@
                     <option value="200">200</option>
                     <option value="100">100</option>
                 </select>
-                
-                <!-- Resetta Filtri -->
-                @if($search || $costCenterFilter || $serviceFilter || $entityFilter || $positionFilter || $dateFrom || $dateTo)
-                <button wire:click="resetFilters" class="text-sm text-gray-500 hover:text-gray-700" title="Resetta tutti i filtri">
-                    <i class="fas fa-sync-alt"></i>
-                </button>
-                @endif
             </div>
         </div>
         

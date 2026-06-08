@@ -189,10 +189,11 @@
                     <option value="100">100</option>
                 </select>
                 
-                @if($search || $costCenterFilter || $serviceFilter || $entityFilter || $positionFilter || request('date_from') || request('date_to'))
-                <a href="{{ route('admin.activities.index') }}" class="text-sm text-gray-500 hover:text-gray-700" title="Resetta tutti i filtri">
+                <!-- Resetta Filtri -->
+                @if($search || $costCenterFilter || $serviceFilter || $entityFilter || $positionFilter || $dateFrom || $dateTo)
+                <button wire:click="resetFilters" class="text-sm text-gray-500 hover:text-gray-700" title="Resetta tutti i filtri">
                     <i class="fas fa-sync-alt"></i>
-                </a>
+                </button>
                 @endif
             </div>
         </div>

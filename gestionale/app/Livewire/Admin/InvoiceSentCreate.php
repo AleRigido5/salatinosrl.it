@@ -141,13 +141,10 @@ class InvoiceSentCreate extends Component
     
     public function loadPaymentMethods()
     {
-        $this->paymentMethods = [
-            'MP05' => 'Bonifico Bancario',
-            'MP01' => 'Bonifico',
-            'MP02' => 'Assegno',
-            'MP03' => 'Contanti',
-            'MP08' => 'Carta di Credito',
-        ];
+        // Carica le modalità di pagamento dalla configurazione
+        $this->paymentMethods = config('gestionale.modalita_pagamento', []);
+        
+        Log::info('Modalità di pagamento caricate: ' . count($this->paymentMethods));
     }
     
     public function loadCompanyBankAccount()

@@ -1,5 +1,4 @@
 <?php
-// app/Livewire/Admin/InvoiceSentEdit.php
 
 namespace App\Livewire\Admin;
 
@@ -87,11 +86,10 @@ class InvoiceSentEdit extends Component
         'rows.*.unit_price' => 'required|numeric|min:0',
     ];
     
-    public function mount($id = null)  // Aggiungi il default null
+    public function mount($id = null)
     {
         Log::info('=== MOUNT InvoiceSentEdit - ID: ' . $id . ' ===');
         
-        // Se l'id non è passato, prova a prenderlo dalla route
         if (!$id && request()->route('id')) {
             $id = request()->route('id');
         }
@@ -111,53 +109,46 @@ class InvoiceSentEdit extends Component
     
         Log::info('Mount completato');
     }
+    
+    /**
+     * Ottieni l'URL di ritorno alla lista con i filtri salvati
+     */
+    public function getReturnUrl()
+    {
+        return route('admin.invoices-sent.index');
+    }
 
     public function loadInvoiceData()
     {
         $this->invoice = InvoiceSent::findOrFail($this->invoiceId);
         
-        // Campi principali
         $this->id_ownership = $this->invoice->id_ownership;
         $this->type_invoice = $this->invoice->type_invoice;
         $this->n_invoice = $this->invoice->n_invoice;
-        
-        // ✅ CORREZIONE: Converti la data nel formato Y-m-d per l'input type="date"
+        $this->n_invoice_ext = $this->invoice->n_invoice_ext ?? '';
         $this->data_invoice = date('Y-m-d', strtotime($this->invoice->data_invoice));
-        
         $this->importo_totale = $this->invoice->importo_totale;
         $this->causale = $this->invoice->causale ?? '';
         
-        // ✅ CLIENTE (fornitore)
         $this->selectedCustomerId = $this->invoice->id_entities;
         $customer = Entity::find($this->selectedCustomerId);
         if ($customer) {
-            // Costruisce il nome del cliente
             if ($customer->ragione_sociale) {
                 $this->selectedCustomerName = $customer->ragione_sociale;
             } else {
                 $this->selectedCustomerName = trim($customer->nome . ' ' . $customer->cognome);
             }
             $this->customerSearch = $this->selectedCustomerName;
-            Log::info('Cliente caricato: ID=' . $this->selectedCustomerId . ', Nome=' . $this->selectedCustomerName);
-        } else {
-            Log::warning('Cliente non trovato per ID: ' . $this->selectedCustomerId);
         }
         
-        // Sezionale
         $this->selectedSeriesId = $this->invoice->id_invoice_series;
         $this->loadAvailableSeries();
         
-        // Righe fattura
         $this->loadRows();
-        
-        // Pagamenti
         $this->loadPayments();
         
-        // Calcola totali
         $this->calculateTotals();
         $this->calculatePaymentsTotal();
-        
-        Log::info('Dati fattura caricati - Data: ' . $this->data_invoice . ', Cliente: ' . $this->selectedCustomerName);
     }
     
     public function loadRows()
@@ -186,7 +177,6 @@ class InvoiceSentEdit extends Component
                 'vat_amount' => $row->total * $vatRate,
             ];
             
-            // Popola centro di costo
             if ($row->id_cost_center) {
                 $costCenter = CostCenter::find($row->id_cost_center);
                 if ($costCenter) {
@@ -204,7 +194,6 @@ class InvoiceSentEdit extends Component
                 $this->selectedCostCenterName[$index] = '';
             }
             
-            // Popola servizio
             if ($row->id_service) {
                 $service = \App\Models\Service::find($row->id_service);
                 if ($service) {
@@ -222,14 +211,11 @@ class InvoiceSentEdit extends Component
                 $this->selectedServiceName[$index] = '';
             }
             
-            // Inizializza dropdown
             $this->costCenterResults[$index] = [];
             $this->showCostCenterDropdown[$index] = false;
             $this->serviceResults[$index] = [];
             $this->showServiceDropdown[$index] = false;
         }
-        
-        Log::info('Righe caricate: ' . count($this->rows));
     }
     
     public function loadPayments()
@@ -249,8 +235,6 @@ class InvoiceSentEdit extends Component
                 ];
             })
             ->toArray();
-            
-        Log::info('Pagamenti caricati: ' . count($this->payments));
     }
     
     public function loadVatRates()
@@ -269,8 +253,6 @@ class InvoiceSentEdit extends Component
                 ];
             })
             ->toArray();
-            
-        Log::info('Aliquote IVA caricate: ' . count($this->vatRatesList));
     }
     
     public function loadUnitMeasures()
@@ -299,8 +281,6 @@ class InvoiceSentEdit extends Component
     
     public function loadCompanyBankAccount()
     {
-        Log::info('loadCompanyBankAccount - ID proprietà: ' . $this->id_ownership);
-        
         if (!$this->id_ownership) {
             $this->companyIban = '';
             $this->companyBankName = '';
@@ -316,7 +296,6 @@ class InvoiceSentEdit extends Component
         if ($bankAccount) {
             $this->companyIban = $bankAccount->iban ?? '';
             $this->companyBankName = $bankAccount->name ?? '';
-            Log::info('IBAN trovato: ' . $this->companyIban);
         } else {
             $this->companyIban = '';
             $this->companyBankName = '';
@@ -325,7 +304,6 @@ class InvoiceSentEdit extends Component
     
     public function updatedIdOwnership()
     {
-        Log::info('updatedIdOwnership - Nuova proprietà: ' . $this->id_ownership);
         $this->loadAvailableSeries();
         $this->loadCompanyBankAccount();
         $this->updatePaymentsIban();
@@ -352,8 +330,6 @@ class InvoiceSentEdit extends Component
             ->where('year', date('Y'))
             ->get()
             ->toArray();
-            
-        Log::info('Sezionali caricati per proprietà ' . $this->id_ownership . ': ' . count($this->availableSeries));
     }
     
     public function addRow()
@@ -390,16 +366,13 @@ class InvoiceSentEdit extends Component
     
     public function removeRow($index)
     {
-        // Se la riga ha un ID (esiste già nel DB), segnala per eliminazione
         if (isset($this->rows[$index]['id']) && $this->rows[$index]['id']) {
-            // Marca per eliminazione (verrà gestita nell'update)
             $this->rows[$index]['_delete'] = true;
         }
         
         unset($this->rows[$index]);
         $this->rows = array_values($this->rows);
 
-        // Rimuovi e reindicizza costCenter
         if (isset($this->costCenterSearch[$index])) unset($this->costCenterSearch[$index]);
         if (isset($this->costCenterResults[$index])) unset($this->costCenterResults[$index]);
         if (isset($this->selectedCostCenterId[$index])) unset($this->selectedCostCenterId[$index]);
@@ -411,7 +384,6 @@ class InvoiceSentEdit extends Component
         $this->selectedCostCenterName = array_values($this->selectedCostCenterName);
         $this->showCostCenterDropdown = array_values($this->showCostCenterDropdown);
 
-        // Rimuovi e reindicizza service
         if (isset($this->serviceSearch[$index])) unset($this->serviceSearch[$index]);
         if (isset($this->serviceResults[$index])) unset($this->serviceResults[$index]);
         if (isset($this->selectedServiceId[$index])) unset($this->selectedServiceId[$index]);
@@ -440,9 +412,7 @@ class InvoiceSentEdit extends Component
     
     public function removePayment($index)
     {
-        // Se il pagamento ha un ID (esiste nel DB), segnala per eliminazione
         if (isset($this->payments[$index]['id']) && $this->payments[$index]['id']) {
-            // Verrà gestito nell'update
             unset($this->payments[$index]);
         } else {
             unset($this->payments[$index]);
@@ -488,7 +458,6 @@ class InvoiceSentEdit extends Component
             
             $key = (string)$vatRate;
             if (!isset($vatGroup[$key])) {
-                // Cerca la descrizione dell'aliquota
                 $vatInfo = collect($this->vatRatesList)->firstWhere('rate', $vatRate);
                 $vatGroup[$key] = [
                     'rate' => $vatRate,
@@ -511,7 +480,6 @@ class InvoiceSentEdit extends Component
         $this->total_discount = $totalDiscount;
         $this->importo_totale = $totalTaxable + $totalVat;
         
-        // Aggiorna l'importo del primo pagamento se è l'unico
         if (count($this->payments) === 1) {
             $this->payments[0]['amount'] = $this->importo_totale;
             $this->calculatePaymentsTotal();
@@ -556,7 +524,6 @@ class InvoiceSentEdit extends Component
         $this->customerSearch = '';
     }
     
-    // ==================== AUTOCOMPLETE CENTRI DI COSTO ====================
     public function updatedCostCenterSearch($value, $index)
     {
         if (strlen($value) < 2) {
@@ -582,11 +549,8 @@ class InvoiceSentEdit extends Component
         $this->costCenterSearch[$index] = $name;
         $this->showCostCenterDropdown[$index] = false;
         $this->calculateTotals();
-        
-        Log::info('Centro di costo selezionato riga ' . $index . ': ' . $name);
     }
     
-    // ==================== AUTOCOMPLETE SERVIZI ====================
     public function updatedServiceSearch($value, $index): void
     {
         $idx = (int)$index;
@@ -641,12 +605,10 @@ class InvoiceSentEdit extends Component
 
     public function closeDropdowns()
     {
-        // Chiudi tutti i dropdown dei centri di costo
         foreach ($this->showCostCenterDropdown as $index => $value) {
             $this->showCostCenterDropdown[$index] = false;
         }
         
-        // Chiudi tutti i dropdown dei servizi
         foreach ($this->showServiceDropdown as $index => $value) {
             $this->showServiceDropdown[$index] = false;
         }
@@ -724,7 +686,6 @@ class InvoiceSentEdit extends Component
             DB::beginTransaction();
             Log::info('Transazione iniziata');
             
-            // Aggiorna fattura
             $invoice = InvoiceSent::findOrFail($this->invoiceId);
             $invoice->update([
                 'id_ownership' => $this->id_ownership,
@@ -734,15 +695,14 @@ class InvoiceSentEdit extends Component
                 'data_invoice' => $this->data_invoice,
                 'importo_totale' => $this->importo_totale,
                 'causale' => $this->causale,
+                'n_invoice_ext' => $this->n_invoice_ext,
                 'updated_by' => Auth::guard('admin')->id(),
             ]);
             Log::info('✅ Fattura aggiornata');
             
-            // Gestisci righe
             $existingRowIds = [];
             
             foreach ($this->rows as $row) {
-                // Se la riga ha un ID e non è marcata per eliminazione, aggiorna
                 if (isset($row['id']) && $row['id'] && !isset($row['_delete'])) {
                     InvoiceRow::where('id', $row['id'])->update([
                         'code' => $row['code'] ?? '',
@@ -759,7 +719,6 @@ class InvoiceSentEdit extends Component
                     $existingRowIds[] = $row['id'];
                     Log::info('Riga aggiornata ID: ' . $row['id']);
                 } 
-                // Se la riga non ha ID, è nuova
                 elseif (!isset($row['_delete'])) {
                     $newRow = InvoiceRow::create([
                         'document_id' => $this->invoiceId,
@@ -778,14 +737,12 @@ class InvoiceSentEdit extends Component
                 }
             }
             
-            // Elimina righe non più presenti
             InvoiceRow::where('document_id', $this->invoiceId)
                 ->where('document_type', 'invoice_sent')
                 ->whereNotIn('id', $existingRowIds)
                 ->delete();
-            Log::info('Righe eliminate: quelle non in lista');
+            Log::info('Righe eliminate');
             
-            // Aggiorna riepiloghi IVA
             DB::table('invoice_vat_summaries')
                 ->where('vatable_id', $this->invoiceId)
                 ->where('vatable_type', InvoiceSent::class)
@@ -802,10 +759,8 @@ class InvoiceSentEdit extends Component
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
-                Log::info('Riepilogo IVA inserito per aliquota ' . ($vat['rate'] * 100) . '%');
             }
             
-            // Gestisci pagamenti
             $existingPaymentIds = [];
             
             foreach ($this->payments as $payment) {
@@ -820,7 +775,6 @@ class InvoiceSentEdit extends Component
                             'updated_at' => now(),
                         ]);
                     $existingPaymentIds[] = $payment['id'];
-                    Log::info('Pagamento aggiornato ID: ' . $payment['id']);
                 } else {
                     $newPaymentId = DB::table('invoice_payments')->insertGetId([
                         'payable_id' => $this->invoiceId,
@@ -836,33 +790,34 @@ class InvoiceSentEdit extends Component
                         'updated_at' => now(),
                     ]);
                     $existingPaymentIds[] = $newPaymentId;
-                    Log::info('Nuovo pagamento creato ID: ' . $newPaymentId);
                 }
             }
             
-            // Elimina pagamenti non più presenti
             DB::table('invoice_payments')
                 ->where('payable_id', $this->invoiceId)
                 ->where('payable_type', InvoiceSent::class)
                 ->whereNotIn('id', $existingPaymentIds)
                 ->delete();
-            Log::info('Pagamenti eliminati: quelli non in lista');
             
             DB::commit();
             Log::info('✅✅✅ AGGIORNAMENTO COMPLETATO CON SUCCESSO!');
             
             session()->flash('success', 'Fattura ' . $this->n_invoice . ' aggiornata con successo!');
-            return redirect()->route('admin.invoices-sent.index');
+            
+            // Torna alla lista con i filtri preservati
+            return redirect()->to(route('admin.invoices-sent.index'));
             
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('❌❌❌ ERRORE AGGIORNAMENTO: ' . $e->getMessage());
-            Log::error('File: ' . $e->getFile() . ':' . $e->getLine());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
-            
             session()->flash('error', 'Errore durante l\'aggiornamento: ' . $e->getMessage());
             return null;
         }
+    }
+    
+    public function cancel()
+    {
+        return redirect()->to(route('admin.invoices-sent.index'));
     }
     
     public function getOwnershipsProperty()

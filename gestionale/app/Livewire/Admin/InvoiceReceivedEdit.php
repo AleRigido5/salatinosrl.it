@@ -1123,6 +1123,14 @@ class InvoiceReceivedEdit extends Component
             $this->dispatch('alert', type: 'error', message: 'Errore: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Annulla e torna alla lista con i filtri preservati
+     */
+    public function cancel()
+    {
+        return redirect()->to(route('admin.invoices-received.index'));
+    }
     
     public function update()
     {

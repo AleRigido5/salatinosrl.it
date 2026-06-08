@@ -384,6 +384,32 @@
 
 <div class="watermark">S</div>
 
+@php
+    // Recupera i dati dell'ownership associata alla fattura (obbligatoria)
+    $ownership = $invoice->ownership;
+    
+    // Determina i dati dell'azienda ESCLUSIVAMENTE dall'ownership
+    $companyData = [
+        'name' => $ownership->Rag_Soc_intest,
+        'tagline' => $ownership->Rag_Soc_intest ?? '',
+        'address' => $ownership->IndirizzoPr && $ownership->LocalitPr 
+            ? $ownership->IndirizzoPr . ' - ' . $ownership->LocalitPr . ' (' . ($ownership->ProvinciaPr ?? 'BA') . ')'
+            : $ownership->IndirizzoPr,
+        'vat' => $ownership->PivaPr,
+        'capital' => $ownership->CapitalePr ?? '€ 20.000,00 i.v.',
+        'email' => $ownership->EmailPr,
+        'website' => $ownership->WebPr,
+        'iban' => $ownership->IbanPr,
+        'bank' => $ownership->BancaPr,
+        'owner_name' => $ownership->NomeRapprPr,
+        'registration' => true,
+        'province' => $ownership->ProvinciaPr ?? 'Bari',
+    ];
+    
+    // Costruisce la stringa per la registrazione imprese
+    $companyData['registration_text'] = 'P.IVA e C.F. iscrizione Registro Imprese di ' . $companyData['province'] . ' <strong>' . $companyData['vat'] . '</strong>';
+@endphp
+
 <div class="page">
 
 <!-- INTESTAZIONE -->
@@ -391,18 +417,17 @@
     <table class="header-main">
         <tr>
             <td class="header-left">
-                <div class="co-name">{{ $company['name'] }}</div>
-                @if(!empty($company['tagline']))<div class="co-tagline">{{ $company['tagline'] }}</div>@endif
+                <div class="co-name">{{ $companyData['name'] }}</div>
+                @if(!empty($companyData['tagline']))<div class="co-tagline">{{ $companyData['tagline'] }}</div>@endif
                 <div class="co-detail">
-                    {{ $company['address'] }}<br>
-                    @if(!empty($company['registration']))P.IVA e C.F. iscrizione Registro Imprese di Bari <strong>{{ $company['vat'] }}</strong><br>
-                    @else P.IVA e C.F. <strong>{{ $company['vat'] }}</strong><br>@endif
-                    Capitale sociale {{ $company['capital'] }}
+                    {{ $companyData['address'] }}<br>
+                    {!! $companyData['registration_text'] !!}<br>
+                    Capitale sociale {{ $companyData['capital'] }}
                 </div>
             </td>
             <td class="header-right">
                 <div style="font-size:7.8pt; font-weight:400; color:#444; line-height:1.9;">
-                    {{ $company['email'] }}<br>{{ $company['website'] }}
+                    {{ $companyData['email'] }}<br>{{ $companyData['website'] }}
                 </div>
             </td>
         </tr>
@@ -460,12 +485,12 @@
             <td class="tr">{{ number_format($row->quantity, 2, ',', '.') }}</td>
             <td class="tr">{{ number_format($row->unit_price, 3, ',', '.') }}</td>
             <td class="tr">{{ number_format($row->total, 2, ',', '.') }}</td>
-            <td class="tc">{{ $row->vat_rate ?? 22 }}</td>
+            <td class="tc">{{ $row->vat_rate ?? 22 }}%</td>
         </tr>
         @endforeach
         @php $fill = max(0, 14 - count($invoice->rows)); @endphp
         @for($i = 0; $i < $fill; $i++)
-        <tr style="height:15px;"><td class="td-desc"></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr style="height:15px;"><td class="td-desc"></td><td class="tc"></td><td class="tr"></td><td class="tr"></td><td class="tr"></td><td class="tc"></td></tr>
         @endfor
     </tbody>
 </table>
@@ -478,7 +503,10 @@
     mediante strumenti manuali, informatici e telematici in modo da garantire la sicurezza e la riservatezza dei medesimi. I dati personali non
     vengono diffusi in alcun modo o comunicati a terzi, ad eccezione dei dati necessari alle normali operazioni finanziarie di incasso e/o pagamento
     e comunque nel rispetto delle finalità di cui sopra. E' riconosciuto all'interessato il diritto di conoscere, cancellare, rettificare, aggiornare,
-    integrare, opporsi al trattamento dei dati personali, nonché agli altri diritti riconosciuti dall'art. 7 della stessa norma.@if(!empty($company['owner'])) Il titolare del trattamento è il Sig. {{ $company['owner'] }}.@endif
+    integrare, opporsi al trattamento dei dati personali, nonché agli altri diritti riconosciuti dall'art. 7 della stessa norma.
+    @if(!empty($companyData['owner_name']))
+        Il titolare del trattamento è il Sig. {{ $companyData['owner_name'] }}.
+    @endif
 </div>
 
 <!-- PAGAMENTO + TOTALI -->
@@ -505,9 +533,9 @@
                         <span class="iban-mono">IBAN: {{ $firstPayment->iban }}</span><br>
                         @if(!empty($firstPayment->bank_account_holder))intestato a {{ $firstPayment->bank_account_holder }}@endif
                     @else
-                        @if(!empty($company['bank_name']))<strong>{{ $company['bank_name'] }}</strong><br>@endif
-                        <span class="iban-mono">IBAN: {{ $company['iban'] }}</span><br>
-                        intestato a {{ $company['bank'] }}
+                        @if(!empty($companyData['bank_name']))<strong>{{ $companyData['bank_name'] }}</strong><br>@endif
+                        <span class="iban-mono">IBAN: {{ $companyData['iban'] }}</span><br>
+                        intestato a {{ $companyData['bank'] }}
                     @endif
                 </div>
             </td>
@@ -540,14 +568,14 @@
 
 <!-- NOTE FINALI -->
 <div class="final-nb">
-    NB. {{ $company['name'] }} si riserva la proprietà di tutta la merce fornita e descritta con il presente documento sino al pagamento
+    NB. {{ $companyData['name'] }} si riserva la proprietà di tutta la merce fornita e descritta con il presente documento sino al pagamento
     integrale del prezzo e degli interessi eventualmente maturati. Vogliate controllare l'esattezza dei dati anagrafici da Voi forniti e
-    riportati al fine di comunicare eventuali errori o integrazioni, la {{ $company['name'] }} trascorsi 3gg dalla data fattura riterrà
+    riportati al fine di comunicare eventuali errori o integrazioni, la {{ $companyData['name'] }} trascorsi 3gg dalla data fattura riterrà
     gli stessi corrispondenti. Eventuali reclami e/o contestazioni saranno accettati entro 3gg. dal ricevimento della presente
-    esclusivamente a mezzo raccomandata a.r. all'indirizzo della {{ $company['name'] }}, decorsi tali termini non saranno ritenuti validi.
+    esclusivamente a mezzo raccomandata a.r. all'indirizzo della {{ $companyData['name'] }}, decorsi tali termini non saranno ritenuti validi.
 </div>
 
-<div class="footer-txt">Documento generato elettronicamente · {{ $company['name'] }}</div>
+<div class="footer-txt">Documento generato elettronicamente · {{ $companyData['name'] }}</div>
 
 </div>
 </body>

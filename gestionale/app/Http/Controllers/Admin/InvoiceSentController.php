@@ -95,7 +95,7 @@ class InvoiceSentController extends Controller
     public function previewPdf($id)
     {
         $invoice = InvoiceSent::with([
-            'ownership',
+            'ownership',  // IMPORTANTE: deve essere caricata
             'entity',
             'rows.costCenter',
             'rows.vehicle',
@@ -104,16 +104,6 @@ class InvoiceSentController extends Controller
 
         $data = [
             'invoice' => $invoice,
-            'company' => config('gestionale.company', [
-                'name' => 'LA TUA AZIENDA S.r.l.',
-                'address' => 'via Costantino, 2 - 70010 SAMMICHELE DI BARI (BA)',
-                'vat' => 'IT12345678901',
-                'capital' => '€ 20.000,00 i.v.',
-                'email' => 'info@azienda.it',
-                'website' => 'www.azienda.it',
-                'iban' => 'IT00 X000 0000 0000 0000 0000 000',
-                'bank' => 'Intestato a Azienda S.r.l.'
-            ]),
             'typeDocuments' => config('gestionale.tipo_documento', []),
             'statuses' => config('gestionale.invoice_status', []),
         ];

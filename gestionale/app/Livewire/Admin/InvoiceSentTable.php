@@ -73,6 +73,30 @@ class InvoiceSentTable extends Component
         $this->ownershipResults = new Collection();
         $this->customerResults = new Collection();
         $this->costCenterResults = new Collection();
+        
+        // Ripristina filtri dalla sessione (solo al ritorno da edit)
+        $savedFilters = session()->pull('invoices_sent_filters');
+        
+        if (!empty($savedFilters)) {
+            $this->dateFrom = $savedFilters['date_from'] ?? '';
+            $this->dateTo = $savedFilters['date_to'] ?? '';
+            $this->ownershipSearch = $savedFilters['ownership_search'] ?? '';
+            $this->selectedOwnershipId = $savedFilters['selected_ownership_id'] ?? '';
+            $this->selectedOwnershipName = $savedFilters['selected_ownership_name'] ?? '';
+            $this->customerSearch = $savedFilters['customer_search'] ?? '';
+            $this->selectedCustomerId = $savedFilters['selected_customer_id'] ?? '';
+            $this->selectedCustomerName = $savedFilters['selected_customer_name'] ?? '';
+            $this->costCenterSearch = $savedFilters['cost_center_search'] ?? '';
+            $this->selectedCostCenterId = $savedFilters['selected_cost_center_id'] ?? '';
+            $this->selectedCostCenterName = $savedFilters['selected_cost_center_name'] ?? '';
+            $this->status = $savedFilters['status'] ?? '';
+            $this->type_invoice = $savedFilters['type_invoice'] ?? '';
+            $this->search = $savedFilters['search'] ?? '';
+            $this->sortField = $savedFilters['sort_field'] ?? 'data_invoice';
+            $this->sortDirection = $savedFilters['sort_direction'] ?? 'desc';
+            $this->perPage = $savedFilters['per_page'] ?? 100;
+        }
+        
         $this->updateTrashCount();
     }
 
@@ -276,16 +300,26 @@ class InvoiceSentTable extends Component
 
     public function resetFilters(): void
     {
+        session()->forget('invoices_sent_filters');
+        
         $this->search = '';
         $this->status = '';
         $this->type_invoice = '';
         $this->clearOwnership();
         $this->clearCustomer();
         $this->clearCostCenter();
+        
+        // Resetta le date a vuoto (nessun filtro data)
         $this->dateFrom = '';
         $this->dateTo = '';
+        
         $this->resetPage();
+        
+        // Questo dispatcherà resetDates che:
+        // 1. Mostrerà visivamente il mese corrente nel DateRangeFilter
+        // 2. Invierà date vuote alla tabella (nessun filtro)
         $this->dispatch('resetDates');
+        $this->dispatch('resetAllFilters');
     }
 
     public function clearStatus(): void
@@ -298,6 +332,18 @@ class InvoiceSentTable extends Component
     {
         $this->type_invoice = '';
         $this->resetPage();
+    }
+
+    public function clearDates(): void
+    {
+        // Resetta le date nel componente table a vuoto
+        $this->dateFrom = '';
+        $this->dateTo = '';
+        $this->resetPage();
+        
+        // Questo farà sì che il componente DateRangeFilter resetti la UI al mese corrente
+        // MA senza applicare il filtro perché nel resetDates() inviamo date vuote
+        $this->dispatch('resetDates');
     }
 
     public function getInvoicesProperty()
@@ -330,6 +376,33 @@ class InvoiceSentTable extends Component
         }
         
         return $query->paginate($this->perPage);
+    }
+
+    // ==================== NAVIGAZIONE CON FILTRI ====================
+
+    public function editInvoice(int $id): mixed
+    {
+        session(['invoices_sent_filters' => [
+            'date_from' => $this->dateFrom,
+            'date_to' => $this->dateTo,
+            'ownership_search' => $this->ownershipSearch,
+            'selected_ownership_id' => $this->selectedOwnershipId,
+            'selected_ownership_name' => $this->selectedOwnershipName,
+            'customer_search' => $this->customerSearch,
+            'selected_customer_id' => $this->selectedCustomerId,
+            'selected_customer_name' => $this->selectedCustomerName,
+            'cost_center_search' => $this->costCenterSearch,
+            'selected_cost_center_id' => $this->selectedCostCenterId,
+            'selected_cost_center_name' => $this->selectedCostCenterName,
+            'status' => $this->status,
+            'type_invoice' => $this->type_invoice,
+            'search' => $this->search,
+            'sort_field' => $this->sortField,
+            'sort_direction' => $this->sortDirection,
+            'per_page' => $this->perPage,
+        ]]);
+
+        return redirect()->route('admin.invoices-sent.edit', $id);
     }
 
     // ==================== MODAL DETTAGLI ====================

@@ -26,7 +26,10 @@
     <!-- Card unica: Date Range + Filtri di Ricerca -->
     <div class="bg-white rounded-lg shadow p-4 mb-4 border border-gray-200">
         <!-- RIGA SUPERIORE: Date Range Filter -->
-        @livewire('components.date-range-filter', ['dateFrom' => $dateFrom, 'dateTo' => $dateTo])
+        @livewire('components.date-range-filter', [
+            'dateFrom' => $dateFrom, 
+            'dateTo' => $dateTo
+        ], key('date-filter-' . $dateFrom . $dateTo))
         
         <!-- Linea di separazione -->
         <div class="border-t border-gray-200 my-4"></div>
@@ -399,11 +402,11 @@
                                     <i class="fa-solid fa-download text-lg"></i>
                                 </a> --}}
                                 
-                                <a href="{{ route('admin.invoices-sent.edit', $invoice->id) }}" 
-                                class="text-yellow-600 hover:text-yellow-900" 
-                                title="Modifica">
+                                <button wire:click="editInvoice({{ $invoice->id }})" 
+                                        class="text-yellow-600 hover:text-yellow-900" 
+                                        title="Modifica">
                                     <i class="fa-solid fa-pen-to-square"></i>
-                                </a>
+                                </button>
                                 <button wire:click="showDetails({{ $invoice->id }})" 
                                         class="text-blue-600 hover:text-blue-900" 
                                         title="Dettagli">

@@ -150,12 +150,20 @@ class DateRangeFilter extends Component
     // Chiamato dal parent quando resetta i filtri
     public function resetDates(): void
     {
+        // Resetta la UI al mese corrente (visivamente)
         $this->selectedMonth = Carbon::now()->month;
         $this->selectedYear  = Carbon::now()->year;
         $this->singleDate = '';
         $this->selectedSeason = null;
+        
+        // Sincronizza le date nel componente (solo per visualizzazione)
         $this->syncDatesFromSelects();
-        $this->applyFilters();
+        
+        // MA NON APPLICARE I FILTRI! Invia date vuote alla tabella
+        $this->dispatch('dateRangeUpdated', [
+            'date_from' => '',
+            'date_to' => '',
+        ]);
     }
 
     public function resetDateRangeFilterWithoutApply(): void

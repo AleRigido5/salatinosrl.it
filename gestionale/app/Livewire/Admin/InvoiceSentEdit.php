@@ -83,7 +83,7 @@ class InvoiceSentEdit extends Component
         'selectedCustomerId' => 'required',
         'rows.*.description' => 'required|string',
         'rows.*.quantity' => 'required|numeric|min:0',
-        'rows.*.unit_price' => 'required|numeric|min:0',
+        'rows.*.unit_price' => 'required|numeric',
     ];
     
     public function mount($id = null)

@@ -423,6 +423,15 @@ class InvoiceSentEdit extends Component
     
     public function updatedRows()
     {
+        foreach ($this->rows as $index => $row) {
+            if ($this->rows[$index]['unit_price'] === '' || $this->rows[$index]['unit_price'] === null) {
+                $this->rows[$index]['unit_price'] = 0;
+            }
+            if ($this->rows[$index]['quantity'] === '' || $this->rows[$index]['quantity'] === null) {
+                $this->rows[$index]['quantity'] = 0;
+            }
+        }
+        
         $this->calculateTotals();
     }
     
@@ -671,6 +680,14 @@ class InvoiceSentEdit extends Component
     
     public function update()
     {
+        foreach ($this->rows as $index => $row) {
+            $this->rows[$index]['unit_price']          = floatval($row['unit_price'] ?? 0);
+            $this->rows[$index]['quantity']            = floatval($row['quantity'] ?? 1);
+            $this->rows[$index]['discount_percentage'] = floatval($row['discount_percentage'] ?? 0);
+            $this->rows[$index]['vat_rate']            = floatval($row['vat_rate'] ?? 0);
+        }
+
+
         Log::info('=== INIZIO AGGIORNAMENTO FATTURA VENDITA ID: ' . $this->invoiceId . ' ===');
         
         try {

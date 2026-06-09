@@ -247,6 +247,12 @@
                         
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
+                                <a href="{{ route('admin.entities.account-statement', $entity->id_cliente) }}" 
+                                class="text-lime-600 hover:text-lime-900 transition-colors"
+                                title="Estratto Conto">
+                                    <i class="fa-solid fa-file-invoice-dollar text-lg"></i>
+                                </a>
+
                                 @if(!$entity->trashed())
                                     @if(auth()->guard('admin')->user()->hasPermission('view_entities'))
                                     <button wire:click="viewEntity({{ $entity->id_cliente }})" 

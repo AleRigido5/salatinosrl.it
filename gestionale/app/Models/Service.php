@@ -24,6 +24,7 @@ class Service extends Model
         'Stato',
         'Prezzo_un',
         'UnitaMisura_id_unita',
+        'id_vat_rate',
         'created_by',
         'updated_by'
     ];
@@ -58,6 +59,12 @@ class Service extends Model
     public function unitaMisura()
     {
         return $this->belongsTo(UnitaMisura::class, 'UnitaMisura_id_unita', 'id_um');
+    }
+
+    // Relazione con VAT Rate
+    public function vatRate()
+    {
+        return $this->belongsTo(VatRate::class, 'id_vat_rate');
     }
     
     // ==================== HELPER PER IL TRACCIAMENTO ====================

@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\Auth\LoginController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AdministratorController;
 use App\Http\Controllers\Admin\ActivityController;
+use App\Http\Controllers\Admin\AccountStatementController;
 use App\Http\Controllers\Admin\TrashController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\RoleController;
@@ -101,6 +102,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
             
             // Route per ripristinare i filtri dopo la modifica
             Route::post('/restore-filters', [EntityController::class, 'restoreFilters'])->name('restore-filters');
+
+            // Estratto Conto
+            Route::get('/{id}/account-statement', [AccountStatementController::class, 'index'])->name('account-statement');
         });
 
         // =============================================

@@ -5,6 +5,8 @@ namespace App\Livewire\Admin;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Entity;
+use App\Models\InvoiceSent;
+use App\Models\InvoiceReceived;
 use App\Models\Address;
 use App\Models\Contact;
 use Illuminate\Support\Facades\Auth;

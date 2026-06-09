@@ -21,6 +21,7 @@ class InvoiceSentEdit extends Component
     
     public $id_ownership = '';
     public $type_invoice = '';
+    public $defaultServiceVatRate = null;
     public $n_invoice = '';
     public $n_invoice_ext = '';
     public $data_invoice = '';
@@ -82,8 +83,8 @@ class InvoiceSentEdit extends Component
         'data_invoice' => 'required|date',
         'selectedCustomerId' => 'required',
         'rows.*.description' => 'required|string',
-        'rows.*.quantity' => 'required|numeric|min:0',
-        'rows.*.unit_price' => 'required|numeric',
+        'rows.*.quantity'   => 'required|numeric|decimal:0,2',
+        'rows.*.unit_price' => 'required|numeric|decimal:0,3',
     ];
     
     public function mount($id = null)
@@ -166,8 +167,8 @@ class InvoiceSentEdit extends Component
                 'id' => $row->id,
                 'code' => $row->code ?? '',
                 'description' => $row->description,
-                'quantity' => $row->quantity,
-                'unit_price' => $row->unit_price,
+                'quantity'   => round((float)$row->quantity, 2),
+                'unit_price' => round((float)$row->unit_price, 3),
                 'id_unit_measure' => $row->id_unit_measure ?? 1,
                 'discount_percentage' => $row->discount_percentage,
                 'vat_rate' => $vatRate,
@@ -239,20 +240,23 @@ class InvoiceSentEdit extends Component
     
     public function loadVatRates()
     {
-        $this->vatRatesList = DB::table('vat_rates')
+        $vatRates = DB::table('vat_rates')
             ->where('is_active', 1)
             ->orderBy('rate', 'desc')
+            ->orderBy('description')
             ->get()
             ->map(function($item) {
                 return [
                     'id' => $item->id,
                     'description' => $item->description,
-                    'rate' => (float)$item->rate,
+                    'rate' => (float)$item->rate,  // Questo è il valore che verrà salvato
                     'rate_percent' => (float)$item->rate * 100,
                     'sdi_nature' => $item->sdi_nature,
                 ];
             })
             ->toArray();
+        
+        $this->vatRatesList = $vatRates;
     }
     
     public function loadUnitMeasures()
@@ -338,8 +342,8 @@ class InvoiceSentEdit extends Component
         $this->rows[] = [
             'code' => '',
             'description' => '',
-            'quantity' => 1,
-            'unit_price' => 0,
+            'quantity' => 1.00,
+            'unit_price' => 0.000,
             'id_unit_measure' => 1,
             'discount_percentage' => 0,
             'vat_rate' => 0.22,
@@ -590,12 +594,13 @@ class InvoiceSentEdit extends Component
         $this->showServiceDropdown[$idx] = count($this->serviceResults[$idx]) > 0;
     }
 
+    // Modifica il metodo selectService (circa riga 350)
     public function selectService(int $index, int $serviceId, string $serviceName, string $descrFattura, $prezzoUn): void
     {
-        $this->rows[$index]['id_service']  = $serviceId;
-        $this->selectedServiceId[$index]   = $serviceId;
+        $this->rows[$index]['id_service'] = $serviceId;
+        $this->selectedServiceId[$index] = $serviceId;
         $this->selectedServiceName[$index] = $serviceName;
-        $this->serviceSearch[$index]       = $serviceName;
+        $this->serviceSearch[$index] = $serviceName;
         $this->showServiceDropdown[$index] = false;
 
         if (!empty($descrFattura)) {
@@ -606,6 +611,13 @@ class InvoiceSentEdit extends Component
 
         if ($prezzoUn && (!isset($this->rows[$index]['unit_price']) || $this->rows[$index]['unit_price'] == 0)) {
             $this->rows[$index]['unit_price'] = $prezzoUn;
+        }
+        
+        // *** AGGIUNGI QUESTA PARTE: Imposta l'IVA predefinita dal servizio ***
+        $service = \App\Models\Service::with('vatRate')->find($serviceId);
+        if ($service && $service->vatRate) {
+            $this->rows[$index]['vat_rate'] = (float)$service->vatRate->rate;
+            $this->defaultServiceVatRate = (float)$service->vatRate->rate;
         }
 
         $this->calculateTotals();

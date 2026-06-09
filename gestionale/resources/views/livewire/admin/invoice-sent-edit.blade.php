@@ -2,7 +2,7 @@
     <style>
         /* Larghezze fisse per le colonne */
         .col-code { width: 80px; min-width: 80px; }
-        .col-description { width: 250px; min-width: 250px; }
+        .col-description { width: 350px; min-width: 350px; }
         .col-quantity { width: 90px; min-width: 90px; }
         .col-price { width: 100px; min-width: 100px; }
         .col-taxable { width: 110px; min-width: 110px; }
@@ -14,14 +14,14 @@
         .col-actions { width: 50px; min-width: 50px; }
         
         @media (min-width: 1920px) {
-            .col-description { width: 300px; min-width: 300px; }
+            .col-description { width: 450px; min-width: 450px; }
             .col-cost-center { width: 200px; min-width: 200px; }
             .col-services { width: 200px; min-width: 200px; }
             .col-vat { width: 220px; min-width: 220px; }
         }
         
         @media (max-width: 1400px) {
-            .col-description { width: 200px; min-width: 200px; }
+            .col-description { width: 280px; min-width: 280px; }
             .col-cost-center { width: 150px; min-width: 150px; }
             .col-services { width: 150px; min-width: 150px; }
             .col-vat { width: 160px; min-width: 160px; }
@@ -388,17 +388,29 @@
                             </td>
                             <td class="col-description px-2 py-1 align-top">
                                 <textarea wire:model.live="rows.{{ $index }}.description"
-                                    rows="3"
+                                    rows="6"
                                     class="w-full px-1 py-1 text-sm border rounded-md resize-y @error('rows.' . $index . '.description') field-error @enderror"
                                     placeholder="Descrizione articolo/servizio..."></textarea>
                             </td>
                             <td class="col-quantity px-2 py-1 align-top">
-                                <input type="number" step="0.001" wire:model.live="rows.{{ $index }}.quantity"
+                                <input type="text" 
+                                    inputmode="decimal"
+                                    x-data="{}"
+                                    x-init="$el.value = parseFloat($el.value || 0).toFixed(2)"
+                                    x-on:blur="$el.value = parseFloat($el.value || 0).toFixed(2)"
+                                    x-on:focus="$el.value = parseFloat($el.value || 0)"
+                                    wire:model.live="rows.{{ $index }}.quantity"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right @error('rows.' . $index . '.quantity') field-error @enderror"
                                     required>
                             </td>
                             <td class="col-price px-2 py-1 align-top">
-                                <input type="number" step="0.0001" wire:model.live="rows.{{ $index }}.unit_price"
+                                <input type="text" 
+                                    inputmode="decimal"
+                                    x-data="{}"
+                                    x-init="$el.value = parseFloat($el.value || 0).toFixed(3)"
+                                    x-on:blur="$el.value = parseFloat($el.value || 0).toFixed(3)"
+                                    x-on:focus="$el.value = parseFloat($el.value || 0)"
+                                    wire:model.live="rows.{{ $index }}.unit_price"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right @error('rows.' . $index . '.unit_price') field-error @enderror"
                                     required>
                             </td>

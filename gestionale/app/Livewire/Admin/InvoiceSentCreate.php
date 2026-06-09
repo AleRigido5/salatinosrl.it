@@ -22,6 +22,7 @@ class InvoiceSentCreate extends Component
 {
     public $id_ownership = '';
     public $type_invoice = 'TD01';
+    public $defaultServiceVatRate = null;
     public $n_invoice = '';
     public $n_invoice_ext = '';
     public $data_invoice = '';
@@ -246,8 +247,8 @@ class InvoiceSentCreate extends Component
         $this->rows[] = [
             'code' => '',
             'description' => '',
-            'quantity' => 1,
-            'unit_price' => 0,
+            'quantity' => 1.00,
+            'unit_price' => 0.000,
             'unit_measure' => 'pz',
             'discount_percentage' => 0,
             'vat_rate' => 0.22,
@@ -492,29 +493,32 @@ class InvoiceSentCreate extends Component
     {
         Log::info("Selezionato servizio - Index: {$index}, ID: {$serviceId}, Nome: {$serviceName}");
         
-        // Salva l'ID del servizio
         $this->rows[$index]['id_service'] = $serviceId;
         $this->selectedServiceId[$index] = $serviceId;
         $this->selectedServiceName[$index] = $serviceName;
         $this->serviceSearch[$index] = $serviceName;
         $this->showServiceDropdown[$index] = false;
         
-        // Popola la descrizione con Descr_fattura se presente, altrimenti usa il titolo
+        // Popola la descrizione
         if (!empty($descrFattura)) {
             $this->rows[$index]['description'] = $descrFattura;
-            Log::info("Descrizione impostata da Descr_fattura: " . $descrFattura);
         } else {
             $this->rows[$index]['description'] = $serviceName;
-            Log::info("Descrizione impostata dal titolo: " . $serviceName);
         }
         
-        // Popola il prezzo se presente e la riga ha prezzo vuoto/zero
+        // Popola il prezzo
         if ($prezzoUn > 0 && (empty($this->rows[$index]['unit_price']) || $this->rows[$index]['unit_price'] == 0)) {
-            $this->rows[$index]['unit_price'] = $prezzoUn;
-            Log::info("Prezzo impostato: " . $prezzoUn);
+            $this->rows[$index]['unit_price'] = round((float)$prezzoUn, 3);
         }
         
-        // Ricalcola i totali
+        // *** AGGIUNGI QUESTA PARTE: Imposta l'IVA predefinita dal servizio ***
+        $service = \App\Models\Service::with('vatRate')->find($serviceId);
+        if ($service && $service->vatRate) {
+            $this->rows[$index]['vat_rate'] = (float)$service->vatRate->rate;
+            $this->defaultServiceVatRate = (float)$service->vatRate->rate;
+            Log::info("IVA impostata dal servizio: " . $service->vatRate->rate * 100 . "% - " . $service->vatRate->description);
+        }
+        
         $this->calculateTotals();
     }
     
@@ -664,8 +668,8 @@ class InvoiceSentCreate extends Component
                     'document_type' => 'invoice_sent',
                     'code' => $row['code'] ?? null,
                     'description' => $row['description'],
-                    'quantity' => floatval($row['quantity'] ?? 1),
-                    'unit_price' => floatval($row['unit_price'] ?? 0),
+                    'quantity' => round(floatval($row['quantity'] ?? 1), 2),
+                    'unit_price' => round(floatval($row['unit_price'] ?? 0), 3),
                     'unit_measure' => $row['unit_measure'] ?? 'pz',
                     'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
                     'vat_rate' => floatval($row['vat_rate'] ?? 0) * 100,

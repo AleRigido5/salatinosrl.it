@@ -361,7 +361,37 @@
                         <td class="px-4 py-3 text-sm">{{ $invoice->data_invoice->format('d/m/Y') }}</td>
                         <td class="px-4 py-3 text-sm font-medium">{{ $invoice->n_invoice }}</td>
                         <td class="px-4 py-3 text-sm">{{ $invoice->customer_name }}</td>
-                        <td class="px-4 py-3 text-sm max-w-[200px] truncate" title="{{ $costCenterNames }}">{{ $costCenterNames ?: '-' }}</td>
+                        <td class="px-4 py-3 text-sm align-top">
+                            @php
+                                $costCenters = $invoice->rows->pluck('costCenter.Nome')->filter()->unique();
+                                $services = $invoice->rows->pluck('service.Titolo')->filter()->unique();
+                            @endphp
+                            <div>
+                                @if($costCenters->isNotEmpty())
+                                    <div class="mb-1">
+                                        @foreach($costCenters as $cc)
+                                            <div class="text-gray-800 text-xs truncate" title="{{ $cc }}">
+                                                <i class="fas fa-chart-pie text-gray-400 mr-1 text-xs w-3"></i>
+                                                {{ $cc }}
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                                @if($services->isNotEmpty())
+                                    <div class="mt-1">
+                                        @foreach($services as $svc)
+                                            <div class="text-gray-500 text-xs truncate" title="{{ $svc }}">
+                                                <i class="fas fa-concierge-bell text-gray-400 mr-1 text-xs w-3"></i>
+                                                {{ $svc }}
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                                @if($costCenters->isEmpty() && $services->isEmpty())
+                                    <span class="text-gray-400 text-sm">-</span>
+                                @endif
+                            </div>
+                        </td>
                         <td class="px-4 py-3">
                             @php
                                 $statusConfig = $statuses[$invoice->status] ?? null;

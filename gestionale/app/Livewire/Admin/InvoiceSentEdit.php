@@ -431,7 +431,6 @@ class InvoiceSentEdit extends Component
                 $this->rows[$index]['quantity'] = 0;
             }
         }
-        
         $this->calculateTotals();
     }
     

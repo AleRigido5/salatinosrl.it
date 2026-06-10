@@ -96,7 +96,7 @@ class InvoiceSentController extends Controller
     {
         $invoice = InvoiceSent::with([
             'ownership',  // IMPORTANTE: deve essere caricata
-            'entity',
+            'entity.addresses',
             'rows.costCenter',
             'rows.vehicle',
             'payments'

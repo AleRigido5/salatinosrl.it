@@ -396,7 +396,6 @@
             ? $ownership->IndirizzoPr . ' - ' . $ownership->LocalitPr . ' (' . ($ownership->ProvinciaPr ?? 'BA') . ')'
             : $ownership->IndirizzoPr,
         'vat' => $ownership->PivaPr,
-        'capital' => $ownership->CapitalePr ?? '€ 20.000,00 i.v.',
         'email' => $ownership->EmailPr,
         'website' => $ownership->WebPr,
         'iban' => $ownership->IbanPr,
@@ -407,7 +406,7 @@
     ];
     
     // Costruisce la stringa per la registrazione imprese
-    $companyData['registration_text'] = 'P.IVA e C.F. iscrizione Registro Imprese di ' . $companyData['province'] . ' <strong>' . $companyData['vat'] . '</strong>';
+    $companyData['registration_text'] = 'P.IVA: ' . '<strong>' . $companyData['vat'] . '</strong>';
 @endphp
 
 <div class="page">
@@ -418,11 +417,9 @@
         <tr>
             <td class="header-left">
                 <div class="co-name">{{ $companyData['name'] }}</div>
-                @if(!empty($companyData['tagline']))<div class="co-tagline">{{ $companyData['tagline'] }}</div>@endif
                 <div class="co-detail">
                     {{ $companyData['address'] }}<br>
                     {!! $companyData['registration_text'] !!}<br>
-                    Capitale sociale {{ $companyData['capital'] }}
                 </div>
             </td>
             <td class="header-right">
@@ -448,12 +445,19 @@
                 <div class="doc-date">Data: {{ $invoice->data_invoice->format('d/m/Y') }}</div>
             </td>
             <td class="cell-clientdata">
-                @php $entity = $invoice->entity; @endphp
+                @php 
+                    $entity = $invoice->entity;
+                    $addr = $entity ? $entity->primary_address : null;
+                @endphp
                 @if($entity)
-                    <div class="cli-name">{{ $entity->ragione_sociale ?? trim(($entity->nome ?? '') . ' ' . ($entity->cognome ?? '')) }}</div>
+                    <div class="cli-name">{{ $entity->full_name }}</div>
                     <div class="cli-info">
-                        @if(!empty($entity->indirizzo)){{ $entity->indirizzo }}<br>@endif
-                        @if(!empty($entity->cap) && !empty($entity->citta)){{ $entity->cap }} - {{ strtoupper($entity->citta) }}@if(!empty($entity->provincia)) ({{ strtoupper($entity->provincia) }})@endif<br>@endif
+                        @if($addr)
+                            @if(!empty($addr->indirizzo)){{ $addr->indirizzo }}<br>@endif
+                            @if(!empty($addr->cap) || !empty($addr->citta))
+                                {{ $addr->cap ?? '' }}{{ !empty($addr->cap) && !empty($addr->citta) ? ' - ' : '' }}{{ !empty($addr->citta) ? strtoupper($addr->citta) : '' }}@if(!empty($addr->provincia)) ({{ strtoupper($addr->provincia) }})@endif<br>
+                            @endif
+                        @endif
                         @if(!empty($entity->partita_iva))P.IVA: {{ $entity->partita_iva }}<br>@endif
                         @if(!empty($entity->codice_fiscale))Cod. Fisc: {{ $entity->codice_fiscale }}@endif
                     </div>

@@ -104,6 +104,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::post('/restore-filters', [EntityController::class, 'restoreFilters'])->name('restore-filters');
 
             // Estratto Conto
+            Route::get('/{id}/account-statement/export-pdf',   [AccountStatementController::class, 'exportPdf'])->name('account-statement.export-pdf');
+            Route::get('/{id}/account-statement/export-excel', [AccountStatementController::class, 'exportExcel'])->name('account-statement.export-excel');
             Route::get('/{id}/account-statement', [AccountStatementController::class, 'index'])->name('account-statement');
         });
 

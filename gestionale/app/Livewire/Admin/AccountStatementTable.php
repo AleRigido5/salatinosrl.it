@@ -165,117 +165,72 @@ class AccountStatementTable extends Component
     public function loadTransactions()
     {
         $transactions = [];
-        $runningBalance = 0;
-        
-        // Query base per fatture di vendita
-        $invoiceQuery = InvoiceSent::where('id_entities', $this->entityId)
-            ->whereBetween('data_invoice', [$this->dateFrom, $this->dateTo]);
-        
-        // Applica filtri
-        if ($this->selectedOwnershipId) {
-            $invoiceQuery->where('id_ownership', $this->selectedOwnershipId);
-        }
-        if ($this->type_invoice) {
-            $invoiceQuery->where('type_invoice', $this->type_invoice);
-        }
-        if ($this->status) {
-            $invoiceQuery->where('status', $this->status);
-        }
-        if ($this->search) {
-            $invoiceQuery->where('n_invoice', 'like', '%' . $this->search . '%');
-        }
-        if ($this->selectedCostCenterId) {
-            $invoiceQuery->whereHas('rows', function($q) {
-                $q->where('id_cost_center', $this->selectedCostCenterId);
-            });
-        }
-        
-        // PER CLIENTI: fatture di vendita e incassi
-        if ($this->entity->entity_type == 'cliente' || $this->entity->entity_type == 'entrambi') {
-            
-            // FATTURE DI VENDITA
-            if ($this->statementType != 'payments') {
-                $invoices = $invoiceQuery->orderBy('data_invoice', 'asc')
-                    ->with('ownership')
-                    ->get();
-                
-                foreach ($invoices as $invoice) {
-                    $runningBalance += $invoice->importo_totale;
-                    
-                    $proprieta = '-';
-                    if ($invoice->ownership) {
-                        $proprieta = $invoice->ownership->RagAbbrev ?? $invoice->ownership->Rag_Soc_intest ?? '-';
-                    }
-                    
-                    $transactions[] = [
-                        'proprieta' => $proprieta,
-                        'descrizione' => $invoice->type_invoice == 'TD04' ? 'Nota di Credito' : 'Fattura di Vendita',
-                        'data' => $invoice->data_invoice,
-                        'n_fattura' => $invoice->n_invoice,
-                        'dare' => $invoice->type_invoice == 'TD04' ? 0 : $invoice->importo_totale,
-                        'avere' => $invoice->type_invoice == 'TD04' ? $invoice->importo_totale : 0,
-                        'saldo' => $runningBalance,
-                    ];
-                }
-            }
-            
-            // INCASSI
-            if ($this->statementType != 'invoices') {
-                $paymentQuery = DB::table('invoice_payments as p')
-                    ->join('invoices_sent as i', 'p.payable_id', '=', 'i.id')
-                    ->where('p.payable_type', InvoiceSent::class)
-                    ->where('i.id_entities', $this->entityId)
-                    ->whereBetween('p.due_date', [$this->dateFrom, $this->dateTo]);
-                
-                if ($this->selectedOwnershipId) {
-                    $paymentQuery->where('i.id_ownership', $this->selectedOwnershipId);
-                }
-                if ($this->type_invoice) {
-                    $paymentQuery->where('i.type_invoice', $this->type_invoice);
-                }
-                if ($this->search) {
-                    $paymentQuery->where('i.n_invoice', 'like', '%' . $this->search . '%');
-                }
-                
-                $payments = $paymentQuery->select(
-                        'p.due_date as date',
-                        'p.amount',
-                        'p.payment_method',
-                        'i.n_invoice',
-                        'i.id_ownership'
-                    )
-                    ->orderBy('p.due_date', 'asc')
-                    ->get();
-                
-                foreach ($payments as $payment) {
-                    $runningBalance -= $payment->amount;
-                    $method = $payment->payment_method ?? 'Bonifico';
-                    $methodLabel = $this->getPaymentMethodLabel($method);
-                    
-                    $proprieta = '-';
-                    $ownership = DB::table('ownership')->where('id_proprieta', $payment->id_ownership)->first();
-                    if ($ownership) {
-                        $proprieta = $ownership->RagAbbrev ?? $ownership->Rag_Soc_intest ?? '-';
-                    }
-                    
-                    $transactions[] = [
-                        'proprieta' => $proprieta,
-                        'descrizione' => 'Incasso ' . $methodLabel,
-                        'data' => $payment->date,
-                        'n_fattura' => $payment->n_invoice,
-                        'dare' => 0,
-                        'avere' => $payment->amount,
-                        'saldo' => $runningBalance,
-                    ];
-                }
+
+        // ==================== CLIENTE: fatture emesse a lui ====================
+        if (in_array($this->entity->entity_type, ['cliente', 'entrambi'])) {
+
+            $sent = InvoiceSent::where('id_entities', $this->entityId)
+                ->when($this->dateFrom && $this->dateTo, fn($q) => $q->whereBetween('data_invoice', [$this->dateFrom, $this->dateTo]))
+                ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
+                ->when($this->type_invoice, fn($q) => $q->where('type_invoice', $this->type_invoice))
+                ->when($this->status,       fn($q) => $q->where('status', $this->status))
+                ->when($this->search,       fn($q) => $q->where('n_invoice', 'like', '%' . $this->search . '%'))
+                ->with('ownership')
+                ->get();
+
+            foreach ($sent as $inv) {
+                $isNC = in_array($inv->type_invoice, ['TD04', 'TD08']);
+                $transactions[] = [
+                    'proprieta'   => $inv->ownership->RagAbbrev ?? $inv->ownership->Rag_Soc_intest ?? '-',
+                    'descrizione' => $isNC ? 'Nota di Credito emessa' : 'Fattura di Vendita',
+                    'data'        => $inv->data_invoice,
+                    'n_fattura'   => $inv->n_invoice,
+                    'dare'        => $isNC ? 0 : $inv->importo_totale,   // lui ci deve pagare
+                    'avere'       => $isNC ? $inv->importo_totale : 0,   // NC: gli restituiamo
+                    'saldo'       => 0,
+                ];
             }
         }
-        
-        // Ordina per data
-        usort($transactions, function($a, $b) {
-            return strtotime($a['data']) - strtotime($b['data']);
-        });
-        
+
+        // ==================== FORNITORE: fatture ricevute da lui ====================
+        if (in_array($this->entity->entity_type, ['fornitore', 'entrambi'])) {
+
+            $received = InvoiceReceived::where('id_entities', $this->entityId)
+                ->when($this->dateFrom && $this->dateTo, fn($q) => $q->whereBetween('data_invoice', [$this->dateFrom, $this->dateTo]))
+                ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
+                ->when($this->type_invoice, fn($q) => $q->where('type_invoice', $this->type_invoice))
+                ->when($this->status,       fn($q) => $q->where('status', $this->status))
+                ->when($this->search,       fn($q) => $q->where('n_invoice', 'like', '%' . $this->search . '%'))
+                ->with('ownership')
+                ->get();
+
+            foreach ($received as $inv) {
+                $isNC = in_array($inv->type_invoice, ['TD04', 'TD08']);
+                $transactions[] = [
+                    'proprieta'   => $inv->ownership->RagAbbrev ?? $inv->ownership->Rag_Soc_intest ?? '-',
+                    'descrizione' => $isNC ? 'Nota di Credito ricevuta' : 'Fattura di Acquisto',
+                    'data'        => $inv->data_invoice,
+                    'n_fattura'   => $inv->n_invoice,
+                    'dare'        => $isNC ? $inv->importo_totale : 0,   // NC: riduce il debito verso di lui
+                    'avere'       => $isNC ? 0 : $inv->importo_totale,   // noi dobbiamo pagargli
+                    'saldo'       => 0,
+                ];
+            }
+        }
+
+        // Ordina per data crescente
+        usort($transactions, fn($a, $b) => strcmp(
+            is_string($a['data']) ? $a['data'] : $a['data']->format('Y-m-d'),
+            is_string($b['data']) ? $b['data'] : $b['data']->format('Y-m-d')
+        ));
+
+        // Calcola saldo progressivo
+        $saldo = 0;
+        foreach ($transactions as &$row) {
+            $saldo += ($row['dare'] - $row['avere']);
+            $row['saldo'] = $saldo;
+        }
+
         $this->transactions = $transactions;
         $this->calculateTotals();
     }
@@ -291,6 +246,34 @@ class AccountStatementTable extends Component
         ];
         
         return $methods[$method] ?? $method ?? 'Bonifico';
+    }
+
+    public function getExportPdfUrl(): string
+    {
+        $params = ['id' => $this->entityId];
+        
+        if ($this->dateFrom)           $params['date_from']         = $this->dateFrom;
+        if ($this->dateTo)             $params['date_to']           = $this->dateTo;
+        if ($this->selectedOwnershipId) $params['ownership_id']     = $this->selectedOwnershipId;
+        if ($this->type_invoice)       $params['type_invoice']      = $this->type_invoice;
+        if ($this->status)             $params['status']            = $this->status;
+        if ($this->search)             $params['search']            = $this->search;
+        
+        return route('admin.entities.account-statement.export-pdf', $params);
+    }
+
+    public function getExportExcelUrl(): string
+    {
+        $params = ['id' => $this->entityId];
+        
+        if ($this->dateFrom)           $params['date_from']         = $this->dateFrom;
+        if ($this->dateTo)             $params['date_to']           = $this->dateTo;
+        if ($this->selectedOwnershipId) $params['ownership_id']     = $this->selectedOwnershipId;
+        if ($this->type_invoice)       $params['type_invoice']      = $this->type_invoice;
+        if ($this->status)             $params['status']            = $this->status;
+        if ($this->search)             $params['search']            = $this->search;
+        
+        return route('admin.entities.account-statement.export-excel', $params);
     }
     
     public function calculateTotals()

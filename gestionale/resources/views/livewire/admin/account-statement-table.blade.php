@@ -22,8 +22,8 @@
         </div>
         <div class="flex gap-2">
             <a href="{{ route('admin.entities.index') }}" 
-               class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
-                <i class="fas fa-arrow-left mr-2"></i> Torna ai Clienti/Fornitori
+               class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center" title="Torna alla lista">
+                <i class="fas fa-arrow-left"></i>
             </a>
         </div>
     </div>
@@ -295,6 +295,19 @@
                 <i class="fas fa-balance-scale text-gray-400 text-3xl"></i>
             </div>
         </div>
+    </div>
+
+    <div class="flex justify-end gap-3 mt-4">
+        <a href="{{ $this->getExportPdfUrl() }}" 
+            class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium transition-colors">
+            <i class="fas fa-file-pdf text-xl"></i>
+            <span>Esporta PDF</span>
+        </a>
+        <a href="{{ $this->getExportExcelUrl() }}" 
+            class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium transition-colors">
+            <i class="fas fa-file-excel text-xl"></i>
+            <span>Esporta Excel</span>
+        </a>
     </div>
     @endif
 </div>

@@ -71,7 +71,7 @@
 
             
             <!-- Autocomplete Fornitore -->
-            <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+            <div class="relative" x-data="{ open: false }" x-on:mousedown.away="open = false">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Fornitore</label>
                 <div class="relative">
                     <i class="fas fa-user absolute left-3 top-2.5 text-gray-400 text-sm"></i>
@@ -79,7 +79,7 @@
                         id="supplier_input"
                         wire:model.live.debounce.300ms="supplierSearch"
                         x-on:focus="open = true"
-                        x-on:input="open = true; @this.set('supplierSearch', $event.target.value)"
+                        x-on:input="open = true"
                         placeholder="Cerca fornitore..."
                         class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                         autocomplete="off">

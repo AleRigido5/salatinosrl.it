@@ -1,31 +1,39 @@
 <div>
     <!-- Filtri e Ricerca -->
-    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200" wire:key="filters-{{ $search }}-{{ $typeFilter }}-{{ $statusFilter }}">
+    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200" wire:key="filters-{{ $activeSearch }}-{{ $activeTypeFilter }}-{{ $activeStatusFilter }}">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="relative md:col-span-2">
                 <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
                 <input type="text" 
-                    wire:model.live.debounce.300ms="search" 
+                    wire:model="tempSearch" 
                     placeholder="Cerca per: P.IVA, Ragione Sociale, Nome, Cognome, Persona Riferimento, Città, Telefono, Email..." 
                     class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
             </div>
             
-            <select wire:model.live="typeFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+            <select wire:model="tempTypeFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 <option value="">Tutti i tipi</option>
                 @foreach($entityTypes as $key => $label)
                     <option value="{{ $key }}">{{ $label }}</option>
                 @endforeach
             </select>
             
-            <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
-                <option value="">Tutti gli stati</option>
-                <option value="active">Attivi</option>
-                <option value="inactive">Disattivi</option>
-            </select>
+            <div class="flex gap-2">
+                <select wire:model="tempStatusFilter" class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                    <option value="">Tutti gli stati</option>
+                    <option value="active">Attivi</option>
+                    <option value="inactive">Disattivi</option>
+                </select>
+                
+                <button wire:click="applyFilters" 
+                        class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                    <i class="fas fa-search"></i>
+                    <span>Applica</span>
+                </button>
+            </div>
         </div>
         
         <div class="flex justify-between items-center mt-4">
-            @if($search || $typeFilter || $statusFilter)
+            @if($activeSearch || $activeTypeFilter || $activeStatusFilter)
             <button wire:click="resetFilters" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
                 <i class="fas fa-sync-alt mr-1"></i>
                 Resetta filtri
@@ -33,29 +41,29 @@
             @endif
         </div>
         
-        @if($search || $typeFilter || $statusFilter)
+        @if($activeSearch || $activeTypeFilter || $activeStatusFilter)
         <div class="mt-3 flex flex-wrap items-center gap-2">
             <span class="text-sm text-gray-500">Filtri attivi:</span>
-            @if($search)
+            @if($activeSearch)
             <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
-                Ricerca: "{{ $search }}"
-                <button wire:click="$set('search', '')" class="ml-1 hover:text-lime-900">
+                Ricerca: "{{ $activeSearch }}"
+                <button wire:click="removeFilter('search')" class="ml-1 hover:text-lime-900">
                     <i class="fas fa-times text-xs"></i>
                 </button>
             </span>
             @endif
-            @if($typeFilter)
+            @if($activeTypeFilter)
             <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
-                Tipo: {{ $entityTypes[$typeFilter] ?? $typeFilter }}
-                <button wire:click="$set('typeFilter', '')" class="ml-1 hover:text-lime-900">
+                Tipo: {{ $entityTypes[$activeTypeFilter] ?? $activeTypeFilter }}
+                <button wire:click="removeFilter('type')" class="ml-1 hover:text-lime-900">
                     <i class="fas fa-times text-xs"></i>
                 </button>
             </span>
             @endif
-            @if($statusFilter)
+            @if($activeStatusFilter)
             <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
-                Stato: {{ $statusFilter === 'active' ? 'Attivi' : 'Disattivi' }}
-                <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-lime-900">
+                Stato: {{ $activeStatusFilter === 'active' ? 'Attivi' : 'Disattivi' }}
+                <button wire:click="removeFilter('status')" class="ml-1 hover:text-lime-900">
                     <i class="fas fa-times text-xs"></i>
                 </button>
             </span>

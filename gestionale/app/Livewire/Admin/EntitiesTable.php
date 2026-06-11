@@ -16,9 +16,16 @@ class EntitiesTable extends Component
 {
     use WithPagination;
 
-    public $search = '';
-    public $typeFilter = '';
-    public $statusFilter = '';
+    // Filtri attivi (quelli applicati)
+    public $activeSearch = '';
+    public $activeTypeFilter = '';
+    public $activeStatusFilter = '';
+    
+    // Filtri temporanei (quelli nel form)
+    public $tempSearch = '';
+    public $tempTypeFilter = '';
+    public $tempStatusFilter = '';
+    
     public $perPage = 15;
     public $sortField = 'ragione_sociale';
     public $sortDirection = 'asc';
@@ -53,7 +60,7 @@ class EntitiesTable extends Component
     // Contatore cestino
     public $trashCount = 0;
     
-    protected $queryString = ['search', 'typeFilter', 'statusFilter'];
+    protected $queryString = ['activeSearch', 'activeTypeFilter', 'activeStatusFilter'];
     
     protected $listeners = [
         'refreshTable' => 'refreshTable',
@@ -69,6 +76,14 @@ class EntitiesTable extends Component
     public function mount()
     {
         $this->updateTrashCount();
+        $this->syncTempFilters();
+    }
+    
+    public function syncTempFilters()
+    {
+        $this->tempSearch = $this->activeSearch;
+        $this->tempTypeFilter = $this->activeTypeFilter;
+        $this->tempStatusFilter = $this->activeStatusFilter;
     }
     
     public function refreshTable()
@@ -86,21 +101,6 @@ class EntitiesTable extends Component
             $this->sortField = $field;
             $this->sortDirection = 'asc';
         }
-        $this->resetPage();
-    }
-    
-    public function updatingSearch()
-    {
-        $this->resetPage();
-    }
-    
-    public function updatingTypeFilter()
-    {
-        $this->resetPage();
-    }
-    
-    public function updatingStatusFilter()
-    {
         $this->resetPage();
     }
     
@@ -159,9 +159,9 @@ class EntitiesTable extends Component
     {
         $query = Entity::query();
         
-        // Filtro di ricerca
-        if ($this->search) {
-            $searchTerm = '%' . $this->search . '%';
+        // Filtro di ricerca - usa activeSearch
+        if ($this->activeSearch) {
+            $searchTerm = '%' . $this->activeSearch . '%';
             $query->where(function($q) use ($searchTerm) {
                 $q->where('ragione_sociale', 'like', $searchTerm)
                   ->orWhere('nome', 'like', $searchTerm)
@@ -191,14 +191,14 @@ class EntitiesTable extends Component
             });
         }
         
-        // Filtro per tipo entità
-        if ($this->typeFilter) {
-            $query->where('entity_type', $this->typeFilter);
+        // Filtro per tipo entità - usa activeTypeFilter
+        if ($this->activeTypeFilter) {
+            $query->where('entity_type', $this->activeTypeFilter);
         }
         
-        // Filtro per stato
-        if ($this->statusFilter !== '') {
-            $query->where('valid', $this->statusFilter === 'active');
+        // Filtro per stato - usa activeStatusFilter
+        if ($this->activeStatusFilter !== '') {
+            $query->where('valid', $this->activeStatusFilter === 'active');
         }
         
         // Ordina
@@ -213,6 +213,49 @@ class EntitiesTable extends Component
             'createdBy',
             'updatedBy'
         ])->paginate($this->perPage);
+    }
+    
+    // ==================== METODI PER I FILTRI ====================
+    
+    public function applyFilters()
+    {
+        $this->activeSearch = $this->tempSearch;
+        $this->activeTypeFilter = $this->tempTypeFilter;
+        $this->activeStatusFilter = $this->tempStatusFilter;
+        $this->resetPage();
+        $this->dispatch('filters-applied');
+    }
+    
+    public function removeFilter($filter)
+    {
+        switch($filter) {
+            case 'search':
+                $this->activeSearch = '';
+                $this->tempSearch = '';
+                break;
+            case 'type':
+                $this->activeTypeFilter = '';
+                $this->tempTypeFilter = '';
+                break;
+            case 'status':
+                $this->activeStatusFilter = '';
+                $this->tempStatusFilter = '';
+                break;
+        }
+        $this->resetPage();
+        $this->dispatch('filter-removed');
+    }
+    
+    public function resetFilters()
+    {
+        $this->activeSearch = '';
+        $this->activeTypeFilter = '';
+        $this->activeStatusFilter = '';
+        $this->tempSearch = '';
+        $this->tempTypeFilter = '';
+        $this->tempStatusFilter = '';
+        $this->resetPage();
+        $this->dispatch('filters-reset');
     }
     
     // ==================== METODI PER IL CESTINO ====================
@@ -435,15 +478,6 @@ class EntitiesTable extends Component
         } catch (\Exception $e) {
             $this->dispatch('showError', message: 'Errore durante il cambio di stato: ' . $e->getMessage());
         }
-    }
-    
-    // ==================== METODI FILTRI ====================
-    
-    public function resetFilters()
-    {
-        $this->reset(['search', 'typeFilter', 'statusFilter']);
-        $this->resetPage();
-        $this->dispatch('filters-reset');
     }
     
     // ==================== METODI INSERIMENTO ====================

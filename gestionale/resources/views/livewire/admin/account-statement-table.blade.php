@@ -202,7 +202,16 @@
                 @forelse($transactions as $transaction)
                 <tr class="hover:bg-gray-50">
                     <td class="px-4 py-3 text-sm">{{ $transaction['proprieta'] }}</td>
-                    <td class="px-4 py-3 text-sm">{{ $transaction['descrizione'] }}</td>
+                    {{-- <td class="px-4 py-3 text-sm">{{ $transaction['descrizione'] }}</td> --}}
+                    <!-- QUESTO È IL TD DELLA DESCRIZIONE - MODIFICA QUESTO -->
+                    <td class="px-4 py-3 text-sm">
+                        @if(isset($transaction['type']) && $transaction['type'] == 'payment')
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800 mr-2">
+                                <i class="fas fa-credit-card mr-1 text-xs"></i> Pagamento
+                            </span>
+                        @endif
+                        {{ $transaction['descrizione'] }}
+                    </td>
                     <td class="px-4 py-3 text-sm whitespace-nowrap">{{ \Carbon\Carbon::parse($transaction['data'])->format('d/m/Y') }}</td>
                     <td class="px-4 py-3 text-sm font-mono">{{ $transaction['n_fattura'] }}</td>
                     <td class="px-4 py-3 text-sm text-right">

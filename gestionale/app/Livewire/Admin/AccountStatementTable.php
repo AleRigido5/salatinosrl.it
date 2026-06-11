@@ -6,6 +6,7 @@ use Livewire\Component;
 use App\Models\Entity;
 use App\Models\InvoiceSent;
 use App\Models\InvoiceReceived;
+use App\Models\InvoicePayment;
 use App\Models\Ownership;
 use App\Models\CostCenter;
 use Illuminate\Support\Facades\DB;
@@ -162,6 +163,9 @@ class AccountStatementTable extends Component
         $this->loadTransactions();
     }
     
+    /**
+     * CARICA TUTTI I MOVIMENTI (FATTURE + PAGAMENTI)
+     */
     public function loadTransactions()
     {
         $transactions = [];
@@ -181,6 +185,7 @@ class AccountStatementTable extends Component
             foreach ($sent as $inv) {
                 $isNC = in_array($inv->type_invoice, ['TD04', 'TD08']);
                 $transactions[] = [
+                    'id'          => 'invoice_sent_' . $inv->id,
                     'proprieta'   => $inv->ownership->RagAbbrev ?? $inv->ownership->Rag_Soc_intest ?? '-',
                     'descrizione' => $isNC ? 'Nota di Credito emessa' : 'Fattura di Vendita',
                     'data'        => $inv->data_invoice,
@@ -188,7 +193,30 @@ class AccountStatementTable extends Component
                     'dare'        => $isNC ? 0 : $inv->importo_totale,   // lui ci deve pagare
                     'avere'       => $isNC ? $inv->importo_totale : 0,   // NC: gli restituiamo
                     'saldo'       => 0,
+                    'type'        => 'invoice',
                 ];
+                
+                // AGGIUNGI I PAGAMENTI DELLA FATTURA (se ce ne sono)
+                $payments = InvoicePayment::where('payable_id', $inv->id)
+                    ->where('payable_type', InvoiceSent::class)
+                    ->where('paid_amount', '>', 0)
+                    ->when($this->dateFrom && $this->dateTo, fn($q) => $q->whereBetween('paid_at', [$this->dateFrom, $this->dateTo]))
+                    ->get();
+                    
+                foreach ($payments as $payment) {
+                    $transactions[] = [
+                        'id'          => 'payment_sent_' . $payment->id,
+                        'proprieta'   => $inv->ownership->RagAbbrev ?? $inv->ownership->Rag_Soc_intest ?? '-',
+                        'descrizione' => 'Pagamento ricevuto per fattura ' . $inv->n_invoice . ' (' . $payment->getPaymentMethodLabelAttribute() . ')',
+                        'data'        => $payment->paid_at ?? $payment->due_date,
+                        'n_fattura'   => $inv->n_invoice,
+                        'dare'        => 0,
+                        'avere'       => $payment->paid_amount,  // Riduce il credito
+                        'saldo'       => 0,
+                        'type'        => 'payment',
+                        'payment_id'  => $payment->id,
+                    ];
+                }
             }
         }
 
@@ -207,6 +235,7 @@ class AccountStatementTable extends Component
             foreach ($received as $inv) {
                 $isNC = in_array($inv->type_invoice, ['TD04', 'TD08']);
                 $transactions[] = [
+                    'id'          => 'invoice_received_' . $inv->id,
                     'proprieta'   => $inv->ownership->RagAbbrev ?? $inv->ownership->Rag_Soc_intest ?? '-',
                     'descrizione' => $isNC ? 'Nota di Credito ricevuta' : 'Fattura di Acquisto',
                     'data'        => $inv->data_invoice,
@@ -214,15 +243,35 @@ class AccountStatementTable extends Component
                     'dare'        => $isNC ? $inv->importo_totale : 0,   // NC: riduce il debito verso di lui
                     'avere'       => $isNC ? 0 : $inv->importo_totale,   // noi dobbiamo pagargli
                     'saldo'       => 0,
+                    'type'        => 'invoice',
                 ];
+                
+                // AGGIUNGI I PAGAMENTI DELLA FATTURA (se ce ne sono)
+                $payments = InvoicePayment::where('payable_id', $inv->id)
+                    ->where('payable_type', InvoiceReceived::class)
+                    ->where('paid_amount', '>', 0)
+                    ->when($this->dateFrom && $this->dateTo, fn($q) => $q->whereBetween('paid_at', [$this->dateFrom, $this->dateTo]))
+                    ->get();
+                    
+                foreach ($payments as $payment) {
+                    $transactions[] = [
+                        'id'          => 'payment_received_' . $payment->id,
+                        'proprieta'   => $inv->ownership->RagAbbrev ?? $inv->ownership->Rag_Soc_intest ?? '-',
+                        'descrizione' => 'Pagamento effettuato per fattura ' . $inv->n_invoice . ' (' . $payment->getPaymentMethodLabelAttribute() . ')',
+                        'data'        => $payment->paid_at ?? $payment->due_date,
+                        'n_fattura'   => $inv->n_invoice,
+                        'dare'        => $payment->paid_amount,   // Riduce il debito (DARE)
+                        'avere'       => 0,
+                        'saldo'       => 0,
+                        'type'        => 'payment',
+                        'payment_id'  => $payment->id,
+                    ];
+                }
             }
         }
 
         // Ordina per data crescente
-        usort($transactions, fn($a, $b) => strcmp(
-            is_string($a['data']) ? $a['data'] : $a['data']->format('Y-m-d'),
-            is_string($b['data']) ? $b['data'] : $b['data']->format('Y-m-d')
-        ));
+        usort($transactions, fn($a, $b) => strcmp($a['data'], $b['data']));
 
         // Calcola saldo progressivo
         $saldo = 0;

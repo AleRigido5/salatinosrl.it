@@ -230,6 +230,47 @@
                                     <i class="fa-solid fa-scale-balanced"></i>
                                 </a>
 
+                                {{-- PDF Fatture di Vendita collegate --}}
+                                @php
+                                    $invoiceSentIds = \App\Models\InvoiceRow::where('id_cost_center', $center->id)
+                                        ->where('document_type', 'invoice_sent')
+                                        ->pluck('document_id')
+                                        ->unique();
+                                @endphp
+                                @foreach($invoiceSentIds as $invoiceId)
+                                    <a href="{{ route('admin.invoices-sent.preview', $invoiceId) }}"
+                                    target="_blank"
+                                    class="text-red-500 hover:text-red-700 transition-colors text-base"
+                                    title="PDF Fattura di Vendita #{{ $invoiceId }}">
+                                        <i class="fas fa-file-pdf"></i>
+                                    </a>
+                                @endforeach
+
+                                {{-- PDF Allegati Fatture di Acquisto da S3 --}}
+                                @php
+                                    $invoiceReceivedIds = \App\Models\InvoiceRow::where('id_cost_center', $center->id)
+                                        ->where('document_type', 'invoice_received')
+                                        ->pluck('document_id')
+                                        ->unique();
+
+                                    $s3Attachments = \App\Models\InvoiceReceived::whereIn('id', $invoiceReceivedIds)
+                                        ->whereNotNull('attachment')
+                                        ->get(['id', 'n_invoice', 'attachment']);
+                                @endphp
+                                @foreach($s3Attachments as $inv)
+                                    @php
+                                        $urls = json_decode($inv->attachment, true) ?? [];
+                                    @endphp
+                                    @foreach($urls as $url)
+                                        <a href="{{ $url }}"
+                                        target="_blank"
+                                        class="text-orange-500 hover:text-orange-700 transition-colors text-base"
+                                        title="Allegato Fattura Acquisto {{ $inv->n_invoice }}">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </a>
+                                    @endforeach
+                                @endforeach
+
                                 @if(auth()->guard('admin')->user()->hasPermission('view_cost_centers'))
                                 <button wire:click="viewCostCenter({{ $center->id }})" 
                                         wire:key="view-{{ $center->id }}"

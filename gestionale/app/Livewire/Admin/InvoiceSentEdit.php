@@ -580,15 +580,27 @@ class InvoiceSentEdit extends Component
     public function updatedServiceSearch($value, $index): void
     {
         $idx = (int)$index;
-        
-        if (isset($this->selectedServiceId[$idx]) && 
-            $this->serviceSearch[$idx] === ($this->selectedServiceName[$idx] ?? '')) {
-            $this->showServiceDropdown[$idx] = false;
-            return;
-        }
 
         if (strlen($value) < 2) {
             $this->serviceResults[$idx] = [];
+            $this->showServiceDropdown[$idx] = false;
+            
+            if ($value === '') {
+                $this->rows[$idx]['id_service'] = null;
+                $this->selectedServiceId[$idx] = null;
+                $this->selectedServiceName[$idx] = '';
+            }
+            return;
+        }
+        
+        if ($value !== ($this->selectedServiceName[$idx] ?? '')) {
+            $this->rows[$idx]['id_service'] = null;
+            $this->selectedServiceId[$idx] = null;
+            $this->selectedServiceName[$idx] = '';
+        }
+        
+        if (isset($this->selectedServiceId[$idx]) && 
+            $this->serviceSearch[$idx] === ($this->selectedServiceName[$idx] ?? '')) {
             $this->showServiceDropdown[$idx] = false;
             return;
         }
@@ -607,7 +619,7 @@ class InvoiceSentEdit extends Component
 
         $this->showServiceDropdown[$idx] = count($this->serviceResults[$idx]) > 0;
     }
-    
+
 
     // Modifica il metodo selectService (circa riga 350)
     public function selectService(int $index, int $serviceId, string $serviceName, string $descrFattura, $prezzoUn): void

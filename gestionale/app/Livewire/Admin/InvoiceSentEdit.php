@@ -607,6 +607,7 @@ class InvoiceSentEdit extends Component
 
         $this->showServiceDropdown[$idx] = count($this->serviceResults[$idx]) > 0;
     }
+    
 
     // Modifica il metodo selectService (circa riga 350)
     public function selectService(int $index, int $serviceId, string $serviceName, string $descrFattura, $prezzoUn): void

@@ -37,8 +37,12 @@ class InvoiceRow extends Model
 
     public function invoiceReceived(): BelongsTo
     {
-        return $this->belongsTo(InvoiceReceived::class, 'document_id')
-            ->where('document_type', 'invoice_received');
+        return $this->belongsTo(InvoiceReceived::class, 'document_id');
+    }
+
+    public function invoiceSent(): BelongsTo
+    {
+        return $this->belongsTo(InvoiceSent::class, 'document_id');
     }
 
     public function costCenter(): BelongsTo

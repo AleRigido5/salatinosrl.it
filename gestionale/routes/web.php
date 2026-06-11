@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\EntityController;
+use App\Http\Controllers\Admin\CostCenterDetailController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\ContactController;
 use App\Http\Controllers\Admin\StaffController;
@@ -185,6 +186,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::put('/{id}', [CostCenterController::class, 'update'])->name('update');
             Route::delete('/{id}', [CostCenterController::class, 'destroy'])->name('destroy');
             Route::post('/{id}/toggle-status', [CostCenterController::class, 'toggleStatus'])->name('toggle-status');
+
+            Route::get('/{costCenterId}/detail', [CostCenterDetailController::class, 'index'])->name('detail');
         });
 
         // =============================================

@@ -223,6 +223,13 @@
                         <!-- Azioni -->
                         <td class="px-4 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
+                                {{-- Dettaglio fatture + attività --}}
+                                <a href="{{ route('admin.cost_centers.detail', $center->id) }}"
+                                    class="text-lime-600 hover:text-lime-800 transition-colors text-base"
+                                    title="Fatture & Attività">
+                                    <i class="fa-solid fa-scale-balanced"></i>
+                                </a>
+
                                 @if(auth()->guard('admin')->user()->hasPermission('view_cost_centers'))
                                 <button wire:click="viewCostCenter({{ $center->id }})" 
                                         wire:key="view-{{ $center->id }}"

@@ -541,7 +541,21 @@ class InvoiceSentEdit extends Component
         if (strlen($value) < 2) {
             $this->costCenterResults[$index] = [];
             $this->showCostCenterDropdown[$index] = false;
+            
+            // Se il campo è vuoto, azzera anche il valore nella riga
+            if ($value === '') {
+                $this->rows[$index]['id_cost_center'] = null;
+                $this->selectedCostCenterId[$index] = '';
+                $this->selectedCostCenterName[$index] = '';
+            }
             return;
+        }
+        
+        // Se il testo cambia rispetto al nome selezionato, deseleziona
+        if ($value !== ($this->selectedCostCenterName[$index] ?? '')) {
+            $this->rows[$index]['id_cost_center'] = null;
+            $this->selectedCostCenterId[$index] = '';
+            $this->selectedCostCenterName[$index] = '';
         }
         
         $this->costCenterResults[$index] = CostCenter::where('valid', 1)

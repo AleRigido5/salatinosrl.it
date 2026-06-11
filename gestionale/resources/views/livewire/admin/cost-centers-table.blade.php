@@ -270,6 +270,7 @@
                                         </a>
                                     @endforeach
                                 @endforeach
+                                
 
                                 @if(auth()->guard('admin')->user()->hasPermission('view_cost_centers'))
                                 <button wire:click="viewCostCenter({{ $center->id }})" 

@@ -164,7 +164,7 @@ class AccountStatementTable extends Component
     }
     
     /**
-     * CARICA TUTTI I MOVIMENTI (FATTURE + PAGAMENTI)
+     * CARICA TUTTI I MOVIMENTI (FATTURE + PAGAMENTI RAGGRUPPATI)
      */
     public function loadTransactions()
     {
@@ -195,28 +195,6 @@ class AccountStatementTable extends Component
                     'saldo'       => 0,
                     'type'        => 'invoice',
                 ];
-                
-                // AGGIUNGI I PAGAMENTI DELLA FATTURA (se ce ne sono)
-                $payments = InvoicePayment::where('payable_id', $inv->id)
-                    ->where('payable_type', InvoiceSent::class)
-                    ->where('paid_amount', '>', 0)
-                    ->when($this->dateFrom && $this->dateTo, fn($q) => $q->whereBetween('paid_at', [$this->dateFrom, $this->dateTo]))
-                    ->get();
-                    
-                foreach ($payments as $payment) {
-                    $transactions[] = [
-                        'id'          => 'payment_sent_' . $payment->id,
-                        'proprieta'   => $inv->ownership->RagAbbrev ?? $inv->ownership->Rag_Soc_intest ?? '-',
-                        'descrizione' => 'Pagamento ricevuto per fattura ' . $inv->n_invoice . ' (' . $payment->getPaymentMethodLabelAttribute() . ')',
-                        'data'        => $payment->paid_at ?? $payment->due_date,
-                        'n_fattura'   => $inv->n_invoice,
-                        'dare'        => 0,
-                        'avere'       => $payment->paid_amount,  // Riduce il credito
-                        'saldo'       => 0,
-                        'type'        => 'payment',
-                        'payment_id'  => $payment->id,
-                    ];
-                }
             }
         }
 
@@ -240,35 +218,162 @@ class AccountStatementTable extends Component
                     'descrizione' => $isNC ? 'Nota di Credito ricevuta' : 'Fattura di Acquisto',
                     'data'        => $inv->data_invoice,
                     'n_fattura'   => $inv->n_invoice,
-                    'dare'        => $isNC ? $inv->importo_totale : 0,   // NC: riduce il debito verso di lui
-                    'avere'       => $isNC ? 0 : $inv->importo_totale,   // noi dobbiamo pagargli
+                    'dare'        => $isNC ? $inv->importo_totale : 0,   // NC: riduce il debito (DARE)
+                    'avere'       => $isNC ? 0 : $inv->importo_totale,   // fattura: aumenta il debito (AVERE)
                     'saldo'       => 0,
                     'type'        => 'invoice',
                 ];
-                
-                // AGGIUNGI I PAGAMENTI DELLA FATTURA (se ce ne sono)
-                $payments = InvoicePayment::where('payable_id', $inv->id)
-                    ->where('payable_type', InvoiceReceived::class)
-                    ->where('paid_amount', '>', 0)
-                    ->when($this->dateFrom && $this->dateTo, fn($q) => $q->whereBetween('paid_at', [$this->dateFrom, $this->dateTo]))
-                    ->get();
-                    
-                foreach ($payments as $payment) {
-                    $transactions[] = [
-                        'id'          => 'payment_received_' . $payment->id,
-                        'proprieta'   => $inv->ownership->RagAbbrev ?? $inv->ownership->Rag_Soc_intest ?? '-',
-                        'descrizione' => 'Pagamento effettuato per fattura ' . $inv->n_invoice . ' (' . $payment->getPaymentMethodLabelAttribute() . ')',
-                        'data'        => $payment->paid_at ?? $payment->due_date,
-                        'n_fattura'   => $inv->n_invoice,
-                        'dare'        => $payment->paid_amount,   // Riduce il debito (DARE)
-                        'avere'       => 0,
-                        'saldo'       => 0,
-                        'type'        => 'payment',
-                        'payment_id'  => $payment->id,
-                    ];
-                }
             }
         }
+
+        // ==================== RAGGRUPPA I PAGAMENTI PER I FORNITORI ====================
+        $paymentsData = [];
+
+        if (in_array($this->entity->entity_type, ['fornitore', 'entrambi'])) {
+            
+            // Query per i pagamenti delle fatture ricevute
+            $paymentQuery = InvoicePayment::whereHas('payable', function($q) {
+                    $q->where('id_entities', $this->entityId);
+                })
+                ->where('payable_type', InvoiceReceived::class)
+                ->where('paid_amount', '>', 0)
+                ->when($this->dateFrom && $this->dateTo, fn($q) => $q->whereBetween('paid_at', [$this->dateFrom, $this->dateTo]));
+            
+            // Applica gli stessi filtri delle fatture
+            if ($this->selectedOwnershipId) {
+                $paymentQuery->whereHas('payable', fn($q) => $q->where('id_ownership', $this->selectedOwnershipId));
+            }
+            if ($this->type_invoice) {
+                $paymentQuery->whereHas('payable', fn($q) => $q->where('type_invoice', $this->type_invoice));
+            }
+            if ($this->search) {
+                $paymentQuery->whereHas('payable', fn($q) => $q->where('n_invoice', 'like', '%' . $this->search . '%'));
+            }
+            
+            $payments = $paymentQuery->with(['payable.ownership'])->get();
+            
+            // Raggruppa i pagamenti per data e metodo di pagamento
+            $groupedPayments = [];
+            foreach ($payments as $payment) {
+                $paymentDate = $payment->paid_at ? $payment->paid_at->format('Y-m-d') : null;
+                if (!$paymentDate) continue;
+                
+                $method = $payment->getPaymentMethodLabelAttribute();
+                $proprieta = $payment->payable->ownership->RagAbbrev ?? $payment->payable->ownership->Rag_Soc_intest ?? '-';
+                
+                $groupKey = $paymentDate . '_' . $method . '_' . $proprieta;
+                
+                if (!isset($groupedPayments[$groupKey])) {
+                    $groupedPayments[$groupKey] = [
+                        'proprieta' => $proprieta,
+                        'data' => $paymentDate,
+                        'method' => $method,
+                        'total_amount' => 0,
+                        'invoices' => []
+                    ];
+                }
+                
+                $groupedPayments[$groupKey]['total_amount'] += $payment->paid_amount;
+                $groupedPayments[$groupKey]['invoices'][] = $payment->payable->n_invoice;
+            }
+            
+            // Crea una riga di pagamento per ogni gruppo
+            foreach ($groupedPayments as $group) {
+                $descrizione = 'Pagamento fatture ' . implode(', ', array_unique($group['invoices'])) . ' (' . $group['method'] . ')';
+                
+                // Se ci sono troppe fatture, accorcia la descrizione
+                if (count($group['invoices']) > 3) {
+                    $descrizione = 'Pagamento ' . count($group['invoices']) . ' fatture (' . $group['method'] . ')';
+                }
+                
+                $paymentsData[] = [
+                    'id'          => 'payment_group_' . md5($group['data'] . $group['method']),
+                    'proprieta'   => $group['proprieta'],
+                    'descrizione' => $descrizione,
+                    'data'        => $group['data'],
+                    'n_fattura'   => '',  // Vuoto per il riepilogo
+                    'dare'        => $group['total_amount'],   // Il pagamento va in DARE
+                    'avere'       => 0,
+                    'saldo'       => 0,
+                    'type'        => 'payment_group',
+                ];
+            }
+        }
+
+        // ==================== RAGGRUPPA I PAGAMENTI PER I CLIENTI ====================
+        if (in_array($this->entity->entity_type, ['cliente', 'entrambi'])) {
+            
+            // Query per i pagamenti ricevuti dai clienti
+            $paymentQuery = InvoicePayment::whereHas('payable', function($q) {
+                    $q->where('id_entities', $this->entityId);
+                })
+                ->where('payable_type', InvoiceSent::class)
+                ->where('paid_amount', '>', 0)
+                ->when($this->dateFrom && $this->dateTo, fn($q) => $q->whereBetween('paid_at', [$this->dateFrom, $this->dateTo]));
+            
+            // Applica gli stessi filtri delle fatture
+            if ($this->selectedOwnershipId) {
+                $paymentQuery->whereHas('payable', fn($q) => $q->where('id_ownership', $this->selectedOwnershipId));
+            }
+            if ($this->type_invoice) {
+                $paymentQuery->whereHas('payable', fn($q) => $q->where('type_invoice', $this->type_invoice));
+            }
+            if ($this->search) {
+                $paymentQuery->whereHas('payable', fn($q) => $q->where('n_invoice', 'like', '%' . $this->search . '%'));
+            }
+            
+            $payments = $paymentQuery->with(['payable.ownership'])->get();
+            
+            // Raggruppa i pagamenti per data e metodo di pagamento
+            $groupedPayments = [];
+            foreach ($payments as $payment) {
+                $paymentDate = $payment->paid_at ? $payment->paid_at->format('Y-m-d') : null;
+                if (!$paymentDate) continue;
+                
+                $method = $payment->getPaymentMethodLabelAttribute();
+                $proprieta = $payment->payable->ownership->RagAbbrev ?? $payment->payable->ownership->Rag_Soc_intest ?? '-';
+                
+                $groupKey = $paymentDate . '_' . $method . '_' . $proprieta;
+                
+                if (!isset($groupedPayments[$groupKey])) {
+                    $groupedPayments[$groupKey] = [
+                        'proprieta' => $proprieta,
+                        'data' => $paymentDate,
+                        'method' => $method,
+                        'total_amount' => 0,
+                        'invoices' => []
+                    ];
+                }
+                
+                $groupedPayments[$groupKey]['total_amount'] += $payment->paid_amount;
+                $groupedPayments[$groupKey]['invoices'][] = $payment->payable->n_invoice;
+            }
+            
+            // Crea una riga di pagamento per ogni gruppo
+            foreach ($groupedPayments as $group) {
+                $descrizione = 'Pagamento ricevuto fatture ' . implode(', ', array_unique($group['invoices'])) . ' (' . $group['method'] . ')';
+                
+                // Se ci sono troppe fatture, accorcia la descrizione
+                if (count($group['invoices']) > 3) {
+                    $descrizione = 'Pagamento ricevuto ' . count($group['invoices']) . ' fatture (' . $group['method'] . ')';
+                }
+                
+                $paymentsData[] = [
+                    'id'          => 'payment_group_client_' . md5($group['data'] . $group['method']),
+                    'proprieta'   => $group['proprieta'],
+                    'descrizione' => $descrizione,
+                    'data'        => $group['data'],
+                    'n_fattura'   => '',  // Vuoto per il riepilogo
+                    'dare'        => 0,   // Per i clienti, il pagamento va in AVERE
+                    'avere'       => $group['total_amount'],
+                    'saldo'       => 0,
+                    'type'        => 'payment_group',
+                ];
+            }
+        }
+
+        // Unisci fatture e pagamenti raggruppati
+        $transactions = array_merge($transactions, $paymentsData);
 
         // Ordina per data crescente
         usort($transactions, fn($a, $b) => strcmp($a['data'], $b['data']));

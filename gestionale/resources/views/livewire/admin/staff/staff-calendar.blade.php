@@ -216,7 +216,7 @@
     <div class="bg-white rounded-lg shadow p-4 mb-4 border border-gray-200">
         <!-- RIGA SUPERIORE: Date Range Filter -->
         @livewire('components.date-range-filter', [
-            'dateFrom' => $dateFrom, 
+            'dateFrom' => $dateFrom,
             'dateTo' => $dateTo
         ], key('date-filter-' . $dateFrom . $dateTo))
         

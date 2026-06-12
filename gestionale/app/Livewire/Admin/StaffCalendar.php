@@ -42,7 +42,10 @@ class StaffCalendar extends Component
     public string $sortField = 'data_fine';
     public string $sortDirection = 'asc';
     
-    protected $listeners = ['refreshCalendar' => '$refresh'];
+    protected $listeners = [
+        'refreshCalendar' => '$refresh',
+        'dateRangeUpdated' => 'updateDateRange', 
+    ];
     
     public function mount()
     {
@@ -116,6 +119,13 @@ class StaffCalendar extends Component
     public function selectDate($date)
     {
         $this->selectedDate = $date;
+    }
+
+    public function updateDateRange(array $data): void
+    {
+        $this->dateFrom = $data['date_from'];
+        $this->dateTo = $data['date_to'];
+        $this->resetPage();
     }
     
     public function toggleType($typeId)
@@ -375,7 +385,15 @@ class StaffCalendar extends Component
         $this->resetPage();
     }
     
-    public function resetTableFilters()
+    public function clearDates(): void
+    {
+        $this->dateFrom = '';
+        $this->dateTo = '';
+        $this->resetPage();
+        $this->dispatch('resetDates'); 
+    }
+
+    public function resetTableFilters(): void
     {
         $this->dateFrom = '';
         $this->dateTo = '';
@@ -385,13 +403,7 @@ class StaffCalendar extends Component
         $this->expirationStatus = '';
         $this->selectedType = '';
         $this->resetPage();
-    }
-
-    public function clearDates()
-    {
-        $this->dateFrom = '';
-        $this->dateTo = '';
-        $this->resetPage();
+        $this->dispatch('resetDates');  
     }
     
     public function getExportPdfUrl()

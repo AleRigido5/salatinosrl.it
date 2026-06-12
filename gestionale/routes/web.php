@@ -130,32 +130,40 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // GESTIONE PERSONALE (STAFF)
         // =============================================
         Route::prefix('staff')->name('staff.')->group(function () {
+            
+            // ✅ Route statiche PRIMA (nessun parametro)
             Route::get('/', [StaffController::class, 'index'])->name('index');
             Route::get('/create', [StaffController::class, 'create'])->name('create');
             Route::post('/', [StaffController::class, 'store'])->name('store');
-            Route::get('/{staff}', [StaffController::class, 'show'])->name('show');
-            Route::get('/{staff}/edit', [StaffController::class, 'edit'])->name('edit');
-            Route::put('/{staff}', [StaffController::class, 'update'])->name('update');
-            Route::delete('/{staff}', [StaffController::class, 'destroy'])->name('destroy');
-            Route::post('/{staff}/toggle-status', [StaffController::class, 'toggleStatus'])->name('toggle-status');
 
-            // Report attività per staff
-            Route::get('/{staff}/activity-report', [StaffController::class, 'activityReport'])->name('activity-report');
-            
-            // Routes per aggiornamenti tooltip (parametri singoli)
+            // ✅ Bulk update (stringa fissa, PRIMA di /{staff})
+            Route::post('/bulk-update-costo/{staffId}', [StaffController::class, 'bulkUpdateCosto'])->name('bulk-update-costo');
+
+            // ✅ Routes per aggiornamenti tooltip (stringhe fisse, PRIMA di /{staff})
             Route::post('/update-ore/{staffDetailId}', [StaffController::class, 'updateOre'])->name('update-ore');
             Route::post('/update-costo-orario/{staffDetailId}', [StaffController::class, 'updateCostoOrario'])->name('update-costo-orario');
             Route::post('/update-spese/{staffDetailId}', [StaffController::class, 'updateSpese'])->name('update-spese');
             Route::post('/update-activity-note/{activityId}', [StaffController::class, 'updateActivityNote'])->name('update-activity-note');
             Route::post('/update-staff-note/{staffDetailId}', [StaffController::class, 'updateStaffNote'])->name('update-staff-note');
-            
-            // Bulk update - deve essere DOPO le route con parametri fissi e prima della route con {staff} generico
-            Route::post('/bulk-update-costo/{staffId}', [StaffController::class, 'bulkUpdateCosto'])->name('bulk-update-costo');
-                
-            // Export Report PDF ed Excel
+
+            // ✅ CALENDARIO (stringa fissa, PRIMA di /{staff})
+            Route::get('/calendar', function () {
+                return view('admin.staff.calendar');
+            })->name('calendar');
+            Route::get('/calendar/export-pdf', [App\Http\Controllers\Admin\StaffCalendarController::class, 'exportPdf'])->name('calendar.export-pdf');
+            Route::get('/calendar/export-excel', [App\Http\Controllers\Admin\StaffCalendarController::class, 'exportExcel'])->name('calendar.export-excel');
+
+            // ✅ Route con parametro {staff} — SEMPRE IN FONDO
+            Route::get('/{staff}', [StaffController::class, 'show'])->name('show');
+            Route::get('/{staff}/edit', [StaffController::class, 'edit'])->name('edit');
+            Route::put('/{staff}', [StaffController::class, 'update'])->name('update');
+            Route::delete('/{staff}', [StaffController::class, 'destroy'])->name('destroy');
+            Route::post('/{staff}/toggle-status', [StaffController::class, 'toggleStatus'])->name('toggle-status');
+            Route::get('/{staff}/activity-report', [StaffController::class, 'activityReport'])->name('activity-report');
             Route::get('/{staff}/export-report-pdf', [StaffController::class, 'exportReportPdf'])->name('export-report-pdf');
             Route::get('/{staff}/export-report-excel', [StaffController::class, 'exportReportExcel'])->name('export-report-excel');
         });
+
         
         // =============================================
         // GESTIONE MEZZI (VEHICLES)

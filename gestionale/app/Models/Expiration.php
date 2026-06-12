@@ -76,8 +76,7 @@ class Expiration extends Model
      */
     public function staff()
     {
-        return $this->belongsTo(Staff::class, 'id_references', 'id_personale')
-            ->where('expiration.table_references', self::TABLE_STAFF);
+        return $this->belongsTo(Staff::class, 'id_references', 'id_personale');
     }
     
     /**
@@ -100,8 +99,7 @@ class Expiration extends Model
      */
     public function entity()
     {
-        return $this->belongsTo(Entity::class, 'id_references', 'id_cliente')
-            ->where('expiration.table_references', self::TABLE_ENTITY);
+        return $this->belongsTo(Entity::class, 'id_references', 'id_cliente');
     }
     
     /**

@@ -21,6 +21,18 @@
                     <div class="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
                 </div>
             </div>
+
+            <!-- PULSANTE CALENDARIO SCADENZE -->
+            <div class="relative group">
+                <a href="{{ route('admin.staff.calendar') }}"
+                class="bg-gradient-to-r from-lime-500 to-green-600 text-white px-5 py-3.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 inline-flex items-center">
+                    <i class="fa-regular fa-calendar-alt"></i>
+                </a>
+                <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                    Calendario Scadenze
+                    <div class="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
+                </div>
+            </div>
             
             <!-- Pulsante Nuovo Personale -->
             @if(auth()->guard('admin')->user()->hasPermission('create_staff'))

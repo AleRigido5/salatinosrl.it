@@ -231,7 +231,7 @@
                                 </a>
 
                                 {{-- PDF Fatture di Vendita collegate --}}
-                                {{-- @php
+                                @php
                                     $invoiceSentIds = \App\Models\InvoiceRow::where('id_cost_center', $center->id)
                                         ->where('document_type', 'invoice_sent')
                                         ->pluck('document_id')
@@ -244,7 +244,7 @@
                                     title="PDF Fattura di Vendita #{{ $invoiceId }}">
                                         <i class="fas fa-file-pdf"></i>
                                     </a>
-                                @endforeach --}}
+                                @endforeach
 
                                 {{-- PDF Allegati Fatture di Acquisto da S3 --}}
                                 {{-- @php

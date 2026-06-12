@@ -190,8 +190,8 @@ class AccountStatementTable extends Component
                     'descrizione' => $isNC ? 'Nota di Credito emessa' : 'Fattura di Vendita',
                     'data'        => $inv->data_invoice,
                     'n_fattura'   => $inv->n_invoice,
-                    'dare'        => $isNC ? 0 : $inv->importo_totale,   // lui ci deve pagare
-                    'avere'       => $isNC ? $inv->importo_totale : 0,   // NC: gli restituiamo
+                    'dare'        => $isNC ? 0 : $inv->importo_totale,  
+                    'avere'       => $isNC ? $inv->importo_totale : 0,  
                     'saldo'       => 0,
                     'type'        => 'invoice',
                 ];

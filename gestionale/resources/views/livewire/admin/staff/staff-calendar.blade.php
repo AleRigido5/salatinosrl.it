@@ -298,7 +298,7 @@
                     <select wire:model.live="expirationStatus" class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                         <option value="">Tutti</option>
                         <option value="expired">Scadute</option>
-                        <option value="expiring">In scadenza (30gg)</option>
+                        <option value="expiring">In scadenza</option>
                         <option value="valid">Valide</option>
                     </select>
                 </div>

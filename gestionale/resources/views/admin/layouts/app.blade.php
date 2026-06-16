@@ -386,13 +386,61 @@
                     </a>
                     @endif
                     
-                    <!-- Personale -->
+                    <!-- Personale con Dropdown -->
                     @if($currentAdmin && $currentAdmin->hasPermission('view_staff'))
-                    <a href="{{ route('admin.staff.index') }}" 
-                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.staff.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
-                        <i class="fas fa-users w-5 h-5 {{ request()->routeIs('admin.staff.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
-                        <span class="sidebar-link-text text-sm font-medium ml-3">Personale</span>
-                    </a>
+                    <div x-data="{ 
+                        openPersonale: false,
+                        init() {
+                            window.addEventListener('sidebar-closed', () => {
+                                this.openPersonale = false;
+                            });
+                        }
+                    }">
+                        <a href="#" 
+                        @click.prevent="$store.sidebar.isExpanded ? openPersonale = !openPersonale : null"
+                        class="sidebar-link flex items-center justify-between px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.staff.*') || request()->routeIs('admin.expiration-staff.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                            <div class="flex items-center">
+                                <i class="fas fa-users w-5 h-5 {{ request()->routeIs('admin.staff.*') || request()->routeIs('admin.expiration-staff.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                                <span class="sidebar-link-text text-sm font-medium ml-3">Personale</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-xs transition-transform duration-200 ml-4 mr-1" 
+                            :class="{ 'rotate-180': openPersonale }" 
+                            x-show="$store.sidebar.isExpanded"
+                            style="min-width: 12px;"></i>
+                        </a>
+                        
+                        <!-- Submenu Dropdown -->
+                        <div x-show="openPersonale && $store.sidebar.isExpanded" 
+                            x-transition:enter="transition ease-out duration-200" 
+                            x-transition:enter-start="opacity-0 transform -translate-y-2" 
+                            x-transition:enter-end="opacity-100 transform translate-y-0"
+                            x-transition:leave="transition ease-in duration-100" 
+                            x-transition:leave-start="opacity-100 transform translate-y-0" 
+                            x-transition:leave-end="opacity-0 transform -translate-y-2"
+                            class="ml-6 mt-1 space-y-1">
+                            
+                            <!-- Elenco Dipendenti -->
+                            <a href="{{ route('admin.staff.index') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.staff.index') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fas fa-list-ul w-4 h-4 mr-2"></i>
+                                <span>Elenco Dipendenti</span>
+                            </a>
+                            
+                            <!-- Gestione Scadenze -->
+                            <a href="{{ route('admin.expiration-staff.index') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.expiration-staff.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fas fa-calendar-alt w-4 h-4 mr-2"></i>
+                                <span>Gestione Scadenze</span>
+                            </a>
+                            
+                            <!-- Gestione Presenze (NEW) -->
+                            <a href="{{ route('admin.staff.attendance.index') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.staff.attendance.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fas fa-clock w-4 h-4 mr-2"></i>
+                                <span>Gestione Presenze</span>
+                            </a>
+                        </div>
+                    </div>
                     @endif
                     
                     <!-- Mezzi -->

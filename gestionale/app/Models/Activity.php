@@ -16,7 +16,7 @@ class Activity extends Model
         'id_entities',
         'data_activities',
         'note',
-        'invoice_references',  // AGGIUNTO
+        'invoice_references',
         'imponibile',
         'costi_mat',
         'Lat_Long',
@@ -60,6 +60,15 @@ class Activity extends Model
     public function entity()
     {
         return $this->belongsTo(Entity::class, 'id_entities', 'id_cliente');
+    }
+
+    /**
+     * Relazione con la proprietà (ownership)
+     * AGGIUNTA PER IL CALENDARIO PRESENZE
+     */
+    public function ownership()
+    {
+        return $this->belongsTo(Ownership::class, 'id_ownership', 'id_proprieta');
     }
 
     /**

@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\CostCenterDetailController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\ContactController;
 use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Admin\StaffAttendanceController; 
 use App\Http\Controllers\Admin\VehiclesController;
 use App\Http\Controllers\Admin\SettingCategoryController;
 use App\Http\Controllers\Admin\ExpirationStaffController;
@@ -136,6 +137,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/create', [StaffController::class, 'create'])->name('create');
             Route::post('/', [StaffController::class, 'store'])->name('store');
 
+            // ✅ GESTIONE PRESENZE (DEVE ESSERE PRIMA di /{staff})
+            Route::prefix('attendance')->name('attendance.')->group(function () {
+                Route::get('/', [StaffAttendanceController::class, 'index'])->name('index');
+                Route::get('/{staffId}/{year}/{month}', [StaffAttendanceController::class, 'show'])->name('show');
+                Route::post('/save', [StaffAttendanceController::class, 'save'])->name('save');
+                Route::get('/export-pdf', [StaffAttendanceController::class, 'exportPdf'])->name('export-pdf');
+                Route::get('/export-excel', [StaffAttendanceController::class, 'exportExcel'])->name('export-excel');
+            });
+
             // ✅ Bulk update (stringa fissa, PRIMA di /{staff})
             Route::post('/bulk-update-costo/{staffId}', [StaffController::class, 'bulkUpdateCosto'])->name('bulk-update-costo');
 
@@ -163,8 +173,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/{staff}/export-report-pdf', [StaffController::class, 'exportReportPdf'])->name('export-report-pdf');
             Route::get('/{staff}/export-report-excel', [StaffController::class, 'exportReportExcel'])->name('export-report-excel');
         });
-
-        
+                
         // =============================================
         // GESTIONE MEZZI (VEHICLES)
         // =============================================

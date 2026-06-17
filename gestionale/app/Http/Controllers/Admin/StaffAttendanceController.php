@@ -9,16 +9,20 @@ use App\Models\Expiration;
 use App\Models\Ownership;
 use App\Models\Activity;
 use App\Models\ActivityStaffLink;
+use App\Models\StaffAttendance;
+use App\Models\CostCenter;
 use App\Models\Setting;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use Illuminate\Support\Facades\Log;
 
 class StaffAttendanceController extends Controller
 {
@@ -41,28 +45,22 @@ class StaffAttendanceController extends Controller
             ->orderBy('RagAbbrev')
             ->get();
 
-        // Default: Agricola Salatino SRL
         $defaultOwnership = Ownership::where('RagAbbrev', 'LIKE', '%Agricola Salatino%')->first();
 
-        // Mese corrente
         $currentMonth = $request->get('month', now()->format('Y-m'));
         [$currentYear, $currentMonthNum] = explode('-', $currentMonth);
 
-        // Variabili per i filtri data (come in activity-report)
         $selectedMonth = $currentMonthNum;
         $selectedYear = $currentYear;
         $currentYear = now()->year;
 
-        // Date per i filtri
         $dateFrom = $request->get('date_from', Carbon::createFromDate($currentYear, $currentMonthNum, 1)->format('Y-m-d'));
         $dateTo = $request->get('date_to', Carbon::createFromDate($currentYear, $currentMonthNum, 1)->endOfMonth()->format('Y-m-d'));
 
-        // Mesi precedente e successivo per la navigazione
         $currentDate = Carbon::createFromDate($currentYear, $currentMonthNum, 1);
         $previousMonth = $currentDate->copy()->subMonth();
         $nextMonth = $currentDate->copy()->addMonth();
 
-        // Properties per il filtro (alias di ownerships)
         $properties = $ownerships;
 
         return view('admin.staff.attendance.index', compact(
@@ -84,9 +82,9 @@ class StaffAttendanceController extends Controller
             'expirations' => function ($q) {
                 $q->where(function ($query) {
                     $query->where('titolo', 'LIKE', '%Malattia%')
-                          ->orWhere('titolo', 'LIKE', '%Ferie%')
-                          ->orWhere('titolo', 'LIKE', '%Permesso%')
-                          ->orWhere('titolo', 'LIKE', '%Assunzione%');
+                        ->orWhere('titolo', 'LIKE', '%Ferie%')
+                        ->orWhere('titolo', 'LIKE', '%Permesso%')
+                        ->orWhere('titolo', 'LIKE', '%Assunzione%');
                 });
             },
             'gruppo'
@@ -107,18 +105,53 @@ class StaffAttendanceController extends Controller
             ? Carbon::parse($assunzioneExp->data_fine)->startOfDay()
             : null;
 
-        // ── Attività del mese per questo dipendente ───────────────────────
-        $activities = Activity::whereHas('staffDetails', function ($q) use ($staffId) {
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐ FILTRO PER PROPRIETÀ
+        // ═══════════════════════════════════════════════════════════════════
+        $selectedOwnershipId = $request->get('ownership_id', '');
+        
+        if (empty($selectedOwnershipId)) {
+            $defaultOwnership = Ownership::where('RagAbbrev', 'LIKE', '%Agricola Salatino%')->first();
+            if ($defaultOwnership) {
+                $selectedOwnershipId = $defaultOwnership->id_proprieta;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐ RANGE DI RICERCA ATTIVITÀ
+        // ═══════════════════════════════════════════════════════════════════
+        $activityStartDate = $dataAssunzione ? $dataAssunzione->copy() : $startDate->copy();
+        $currentYearStart = Carbon::createFromDate($year, 1, 1)->startOfDay();
+        if ($activityStartDate->gt($currentYearStart)) {
+            $activityStartDate = $currentYearStart;
+        }
+        
+        $activityEndDate = $endDate->copy();
+        if ($dataLicenziamento && $activityEndDate->gt($dataLicenziamento)) {
+            $activityEndDate = $dataLicenziamento->copy();
+        }
+
+        // ── Attività del dipendente ───────────────────────────────────────
+        $activitiesQuery = Activity::whereHas('staffDetails', function ($q) use ($staffId) {
                 $q->where('id_staff', $staffId);
             })
             ->with([
                 'staffDetails' => function ($q) use ($staffId) {
                     $q->where('id_staff', $staffId);
                 },
-                'ownership',
+                'costCenter',
             ])
-            ->whereBetween('data_activities', [$startDate, $endDate])
-            ->get();
+            ->whereBetween('data_activities', [$activityStartDate, $activityEndDate]);
+
+        // ⭐ APPLICA FILTRO PROPRIETÀ (solo se è un ownership)
+        if ($selectedOwnershipId) {
+            $activitiesQuery->whereHas('costCenter', function ($q) use ($selectedOwnershipId) {
+                $q->where('table_references', 'ownership')
+                ->where('id_references', $selectedOwnershipId);
+            });
+        }
+
+        $activities = $activitiesQuery->get();
 
         // Raggruppa per data
         $activitiesByDate = $activities->groupBy(function ($act) {
@@ -133,11 +166,21 @@ class StaffAttendanceController extends Controller
                 || str_contains($t, 'permesso');
         });
 
+        // ── LEGGI LE PRESENZE SALVATE DAL DATABASE ────────────────────────
+        $savedAttendances = StaffAttendance::where('staff_id', $staffId)
+            ->whereBetween('date', [$activityStartDate, $activityEndDate])
+            ->get()
+            ->keyBy('date');
+
+        // ── Pre-carica tutte le ownership per riferimento ─────────────────
+        $ownerships = Ownership::where('valid', 1)->get()->keyBy('id_proprieta');
+
         // ── Costruzione matrice giorni ────────────────────────────────────
         $presenze        = [];
         $totalOre        = 0;
         $totalGiornateEffettive = 0;
         $totalGiornateMesse     = 0;
+        $totalGiornateAssenza   = 0;
 
         $currentDate = $startDate->copy();
 
@@ -145,7 +188,7 @@ class StaffAttendanceController extends Controller
             $dateKey   = $currentDate->format('Y-m-d');
             $isSunday  = $currentDate->isSunday();
 
-            // Dentro il periodo di assunzione?
+            // ── VERIFICA SE IL GIORNO È NEL PERIODO DI ASSUNZIONE ────────
             $isInAssunzione = true;
             if ($dataAssunzione && $currentDate->lt($dataAssunzione)) {
                 $isInAssunzione = false;
@@ -154,7 +197,12 @@ class StaffAttendanceController extends Controller
                 $isInAssunzione = false;
             }
 
-            // Causale da scadenze
+            // ── FILTRA LE ATTIVITÀ: mostrale SOLO se dentro il periodo ──
+            $dayActivities = $isInAssunzione 
+                ? ($activitiesByDate->get($dateKey, collect()))
+                : collect();
+
+            // ── CAUSALE da scadenze ──────────────────────────────────────
             $expiration = $assenze->filter(function ($exp) use ($dateKey) {
                 $di = $exp->data_inizio ? Carbon::parse($exp->data_inizio)->format('Y-m-d') : null;
                 $df = $exp->data_fine   ? Carbon::parse($exp->data_fine)->format('Y-m-d')   : null;
@@ -164,49 +212,175 @@ class StaffAttendanceController extends Controller
             $causale = null;
             if ($expiration) {
                 $t = strtolower($expiration->titolo ?? '');
-                if (str_contains($t, 'malattia'))       $causale = 'malattia';
-                elseif (str_contains($t, 'ferie'))      $causale = 'ferie';
-                elseif (str_contains($t, 'permesso'))   $causale = 'permesso';
+                if (str_contains($t, 'malattia')) {
+                    $causale = 'malattia';
+                    if ($isInAssunzione) $totalGiornateAssenza++;
+                } elseif (str_contains($t, 'ferie')) {
+                    $causale = 'ferie';
+                    if ($isInAssunzione) $totalGiornateAssenza++;
+                } elseif (str_contains($t, 'permesso')) {
+                    $causale = 'permesso';
+                    if ($isInAssunzione) $totalGiornateAssenza++;
+                }
             }
 
-            // Attività del giorno
-            $dayActivities = $activitiesByDate->get($dateKey, collect());
+            // ── DETTAGLI ORARI ──────────────────────────────────────────
+            $dettagliOrari = [];
+            $oreGiorno = 0;
+            $ownershipIds = [];
+            $cantieriNomi = [];
+            $hasInvalidCostCenter = false;
 
-            // Ore totali + cantieri
-            $oreGiorno    = 0;
-            $cantieriList = [];
-            $ownershipId  = null;
+            if ($isInAssunzione) {
+                foreach ($dayActivities as $activity) {
+                    $sd = $activity->staffDetails->first();
+                    
+                    if ($sd) {
+                        $oreAttivita = floatval($sd->n_ore ?? 0);
+                        
+                        // Se non ci sono ore ma ci sono orari, calcolale
+                        if ($oreAttivita == 0 && $sd->att_start && $sd->att_end) {
+                            try {
+                                $inizio = Carbon::parse($sd->att_start);
+                                $fine = Carbon::parse($sd->att_end);
+                                $oreAttivita = $inizio->diffInHours($fine);
+                                $oreAttivita = max(0, $oreAttivita);
+                            } catch (\Exception $e) {
+                                $oreAttivita = 0;
+                            }
+                        }
+                        
+                        $oreGiorno += $oreAttivita;
 
-            foreach ($dayActivities as $activity) {
-                $sd = $activity->staffDetails->first();
-                if ($sd) {
-                    $oreGiorno += floatval($sd->n_ore ?? 0);
+                        // ⭐ RECUPERA OWNERSHIP DAL CENTRO DI COSTO
+                        $ownershipId = null;
+                        $ownershipName = null;
+                        $costCenterName = null;
+                        
+                        if ($activity->costCenter) {
+                            $cc = $activity->costCenter;
+                            $costCenterName = $cc->Nome ?? null;
+                            
+                            // Se è un ownership, prendi il nome dalla tabella ownership
+                            if ($cc->table_references === 'ownership' && $cc->id_references) {
+                                $ownershipId = $cc->id_references;
+                                if (isset($ownerships[$ownershipId])) {
+                                    $ownershipName = $ownerships[$ownershipId]->RagAbbrev;
+                                    $ownershipIds[] = $ownershipId;
+                                    $cantieriNomi[] = $ownershipName;
+                                }
+                            } else {
+                                // ⭐ Se è un entities o altro, usa il nome del centro di costo
+                                $hasInvalidCostCenter = true;
+                                if ($costCenterName) {
+                                    $cantieriNomi[] = $costCenterName;
+                                }
+                            }
+                        }
+
+                        $dettaglio = [
+                            'id_ownership' => $ownershipId,
+                            'nome_ownership' => $ownershipName ?? $costCenterName ?? 'N/A',
+                            'att_start' => $sd->att_start ?? null,
+                            'att_end' => $sd->att_end ?? null,
+                            'n_ore' => $oreAttivita,
+                            'note' => $sd->note ?? '',
+                            'is_ownership' => ($activity->costCenter && $activity->costCenter->table_references === 'ownership'),
+                            'cost_center_name' => $costCenterName,
+                        ];
+                        
+                        if ($dettaglio['att_start'] || $dettaglio['att_end'] || $dettaglio['n_ore'] > 0) {
+                            $dettagliOrari[] = $dettaglio;
+                        }
+                    }
                 }
-                if ($activity->id_ownership) {
-                    $cantieriList[] = $activity->id_ownership;
-                    if (!$ownershipId) {
-                        $ownershipId = $activity->id_ownership;
+
+                // Se non ci sono dettagli orari ma ci sono attività
+                if ($dayActivities->count() > 0 && empty($dettagliOrari)) {
+                    $firstActivity = $dayActivities->first();
+                    $sd = $firstActivity->staffDetails->first();
+                    if ($sd) {
+                        $oreAttivita = floatval($sd->n_ore ?? 0);
+                        
+                        $ownershipId = null;
+                        $ownershipName = null;
+                        $costCenterName = null;
+                        
+                        if ($firstActivity->costCenter) {
+                            $cc = $firstActivity->costCenter;
+                            $costCenterName = $cc->Nome ?? null;
+                            
+                            if ($cc->table_references === 'ownership' && $cc->id_references) {
+                                $ownershipId = $cc->id_references;
+                                if (isset($ownerships[$ownershipId])) {
+                                    $ownershipName = $ownerships[$ownershipId]->RagAbbrev;
+                                    $ownershipIds[] = $ownershipId;
+                                    $cantieriNomi[] = $ownershipName;
+                                }
+                            } else {
+                                $hasInvalidCostCenter = true;
+                                if ($costCenterName) {
+                                    $cantieriNomi[] = $costCenterName;
+                                }
+                            }
+                        }
+                        
+                        $dettagliOrari[] = [
+                            'id_ownership' => $ownershipId,
+                            'nome_ownership' => $ownershipName ?? $costCenterName ?? 'N/A',
+                            'att_start' => $sd->att_start ?? null,
+                            'att_end' => $sd->att_end ?? null,
+                            'n_ore' => $oreAttivita,
+                            'note' => $sd->note ?? '',
+                            'is_ownership' => ($firstActivity->costCenter && $firstActivity->costCenter->table_references === 'ownership'),
+                            'cost_center_name' => $costCenterName,
+                        ];
                     }
                 }
             }
 
-            $cantieriUnici = array_unique($cantieriList);
-            $numCantieri   = count($cantieriUnici);
+            // ── Ownership unici ──────────────────────────────────────────
+            $ownershipIdsUnici = array_unique($ownershipIds);
+            $cantieriNomiUnici = array_unique($cantieriNomi);
+            $numCantieri = count($cantieriNomiUnici);
+            
+            // Ownership principale (il primo)
+            $ownershipId = !empty($ownershipIdsUnici) ? $ownershipIdsUnici[0] : null;
+            $cantieriString = implode(', ', $cantieriNomiUnici);
 
-            // Checkbox visibile solo se: non domenica, non causale, dentro assunzione
+            // ── SHOW CHECKBOX ──────────────────────────────────────────
             $showCheckbox = !$isSunday && !$causale && $isInAssunzione;
 
-            // Il giorno è "effettivo" (lavorativo potenziale)
+            // ── GIORNATE EFFETTIVE ───────────────────────────────────────
             if (!$isSunday && !$causale && $isInAssunzione) {
                 $totalGiornateEffettive++;
             }
 
-            $checked = $dayActivities->count() > 0;
-            if ($checked) {
+            // ── CHECKED: PRIORITÀ AI DATI SALVATI ──────────────────────
+            $savedAttendance = $savedAttendances->get($dateKey);
+            
+            if ($savedAttendance) {
+                $checked = (bool) $savedAttendance->is_present;
+                $savedOwnershipId = $savedAttendance->ownership_id;
+                if ($savedOwnershipId) {
+                    $ownershipId = $savedOwnershipId;
+                }
+                $savedId = $savedAttendance->id;
+                $isSaved = true;
+            } else {
+                $checked = $isInAssunzione ? $dayActivities->count() > 0 : false;
+                $savedId = null;
+                $isSaved = false;
+            }
+            
+            if ($checked && $isInAssunzione) {
                 $totalGiornateMesse++;
             }
 
-            $totalOre += $oreGiorno;
+            // ── ORE TOTALI ──────────────────────────────────────────────
+            if ($isInAssunzione) {
+                $totalOre += $oreGiorno;
+            }
 
             $presenze[$dateKey] = [
                 'data'             => $dateKey,
@@ -215,21 +389,28 @@ class StaffAttendanceController extends Controller
                 'is_sunday'        => $isSunday,
                 'is_in_assunzione' => $isInAssunzione,
                 'causale'          => $causale,
-                'ore'              => $oreGiorno,
+                'ore'              => $isInAssunzione ? $oreGiorno : 0,
                 'id_ownership'     => $ownershipId,
+                'ownership_ids'    => $ownershipIdsUnici,
+                'cantieri_nomi'    => $cantieriNomiUnici,
+                'cantieri_string'  => $isInAssunzione ? $cantieriString : '',
                 'show_checkbox'    => $showCheckbox,
-                'checked'          => $checked,
-                'num_cantieri'     => $numCantieri,
-                'has_multiple'     => $numCantieri > 1,
+                'checked'          => $checked && $isInAssunzione,
+                'num_cantieri'     => $isInAssunzione ? $numCantieri : 0,
+                'has_multiple'     => $isInAssunzione && $numCantieri > 1,
+                'dettagli'         => $isInAssunzione ? $dettagliOrari : [],
+                'attivita_count'   => $isInAssunzione ? $dayActivities->count() : 0,
+                'saved_id'         => $savedId,
+                'is_saved'         => $isSaved,
+                'has_activities_outside' => !$isInAssunzione && $activitiesByDate->has($dateKey),
+                'has_non_ownership' => $hasInvalidCostCenter, // ⭐ Flag per attività con centri di costo non ownership
             ];
 
             $currentDate->addDay();
         }
 
-        // ── Ownership selezionata ─────────────────────────────────────────
-        $selectedOwnershipId   = $request->get('ownership_id', '');
+        // ── Ownership selezionata per la vista ───────────────────────────
         $selectedOwnershipName = '';
-
         if ($selectedOwnershipId) {
             $ow = Ownership::find($selectedOwnershipId);
             if ($ow) {
@@ -237,19 +418,18 @@ class StaffAttendanceController extends Controller
             }
         }
 
-        if (empty($selectedOwnershipId)) {
-            $defaultOwnership = Ownership::where('RagAbbrev', 'LIKE', '%Agricola Salatino%')->first();
-            if ($defaultOwnership) {
-                $selectedOwnershipId   = $defaultOwnership->id_proprieta;
-                $selectedOwnershipName = $defaultOwnership->RagAbbrev;
-            }
-        }
-
         $ownerships = Ownership::where('valid', 1)->orderBy('RagAbbrev')->get();
+
+        // Debug
+        Log::info('Presenze generate:', [
+            'totale_giorni' => count($presenze),
+            'attivita_trovate' => $activities->count(),
+            'filter_ownership' => $selectedOwnershipId
+        ]);
 
         return view('admin.staff.attendance.show', compact(
             'staff', 'year', 'month', 'presenze',
-            'totalOre', 'totalGiornateEffettive', 'totalGiornateMesse',
+            'totalOre', 'totalGiornateEffettive', 'totalGiornateMesse', 'totalGiornateAssenza',
             'startDate', 'endDate', 'ownerships',
             'dataAssunzione', 'dataLicenziamento',
             'selectedOwnershipId', 'selectedOwnershipName'
@@ -261,27 +441,117 @@ class StaffAttendanceController extends Controller
      */
     public function save(Request $request)
     {
-        if (!Auth::guard('admin')->user()->hasPermission('edit_staff')) {
-            return response()->json(['success' => false, 'message' => 'Permessi insufficienti'], 403);
-        }
-
         try {
-            $validated = $request->validate([
-                'staff_id'   => 'required|integer|exists:staff,id_personale',
-                'date'       => 'required|date',
-                'checked'    => 'required|boolean',
-                'ownership_id' => 'nullable|integer',
-            ]);
+            Log::info('=== SAVE ATTENDANCE START ===');
+            Log::info('Request data:', $request->all());
+            
+            if (!Auth::guard('admin')->user()->hasPermission('edit_staff')) {
+                Log::warning('Permission denied for user: ' . Auth::guard('admin')->id());
+                return response()->json([
+                    'success' => false, 
+                    'message' => 'Permessi insufficienti'
+                ], 403);
+            }
 
-            // TODO: Salvataggio in tabella presenze dedicata
-            return response()->json([
-                'success' => true,
-                'message' => 'Presenza salvata con successo',
-            ]);
+            DB::beginTransaction();
+
+            $saved = 0;
+            $results = [];
+            $errors = [];
+
+            if ($request->has('changes')) {
+                $changes = $request->input('changes', []);
+                Log::info('Saving multiple changes: ' . count($changes) . ' items');
+
+                foreach ($changes as $index => $change) {
+                    try {
+                        Log::info("Processing change $index:", $change);
+                        
+                        $validated = validator($change, [
+                            'staff_id'   => 'required|integer|exists:staff,id_personale',
+                            'date'       => 'required|date|date_format:Y-m-d',
+                            'checked'    => 'required|boolean',
+                            'ownership_id' => 'nullable|integer|exists:ownership,id_proprieta',
+                        ])->validate();
+
+                        $attendance = StaffAttendance::updateOrCreate(
+                            [
+                                'staff_id' => $validated['staff_id'],
+                                'date' => $validated['date'],
+                            ],
+                            [
+                                'is_present' => $validated['checked'] ? 1 : 0,
+                                'ownership_id' => $validated['ownership_id'] ?? null,
+                                'updated_by' => Auth::guard('admin')->id(),
+                            ]
+                        );
+
+                        Log::info("Attendance saved with ID: {$attendance->id}");
+
+                        $saved++;
+                        $results[] = [
+                            'date' => $validated['date'],
+                            'success' => true,
+                            'id' => $attendance->id,
+                            'is_present' => (bool) $attendance->is_present
+                        ];
+
+                    } catch (\Exception $e) {
+                        Log::error("Error saving change $index: " . $e->getMessage());
+                        $errors[] = [
+                            'index' => $index,
+                            'error' => $e->getMessage()
+                        ];
+                    }
+                }
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => $saved . ' presenze salvate con successo',
+                    'results' => $results,
+                    'saved_count' => $saved,
+                    'errors' => $errors
+                ]);
+
+            } else {
+                $validated = $request->validate([
+                    'staff_id'   => 'required|integer|exists:staff,id_personale',
+                    'date'       => 'required|date|date_format:Y-m-d',
+                    'checked'    => 'required|boolean',
+                    'ownership_id' => 'nullable|integer|exists:ownership,id_proprieta',
+                ]);
+
+                $attendance = StaffAttendance::updateOrCreate(
+                    [
+                        'staff_id' => $validated['staff_id'],
+                        'date' => $validated['date'],
+                    ],
+                    [
+                        'is_present' => $validated['checked'] ? 1 : 0,
+                        'ownership_id' => $validated['ownership_id'] ?? null,
+                        'updated_by' => Auth::guard('admin')->id(),
+                    ]
+                );
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Presenza salvata con successo',
+                    'id' => $attendance->id,
+                    'is_present' => (bool) $attendance->is_present,
+                    'was_created' => $attendance->wasRecentlyCreated
+                ]);
+            }
+
         } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Save attendance error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Errore: ' . $e->getMessage(),
+                'message' => 'Errore: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -298,9 +568,13 @@ class StaffAttendanceController extends Controller
         $staff     = Staff::with(['gruppo'])->findOrFail($staffId);
         $startDate = Carbon::createFromDate($year, $month, 1);
         $endDate   = $startDate->copy()->endOfMonth();
-        $presenze  = $this->getAttendanceData($staffId, $startDate, $endDate);
+        $data = $this->getAttendanceData($staffId, $startDate, $endDate, $request->get('ownership_id'));
+        
+        $presenze = $data['presenze'];
+        $totalOre = $data['totalOre'];
+        $totalPresenti = $data['totalPresenti'];
 
-        $html = $this->generatePdfHtml($staff, $startDate, $endDate, $presenze);
+        $html = $this->generatePdfHtml($staff, $startDate, $endDate, $presenze, $totalOre, $totalPresenti);
         $pdf  = Pdf::loadHTML($html);
         $pdf->setPaper('A4', 'landscape');
 
@@ -320,50 +594,77 @@ class StaffAttendanceController extends Controller
         $staff     = Staff::with(['gruppo'])->findOrFail($staffId);
         $startDate = Carbon::createFromDate($year, $month, 1);
         $endDate   = $startDate->copy()->endOfMonth();
-        $presenze  = $this->getAttendanceData($staffId, $startDate, $endDate);
+        $data = $this->getAttendanceData($staffId, $startDate, $endDate, $request->get('ownership_id'));
+        
+        $presenze = $data['presenze'];
+        $totalOre = $data['totalOre'];
+        $totalPresenti = $data['totalPresenti'];
 
         $spreadsheet = new Spreadsheet();
         $sheet       = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Presenze');
 
+        // Header
         $sheet->setCellValue('A1', 'Report Presenze');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $sheet->setCellValue('A2', $staff->NomePers . ' ' . $staff->CognomePers);
+        $sheet->getStyle('A2')->getFont()->setBold(true);
         $sheet->setCellValue('A3', $startDate->isoFormat('MMMM YYYY'));
 
-        $sheet->setCellValue('A5', 'Data');
-        $sheet->setCellValue('B5', 'Giorno');
-        $sheet->setCellValue('C5', 'Presente');
-        $sheet->setCellValue('D5', 'Ore');
-        $sheet->setCellValue('E5', 'Causale');
+        // Intestazioni colonne
+        $headers = ['Data', 'Giorno', 'Presente', 'Ore Totali', 'Causale', 'Azienda/Cantieri', 'Inizio', 'Fine', 'Ore', 'Stato'];
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue($col . '5', $header);
+            $col++;
+        }
 
         $headerStyle = [
             'font'      => ['bold' => true, 'size' => 11],
             'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E5E7EB']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]
         ];
-        $sheet->getStyle('A5:E5')->applyFromArray($headerStyle);
+        $sheet->getStyle('A5:J5')->applyFromArray($headerStyle);
 
-        $row           = 6;
-        $totalOre      = 0;
-        $totalPresenti = 0;
+        $row = 6;
 
         foreach ($presenze as $data => $p) {
-            $sheet->setCellValue('A' . $row, Carbon::parse($data)->format('d/m/Y'));
-            $sheet->setCellValue('B' . $row, $p['giorno_settimana']);
-            $sheet->setCellValue('C' . $row, $p['checked'] ? 'Sì' : 'No');
-            $sheet->setCellValue('D' . $row, $p['ore']);
-            $sheet->setCellValue('E' . $row, $p['causale'] ?? '');
-            $totalOre += $p['ore'];
-            if ($p['checked']) $totalPresenti++;
-            $row++;
+            $dettagli = $p['dettagli'] ?? [];
+            $stato = $p['is_in_assunzione'] ? 'In assunzione' : 'Non assunto';
+            
+            if (empty($dettagli)) {
+                $sheet->setCellValue('A' . $row, Carbon::parse($data)->format('d/m/Y'));
+                $sheet->setCellValue('B' . $row, $p['giorno_settimana']);
+                $sheet->setCellValue('C' . $row, $p['checked'] ? 'Sì' : 'No');
+                $sheet->setCellValue('D' . $row, $p['ore'] > 0 ? number_format($p['ore'], 2) : '');
+                $sheet->setCellValue('E' . $row, $p['causale'] ?? '');
+                $sheet->setCellValue('F' . $row, $p['cantieri_string'] ?? '');
+                $sheet->setCellValue('J' . $row, $stato);
+                $row++;
+            } else {
+                foreach ($dettagli as $index => $dettaglio) {
+                    $sheet->setCellValue('A' . $row, Carbon::parse($data)->format('d/m/Y'));
+                    $sheet->setCellValue('B' . $row, $p['giorno_settimana']);
+                    $sheet->setCellValue('C' . $row, $p['checked'] ? 'Sì' : 'No');
+                    $sheet->setCellValue('D' . $row, number_format($dettaglio['n_ore'] ?? 0, 2));
+                    $sheet->setCellValue('E' . $row, $index === 0 ? ($p['causale'] ?? '') : '');
+                    $sheet->setCellValue('F' . $row, $dettaglio['nome_ownership'] ?? '');
+                    $sheet->setCellValue('G' . $row, $dettaglio['att_start'] ? Carbon::parse($dettaglio['att_start'])->format('H:i') : '');
+                    $sheet->setCellValue('H' . $row, $dettaglio['att_end'] ? Carbon::parse($dettaglio['att_end'])->format('H:i') : '');
+                    $sheet->setCellValue('I' . $row, number_format($dettaglio['n_ore'] ?? 0, 2));
+                    $sheet->setCellValue('J' . $row, $stato);
+                    $row++;
+                }
+            }
         }
 
         $sheet->setCellValue('A' . $row, 'TOTALI:');
-        $sheet->setCellValue('D' . $row, $totalOre);
+        $sheet->setCellValue('D' . $row, number_format($totalOre, 2));
         $sheet->setCellValue('C' . $row, $totalPresenti . ' presenze');
-        $sheet->getStyle('A' . $row . ':E' . $row)->getFont()->setBold(true);
+        $sheet->getStyle('A' . $row . ':J' . $row)->getFont()->setBold(true);
 
-        foreach (range('A', 'E') as $col) {
+        foreach (range('A', 'J') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
@@ -381,40 +682,84 @@ class StaffAttendanceController extends Controller
     // HELPERS
     // ─────────────────────────────────────────────────────────────────────────
 
-    private function getAttendanceData($staffId, $startDate, $endDate)
+    private function getAttendanceData($staffId, $startDate, $endDate, $ownershipFilter = null)
     {
         $staff = Staff::with([
             'expirations' => function ($q) {
                 $q->where(function ($query) {
                     $query->where('titolo', 'LIKE', '%Malattia%')
                           ->orWhere('titolo', 'LIKE', '%Ferie%')
-                          ->orWhere('titolo', 'LIKE', '%Permesso%');
+                          ->orWhere('titolo', 'LIKE', '%Permesso%')
+                          ->orWhere('titolo', 'LIKE', '%Assunzione%');
                 });
             },
         ])->findOrFail($staffId);
 
-        $activities = Activity::whereHas('staffDetails', function ($q) use ($staffId) {
+        $assunzioneExp = $staff->expirations->filter(function ($exp) {
+            return str_contains(strtolower($exp->titolo ?? ''), 'assunzione');
+        })->sortBy('data_inizio')->first();
+
+        $dataAssunzione = $assunzioneExp && $assunzioneExp->data_inizio
+            ? Carbon::parse($assunzioneExp->data_inizio)->startOfDay()
+            : null;
+        $dataLicenziamento = $assunzioneExp && $assunzioneExp->data_fine
+            ? Carbon::parse($assunzioneExp->data_fine)->startOfDay()
+            : null;
+
+        $activitiesQuery = Activity::whereHas('staffDetails', function ($q) use ($staffId) {
                 $q->where('id_staff', $staffId);
             })
-            ->with(['staffDetails' => function ($q) use ($staffId) {
-                $q->where('id_staff', $staffId);
-            }, 'ownership'])
-            ->whereBetween('data_activities', [$startDate, $endDate])
-            ->get();
+            ->with([
+                'staffDetails' => function ($q) use ($staffId) {
+                    $q->where('id_staff', $staffId);
+                }, 
+                'costCenter'
+            ])
+            ->whereBetween('data_activities', [$startDate, $endDate]);
 
+        if ($ownershipFilter) {
+            $activitiesQuery->whereHas('costCenter', function ($q) use ($ownershipFilter) {
+                $q->where('table_references', 'ownership')
+                  ->where('id_references', $ownershipFilter);
+            });
+        }
+
+        $activities = $activitiesQuery->get();
         $activitiesByDate = $activities->groupBy(function ($act) {
             return Carbon::parse($act->data_activities)->format('Y-m-d');
         });
 
+        $assenze = $staff->expirations->filter(function ($exp) {
+            $t = strtolower($exp->titolo ?? '');
+            return str_contains($t, 'malattia')
+                || str_contains($t, 'ferie')
+                || str_contains($t, 'permesso');
+        });
+
+        $savedAttendances = StaffAttendance::where('staff_id', $staffId)
+            ->whereBetween('date', [$startDate, $endDate])
+            ->get()
+            ->keyBy('date');
+
+        $ownerships = Ownership::where('valid', 1)->get()->keyBy('id_proprieta');
         $presenze    = [];
+        $totalOre    = 0;
+        $totalPresenti = 0;
         $currentDate = $startDate->copy();
 
         while ($currentDate <= $endDate) {
-            $dateKey       = $currentDate->format('Y-m-d');
-            $isSunday      = $currentDate->isSunday();
-            $dayActivities = $activitiesByDate->get($dateKey, collect());
+            $dateKey  = $currentDate->format('Y-m-d');
+            $isSunday = $currentDate->isSunday();
 
-            $expiration = $staff->expirations->filter(function ($exp) use ($dateKey) {
+            $isInAssunzione = true;
+            if ($dataAssunzione && $currentDate->lt($dataAssunzione)) {
+                $isInAssunzione = false;
+            }
+            if ($dataLicenziamento && $currentDate->gt($dataLicenziamento)) {
+                $isInAssunzione = false;
+            }
+
+            $expiration = $assenze->filter(function ($exp) use ($dateKey) {
                 $di = $exp->data_inizio ? Carbon::parse($exp->data_inizio)->format('Y-m-d') : null;
                 $df = $exp->data_fine   ? Carbon::parse($exp->data_fine)->format('Y-m-d')   : null;
                 return $di && $df && $di <= $dateKey && $df >= $dateKey;
@@ -428,44 +773,138 @@ class StaffAttendanceController extends Controller
                 elseif (str_contains($t, 'permesso')) $causale = 'permesso';
             }
 
+            $dayActivities = $isInAssunzione ? ($activitiesByDate->get($dateKey, collect())) : collect();
             $oreGiorno = 0;
-            foreach ($dayActivities as $activity) {
-                $sd = $activity->staffDetails->first();
-                if ($sd) $oreGiorno += floatval($sd->n_ore ?? 0);
+            $dettagliOrari = [];
+            $ownershipIds = [];
+            $cantieriNomi = [];
+
+            if ($isInAssunzione) {
+                foreach ($dayActivities as $activity) {
+                    $sd = $activity->staffDetails->first();
+                    if ($sd) {
+                        $oreAttivita = floatval($sd->n_ore ?? 0);
+                        
+                        if ($oreAttivita == 0 && $sd->att_start && $sd->att_end) {
+                            try {
+                                $inizio = Carbon::parse($sd->att_start);
+                                $fine = Carbon::parse($sd->att_end);
+                                $oreAttivita = $inizio->diffInHours($fine);
+                                $oreAttivita = max(0, $oreAttivita);
+                            } catch (\Exception $e) {
+                                $oreAttivita = 0;
+                            }
+                        }
+                        
+                        $oreGiorno += $oreAttivita;
+                        
+                        $ownershipId = null;
+                        $ownershipName = null;
+                        if ($activity->costCenter && $activity->costCenter->table_references === 'ownership') {
+                            $ownershipId = $activity->costCenter->id_references;
+                            if (isset($ownerships[$ownershipId])) {
+                                $ownershipName = $ownerships[$ownershipId]->RagAbbrev;
+                                $ownershipIds[] = $ownershipId;
+                                $cantieriNomi[] = $ownershipName;
+                            }
+                        }
+                        
+                        $dettagliOrari[] = [
+                            'id_ownership' => $ownershipId,
+                            'nome_ownership' => $ownershipName ?? 'N/A',
+                            'att_start' => $sd->att_start ?? null,
+                            'att_end' => $sd->att_end ?? null,
+                            'n_ore' => $oreAttivita,
+                            'note' => $sd->note ?? ''
+                        ];
+                    }
+                }
+            }
+
+            $savedAttendance = $savedAttendances->get($dateKey);
+            $checked = $savedAttendance ? (bool) $savedAttendance->is_present : ($isInAssunzione ? $dayActivities->count() > 0 : false);
+            
+            if ($checked && $isInAssunzione) {
+                $totalPresenti++;
+            }
+            
+            if ($isInAssunzione) {
+                $totalOre += $oreGiorno;
             }
 
             $presenze[$dateKey] = [
                 'data'             => $dateKey,
                 'giorno_settimana' => $currentDate->isoFormat('ddd'),
+                'giorno_num'       => $currentDate->day,
                 'is_sunday'        => $isSunday,
+                'is_in_assunzione' => $isInAssunzione,
                 'causale'          => $causale,
-                'ore'              => $oreGiorno,
-                'checked'          => $dayActivities->count() > 0,
+                'ore'              => $isInAssunzione ? $oreGiorno : 0,
+                'checked'          => $checked && $isInAssunzione,
+                'dettagli'         => $isInAssunzione ? $dettagliOrari : [],
+                'saved_id'         => $savedAttendance ? $savedAttendance->id : null,
+                'ownership_ids'    => array_unique($ownershipIds),
+                'cantieri_nomi'    => array_unique($cantieriNomi),
+                'cantieri_string'  => $isInAssunzione ? implode(', ', array_unique($cantieriNomi)) : '',
+                'num_cantieri'     => $isInAssunzione ? count(array_unique($ownershipIds)) : 0,
             ];
 
             $currentDate->addDay();
         }
 
-        return $presenze;
+        return [
+            'presenze' => $presenze,
+            'totalOre' => $totalOre,
+            'totalPresenti' => $totalPresenti
+        ];
     }
 
-    private function generatePdfHtml($staff, $startDate, $endDate, $presenze)
+    private function generatePdfHtml($staff, $startDate, $endDate, $presenze, $totalOre, $totalPresenti)
     {
-        $totalOre      = 0;
-        $totalPresenti = 0;
-        $rows          = '';
+        $rows = '';
 
         foreach ($presenze as $data => $p) {
             $bgColor = $p['is_sunday'] ? '#FEE2E2' : ($p['causale'] ? '#FEF9C3' : 'transparent');
-            $rows   .= '<tr style="background:' . $bgColor . '">
+            
+            $orariHtml = '';
+            $dettagli = $p['dettagli'] ?? [];
+            
+            if (!empty($dettagli)) {
+                $orariParts = [];
+                foreach ($dettagli as $dettaglio) {
+                    $part = '';
+                    if ($dettaglio['nome_ownership']) {
+                        $part .= '<strong>' . e($dettaglio['nome_ownership']) . '</strong> ';
+                    }
+                    if ($dettaglio['att_start'] && $dettaglio['att_end']) {
+                        $start = Carbon::parse($dettaglio['att_start'])->format('H:i');
+                        $end = Carbon::parse($dettaglio['att_end'])->format('H:i');
+                        $part .= $start . '-' . $end;
+                        if ($dettaglio['n_ore'] > 0) {
+                            $part .= ' (' . number_format($dettaglio['n_ore'], 1) . 'h)';
+                        }
+                    } elseif ($dettaglio['n_ore'] > 0) {
+                        $part .= number_format($dettaglio['n_ore'], 1) . 'h';
+                    }
+                    if (!empty($part)) {
+                        $orariParts[] = $part;
+                    }
+                }
+                $orariHtml = implode('<br>', $orariParts);
+            } else {
+                $orariHtml = $p['ore'] > 0 ? number_format($p['ore'], 1) . 'h' : '—';
+            }
+
+            $stato = $p['is_in_assunzione'] ? '' : ' <span style="color:#999;font-size:8px;">(Non assunto)</span>';
+
+            $rows .= '<tr style="background:' . $bgColor . '">
                 <td>' . Carbon::parse($data)->format('d/m/Y') . '</td>
                 <td>' . $p['giorno_settimana'] . '</td>
                 <td>' . ($p['checked'] ? '✓' : '') . '</td>
-                <td>' . number_format($p['ore'], 1) . '</td>
-                <td>' . ($p['causale'] ? ucfirst($p['causale']) : '') . '</td>
+                <td>' . ($p['causale'] ? ucfirst($p['causale']) : '') . $stato . '</td>
+                <td style="font-size:8px;text-align:left;">' . $orariHtml . '</td>
+                <td style="font-size:8px;text-align:left;">' . ($p['cantieri_string'] ?? '—') . '</td>
             </tr>';
-            $totalOre += $p['ore'];
-            if ($p['checked']) $totalPresenti++;
         }
 
         return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Report Presenze</title>
@@ -476,7 +915,7 @@ class StaffAttendanceController extends Controller
             .header p { margin: 5px 0 0; color: #666; font-size: 11px; }
             table { width: 100%; border-collapse: collapse; margin-top: 15px; }
             th { background: #f1f5f9; padding: 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: bold; }
-            td { padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; }
+            td { padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; vertical-align: middle; }
             .totals { margin-top: 20px; font-weight: bold; font-size: 11px; }
             .footer { margin-top: 20px; text-align: right; font-size: 9px; color: #666; }
         </style></head><body>
@@ -486,7 +925,16 @@ class StaffAttendanceController extends Controller
             <p>' . $startDate->isoFormat('MMMM YYYY') . '</p>
         </div>
         <table>
-            <thead><tr><th>Data</th><th>Giorno</th><th>Presente</th><th>Ore</th><th>Causale</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Giorno</th>
+                    <th>Presente</th>
+                    <th>Causale/Stato</th>
+                    <th>Dettaglio Orari</th>
+                    <th>Cantieri</th>
+                </tr>
+            </thead>
             <tbody>' . $rows . '</tbody>
         </table>
         <div class="totals">

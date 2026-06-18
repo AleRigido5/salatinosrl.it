@@ -68,7 +68,6 @@ class StaffAttendanceController extends Controller
             'selectedMonth', 'selectedYear', 'dateFrom', 'dateTo', 'previousMonth', 'nextMonth', 'properties'
         ));
     }
-    
 
     /**
      * Show attendance for a specific staff member in a given month.

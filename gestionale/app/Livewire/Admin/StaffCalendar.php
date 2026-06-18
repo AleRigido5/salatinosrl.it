@@ -209,7 +209,7 @@ class StaffCalendar extends Component
     public function getExpirationsProperty()
     {
         $query = Expiration::query()
-            ->with(['staff', 'setting'])
+            ->with(['staff', 'setting', 'ownershipLegacy'])
             ->where('table_references', 'staff')
             ->whereNotNull('data_fine');
 
@@ -221,31 +221,31 @@ class StaffCalendar extends Component
         } elseif ($this->expirationStatus === 'valid') {
             $query->whereDate('data_fine', '>', now()->addDays(30));
         }
-        
+
         if (!empty($this->selectedType)) {
             $query->where('id_settings', $this->selectedType);
         }
-        
+
         if (!empty($this->selectedStaffId)) {
             $query->where('id_references', $this->selectedStaffId);
         }
-        
+
         if ($this->view === 'calendar') {
             $startOfMonth = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->startOfMonth();
-            $endOfMonth = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->endOfMonth();
+            $endOfMonth   = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->endOfMonth();
             $query->whereBetween('data_fine', [$startOfMonth, $endOfMonth]);
         }
-        
+
         return $query->orderBy($this->sortField, $this->sortDirection)->get();
     }
-    
+
     public function getPaginatedExpirationsProperty()
     {
         $query = Expiration::query()
-            ->with(['staff', 'setting'])
+            ->with(['staff', 'setting', 'ownershipLegacy'])
             ->where('table_references', 'staff')
             ->whereNotNull('data_fine');
-        
+
         if ($this->expirationStatus === 'expired') {
             $query->whereDate('data_fine', '<', now());
         } elseif ($this->expirationStatus === 'expiring') {
@@ -258,18 +258,18 @@ class StaffCalendar extends Component
         if (!empty($this->selectedType)) {
             $query->where('id_settings', $this->selectedType);
         }
-        
+
         if (!empty($this->selectedStaffId)) {
             $query->where('id_references', $this->selectedStaffId);
         }
-        
+
         if ($this->dateFrom) {
             $query->whereDate('data_fine', '>=', $this->dateFrom);
         }
         if ($this->dateTo) {
             $query->whereDate('data_fine', '<=', $this->dateTo);
         }
-        
+
         return $query->orderBy($this->sortField, $this->sortDirection)->paginate($this->perPage);
     }
     

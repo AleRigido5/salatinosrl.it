@@ -21,11 +21,10 @@ class StaffCalendarController extends Controller
     public function exportPdf(Request $request)
     {
         $query = Expiration::query()
-            ->with(['staff', 'setting'])
+            ->with(['staff', 'setting', 'ownershipLegacy'])
             ->where('table_references', 'staff')
             ->whereNotNull('data_fine');
-        
-        // Applica filtri
+
         if ($request->date_from) {
             $query->whereDate('data_fine', '>=', $request->date_from);
         }
@@ -39,28 +38,28 @@ class StaffCalendarController extends Controller
             $typeIds = explode(',', $request->type_ids);
             $query->whereIn('id_settings', $typeIds);
         }
-        
+
         $expirations = $query->orderBy('data_fine', 'asc')->get();
-        
+
         $staffName = '';
         if ($request->staff_id) {
             $staff = Staff::find($request->staff_id);
             $staffName = $staff ? "_{$staff->CognomePers}_{$staff->NomePers}" : '';
         }
-        
+
         $html = $this->generatePdfHtml($expirations, $request);
-        
+
         $pdf = Pdf::loadHTML($html);
         $pdf->setPaper('A4', 'landscape');
-        
-        $filename = 'scadenze_personale' . $staffName . '_' . date('Y-m-d') . '.pdf';
-        return $pdf->download($filename);
+
+        return $pdf->download('scadenze_personale' . $staffName . '_' . date('Y-m-d') . '.pdf');
     }
-    
+
     private function generatePdfHtml($expirations, $request)
     {
-        $typeLabels = Setting::whereIn('id', $expirations->pluck('id_settings')->unique())->pluck('valore', 'id');
-        
+        $typeLabels = Setting::whereIn('id', $expirations->pluck('id_settings')->unique())
+            ->pluck('valore', 'id');
+
         $html = '
         <!DOCTYPE html>
         <html>
@@ -75,7 +74,6 @@ class StaffCalendarController extends Controller
                 table { width: 100%; border-collapse: collapse; }
                 th { background: #f1f5f9; padding: 8px; text-align: center; border: 1px solid #cbd5e1; font-size: 9px; }
                 td { padding: 6px; border: 1px solid #e2e8f0; font-size: 9px; }
-                .text-right { text-align: right; }
                 .text-center { text-align: center; }
                 .footer { margin-top: 20px; text-align: right; font-size: 9px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
                 .badge-expired { color: #dc2626; font-weight: bold; }
@@ -90,18 +88,18 @@ class StaffCalendarController extends Controller
             </div>
             <div class="filters">
                 <strong>Filtri:</strong> ';
-        
+
         if ($request->date_from || $request->date_to) {
-            $html .= 'Periodo: ' . ($request->date_from ?: 'inizio') . ' → ' . ($request->date_to ?: 'oggi') . '<br>';
+            $html .= 'Periodo: ' . ($request->date_from ?: 'inizio') . ' → ' . ($request->date_to ?: 'oggi') . ' &nbsp;|&nbsp; ';
         }
         if ($request->staff_id) {
             $staff = Staff::find($request->staff_id);
-            $html .= 'Personale: ' . ($staff ? $staff->NomePers . ' ' . $staff->CognomePers : 'Selezionato');
+            $html .= 'Personale: ' . ($staff ? $staff->NomePers . ' ' . $staff->CognomePers : 'Selezionato') . ' &nbsp;|&nbsp; ';
         }
         if (!$request->date_from && !$request->date_to && !$request->staff_id && !$request->type_ids) {
             $html .= 'Tutte le scadenze';
         }
-        
+
         $html .= '
             </div>
             <table>
@@ -109,6 +107,7 @@ class StaffCalendarController extends Controller
                     <tr>
                         <th>Data Scadenza</th>
                         <th>Personale</th>
+                        <th>Società</th>
                         <th>Tipologia</th>
                         <th>Titolo</th>
                         <th>Note</th>
@@ -116,11 +115,11 @@ class StaffCalendarController extends Controller
                     </tr>
                 </thead>
                 <tbody>';
-        
+
         foreach ($expirations as $exp) {
             $carbonDate = Carbon::parse($exp->data_fine);
             $now = Carbon::now();
-            
+
             if ($carbonDate->isPast()) {
                 $status = '<span class="badge-expired">SCADUTA</span>';
             } elseif ($now->diffInDays($carbonDate) <= 30) {
@@ -128,19 +127,21 @@ class StaffCalendarController extends Controller
             } else {
                 $status = '<span class="badge-valid">Valida</span>';
             }
-            
-            $typeLabel = $typeLabels[$exp->id_settings] ?? ($exp->setting->valore ?? 'Scadenza');
-            
+
+            $typeLabel   = $typeLabels[$exp->id_settings] ?? ($exp->setting->valore ?? 'Scadenza');
+            $societaNome = $exp->ownershipLegacy ? e($exp->ownershipLegacy->RagAbbrev) : '-';
+
             $html .= '<tr>
-                        <td>' . $carbonDate->format('d/m/Y') . '</td>
-                        <td>' . ($exp->staff ? $exp->staff->NomePers . ' ' . $exp->staff->CognomePers : '-') . '</td>
-                        <td>' . e($typeLabel) . '</td>
-                        <td>' . e($exp->titolo ?? '-') . '</td>
-                        <td>' . e($exp->note ?? '-') . '</td>
-                        <td class="text-center">' . $status . '</td>
-                    </tr>';
+                <td>' . $carbonDate->format('d/m/Y') . '</td>
+                <td>' . ($exp->staff ? e($exp->staff->NomePers . ' ' . $exp->staff->CognomePers) : '-') . '</td>
+                <td>' . $societaNome . '</td>
+                <td>' . e($typeLabel) . '</td>
+                <td>' . e($exp->titolo ?? '-') . '</td>
+                <td>' . e($exp->note ?? '-') . '</td>
+                <td class="text-center">' . $status . '</td>
+            </tr>';
         }
-        
+
         $html .= '
                 </tbody>
             </table>
@@ -149,17 +150,17 @@ class StaffCalendarController extends Controller
             </div>
         </body>
         </html>';
-        
+
         return $html;
     }
-    
+
     public function exportExcel(Request $request)
     {
         $query = Expiration::query()
-            ->with(['staff', 'setting'])
+            ->with(['staff', 'setting', 'ownershipLegacy'])
             ->where('table_references', 'staff')
             ->whereNotNull('data_fine');
-        
+
         if ($request->date_from) {
             $query->whereDate('data_fine', '>=', $request->date_from);
         }
@@ -173,34 +174,31 @@ class StaffCalendarController extends Controller
             $typeIds = explode(',', $request->type_ids);
             $query->whereIn('id_settings', $typeIds);
         }
-        
+
         $expirations = $query->orderBy('data_fine', 'asc')->get();
-        
+
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Scadenze Personale');
-        
-        // Intestazioni
-        $headers = ['Data Scadenza', 'Personale', 'Tipologia', 'Titolo', 'Note', 'Stato'];
+
+        $headers = ['Data Scadenza', 'Personale', 'Società', 'Tipologia', 'Titolo', 'Note', 'Stato'];
         foreach ($headers as $col => $header) {
-            $cell = chr(65 + $col) . '1';
-            $sheet->setCellValue($cell, $header);
+            $sheet->setCellValue(chr(65 + $col) . '1', $header);
         }
-        
-        // Stile intestazioni
+
         $headerStyle = [
-            'font' => ['bold' => true, 'size' => 11],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E5E7EB']],
+            'font'      => ['bold' => true, 'size' => 11],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'E5E7EB']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
         ];
-        $sheet->getStyle('A1:F1')->applyFromArray($headerStyle);
-        
-        // Dati
+        $sheet->getStyle('A1:G1')->applyFromArray($headerStyle);
+
         $row = 2;
         foreach ($expirations as $exp) {
             $carbonDate = Carbon::parse($exp->data_fine);
-            $now = Carbon::now();
-            
+            $now        = Carbon::now();
+
             if ($carbonDate->isPast()) {
                 $status = 'SCADUTA';
             } elseif ($now->diffInDays($carbonDate) <= 30) {
@@ -208,30 +206,36 @@ class StaffCalendarController extends Controller
             } else {
                 $status = 'Valida';
             }
-            
+
             $sheet->setCellValue('A' . $row, $carbonDate->format('d/m/Y'));
-            $sheet->setCellValue('B' . $row, $exp->staff ? $exp->staff->NomePers . ' ' . $exp->staff->CognomePers : '-');
-            $sheet->setCellValue('C' . $row, $exp->setting->valore ?? 'Scadenza');
-            $sheet->setCellValue('D' . $row, $exp->titolo ?? '-');
-            $sheet->setCellValue('E' . $row, $exp->note ?? '-');
-            $sheet->setCellValue('F' . $row, $status);
+            $sheet->setCellValue('B' . $row, $exp->staff
+                ? $exp->staff->NomePers . ' ' . $exp->staff->CognomePers
+                : '-');
+            $sheet->setCellValue('C' . $row, $exp->ownershipLegacy
+                ? $exp->ownershipLegacy->RagAbbrev
+                : '-');
+            $sheet->setCellValue('D' . $row, $exp->setting->valore ?? 'Scadenza');
+            $sheet->setCellValue('E' . $row, $exp->titolo ?? '-');
+            $sheet->setCellValue('F' . $row, $exp->note ?? '-');
+            $sheet->setCellValue('G' . $row, $status);
+
             $row++;
         }
-        
-        // Auto-size columns
-        foreach (range('A', 'F') as $col) {
+
+        foreach (range('A', 'G') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
-        
-        $sheet->setAutoFilter('A1:F' . ($row - 1));
-        
-        $writer = new Xlsx($spreadsheet);
+
+        $sheet->setAutoFilter('A1:G' . ($row - 1));
+        $sheet->freezePane('A2');
+
+        $writer   = new Xlsx($spreadsheet);
         $filename = 'scadenze_personale_' . date('Y-m-d_His') . '.xlsx';
-        
+
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Cache-Control: max-age=0');
-        
+
         $writer->save('php://output');
         exit;
     }

@@ -446,7 +446,6 @@ class StaffAttendanceController extends Controller
             Log::info('Request data:', $request->all());
             
             if (!Auth::guard('admin')->user()->hasPermission('edit_staff')) {
-                Log::warning('Permission denied for user: ' . Auth::guard('admin')->id());
                 return response()->json([
                     'success' => false, 
                     'message' => 'Permessi insufficienti'
@@ -467,6 +466,7 @@ class StaffAttendanceController extends Controller
                     try {
                         Log::info("Processing change $index:", $change);
                         
+                        // ⭐ VERIFICA CHE 'checked' SIA BOOLEAN
                         $validated = validator($change, [
                             'staff_id'   => 'required|integer|exists:staff,id_personale',
                             'date'       => 'required|date|date_format:Y-m-d',
@@ -474,19 +474,25 @@ class StaffAttendanceController extends Controller
                             'ownership_id' => 'nullable|integer|exists:ownership,id_proprieta',
                         ])->validate();
 
+                        // ⭐ CONVERTI ESPLICITAMENTE A BOOLEAN
+                        $isPresent = filter_var($validated['checked'], FILTER_VALIDATE_BOOLEAN);
+                        
+                        Log::info("Saving: staff_id={$validated['staff_id']}, date={$validated['date']}, is_present=" . ($isPresent ? 'true' : 'false'));
+
                         $attendance = StaffAttendance::updateOrCreate(
                             [
                                 'staff_id' => $validated['staff_id'],
                                 'date' => $validated['date'],
                             ],
                             [
-                                'is_present' => $validated['checked'] ? 1 : 0,
+                                'is_present' => $isPresent ? 1 : 0, // ⭐ ASSICURATI CHE SIA 1 O 0
                                 'ownership_id' => $validated['ownership_id'] ?? null,
                                 'updated_by' => Auth::guard('admin')->id(),
+                                'notes' => $validated['notes'] ?? null,
                             ]
                         );
 
-                        Log::info("Attendance saved with ID: {$attendance->id}");
+                        Log::info("Attendance saved with ID: {$attendance->id}, is_present: {$attendance->is_present}");
 
                         $saved++;
                         $results[] = [
@@ -516,6 +522,7 @@ class StaffAttendanceController extends Controller
                 ]);
 
             } else {
+                // Salvataggio singolo
                 $validated = $request->validate([
                     'staff_id'   => 'required|integer|exists:staff,id_personale',
                     'date'       => 'required|date|date_format:Y-m-d',
@@ -523,13 +530,15 @@ class StaffAttendanceController extends Controller
                     'ownership_id' => 'nullable|integer|exists:ownership,id_proprieta',
                 ]);
 
+                $isPresent = filter_var($validated['checked'], FILTER_VALIDATE_BOOLEAN);
+
                 $attendance = StaffAttendance::updateOrCreate(
                     [
                         'staff_id' => $validated['staff_id'],
                         'date' => $validated['date'],
                     ],
                     [
-                        'is_present' => $validated['checked'] ? 1 : 0,
+                        'is_present' => $isPresent ? 1 : 0,
                         'ownership_id' => $validated['ownership_id'] ?? null,
                         'updated_by' => Auth::guard('admin')->id(),
                     ]

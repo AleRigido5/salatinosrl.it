@@ -389,6 +389,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('id_references')">
                             <div class="flex items-center gap-1">Personale @if($sortField === 'id_references')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }}"></i>@endif</div>
                         </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Società</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('id_settings')">
                             <div class="flex items-center gap-1">Tipologia @if($sortField === 'id_settings')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }}"></i>@endif</div>
                         </th>
@@ -414,6 +415,15 @@
                                 @endif
                             @else
                                 <span class="text-gray-400">—</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-3 text-sm whitespace-nowrap">
+                            @if($exp->ownershipLegacy)
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium text-gray-700">
+                                    {{ $exp->ownershipLegacy->RagAbbrev }}
+                                </span>
+                            @else
+                                <span class="text-gray-300 text-xs">—</span>
                             @endif
                         </td>
                         <td class="px-4 py-3">

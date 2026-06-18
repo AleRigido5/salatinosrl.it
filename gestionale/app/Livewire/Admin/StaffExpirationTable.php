@@ -356,20 +356,14 @@ class StaffExpirationTable extends Component
     
     public function getExpirationsProperty()
     {
-        $query = Expiration::query();
-        
-        // Filtro per STAFF
+        $query = Expiration::query()
+            ->where('table_references', Expiration::TABLE_STAFF);
+
+        // Se viene passato uno staffId specifico, filtra per quello staff
         if ($this->staffId) {
-            $query->where(function($q) {
-                $q->where('table_references', Expiration::TABLE_STAFF)
-                  ->where('id_references', $this->staffId)
-                  ->orWhere(function($q2) {
-                      $q2->whereNull('table_references')
-                         ->where('id_entities', $this->staffId);
-                  });
-            });
+            $query->where('id_references', $this->staffId);
         }
-        
+
         if ($this->search) {
             $searchTerm = '%' . $this->search . '%';
             $query->where(function($q) use ($searchTerm) {
@@ -378,30 +372,29 @@ class StaffExpirationTable extends Component
                 ->orWhere('note', 'like', $searchTerm);
             });
         }
-        
+
         if ($this->tipologiaFilter) {
             $query->where('id_settings', $this->tipologiaFilter);
         }
-        
+
         if ($this->statusFilter !== '') {
             if ($this->statusFilter === 'active') {
                 $query->whereNull('deleted_at');
             } elseif ($this->statusFilter === 'expired') {
                 $query->where('data_fine', '<', now())->whereNull('deleted_at');
             } elseif ($this->statusFilter === 'expiring') {
-                $query->where('data_fine', '<=', now()->addDays(30))
-                    ->where('data_fine', '>=', now())
+                $query->whereBetween('data_fine', [now(), now()->addDays(30)])
                     ->whereNull('deleted_at');
             }
         }
-        
+
         $query->orderBy($this->sortField, $this->sortDirection);
-        
+
         return $query->with([
-            'setting', 
-            'entityLegacy', 
+            'setting',
+            'entityLegacy',
             'ownershipLegacy',
-            'createdBy', 
+            'createdBy',
             'updatedBy'
         ])->paginate($this->perPage);
     }

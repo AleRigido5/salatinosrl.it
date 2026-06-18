@@ -558,12 +558,20 @@ document.addEventListener('DOMContentLoaded', function() {
         saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Salvataggio...';
         saveBtn.disabled = true;
 
-        const changes = Array.from(pendingChanges.entries()).map(([date, data]) => ({
-            staff_id: staffId,
-            date: date,
-            checked: data.checked,
-            ownership_id: ownerSelect.value || null
-        }));
+        // ⭐ VERIFICA I DATI PRIMA DI INVIARLI
+        const changes = Array.from(pendingChanges.entries()).map(([date, data]) => {
+            // Assicurati che 'checked' sia un booleano esplicito
+            const checked = data.checked === true || data.checked === 'true' || data.checked === 1;
+            
+            return {
+                staff_id: staffId,
+                date: date,
+                checked: checked, // ⭐ BOOLEANO PURO
+                ownership_id: ownerSelect.value || null
+            };
+        });
+
+        console.log('📤 Invio modifiche:', changes); // ⭐ DEBUG
 
         fetch(saveUrl, {
             method: 'POST',
@@ -573,8 +581,12 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify({ changes: changes }),
         })
-        .then(r => r.json())
+        .then(response => {
+            console.log('📥 Risposta ricevuta:', response.status);
+            return response.json();
+        })
         .then(data => {
+            console.log('📥 Dati risposta:', data); // ⭐ DEBUG
             saveBtn.innerHTML = originalText;
             saveBtn.disabled = false;
             
@@ -585,17 +597,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         const checkbox = document.querySelector(`.attendance-checkbox[data-date="${result.date}"]`);
                         if (checkbox) {
                             checkbox.dataset.savedId = result.id;
+                            // ⭐ AGGIORNA LO STATO DEL CHECKBOX
+                            checkbox.checked = result.is_present === true;
                         }
                     });
                 }
                 showModal('Salvataggio completato', data.message || 'Modifiche salvate con successo!', 'success');
                 updateStats();
+                // ⭐ RICARICA LA PAGINA PER MOSTRARE I DATI AGGIORNATI
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
             } else {
                 showModal('Errore', data.message || 'Errore durante il salvataggio.', 'error');
             }
         })
         .catch(err => {
-            console.error('Errore fetch:', err);
+            console.error('❌ Errore fetch:', err);
             saveBtn.innerHTML = originalText;
             saveBtn.disabled = false;
             showModal('Errore di connessione', 'Impossibile connettersi al server. Riprova più tardi.', 'error');

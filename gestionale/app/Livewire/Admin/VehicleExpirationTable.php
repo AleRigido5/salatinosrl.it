@@ -391,55 +391,48 @@ class VehicleExpirationTable extends Component
     
     public function getExpirationsProperty()
     {
-        $query = Expiration::query();
-        
-        // Filtro per VEHICLE
+        $query = Expiration::query()
+            ->where('table_references', Expiration::TABLE_VEHICLE);
+
         if ($this->vehicleId) {
-            $query->where(function($q) {
-                $q->where('table_references', Expiration::TABLE_VEHICLE)
-                  ->whereHas('vehicles', function($q2) {
-                      $q2->where('vehicles.id', $this->vehicleId);
-                  })
-                  ->orWhere(function($q3) {
-                      $q3->whereNull('table_references')
-                         ->where('id_entities', $this->vehicleId);
-                  });
+            $query->whereHas('vehicles', function($q) {
+                $q->where('vehicles.id', $this->vehicleId);
             });
         }
-        
+
         if ($this->search) {
             $searchTerm = '%' . $this->search . '%';
             $query->where(function($q) use ($searchTerm) {
                 $q->where('titolo', 'like', $searchTerm)
                 ->orWhere('subtitolo', 'like', $searchTerm)
-                ->orWhere('note', 'like', $searchTerm);
+                ->orWhere('note', 'like', $searchTerm)
+                ->orWhere('codice', 'like', $searchTerm);
             });
         }
-        
+
         if ($this->tipologiaFilter) {
             $query->where('id_settings', $this->tipologiaFilter);
         }
-        
+
         if ($this->statusFilter !== '') {
             if ($this->statusFilter === 'active') {
                 $query->whereNull('deleted_at');
             } elseif ($this->statusFilter === 'expired') {
                 $query->where('data_fine', '<', now())->whereNull('deleted_at');
             } elseif ($this->statusFilter === 'expiring') {
-                $query->where('data_fine', '<=', now()->addDays(30))
-                    ->where('data_fine', '>=', now())
+                $query->whereBetween('data_fine', [now(), now()->addDays(30)])
                     ->whereNull('deleted_at');
             }
         }
-        
+
         $query->orderBy($this->sortField, $this->sortDirection);
-        
+
         return $query->with([
-            'setting', 
-            'entityLegacy', 
+            'setting',
+            'entityLegacy',
             'ownershipLegacy',
             'vehicles',
-            'createdBy', 
+            'createdBy',
             'updatedBy'
         ])->paginate($this->perPage);
     }

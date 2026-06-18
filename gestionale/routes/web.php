@@ -178,16 +178,29 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // GESTIONE MEZZI (VEHICLES)
         // =============================================
         Route::prefix('vehicles')->name('vehicles.')->group(function () {
+            
+            // ✅ Route statiche PRIMA (nessun parametro)
             Route::get('/', [VehiclesController::class, 'index'])->name('index');
             Route::get('/create', [VehiclesController::class, 'create'])->name('create');
             Route::post('/', [VehiclesController::class, 'store'])->name('store');
+
+            // ✅ CALENDARIO SCADENZE VEICOLI (stringa fissa, PRIMA di /{vehicle})
+            Route::prefix('calendar')->name('calendar.')->group(function () {
+                Route::get('/', function () {
+                    return view('admin.vehicles.calendar');
+                })->name('index');
+                Route::get('/export-pdf', [App\Http\Controllers\Admin\VehicleCalendarController::class, 'exportPdf'])->name('export-pdf');
+                Route::get('/export-excel', [App\Http\Controllers\Admin\VehicleCalendarController::class, 'exportExcel'])->name('export-excel');
+            });
+
+            // ✅ Route con parametro {vehicle} — SEMPRE IN FONDO
             Route::get('/{vehicle}', [VehiclesController::class, 'show'])->name('show');
             Route::get('/{vehicle}/edit', [VehiclesController::class, 'edit'])->name('edit');
             Route::put('/{vehicle}', [VehiclesController::class, 'update'])->name('update');
             Route::delete('/{vehicle}', [VehiclesController::class, 'destroy'])->name('destroy');
             Route::post('/{vehicle}/toggle-status', [VehiclesController::class, 'toggleStatus'])->name('toggle-status');
             
-            // Export vehicles
+            // Export vehicles (DEVONO essere DOPO le route con parametri fissi)
             Route::get('/export/csv', [VehiclesController::class, 'export'])->name('export');
             Route::get('/export/pdf', [VehiclesController::class, 'exportPdf'])->name('export.pdf');
         });

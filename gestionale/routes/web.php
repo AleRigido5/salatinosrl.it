@@ -142,6 +142,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::get('/', [StaffAttendanceController::class, 'index'])->name('index');
                 Route::get('/{staffId}/{year}/{month}', [StaffAttendanceController::class, 'show'])->name('show');
                 Route::post('/save', [StaffAttendanceController::class, 'save'])->name('save');
+                
+                // 🆕 ROTTE PER BACKUP JSON
+                Route::get('/backups', [StaffAttendanceController::class, 'backups'])->name('backups');
+                Route::get('/backups/{staffId}', [StaffAttendanceController::class, 'backups'])->name('backups.staff');
+                Route::get('/download/{filename}', [StaffAttendanceController::class, 'download'])->name('download');
+                Route::post('/import', [StaffAttendanceController::class, 'import'])->name('import');
+                
                 Route::get('/export-pdf', [StaffAttendanceController::class, 'exportPdf'])->name('export-pdf');
                 Route::get('/export-excel', [StaffAttendanceController::class, 'exportExcel'])->name('export-excel');
             });

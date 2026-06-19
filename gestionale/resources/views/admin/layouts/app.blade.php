@@ -685,15 +685,27 @@
                                     } elseif ($currentRoute === 'admin.staff.create') {
                                         $breadcrumbs[] = ['name' => 'Nuovo', 'url' => null, 'clickable' => false];
                                     } elseif ($currentRoute === 'admin.staff.activity-report') {
-                                        // Report Attività - gestione speciale
                                         $staffId = $currentParams['staff'] ?? null;
                                         $breadcrumbs[] = ['name' => 'Report Attività', 'url' => null, 'clickable' => false];
-                                        
                                         if ($staffId) {
-                                            // Carica il modello Staff dall'ID
                                             $staffModel = \App\Models\Staff::find($staffId);
                                             if ($staffModel) {
                                                 $breadcrumbs[] = ['name' => $staffModel->full_name, 'url' => null, 'clickable' => false];
+                                            }
+                                        }
+                                    } elseif ($currentRoute === 'admin.staff.attendance.index') {
+                                        $breadcrumbs[] = ['name' => 'Gestione Presenze', 'url' => null, 'clickable' => false];
+                                    } elseif ($currentRoute === 'admin.staff.attendance.show') {
+                                        $staffId = $currentParams['staffId'] ?? null;
+                                        $breadcrumbs[] = ['name' => 'Gestione Presenze', 'url' => route('admin.staff.attendance.index'), 'clickable' => true];
+                                        if ($staffId) {
+                                            $staffModel = \App\Models\Staff::find($staffId);
+                                            if ($staffModel) {
+                                                $breadcrumbs[] = [
+                                                    'name' => $staffModel->NomePers . ' ' . $staffModel->CognomePers,
+                                                    'url'  => null,
+                                                    'clickable' => false
+                                                ];
                                             }
                                         }
                                     }

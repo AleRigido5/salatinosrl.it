@@ -19,10 +19,6 @@
             </p>
         </div>
         <div class="flex items-center gap-2">
-            <a href="{{ route('admin.staff.attendance.backups') }}"
-               class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1.5 transition-colors">
-                <i class="fas fa-database"></i> Backup
-            </a>
             <a href="{{ route('admin.staff.index') }}"
                class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1.5 transition-colors">
                 <i class="fas fa-arrow-left"></i>

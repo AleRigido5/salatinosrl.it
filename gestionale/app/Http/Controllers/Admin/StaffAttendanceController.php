@@ -1142,4 +1142,5 @@ class StaffAttendanceController extends Controller
         $writer->save('php://output');
         exit;
     }
+    
 }

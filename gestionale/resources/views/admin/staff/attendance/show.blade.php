@@ -90,7 +90,8 @@
         $totalPresenze = 0;
         $totalAssenze = 0;
         foreach ($presenze as $dk => $p) {
-            if (!$p['is_sunday'] && $p['is_in_assunzione']) {
+            // Le domeniche e i festivi non vengono conteggiati come giorni effettivi
+            if (!$p['is_sunday'] && !$p['is_festivo'] && $p['is_in_assunzione']) {
                 if (!empty($p['causale'])) {
                     $totalAssenze++;
                 } else {
@@ -183,9 +184,12 @@
                 <thead>
                     <tr class="border-b-2 border-gray-200 bg-gray-50">
                         <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200"
-                            style="min-width:100px;">DATA</th>
+                            style="min-width:110px;">DATA</th>
                         <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200"
                             style="min-width:200px;">CLIENTE / CANTIERE</th>
+                        {{-- 🆕 NUOVA COLONNA LOCALITA' --}}
+                        <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200"
+                            style="min-width:120px;">LOCALITA'</th>
                         <th class="px-4 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200"
                             style="min-width:80px;">N.ORE</th>
                         @foreach($ownerships as $ow)
@@ -199,14 +203,19 @@
                 <tbody id="attendanceBody">
                     @foreach($presenze as $data => $presenza)
                     @php
-                        $isSunday = $presenza['is_sunday'];
-                        $isInAssunzione = $presenza['is_in_assunzione'];
+                        $isSunday = $presenza['is_sunday'] ?? false;
+                        $isFestivo = $presenza['is_festivo'] ?? false;
+                        $isInAssunzione = $presenza['is_in_assunzione'] ?? false;
                         $causale = $presenza['causale'] ?? null;
                         $oreGiorno = $presenza['ore'] ?? 0;
                         $hasActivity = $presenza['has_activity'] ?? false;
+                        $localita = $presenza['localita'] ?? null;
+                        $giornoSettimana = $presenza['giorno_settimana'] ?? '';
 
-                        if ($isSunday) {
-                            $rowStyle = 'background:#fee2e2;';
+                        // 🆕 Determinazione colore riga: ROSSO per domeniche e festività
+                        $isRedRow = $isSunday || $isFestivo;
+                        if ($isRedRow) {
+                            $rowStyle = 'background:#fef2f2;';
                             $dateStyle = 'color:#dc2626; font-weight:700;';
                         } elseif (!$isInAssunzione) {
                             $rowStyle = 'background:#f3f4f6;';
@@ -225,18 +234,24 @@
                         style="{{ $rowStyle }}"
                         data-date="{{ $data }}">
 
+                        {{-- DATA con giorno della settimana --}}
                         <td class="px-4 py-2 border-r border-gray-100 whitespace-nowrap text-sm"
                             style="{{ $dateStyle }}">
                             {{ \Carbon\Carbon::parse($data)->format('d/m/Y') }}
-                            @if($hasActivity && !$isSunday && $isInAssunzione && !$causale)
+                            <span class="text-[10px] font-normal text-gray-500 ml-0.5">({{ $giornoSettimana }})</span>
+                            @if($hasActivity && !$isSunday && !$isFestivo && $isInAssunzione && !$causale)
                                 <span class="text-blue-400 text-[10px] ml-1" title="Attività rilevata">
                                     <i class="fas fa-circle"></i>
                                 </span>
                             @endif
                         </td>
 
+                        {{-- CLIENTE / CANTIERE --}}
                         <td class="px-4 py-2 border-r border-gray-100">
-                            @if($causale || $isSunday || !$isInAssunzione)
+                            @if($causale || $isSunday || $isFestivo || !$isInAssunzione)
+                                @if($causale)
+                                    <span class="text-red-500 text-xs font-medium">{{ ucfirst($causale) }}</span>
+                                @endif
                             @elseif($hasMultiple)
                                 <div class="text-sm text-gray-700 font-medium">{{ $primoDettaglio['nome_ownership'] ?? '—' }}</div>
                                 <div class="text-xs text-gray-400">{{ $cantiereLabel }}</div>
@@ -255,8 +270,21 @@
                             @endif
                         </td>
 
+                        {{-- 🆕 LOCALITA' --}}
+                        <td class="px-4 py-2 border-r border-gray-100 text-sm text-gray-700">
+                            @if($localita)
+                                <span class="flex items-center gap-1">
+                                    <i class="fas fa-map-marker-alt text-gray-400 text-[10px]"></i>
+                                    {{ $localita }}
+                                </span>
+                            @else
+                                <span class="text-gray-300">—</span>
+                            @endif
+                        </td>
+
+                        {{-- N.ORE --}}
                         <td class="px-4 py-2 text-center border-r border-gray-100 font-medium text-gray-700 text-sm">
-                            @if($causale || $isSunday || !$isInAssunzione)
+                            @if($causale || $isSunday || $isFestivo || !$isInAssunzione)
                                 <span class="text-gray-300">—</span>
                             @elseif($oreGiorno > 0)
                                 {{ number_format($oreGiorno, 1) }}
@@ -265,11 +293,13 @@
                             @endif
                         </td>
 
+                        {{-- CHECKBOX per ogni ownership --}}
                         @foreach($ownerships as $owLoop)
                         @php
                             $owId = $owLoop->id_proprieta;
                             $isChecked = isset($presenza['ownership_checked'][$owId]) && $presenza['ownership_checked'][$owId];
-                            $hasActivityForOw = $hasActivity && $isInAssunzione && !$causale && !$isSunday;
+                            // 🆕 Attività rilevata per questo ownership
+                            $hasActivityForOw = $hasActivity && $isInAssunzione && !$causale;
                         @endphp
                         <td class="text-center border-r border-gray-100 py-2" style="min-width:80px; position:relative;">
                             @if($causale && $loop->first)
@@ -277,11 +307,15 @@
                                     {{ ucfirst($causale) }}
                                 </span>
                             @elseif($causale)
-                            @elseif($isSunday || !$isInAssunzione)
+                                {{-- celle successive vuote sulla stessa riga causale --}}
+                            @elseif(!$isInAssunzione)
+                                {{-- cella vuota per fuori assunzione --}}
                             @else
+                                {{-- 🆕 Checkbox visibile e cliccabile SEMPRE (anche su domeniche/festivi) --}}
                                 <div class="flex flex-col items-center gap-0.5">
                                     <input type="checkbox"
-                                           class="attendance-checkbox w-4 h-4 rounded border-2 border-gray-300 text-lime-600 focus:ring-lime-500 cursor-pointer"
+                                           class="attendance-checkbox w-4 h-4 rounded border-2 border-gray-300 text-lime-600 focus:ring-lime-500 cursor-pointer
+                                                  {{ ($isSunday || $isFestivo) ? 'opacity-75' : '' }}"
                                            data-date="{{ $data }}"
                                            data-ownership="{{ $owId }}"
                                            data-staff="{{ $staff->id_personale }}"
@@ -290,6 +324,12 @@
                                     @if(!$isChecked && $hasActivityForOw)
                                         <span class="text-[8px] text-blue-400" title="Attività rilevata in questo giorno">
                                             <i class="fas fa-circle"></i>
+                                        </span>
+                                    @endif
+                                    {{-- Icona indicatrice per domenica/festivo --}}
+                                    @if($isSunday || $isFestivo)
+                                        <span class="text-[8px] text-red-400" title="Domenica/Festivo">
+                                            <i class="fas fa-calendar-alt"></i>
                                         </span>
                                     @endif
                                 </div>
@@ -302,7 +342,7 @@
 
                 <tfoot>
                     <tr class="border-t-2 border-gray-300 bg-gray-50">
-                        <td colspan="3" class="px-4 py-3 text-right font-bold text-gray-800 uppercase tracking-wide text-sm border-r border-gray-200">
+                        <td colspan="4" class="px-4 py-3 text-right font-bold text-gray-800 uppercase tracking-wide text-sm border-r border-gray-200">
                             TOTALE PRESENZE
                         </td>
                         @foreach($ownerships as $ow)
@@ -333,107 +373,6 @@
 
 </div>
 
-{{-- 
-    ═══════════════════════════════════════════════════════════════════════════
-    MODAL DETTAGLIO PRESENZA - COMMENTATO PER FUTURO UTILIZZO
-    ═══════════════════════════════════════════════════════════════════════════
-    Questo modal è stato progettato per gestire campi aggiuntivi come:
-    - Orario di entrata
-    - Orario di uscita
-    - Pausa (minuti)
-    - Causale
-    - Note
-    
-    Per attivarlo:
-    1. Decommentare questo blocco
-    2. Scommentare le funzioni nel JavaScript
-    3. Scommentare i campi nel controller (save)
-    4. Aggiungere i campi nel modello StaffAttendanceJson
---}}
-{{--
-<div id="attendanceDetailModal" class="fixed inset-0 z-50 hidden">
-    <div class="flex items-center justify-center min-h-screen px-4">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
-        <div class="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-6 transform transition-all">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-gray-900">
-                    <i class="fas fa-pen text-lime-500 mr-2"></i>
-                    Dettaglio Presenza
-                </h3>
-                <button onclick="closeAttendanceModal()"
-                        class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-
-            <div class="space-y-4">
-                <div class="bg-gray-50 rounded-lg p-3">
-                    <p class="text-xs text-gray-500">Data</p>
-                    <p class="font-medium text-gray-800" id="modal-date">—</p>
-                </div>
-
-                <div class="bg-gray-50 rounded-lg p-3">
-                    <p class="text-xs text-gray-500">Proprietà / Ownership</p>
-                    <p class="font-medium text-gray-800" id="modal-ownership">—</p>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-1">Entrata</label>
-                        <input type="time" id="modal-entrata"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-lime-500 focus:border-transparent">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-700 mb-1">Uscita</label>
-                        <input type="time" id="modal-uscita"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-lime-500 focus:border-transparent">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Pausa (minuti)</label>
-                    <input type="number" id="modal-pausa"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-lime-500 focus:border-transparent"
-                           placeholder="0" min="0" value="0">
-                </div>
-
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Causale</label>
-                    <select id="modal-causale"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-lime-500 focus:border-transparent">
-                        <option value="">Nessuna</option>
-                        <option value="malattia">Malattia</option>
-                        <option value="ferie">Ferie</option>
-                        <option value="permesso">Permesso</option>
-                        <option value="formazione">Formazione</option>
-                        <option value="sciopero">Sciopero</option>
-                        <option value="altro">Altro</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 mb-1">Note</label>
-                    <textarea id="modal-note" rows="2"
-                              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-lime-500 focus:border-transparent"
-                              placeholder="Inserisci eventuali note..."></textarea>
-                </div>
-            </div>
-
-            <div class="mt-6 flex justify-end gap-3">
-                <button onclick="closeAttendanceModal()"
-                        class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors">
-                    Annulla
-                </button>
-                <button onclick="confirmAttendance()"
-                        class="px-4 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm">
-                    <i class="fas fa-check"></i> Conferma
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
---}}
-
 {{-- MODAL NOTIFICA --}}
 <div id="notificationModal" class="fixed inset-0 z-50 hidden">
     <div class="flex items-center justify-center min-h-screen px-4">
@@ -463,7 +402,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const staffId   = {{ $staff->id_personale }};
     const csrfToken = '{{ csrf_token() }}';
     const saveUrl   = '{{ route("admin.staff.attendance.save") }}';
-    const baseShowUrl = '{{ route("admin.staff.attendance.show", ["staffId" => "__SID__", "year" => "__Y__", "month" => "__M__"]) }}';
 
     let pendingChanges = new Map();
 
@@ -481,13 +419,6 @@ document.addEventListener('DOMContentLoaded', function () {
         modal.classList.remove('hidden');
     }
     document.getElementById('modalCloseBtn').addEventListener('click', () => modal.classList.add('hidden'));
-
-    // ── Navigazione mese ──────────────────────────────────────────────────
-    document.getElementById('goToMonthBtn').addEventListener('click', () => {
-        const m = document.getElementById('monthSelectShow').value;
-        const y = document.getElementById('yearSelectShow').value;
-        window.location.href = baseShowUrl.replace('__SID__', staffId).replace('__Y__', y).replace('__M__', m);
-    });
 
     // ── Live stats + totali colonna ───────────────────────────────────────
     function updateStats() {
@@ -536,14 +467,12 @@ document.addEventListener('DOMContentLoaded', function () {
             const key = this.dataset.date + '|' + this.dataset.ownership;
             
             if (this.checked) {
-                // ✅ Presenza attivata - salva solo checked = true
                 pendingChanges.set(key, {
                     date: this.dataset.date,
                     ownership_id: this.dataset.ownership,
                     checked: true,
                 });
             } else {
-                // ❌ Presenza disattivata - salva checked = false
                 pendingChanges.set(key, {
                     date: this.dataset.date,
                     ownership_id: this.dataset.ownership,

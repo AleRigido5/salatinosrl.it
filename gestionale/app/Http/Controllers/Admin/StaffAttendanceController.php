@@ -14,6 +14,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 
 class StaffAttendanceController extends Controller
 {
@@ -33,7 +39,6 @@ class StaffAttendanceController extends Controller
 
     /**
      * Recupera le ownership: AGRICOLA SALATINO SRL e VITICOLTORI SALATINO SS
-     * Usa LIKE per essere più flessibile e catturare tutte le varianti
      */
     private function getFilteredOwnerships()
     {
@@ -53,6 +58,40 @@ class StaffAttendanceController extends Controller
     }
 
     /**
+     * Controlla se una data è festiva (domenica o festivo nazionale)
+     */
+    private function isFestivo(Carbon $date): bool
+    {
+        return $date->isSunday() || in_array($date->format('m-d'), $this->festiviNazionali);
+    }
+
+    /**
+     * Trova l'assunzione più recente per un dipendente
+     */
+    private function findLatestAssunzione($person, $selectedOwnershipId)
+    {
+        $assunzioni = $person->expirations->filter(fn($e) =>
+            $e->table_references === 'staff' && 
+            str_contains(strtolower($e->titolo ?? ''), 'assunzione')
+        );
+
+        if (!empty($selectedOwnershipId)) {
+            $assunzioni = $assunzioni->filter(fn($e) =>
+                isset($e->id_ownership) && $e->id_ownership == $selectedOwnershipId
+            );
+        }
+
+        $assunzioni = $assunzioni->sort(function($a, $b) {
+            if ($a->data_fine === null && $b->data_fine === null) return 0;
+            if ($a->data_fine === null) return 1;
+            if ($b->data_fine === null) return -1;
+            return $b->data_fine <=> $a->data_fine;
+        });
+
+        return $assunzioni->first();
+    }
+
+    /**
      * VIEW INDEX — Matrice tutti i dipendenti × giorni del mese
      */
     public function index(Request $request)
@@ -68,10 +107,8 @@ class StaffAttendanceController extends Controller
 
         // ── Ownerships filtrate ───────────────────────────────────────────
         $ownerships = $this->getFilteredOwnerships();
-        
-        // 🔍 DEBUG: Se non trova nessuna ownership, mostra TUTTE per debug
+
         if ($ownerships->isEmpty()) {
-            // Prova a cercare con "SALATINO" generico
             $ownerships = Ownership::where('valid', 1)
                 ->where(function($query) {
                     $query->where('RagAbbrev', 'LIKE', '%SALATINO%')
@@ -80,42 +117,55 @@ class StaffAttendanceController extends Controller
                 ->orderBy('RagAbbrev')
                 ->get();
         }
-        
-        // Se ancora non trova, prendi le prime 2 ownership (per test)
+
         if ($ownerships->isEmpty()) {
-            $ownerships = Ownership::where('valid', 1)
-                ->limit(2)
-                ->orderBy('RagAbbrev')
-                ->get();
-        }
-        
-        // Default: prima ownership disponibile
-        if (empty($selectedOwnershipId) && $ownerships->isNotEmpty()) {
-            $selectedOwnershipId = $ownerships->first()->id_proprieta;
+            $ownerships = Ownership::where('valid', 1)->limit(2)->orderBy('RagAbbrev')->get();
         }
 
-        $dateFrom = $request->get('date_from', Carbon::createFromDate($selectedYear, $selectedMonth, 1)->format('Y-m-d'));
-        $dateTo   = $request->get('date_to', Carbon::createFromDate($selectedYear, $selectedMonth, 1)->endOfMonth()->format('Y-m-d'));
-
-        $startDate = Carbon::parse($dateFrom)->startOfDay();
-        $endDate   = Carbon::parse($dateTo)->endOfDay();
-
-        // ── Genera giorni del mese ─────────────────────────────────────────
         $startOfMonth = Carbon::createFromDate($selectedYear, $selectedMonth, 1)->startOfDay();
         $endOfMonth   = $startOfMonth->copy()->endOfMonth();
         $giorni = collect(CarbonPeriod::create($startOfMonth, $endOfMonth)->toArray());
 
-        // ── Dipendenti ────────────────────────────────────────────────────
-        $staff = Staff::where('valid', 1)
+        // ── TUTTI i dipendenti validi con gruppo ──────────────────────────
+        $allStaff = Staff::where('valid', 1)
             ->with(['gruppo', 'expirations'])
             ->orderBy('CognomePers')
             ->orderBy('NomePers')
             ->get();
 
-        // ── Presenze salvate in JSON per tutto il mese ─────────────────────
+        // ── Filtra dipendenti ─────────────────────────────────────────────
+        $staff = $allStaff->filter(function($person) use ($selectedOwnershipId, $startOfMonth, $endOfMonth) {
+            if (empty($selectedOwnershipId)) {
+                return true;
+            }
+
+            $assExp = $this->findLatestAssunzione($person, $selectedOwnershipId);
+            if ($assExp) {
+                return true;
+            }
+
+            $hasEvent = $person->expirations->filter(fn($e) =>
+                $e->table_references === 'staff' && 
+                collect(['malattia','ferie','permesso','assenza'])->contains(fn($k) => 
+                    str_contains(strtolower($e->titolo ?? ''), $k)
+                )
+            )->first(function($e) use ($startOfMonth, $endOfMonth) {
+                $di = $e->data_inizio ? Carbon::parse($e->data_inizio) : null;
+                $df = $e->data_fine   ? Carbon::parse($e->data_fine) : null;
+                
+                if (!$di) return false;
+                if ($df) {
+                    return $di <= $endOfMonth && $df >= $startOfMonth;
+                }
+                return $di >= $startOfMonth && $di <= $endOfMonth;
+            });
+
+            return $hasEvent !== null;
+        });
+
         $staffIds = $staff->pluck('id_personale')->toArray();
-        
-        // Leggi le presenze da JSON per ogni staff
+
+        // ── Presenze salvate in JSON ───────────────────────────────────────
         $attendanceIndex = [];
         foreach ($staffIds as $sid) {
             $jsonData = StaffAttendanceJson::getForMonth($sid, (int) $selectedYear, (int) $selectedMonth);
@@ -123,35 +173,28 @@ class StaffAttendanceController extends Controller
                 foreach ($jsonData['presenze'] as $presenza) {
                     $date = $presenza['data'];
                     $owId = $presenza['id_ownership'] ?? null;
-                    
-                    // Filtra per ownership se selezionata
-                    if ($selectedOwnershipId && $owId != $selectedOwnershipId) {
+
+                    if (!empty($selectedOwnershipId) && $owId != $selectedOwnershipId) {
                         continue;
                     }
-                    
+
                     $attendanceIndex[$sid][$date][$owId] = $presenza;
                 }
             }
         }
 
-        // ── Attività del mese (SOLO PER INFORMAZIONE) ──────────────────────
+        // ── Attività del mese - TUTTE le attività ──────────────────────────
         $activitiesQuery = Activity::whereHas('staffDetails', fn($q) => $q->whereIn('id_staff', $staffIds))
             ->with(['staffDetails' => fn($q) => $q->whereIn('id_staff', $staffIds)])
             ->whereBetween('data_activities', [$startOfMonth, $endOfMonth]);
 
-        if ($selectedOwnershipId) {
-            $activitiesQuery->whereHas('costCenter', fn($q) => $q
-                ->where('table_references', 'ownership')
-                ->where('id_references', $selectedOwnershipId));
-        }
-
         $activities = $activitiesQuery->get();
 
-        // Indicizza attività: [staff_id][date] => info
         $activityIndex = [];
         foreach ($activities as $act) {
             $dk = Carbon::parse($act->data_activities)->format('Y-m-d');
             foreach ($act->staffDetails as $sd) {
+                if (!in_array($sd->id_staff, $staffIds)) continue;
                 if (!isset($activityIndex[$sd->id_staff][$dk])) {
                     $activityIndex[$sd->id_staff][$dk] = 0;
                 }
@@ -160,45 +203,54 @@ class StaffAttendanceController extends Controller
         }
 
         // ── Costruisci matrice presenze ────────────────────────────────────
-        $presenzeMatrix  = [];
-        $totaliGiornate  = [];
+        $presenzeMatrix = [];
+        $totaliGiornate = [];
 
         foreach ($staff as $person) {
             $pid = $person->id_personale;
 
-            // Data assunzione
-            $assExp = $person->expirations->filter(fn($e) =>
-                str_contains(strtolower($e->titolo ?? ''), 'assunzione')
-            )->sortBy('data_inizio')->first();
+            $assExp = $this->findLatestAssunzione($person, $selectedOwnershipId);
 
             $dataAss = $assExp && $assExp->data_inizio
                 ? Carbon::parse($assExp->data_inizio)->startOfDay() : null;
             $dataLic = $assExp && $assExp->data_fine
-                ? Carbon::parse($assExp->data_fine)->startOfDay() : null;
+                ? Carbon::parse($assExp->data_fine)->endOfDay() : null;
 
-            // Assenze
-            $assenze = $person->expirations->filter(fn($e) => collect(['malattia','ferie','permesso'])
-                ->contains(fn($k) => str_contains(strtolower($e->titolo ?? ''), $k)));
+            $assenze = $person->expirations->filter(fn($e) =>
+                $e->table_references === 'staff' && 
+                collect(['malattia','ferie','permesso','assenza'])->contains(fn($k) => 
+                    str_contains(strtolower($e->titolo ?? ''), $k)
+                )
+            );
 
             $presenzeMatrix[$pid] = [];
             $totaliGiornate[$pid] = 0;
 
             foreach ($giorni as $giorno) {
                 $dk = $giorno->format('Y-m-d');
+                $isFestivo = $this->isFestivo($giorno);
 
                 $isInAss = true;
                 if ($dataAss && $giorno->lt($dataAss)) $isInAss = false;
                 if ($dataLic && $giorno->gt($dataLic)) $isInAss = false;
 
-                $hasCausale = $assenze->contains(function ($e) use ($dk) {
+                $expiration = $assenze->first(function ($e) use ($dk) {
                     $di = $e->data_inizio ? Carbon::parse($e->data_inizio)->format('Y-m-d') : null;
                     $df = $e->data_fine   ? Carbon::parse($e->data_fine)->format('Y-m-d')   : null;
                     return $di && $df && $di <= $dk && $df >= $dk;
                 });
 
-                // ✅ PRESENZA: SOLO DA JSON
+                $causale = null;
+                if ($expiration) {
+                    $t = strtolower($expiration->titolo ?? '');
+                    if (str_contains($t, 'malattia'))        $causale = 'malattia';
+                    elseif (str_contains($t, 'ferie'))       $causale = 'ferie';
+                    elseif (str_contains($t, 'permesso'))    $causale = 'permesso';
+                    elseif (str_contains($t, 'assenza'))     $causale = 'assenza';
+                }
+
                 $checked = false;
-                if ($isInAss && !$giorno->isSunday() && !$hasCausale) {
+                if ($isInAss && !$isFestivo && !$causale) {
                     if (isset($attendanceIndex[$pid][$dk])) {
                         foreach ($attendanceIndex[$pid][$dk] as $att) {
                             if ($att['is_present'] ?? false) {
@@ -214,19 +266,21 @@ class StaffAttendanceController extends Controller
                 $presenzeMatrix[$pid][$dk] = [
                     'checked'           => $checked,
                     'is_in_assunzione'  => $isInAss,
-                    'causale'           => $hasCausale ? 'assenza' : null,
+                    'causale'           => $causale,
                     'is_sunday'         => $giorno->isSunday(),
+                    'is_festivo'        => $isFestivo,
                     'has_activity'      => ($activityIndex[$pid][$dk] ?? 0) > 0,
                 ];
             }
         }
 
+        $staffPerGruppo = $staff->groupBy(fn($p) => $p->gruppo->nome ?? 'Senza categoria');
         $festiviNazionali = $this->festiviNazionali;
 
         return view('admin.staff.attendance.index', compact(
-            'staff', 'ownerships', 'giorni', 'presenzeMatrix', 'totaliGiornate',
+            'staff', 'staffPerGruppo', 'ownerships', 'giorni', 'presenzeMatrix', 'totaliGiornate',
             'selectedYear', 'selectedMonth', 'selectedOwnershipId',
-            'dateFrom', 'dateTo', 'festiviNazionali'
+            'festiviNazionali'
         ));
     }
 
@@ -240,11 +294,9 @@ class StaffAttendanceController extends Controller
         }
 
         $staff = Staff::with([
-            'expirations' => fn($q) => $q->where(fn($q2) => $q2
-                ->where('titolo', 'LIKE', '%Malattia%')
-                ->orWhere('titolo', 'LIKE', '%Ferie%')
-                ->orWhere('titolo', 'LIKE', '%Permesso%')
-                ->orWhere('titolo', 'LIKE', '%Assunzione%')),
+            'expirations' => function($q) {
+                $q->where('table_references', 'staff');
+            },
             'gruppo',
         ])->findOrFail($staffId);
 
@@ -254,19 +306,26 @@ class StaffAttendanceController extends Controller
         // ── Assunzione ────────────────────────────────────────────────────
         $assExp = $staff->expirations->filter(fn($e) =>
             str_contains(strtolower($e->titolo ?? ''), 'assunzione')
-        )->sortBy('data_inizio')->first();
+        )->sort(function($a, $b) {
+            if ($a->data_fine === null && $b->data_fine === null) return 0;
+            if ($a->data_fine === null) return 1;
+            if ($b->data_fine === null) return -1;
+            return $b->data_fine <=> $a->data_fine;
+        })->first();
 
-        $dataAssunzione   = $assExp && $assExp->data_inizio ? Carbon::parse($assExp->data_inizio)->startOfDay() : null;
-        $dataLicenziamento = $assExp && $assExp->data_fine  ? Carbon::parse($assExp->data_fine)->startOfDay()  : null;
+        $dataAssunzione    = $assExp && $assExp->data_inizio ? Carbon::parse($assExp->data_inizio)->startOfDay() : null;
+        $dataLicenziamento = $assExp && $assExp->data_fine  ? Carbon::parse($assExp->data_fine)->endOfDay() : null;
 
-        // ── Assenze ───────────────────────────────────────────────────────
-        $assenze = $staff->expirations->filter(fn($e) => collect(['malattia','ferie','permesso'])
-            ->contains(fn($k) => str_contains(strtolower($e->titolo ?? ''), $k)));
+        // ── Assenze (malattia, ferie, permesso) ──────────────────────────
+        $assenze = $staff->expirations->filter(fn($e) => 
+            collect(['malattia','ferie','permesso','assenza'])->contains(fn($k) => 
+                str_contains(strtolower($e->titolo ?? ''), $k)
+            )
+        );
 
         // ── Ownership filtrate ────────────────────────────────────────────
         $ownerships = $this->getFilteredOwnerships();
-        
-        // 🔍 DEBUG: Se non trova nessuna ownership, mostra TUTTE per debug
+
         if ($ownerships->isEmpty()) {
             $ownerships = Ownership::where('valid', 1)
                 ->where(function($query) {
@@ -276,18 +335,15 @@ class StaffAttendanceController extends Controller
                 ->orderBy('RagAbbrev')
                 ->get();
         }
-        
+
         if ($ownerships->isEmpty()) {
-            $ownerships = Ownership::where('valid', 1)
-                ->limit(2)
-                ->orderBy('RagAbbrev')
-                ->get();
+            $ownerships = Ownership::where('valid', 1)->limit(2)->orderBy('RagAbbrev')->get();
         }
 
-        // ── Attività del dipendente nel mese (SOLO PER INFORMAZIONE) ──────
+        // ── Attività del dipendente nel mese ──────────────────────────────
         $activities = Activity::whereHas('staffDetails', fn($q) => $q->where('id_staff', $staffId))
             ->with([
-                'staffDetails' => fn($q) => $q->where('id_staff', $staffId),
+                'staffDetails'  => fn($q) => $q->where('id_staff', $staffId),
                 'costCenter',
             ])
             ->whereBetween('data_activities', [$startDate, $endDate])
@@ -300,8 +356,7 @@ class StaffAttendanceController extends Controller
 
         // ── Presenze salvate in JSON ──────────────────────────────────────
         $jsonData = StaffAttendanceJson::getStaff($staffId, (int) $year, (int) $month);
-        
-        // Indicizza: [date][ownership_id] => presenza
+
         $savedIndex = [];
         $totaliPerOwnership = [];
         foreach ($ownerships as $ow) {
@@ -312,55 +367,55 @@ class StaffAttendanceController extends Controller
             foreach ($jsonData['presenze'] as $presenza) {
                 $date = $presenza['data'];
                 $owId = $presenza['id_ownership'] ?? null;
-                
-                // Filtra solo per le ownership selezionate
+
                 if ($owId && !$ownerships->contains('id_proprieta', $owId)) {
                     continue;
                 }
-                
+
                 $savedIndex[$date][$owId] = $presenza;
-                
-                if (($presenza['is_present'] ?? false)) {
-                    if ($owId && isset($totaliPerOwnership[$owId])) {
-                        $totaliPerOwnership[$owId]++;
-                    }
+
+                if (($presenza['is_present'] ?? false) && $owId && isset($totaliPerOwnership[$owId])) {
+                    $totaliPerOwnership[$owId]++;
                 }
             }
         }
 
         // ── Costruzione array $presenze ───────────────────────────────────
-        $presenze       = [];
+        $presenze  = [];
         $giorniMap = ['Mon'=>'Lun','Tue'=>'Mar','Wed'=>'Mer','Thu'=>'Gio','Fri'=>'Ven','Sat'=>'Sab','Sun'=>'Dom'];
 
         $current = $startDate->copy();
         while ($current <= $endDate) {
-            $dk        = $current->format('Y-m-d');
-            $isSunday  = $current->isSunday();
+            $dk       = $current->format('Y-m-d');
+            $isSunday = $current->isSunday();
+            $isFestivo = $this->isFestivo($current);
 
             $isInAss = true;
             if ($dataAssunzione    && $current->lt($dataAssunzione))    $isInAss = false;
             if ($dataLicenziamento && $current->gt($dataLicenziamento)) $isInAss = false;
 
-            // Causale
             $expiration = $assenze->first(function ($e) use ($dk) {
                 $di = $e->data_inizio ? Carbon::parse($e->data_inizio)->format('Y-m-d') : null;
                 $df = $e->data_fine   ? Carbon::parse($e->data_fine)->format('Y-m-d')   : null;
                 return $di && $df && $di <= $dk && $df >= $dk;
             });
+            
             $causale = null;
             if ($expiration) {
                 $t = strtolower($expiration->titolo ?? '');
-                if (str_contains($t, 'malattia'))      $causale = 'malattia';
-                elseif (str_contains($t, 'ferie'))     $causale = 'ferie';
-                elseif (str_contains($t, 'permesso'))  $causale = 'permesso';
+                if (str_contains($t, 'malattia'))        $causale = 'malattia';
+                elseif (str_contains($t, 'ferie'))       $causale = 'ferie';
+                elseif (str_contains($t, 'permesso'))    $causale = 'permesso';
+                elseif (str_contains($t, 'assenza'))     $causale = 'assenza';
             }
 
-            // ── Attività del giorno (SOLO PER INFORMAZIONE) ──────────────
-            $dayActivities = $isInAss ? $activitiesByDate->get($dk, collect()) : collect();
-            $oreGiorno = 0;
-            $dettagli  = [];
-            $cantieriNomi = [];
-            $ownershipIds = [];
+            // ── Attività del giorno ───────────────────────────────────────
+            $dayActivities = $activitiesByDate->get($dk, collect());
+            $oreGiorno     = 0;
+            $dettagli      = [];
+            $cantieriNomi  = [];
+            $ownershipIds  = [];
+            $localita      = null;
 
             foreach ($dayActivities as $act) {
                 $sd = $act->staffDetails->first();
@@ -377,13 +432,18 @@ class StaffAttendanceController extends Controller
                 $owId   = null;
                 $owName = null;
                 $ccName = null;
+
                 if ($act->costCenter) {
-                    $cc     = $act->costCenter;
+                    $cc = $act->costCenter;
                     $ccName = $cc->Nome ?? null;
+                    
+                    if (!$localita && !empty($cc->Localita)) {
+                        $localita = $cc->Localita;
+                    }
+
                     if ($cc->table_references === 'ownership' && $cc->id_references) {
                         $owId   = $cc->id_references;
                         $owName = $ownershipMap[$owId]->RagAbbrev ?? null;
-                        // Filtra solo per le ownership selezionate
                         if ($ownerships->contains('id_proprieta', $owId)) {
                             $ownershipIds[] = $owId;
                             if ($owName) $cantieriNomi[] = $owName;
@@ -392,13 +452,14 @@ class StaffAttendanceController extends Controller
                 }
 
                 $dettagli[] = [
-                    'id_ownership'    => $owId,
-                    'nome_ownership'  => $owName ?? $ccName ?? 'N/A',
-                    'cost_center_name'=> $ccName,
-                    'att_start'       => $sd->att_start ?? null,
-                    'att_end'         => $sd->att_end   ?? null,
-                    'n_ore'           => $ore,
-                    'is_ownership'    => ($act->costCenter && $act->costCenter->table_references === 'ownership'),
+                    'id_ownership'     => $owId,
+                    'nome_ownership'   => $owName ?? $ccName ?? 'N/A',
+                    'cost_center_name' => $ccName,
+                    'localita'         => $localita,
+                    'att_start'        => $sd->att_start ?? null,
+                    'att_end'          => $sd->att_end   ?? null,
+                    'n_ore'            => $ore,
+                    'is_ownership'     => ($act->costCenter && $act->costCenter->table_references === 'ownership'),
                 ];
             }
 
@@ -406,28 +467,26 @@ class StaffAttendanceController extends Controller
             $cantieriNomiUnici = array_unique($cantieriNomi);
             $numCantieri       = count($cantieriNomiUnici);
 
-            // ── ownership_checked: PER OGNI OWNERSHIP, LEGGI DA JSON ──────
+            // ── ownership_checked da JSON ─────────────────────────────────
             $ownershipChecked = [];
             foreach ($ownerships as $ow) {
                 $owId = $ow->id_proprieta;
-
-                if (isset($savedIndex[$dk][$owId])) {
-                    $ownershipChecked[$owId] = $savedIndex[$dk][$owId]['is_present'] ?? false;
-                } else {
-                    $ownershipChecked[$owId] = false;
-                }
+                $ownershipChecked[$owId] = isset($savedIndex[$dk][$owId])
+                    ? ($savedIndex[$dk][$owId]['is_present'] ?? false)
+                    : false;
             }
 
-            // Prepara i dati per la vista
             $presenze[$dk] = [
                 'data'              => $dk,
                 'giorno_settimana'  => $giorniMap[$current->isoFormat('ddd')] ?? $current->isoFormat('ddd'),
                 'giorno_num'        => $current->day,
                 'is_sunday'         => $isSunday,
+                'is_festivo'        => $isFestivo,
                 'is_in_assunzione'  => $isInAss,
                 'causale'           => $causale,
                 'ore'               => $isInAss ? $oreGiorno : 0,
-                'dettagli'          => $isInAss ? $dettagli  : [],
+                'localita'          => $localita,
+                'dettagli'          => $isInAss ? $dettagli : [],
                 'cantieri_string'   => implode(', ', $cantieriNomiUnici),
                 'num_cantieri'      => $numCantieri,
                 'has_multiple'      => $numCantieri > 1,
@@ -439,11 +498,20 @@ class StaffAttendanceController extends Controller
             $current->addDay();
         }
 
+        $festiviNazionali = $this->festiviNazionali;
+
         return view('admin.staff.attendance.show', compact(
-            'staff', 'year', 'month', 'presenze', 'ownerships',
-            'startDate', 'endDate',
-            'dataAssunzione', 'dataLicenziamento',
-            'totaliPerOwnership'
+            'staff', 
+            'year', 
+            'month',
+            'presenze', 
+            'ownerships',
+            'startDate', 
+            'endDate',
+            'dataAssunzione', 
+            'dataLicenziamento',
+            'totaliPerOwnership', 
+            'festiviNazionali'
         ));
     }
 
@@ -458,15 +526,11 @@ class StaffAttendanceController extends Controller
             }
 
             $changes = $request->input('changes', []);
-            
+
             if (empty($changes)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Nessuna modifica da salvare',
-                ]);
+                return response()->json(['success' => false, 'message' => 'Nessuna modifica da salvare']);
             }
 
-            // Valida i dati
             foreach ($changes as $change) {
                 $validator = validator($change, [
                     'staff_id'     => 'required|integer|exists:staff,id_personale',
@@ -483,136 +547,85 @@ class StaffAttendanceController extends Controller
                 }
             }
 
-            // Salva su JSON
             $results = StaffAttendanceJson::saveMany($changes);
 
             return response()->json([
-                'success' => true,
-                'message' => count($results) . ' presenze salvate con successo',
-                'results' => $results,
+                'success'     => true,
+                'message'     => count($results) . ' presenze salvate con successo',
+                'results'     => $results,
                 'saved_count' => count($results),
             ]);
 
         } catch (\Exception $e) {
             Log::error('Save attendance error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 500);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 
     /**
-     * DEBUG: Mostra tutte le ownership per vedere i nomi reali
-     */
-    public function debugOwnerships()
-    {
-        if (!Auth::guard('admin')->user()->hasPermission('view_staff')) {
-            abort(403);
-        }
-        
-        $all = Ownership::where('valid', 1)->get(['id_proprieta', 'RagAbbrev', 'Rag_Soc_intest']);
-        return response()->json($all);
-    }
-
-    /**
-     * Visualizza i backup JSON disponibili
+     * BACKUPS — Visualizza i backup JSON disponibili
      */
     public function backups(Request $request, ?int $staffId = null)
     {
-        if (!Auth::guard('admin')->user()->hasPermission('view_staff')) {
-            abort(403);
-        }
+        if (!Auth::guard('admin')->user()->hasPermission('view_staff')) abort(403);
 
         $backups = StaffAttendanceJson::listAll();
-        
-        if ($staffId) {
-            $backups = array_filter($backups, fn($b) => $b['staff_id'] === $staffId);
-        }
-
-        if ($request->has('year')) {
-            $year = (int) $request->get('year');
-            $backups = array_filter($backups, fn($b) => $b['year'] === $year);
-        }
-
-        if ($request->has('month')) {
-            $month = (int) $request->get('month');
-            $backups = array_filter($backups, fn($b) => $b['month'] === $month);
-        }
+        if ($staffId) $backups = array_filter($backups, fn($b) => $b['staff_id'] === $staffId);
+        if ($request->has('year'))  $backups = array_filter($backups, fn($b) => $b['year']  === (int)$request->get('year'));
+        if ($request->has('month')) $backups = array_filter($backups, fn($b) => $b['month'] === (int)$request->get('month'));
 
         if ($request->ajax() || $request->wantsJson()) {
-            return response()->json([
-                'success' => true,
-                'backups' => array_values($backups),
-            ]);
+            return response()->json(['success' => true, 'backups' => array_values($backups)]);
         }
 
         $staffList = $staffId ? Staff::find($staffId) : null;
-        
         return view('admin.staff.attendance.backups', compact('backups', 'staffId', 'staffList'));
     }
 
     /**
-     * Scarica un file JSON di backup
+     * DOWNLOAD — Scarica un file JSON di backup
      */
     public function download(string $filename)
     {
-        if (!Auth::guard('admin')->user()->hasPermission('view_staff')) {
-            abort(403);
-        }
+        if (!Auth::guard('admin')->user()->hasPermission('view_staff')) abort(403);
 
         $path = 'attendance_data/' . $filename;
-        if (!Storage::disk('local')->exists($path)) {
-            abort(404, 'File non trovato');
-        }
+        if (!Storage::disk('local')->exists($path)) abort(404, 'File non trovato');
 
-        $fullPath = Storage::disk('local')->path($path);
-
-        return response()->download($fullPath, $filename, [
-            'Content-Type' => 'application/json',
+        return response()->download(Storage::disk('local')->path($path), $filename, [
+            'Content-Type'        => 'application/json',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
     }
 
     /**
-     * Importa dati da un file JSON
+     * IMPORT — Importa dati da un file JSON
      */
     public function import(Request $request)
     {
-        if (!Auth::guard('admin')->user()->hasPermission('edit_staff')) {
-            abort(403);
-        }
+        if (!Auth::guard('admin')->user()->hasPermission('edit_staff')) abort(403);
 
-        $request->validate([
-            'file' => 'required|file|mimes:json|max:2048',
-        ]);
+        $request->validate(['file' => 'required|file|mimes:json|max:2048']);
 
         try {
             $content = file_get_contents($request->file('file')->getPathname());
-            $data = json_decode($content, true);
+            $data    = json_decode($content, true);
 
             if (!$data || !isset($data['presenze'])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'File JSON non valido',
-                ], 422);
+                return response()->json(['success' => false, 'message' => 'File JSON non valido'], 422);
+            }
+
+            $staffId = $data['dipendente_id'] ?? null;
+            if (!$staffId) {
+                return response()->json(['success' => false, 'message' => 'ID dipendente non trovato nel file'], 422);
             }
 
             $changes = [];
-            $staffId = $data['dipendente_id'] ?? null;
-            
-            if (!$staffId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'ID dipendente non trovato nel file',
-                ], 422);
-            }
-
             foreach ($data['presenze'] as $presenza) {
                 $changes[] = [
-                    'staff_id' => (int) $staffId,
-                    'date' => $presenza['data'],
-                    'checked' => $presenza['is_present'] ?? false,
+                    'staff_id'     => (int) $staffId,
+                    'date'         => $presenza['data'],
+                    'checked'      => $presenza['is_present'] ?? false,
                     'ownership_id' => $presenza['id_ownership'] ?? null,
                 ];
             }
@@ -627,26 +640,506 @@ class StaffAttendanceController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Import attendance error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 500);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 
     /**
-     * Export PDF (placeholder)
+     * EXPORT PDF — Esporta la matrice in PDF
      */
     public function exportPdf(Request $request)
     {
-        return redirect()->back()->with('info', 'Export PDF in fase di sviluppo');
+        if (!Auth::guard('admin')->user()->hasPermission('view_staff')) {
+            abort(403);
+        }
+
+        $currentMonth = $request->get('month', now()->format('Y-m'));
+        [$selectedYear, $selectedMonth] = explode('-', $currentMonth);
+        $selectedOwnershipId = $request->get('ownership_id', '');
+
+        $ownerships = $this->getFilteredOwnerships();
+        if ($ownerships->isEmpty()) {
+            $ownerships = Ownership::where('valid', 1)
+                ->where(function($query) {
+                    $query->where('RagAbbrev', 'LIKE', '%SALATINO%')
+                          ->orWhere('Rag_Soc_intest', 'LIKE', '%SALATINO%');
+                })
+                ->orderBy('RagAbbrev')
+                ->get();
+        }
+
+        $startOfMonth = Carbon::createFromDate($selectedYear, $selectedMonth, 1)->startOfDay();
+        $endOfMonth   = $startOfMonth->copy()->endOfMonth();
+        $giorni = collect(CarbonPeriod::create($startOfMonth, $endOfMonth)->toArray());
+
+        $allStaff = Staff::where('valid', 1)
+            ->with(['gruppo', 'expirations'])
+            ->orderBy('CognomePers')
+            ->orderBy('NomePers')
+            ->get();
+
+        $staff = $allStaff->filter(function($person) use ($selectedOwnershipId, $startOfMonth, $endOfMonth) {
+            if (empty($selectedOwnershipId)) {
+                return true;
+            }
+
+            $assExp = $this->findLatestAssunzione($person, $selectedOwnershipId);
+            if ($assExp) {
+                return true;
+            }
+
+            $hasEvent = $person->expirations->filter(fn($e) =>
+                $e->table_references === 'staff' && 
+                collect(['malattia','ferie','permesso','assenza'])->contains(fn($k) => 
+                    str_contains(strtolower($e->titolo ?? ''), $k)
+                )
+            )->first(function($e) use ($startOfMonth, $endOfMonth) {
+                $di = $e->data_inizio ? Carbon::parse($e->data_inizio) : null;
+                $df = $e->data_fine   ? Carbon::parse($e->data_fine) : null;
+                if (!$di) return false;
+                if ($df) {
+                    return $di <= $endOfMonth && $df >= $startOfMonth;
+                }
+                return $di >= $startOfMonth && $di <= $endOfMonth;
+            });
+
+            return $hasEvent !== null;
+        });
+
+        $staffIds = $staff->pluck('id_personale')->toArray();
+
+        $attendanceIndex = [];
+        foreach ($staffIds as $sid) {
+            $jsonData = StaffAttendanceJson::getForMonth($sid, (int) $selectedYear, (int) $selectedMonth);
+            if ($jsonData && isset($jsonData['presenze'])) {
+                foreach ($jsonData['presenze'] as $presenza) {
+                    $date = $presenza['data'];
+                    $owId = $presenza['id_ownership'] ?? null;
+                    if (!empty($selectedOwnershipId) && $owId != $selectedOwnershipId) {
+                        continue;
+                    }
+                    $attendanceIndex[$sid][$date][$owId] = $presenza;
+                }
+            }
+        }
+
+        $activitiesQuery = Activity::whereHas('staffDetails', fn($q) => $q->whereIn('id_staff', $staffIds))
+            ->with(['staffDetails' => fn($q) => $q->whereIn('id_staff', $staffIds)])
+            ->whereBetween('data_activities', [$startOfMonth, $endOfMonth]);
+
+        $activities = $activitiesQuery->get();
+
+        $activityIndex = [];
+        foreach ($activities as $act) {
+            $dk = Carbon::parse($act->data_activities)->format('Y-m-d');
+            foreach ($act->staffDetails as $sd) {
+                if (!in_array($sd->id_staff, $staffIds)) continue;
+                if (!isset($activityIndex[$sd->id_staff][$dk])) {
+                    $activityIndex[$sd->id_staff][$dk] = 0;
+                }
+                $activityIndex[$sd->id_staff][$dk]++;
+            }
+        }
+
+        $presenzeMatrix = [];
+        $totaliGiornate = [];
+
+        foreach ($staff as $person) {
+            $pid = $person->id_personale;
+
+            $assExp = $this->findLatestAssunzione($person, $selectedOwnershipId);
+
+            $dataAss = $assExp && $assExp->data_inizio
+                ? Carbon::parse($assExp->data_inizio)->startOfDay() : null;
+            $dataLic = $assExp && $assExp->data_fine
+                ? Carbon::parse($assExp->data_fine)->endOfDay() : null;
+
+            $assenze = $person->expirations->filter(fn($e) =>
+                $e->table_references === 'staff' && 
+                collect(['malattia','ferie','permesso','assenza'])->contains(fn($k) => 
+                    str_contains(strtolower($e->titolo ?? ''), $k)
+                )
+            );
+
+            $presenzeMatrix[$pid] = [];
+            $totaliGiornate[$pid] = 0;
+
+            foreach ($giorni as $giorno) {
+                $dk = $giorno->format('Y-m-d');
+                $isFestivo = $this->isFestivo($giorno);
+
+                $isInAss = true;
+                if ($dataAss && $giorno->lt($dataAss)) $isInAss = false;
+                if ($dataLic && $giorno->gt($dataLic)) $isInAss = false;
+
+                $expiration = $assenze->first(function ($e) use ($dk) {
+                    $di = $e->data_inizio ? Carbon::parse($e->data_inizio)->format('Y-m-d') : null;
+                    $df = $e->data_fine   ? Carbon::parse($e->data_fine)->format('Y-m-d')   : null;
+                    return $di && $df && $di <= $dk && $df >= $dk;
+                });
+
+                $causale = null;
+                if ($expiration) {
+                    $t = strtolower($expiration->titolo ?? '');
+                    if (str_contains($t, 'malattia'))        $causale = 'malattia';
+                    elseif (str_contains($t, 'ferie'))       $causale = 'ferie';
+                    elseif (str_contains($t, 'permesso'))    $causale = 'permesso';
+                    elseif (str_contains($t, 'assenza'))     $causale = 'assenza';
+                }
+
+                $checked = false;
+                if ($isInAss && !$isFestivo && !$causale) {
+                    if (isset($attendanceIndex[$pid][$dk])) {
+                        foreach ($attendanceIndex[$pid][$dk] as $att) {
+                            if ($att['is_present'] ?? false) {
+                                $checked = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if ($checked) $totaliGiornate[$pid]++;
+
+                $presenzeMatrix[$pid][$dk] = [
+                    'checked' => $checked,
+                    'is_in_assunzione' => $isInAss,
+                    'causale' => $causale,
+                    'is_sunday' => $giorno->isSunday(),
+                    'is_festivo' => $isFestivo,
+                    'has_activity' => ($activityIndex[$pid][$dk] ?? 0) > 0,
+                ];
+            }
+        }
+
+        $staffPerGruppo = $staff->groupBy(fn($p) => $p->gruppo->nome ?? 'Senza categoria');
+        $festiviNazionali = $this->festiviNazionali;
+
+        $pdf = PDF::loadView('admin.staff.attendance.export-pdf', compact(
+            'staff', 'staffPerGruppo', 'ownerships', 'giorni', 'presenzeMatrix', 'totaliGiornate',
+            'selectedYear', 'selectedMonth', 'selectedOwnershipId',
+            'festiviNazionali'
+        ));
+
+        $pdf->setPaper('A3', 'landscape');
+        
+        return $pdf->download('presenze_' . $selectedYear . '_' . $selectedMonth . '.pdf');
     }
 
     /**
-     * Export Excel (placeholder)
+     * EXPORT EXCEL — Esporta la matrice in Excel
      */
     public function exportExcel(Request $request)
     {
-        return redirect()->back()->with('info', 'Export Excel in fase di sviluppo');
+        if (!Auth::guard('admin')->user()->hasPermission('view_staff')) {
+            abort(403);
+        }
+
+        $currentMonth = $request->get('month', now()->format('Y-m'));
+        [$selectedYear, $selectedMonth] = explode('-', $currentMonth);
+        $selectedOwnershipId = $request->get('ownership_id', '');
+
+        $ownerships = $this->getFilteredOwnerships();
+        if ($ownerships->isEmpty()) {
+            $ownerships = Ownership::where('valid', 1)
+                ->where(function($query) {
+                    $query->where('RagAbbrev', 'LIKE', '%SALATINO%')
+                        ->orWhere('Rag_Soc_intest', 'LIKE', '%SALATINO%');
+                })
+                ->orderBy('RagAbbrev')
+                ->get();
+        }
+
+        $startOfMonth = Carbon::createFromDate($selectedYear, $selectedMonth, 1)->startOfDay();
+        $endOfMonth   = $startOfMonth->copy()->endOfMonth();
+        $giorni = collect(CarbonPeriod::create($startOfMonth, $endOfMonth)->toArray());
+
+        $allStaff = Staff::where('valid', 1)
+            ->with(['gruppo', 'expirations'])
+            ->orderBy('CognomePers')
+            ->orderBy('NomePers')
+            ->get();
+
+        $staff = $allStaff->filter(function($person) use ($selectedOwnershipId, $startOfMonth, $endOfMonth) {
+            if (empty($selectedOwnershipId)) {
+                return true;
+            }
+
+            $assExp = $this->findLatestAssunzione($person, $selectedOwnershipId);
+            if ($assExp) {
+                return true;
+            }
+
+            $hasEvent = $person->expirations->filter(fn($e) =>
+                $e->table_references === 'staff' && 
+                collect(['malattia','ferie','permesso','assenza'])->contains(fn($k) => 
+                    str_contains(strtolower($e->titolo ?? ''), $k)
+                )
+            )->first(function($e) use ($startOfMonth, $endOfMonth) {
+                $di = $e->data_inizio ? Carbon::parse($e->data_inizio) : null;
+                $df = $e->data_fine   ? Carbon::parse($e->data_fine) : null;
+                if (!$di) return false;
+                if ($df) {
+                    return $di <= $endOfMonth && $df >= $startOfMonth;
+                }
+                return $di >= $startOfMonth && $di <= $endOfMonth;
+            });
+
+            return $hasEvent !== null;
+        });
+
+        $staffIds = $staff->pluck('id_personale')->toArray();
+
+        $attendanceIndex = [];
+        foreach ($staffIds as $sid) {
+            $jsonData = StaffAttendanceJson::getForMonth($sid, (int) $selectedYear, (int) $selectedMonth);
+            if ($jsonData && isset($jsonData['presenze'])) {
+                foreach ($jsonData['presenze'] as $presenza) {
+                    $date = $presenza['data'];
+                    $owId = $presenza['id_ownership'] ?? null;
+                    if (!empty($selectedOwnershipId) && $owId != $selectedOwnershipId) {
+                        continue;
+                    }
+                    $attendanceIndex[$sid][$date][$owId] = $presenza;
+                }
+            }
+        }
+
+        $activitiesQuery = Activity::whereHas('staffDetails', fn($q) => $q->whereIn('id_staff', $staffIds))
+            ->with(['staffDetails' => fn($q) => $q->whereIn('id_staff', $staffIds)])
+            ->whereBetween('data_activities', [$startOfMonth, $endOfMonth]);
+
+        $activities = $activitiesQuery->get();
+
+        $activityIndex = [];
+        foreach ($activities as $act) {
+            $dk = Carbon::parse($act->data_activities)->format('Y-m-d');
+            foreach ($act->staffDetails as $sd) {
+                if (!in_array($sd->id_staff, $staffIds)) continue;
+                if (!isset($activityIndex[$sd->id_staff][$dk])) {
+                    $activityIndex[$sd->id_staff][$dk] = 0;
+                }
+                $activityIndex[$sd->id_staff][$dk]++;
+            }
+        }
+
+        $presenzeMatrix = [];
+        $totaliGiornate = [];
+
+        foreach ($staff as $person) {
+            $pid = $person->id_personale;
+
+            $assExp = $this->findLatestAssunzione($person, $selectedOwnershipId);
+
+            $dataAss = $assExp && $assExp->data_inizio
+                ? Carbon::parse($assExp->data_inizio)->startOfDay() : null;
+            $dataLic = $assExp && $assExp->data_fine
+                ? Carbon::parse($assExp->data_fine)->endOfDay() : null;
+
+            $assenze = $person->expirations->filter(fn($e) =>
+                $e->table_references === 'staff' && 
+                collect(['malattia','ferie','permesso','assenza'])->contains(fn($k) => 
+                    str_contains(strtolower($e->titolo ?? ''), $k)
+                )
+            );
+
+            $presenzeMatrix[$pid] = [];
+            $totaliGiornate[$pid] = 0;
+
+            foreach ($giorni as $giorno) {
+                $dk = $giorno->format('Y-m-d');
+                $isFestivo = $this->isFestivo($giorno);
+
+                $isInAss = true;
+                if ($dataAss && $giorno->lt($dataAss)) $isInAss = false;
+                if ($dataLic && $giorno->gt($dataLic)) $isInAss = false;
+
+                $expiration = $assenze->first(function ($e) use ($dk) {
+                    $di = $e->data_inizio ? Carbon::parse($e->data_inizio)->format('Y-m-d') : null;
+                    $df = $e->data_fine   ? Carbon::parse($e->data_fine)->format('Y-m-d')   : null;
+                    return $di && $df && $di <= $dk && $df >= $dk;
+                });
+
+                $causale = null;
+                if ($expiration) {
+                    $t = strtolower($expiration->titolo ?? '');
+                    if (str_contains($t, 'malattia'))        $causale = 'malattia';
+                    elseif (str_contains($t, 'ferie'))       $causale = 'ferie';
+                    elseif (str_contains($t, 'permesso'))    $causale = 'permesso';
+                    elseif (str_contains($t, 'assenza'))     $causale = 'assenza';
+                }
+
+                $checked = false;
+                if ($isInAss && !$isFestivo && !$causale) {
+                    if (isset($attendanceIndex[$pid][$dk])) {
+                        foreach ($attendanceIndex[$pid][$dk] as $att) {
+                            if ($att['is_present'] ?? false) {
+                                $checked = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if ($checked) $totaliGiornate[$pid]++;
+
+                $presenzeMatrix[$pid][$dk] = [
+                    'checked' => $checked,
+                    'is_in_assunzione' => $isInAss,
+                    'causale' => $causale,
+                    'is_sunday' => $giorno->isSunday(),
+                    'is_festivo' => $isFestivo,
+                    'has_activity' => ($activityIndex[$pid][$dk] ?? 0) > 0,
+                ];
+            }
+        }
+
+        $staffPerGruppo = $staff->groupBy(fn($p) => $p->gruppo->nome ?? 'Senza categoria');
+        $festiviNazionali = $this->festiviNazionali;
+
+        // ── CREA EXCEL ─────────────────────────────────────────────────────
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $row = 1;
+
+        // Titolo
+        $sheet->setCellValue('A' . $row, 'GESTIONE PRESENZE ' . strtoupper(Carbon::createFromDate($selectedYear, $selectedMonth, 1)->locale('it')->isoFormat('MMMM YYYY')));
+        $sheet->mergeCells('A' . $row . ':D' . $row);
+        $sheet->getStyle('A' . $row)->getFont()->setBold(true)->setSize(14);
+        $row++;
+
+        // Intestazione colonne
+        $sheet->setCellValue('A' . $row, 'DIPENDENTE');
+        $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+        $sheet->getColumnDimension('A')->setWidth(30);
+
+        $col = 2;
+        foreach ($giorni as $giorno) {
+            $isFestivo = in_array($giorno->format('m-d'), $festiviNazionali) || $giorno->isSunday();
+            $cell = $sheet->getCell([$col, $row]);
+            $cell->setValue($giorno->format('j'));
+            $sheet->getColumnDimensionByColumn($col)->setWidth(4);
+            
+            if ($isFestivo) {
+                $sheet->getStyle([$col, $row])->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setRGB('FEF2F2');
+                $sheet->getStyle([$col, $row])->getFont()->getColor()->setRGB('DC2626');
+            }
+            $col++;
+        }
+
+        // N.GG
+        $sheet->setCellValue([$col, $row], 'N.GG');
+        $sheet->getColumnDimensionByColumn($col)->setWidth(8);
+        $sheet->getStyle([$col, $row])->getFont()->setBold(true);
+        $col++;
+
+        // Dati
+        $row++;
+
+        foreach ($staffPerGruppo as $gruppoNome => $persone) {
+            // Intestazione gruppo
+            $sheet->setCellValue('A' . $row, $gruppoNome);
+            $sheet->mergeCells('A' . $row . ':' . $sheet->getHighestColumn() . $row);
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $row)->getFill()
+                ->setFillType(Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('1F2937');
+            $sheet->getStyle('A' . $row)->getFont()->getColor()->setRGB('FFFFFF');
+            $row++;
+
+            foreach ($persone as $person) {
+                $personPresenze = $presenzeMatrix[$person->id_personale] ?? [];
+                $nGG = $totaliGiornate[$person->id_personale] ?? 0;
+
+                $sheet->setCellValue('A' . $row, strtoupper($person->CognomePers) . ' ' . $person->NomePers);
+                $sheet->getStyle('A' . $row)->getFont()->setBold(true);
+
+                $col = 2;
+                foreach ($giorni as $giorno) {
+                    $dk = $giorno->format('Y-m-d');
+                    $isFestivo = in_array($giorno->format('m-d'), $festiviNazionali) || $giorno->isSunday();
+                    
+                    $cellData = $personPresenze[$dk] ?? null;
+                    $isInAssunzione = $cellData['is_in_assunzione'] ?? false;
+                    $causale = $cellData['causale'] ?? null;
+                    $isPresent = $cellData['checked'] ?? false;
+                    $hasActivity = $cellData['has_activity'] ?? false;
+
+                    $value = '';
+                    $bgColor = null;
+                    $textColor = null;
+
+                    if ($isFestivo) {
+                        $bgColor = 'FEF2F2';
+                        $textColor = 'DC2626';
+                    } elseif (!$isInAssunzione) {
+                        $bgColor = 'F3F4F6';
+                        $textColor = '9CA3AF';
+                    } elseif ($causale === 'malattia') {
+                        $bgColor = 'EFF6FF';
+                        $textColor = '1D4ED8';
+                        $value = 'M';
+                    } elseif ($causale === 'ferie' || $causale === 'permesso') {
+                        $bgColor = 'FEFCE8';
+                        $textColor = '92400E';
+                        $value = $causale === 'ferie' ? 'F' : 'P';
+                    } elseif ($isPresent) {
+                        $value = 'X';
+                        $textColor = '000000';
+                    } elseif ($hasActivity) {
+                        $value = '●';
+                        $textColor = '3B82F6';
+                    }
+
+                    $cell = $sheet->getCell([$col, $row]);
+                    $cell->setValue($value);
+                    $sheet->getStyle([$col, $row])->getAlignment()
+                        ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+                        ->setVertical(Alignment::VERTICAL_CENTER);
+
+                    if ($bgColor) {
+                        $sheet->getStyle([$col, $row])->getFill()
+                            ->setFillType(Fill::FILL_SOLID)
+                            ->getStartColor()->setRGB($bgColor);
+                    }
+
+                    if ($textColor) {
+                        $sheet->getStyle([$col, $row])->getFont()->getColor()->setRGB($textColor);
+                    }
+
+                    $col++;
+                }
+
+                $sheet->setCellValue([$col, $row], $nGG);
+                $sheet->getStyle([$col, $row])->getFont()->setBold(true);
+
+                $row++;
+            }
+        }
+
+        // BORDI
+        $lastRow = $row - 1;
+        $lastCol = $col;
+        $styleArray = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'CCCCCC'],
+                ],
+            ],
+        ];
+        $sheet->getStyle('A1:' . $sheet->getHighestColumn() . $lastRow)->applyFromArray($styleArray);
+
+        // DOWNLOAD
+        $filename = 'presenze_' . $selectedYear . '_' . $selectedMonth . '.xlsx';
+        $writer = new Xlsx($spreadsheet);
+        
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        $writer->save('php://output');
+        exit;
     }
 }

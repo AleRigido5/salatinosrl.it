@@ -13,10 +13,6 @@
                 <i class="fas fa-clock text-lime-600"></i>
                 GESTIONE PRESENZE {{ strtoupper(\Carbon\Carbon::createFromDate($selectedYear, $selectedMonth, 1)->locale('it')->isoFormat('MMMM YYYY')) }}
             </h1>
-            <p class="text-xs text-gray-400 mt-0.5">
-                Periodo: {{ \Carbon\Carbon::createFromDate($selectedYear, $selectedMonth, 1)->format('d/m/Y') }}
-                – {{ \Carbon\Carbon::createFromDate($selectedYear, $selectedMonth, 1)->endOfMonth()->format('d/m/Y') }}
-            </p>
         </div>
         <div class="flex items-center gap-2">
             <a href="{{ route('admin.staff.index') }}"
@@ -28,24 +24,8 @@
 
     {{-- BARRA FILTRI --}}
     <div class="bg-white rounded-lg shadow border border-gray-200 p-3 mb-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center justify-end gap-3">
 
-            {{-- Range date a sinistra --}}
-            <div class="flex items-center gap-2">
-                <input type="date" id="date_from"
-                       value="{{ $dateFrom }}"
-                       class="px-2 py-1.5 border border-gray-300 rounded text-sm">
-                <span class="text-gray-400">→</span>
-                <input type="date" id="date_to"
-                       value="{{ $dateTo }}"
-                       class="px-2 py-1.5 border border-gray-300 rounded text-sm">
-                <button id="applyDateRange"
-                        class="bg-lime-500 hover:bg-lime-600 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors">
-                    Applica
-                </button>
-            </div>
-
-            {{-- Select proprietà + mese/anno al centro/destra --}}
             <div class="flex items-center gap-2">
                 <select id="ownershipFilter" class="px-2 py-1.5 border border-gray-300 rounded text-sm min-w-[160px]">
                     <option value="">Tutte le proprietà</option>
@@ -73,7 +53,7 @@
                 </select>
 
                 <select id="yearSelect" class="px-2 py-1.5 border border-gray-300 rounded text-sm">
-                    @for($y = date('Y')-3; $y <= date('Y')+1; $y++)
+                    @for($y = date('Y')-5; $y <= date('Y')+1; $y++)
                         <option value="{{ $y }}" {{ $selectedYear == $y ? 'selected' : '' }}>{{ $y }}</option>
                     @endfor
                 </select>
@@ -91,24 +71,27 @@
         </div>
     </div>
 
-    {{-- LEGENDA IN ALTO --}}
+    {{-- LEGENDA --}}
     <div class="flex flex-wrap gap-4 mb-3 text-xs text-gray-500 bg-white rounded-lg shadow border border-gray-200 p-3">
         <span class="flex items-center gap-1.5">
-            <span class="inline-block w-4 h-4 rounded" style="background:#111827;"></span> Domenica / Festivo
+            <span class="inline-block w-4 h-4 rounded" style="background:#fef2f2; border:1px solid #fca5a5;"></span> Domenica / Festivo
         </span>
         <span class="flex items-center gap-1.5">
-            <span class="inline-block w-4 h-4 rounded" style="background:#374151;"></span> Fuori periodo assunzione
+            <span class="inline-block w-4 h-4 rounded" style="background:#f3f4f6; border:1px solid #d1d5db;"></span> Fuori periodo assunzione
         </span>
         <span class="flex items-center gap-1.5">
-            <span class="inline-block w-4 h-4 rounded" style="background:#1f2937;"></span> Assenza (malattia / ferie / permesso)
+            <span class="inline-block w-4 h-4 rounded" style="background:#eff6ff; border:1px solid #93c5fd;"></span> Malattia
         </span>
         <span class="flex items-center gap-1.5">
-            <span class="inline-block w-4 h-4 border border-gray-300 rounded bg-white flex items-center justify-center font-bold text-gray-800">X</span>
+            <span class="inline-block w-4 h-4 rounded" style="background:#fefce8; border:1px solid #fcd34d;"></span> Ferie / Permesso
+        </span>
+        <span class="flex items-center gap-1.5">
+            <span class="inline-block w-4 h-4 rounded bg-white border border-gray-300 flex items-center justify-center font-bold text-gray-800 text-[10px]">X</span>
             Presenza registrata
         </span>
         <span class="flex items-center gap-1.5 text-blue-500">
             <i class="fas fa-circle text-[8px]"></i>
-            Attività rilevata (solo indicativa)
+            Attività rilevata (indicativa)
         </span>
     </div>
 
@@ -118,24 +101,18 @@
             <table class="border-collapse text-xs" style="min-width: max-content; width: 100%;">
                 <thead>
                     <tr class="border-b-2 border-gray-300">
-                        {{-- Intestazione dipendente --}}
                         <th class="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wide bg-gray-50 border-r border-gray-200 sticky left-0"
                             style="min-width:180px; z-index:2;">
                             DIPENDENTE
                         </th>
 
-                        {{-- Intestazioni giorni --}}
                         @foreach($giorni as $giorno)
-                        @php
-                            $isSun = $giorno->isSunday();
-                            $isSat = $giorno->isSaturday();
-                            $isFestivo = in_array($giorno->format('m-d'), $festiviNazionali ?? []);
-                            $isWeekend = $isSun || $isFestivo;
+                        @php                            $isFestivo = in_array($giorno->format('m-d'), $festiviNazionali) || $giorno->isSunday();
+                            $thBg = $isFestivo ? '#fef2f2' : '#f9fafb';
+                            $thColor = $isFestivo ? '#dc2626' : '#374151';
                         @endphp
                         <th class="text-center font-semibold border-r border-gray-200 py-1.5"
-                            style="min-width:28px; width:28px;
-                                   background: {{ $isWeekend ? '#1a1a1a' : ($isSat ? '#374151' : '#f9fafb') }};
-                                   color: {{ $isWeekend || $isSat ? '#fff' : '#374151' }};">
+                            style="min-width:28px; width:28px; background:{{ $thBg }}; color:{{ $thColor }};">
                             <div class="text-xs font-bold leading-tight">{{ $giorno->format('j') }}</div>
                             <div style="font-size:9px; opacity:0.8; font-weight:400;">
                                 {{ ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'][$giorno->dayOfWeek] }}
@@ -143,68 +120,73 @@
                         </th>
                         @endforeach
 
-                        {{-- N.GG --}}
                         <th class="px-3 py-2 text-center text-xs font-bold text-gray-700 uppercase bg-gray-50 border-l border-gray-300"
                             style="min-width:50px;">
                             N.GG
                         </th>
-
-                        {{-- Azioni --}}
                         <th class="px-3 py-2 text-center text-xs font-bold text-gray-700 uppercase bg-gray-50 border-l border-gray-200"
-                            style="min-width:60px;">
+                            style="min-width:110px;">
                             AZIONI
                         </th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($staff as $person)
+                    @foreach($staffPerGruppo as $gruppoNome => $persone)
+                    {{-- Intestazione gruppo --}}
+                    <tr class="bg-gray-800">
+                        <td colspan="{{ count($giorni) + 3 }}"
+                            class="px-3 py-1.5 text-xs font-bold text-white uppercase tracking-widest sticky left-0">
+                            <i class="fas fa-layer-group mr-1.5 text-lime-400"></i>
+                            {{ $gruppoNome }}
+                            <span class="ml-2 text-gray-400 font-normal normal-case">
+                                ({{ $persone->count() }} {{ $persone->count() == 1 ? 'dipendente' : 'dipendenti' }})
+                            </span>
+                        </td>
+                    </tr>
+
+                    @foreach($persone as $person)
                     @php
                         $personPresenze = $presenzeMatrix[$person->id_personale] ?? [];
                         $nGG = $totaliGiornate[$person->id_personale] ?? 0;
                     @endphp
                     <tr class="border-b border-gray-100 hover:bg-gray-50/60 transition-colors">
 
-                        {{-- Nome --}}
                         <td class="px-3 py-1.5 font-semibold text-gray-800 border-r border-gray-200 bg-white sticky left-0 text-xs"
                             style="min-width:180px; z-index:2;">
                             {{ strtoupper($person->CognomePers) }} {{ $person->NomePers }}
                         </td>
 
-                        {{-- Celle giorni --}}
                         @foreach($giorni as $giorno)
                         @php
                             $dk = $giorno->format('Y-m-d');
-                            $isSun = $giorno->isSunday();
-                            $isSat = $giorno->isSaturday();
-                            $isFestivo = in_array($giorno->format('m-d'), $festiviNazionali ?? []);
-                            $isWeekend = $isSun || $isFestivo;
+                            $isFestivo = in_array($giorno->format('m-d'), $festiviNazionali) || $giorno->isSunday();
 
                             $cellData = $personPresenze[$dk] ?? null;
                             $isInAssunzione = $cellData['is_in_assunzione'] ?? false;
-                            $hasCausale = !empty($cellData['causale']);
+                            $causale = $cellData['causale'] ?? null;
                             $isPresent = $cellData['checked'] ?? false;
                             $hasActivity = $cellData['has_activity'] ?? false;
 
-                            // Logica colore cella
-                            if ($isWeekend || $isSat) {
-                                $bgCell = '#111827'; // nero – domenica/festivo
+                            // 🎨 Colori celle
+                            if ($isFestivo) {
+                                $bgCell = '#fef2f2'; // ROSSO - Domenica/Festivo
                                 $showX = false;
-                                $blocked = true;
                                 $showActivity = false;
                             } elseif (!$isInAssunzione) {
-                                $bgCell = '#374151'; // grigio scuro – fuori assunzione
+                                $bgCell = '#f3f4f6'; // GRIGIO - Fuori assunzione
                                 $showX = false;
-                                $blocked = true;
                                 $showActivity = false;
-                            } elseif ($hasCausale) {
-                                $bgCell = '#1f2937'; // scuro – malattia/ferie
+                            } elseif ($causale === 'malattia') {
+                                $bgCell = '#eff6ff'; // BLU - Malattia
                                 $showX = false;
-                                $blocked = true;
+                                $showActivity = false;
+                            } elseif ($causale === 'ferie' || $causale === 'permesso') {
+                                $bgCell = '#fefce8'; // GIALLO - Ferie/Permesso
+                                $showX = false;
                                 $showActivity = false;
                             } else {
                                 $bgCell = 'transparent';
                                 $showX = $isPresent;
-                                $blocked = false;
                                 $showActivity = $hasActivity && !$isPresent;
                             }
                         @endphp
@@ -226,31 +208,53 @@
                             {{ $nGG }}
                         </td>
 
-                        {{-- Azioni --}}
-                        <td class="text-center border-l border-gray-200" style="min-width:60px;">
-                            <a href="{{ route('admin.staff.attendance.show', [
-                                    'staffId' => $person->id_personale,
-                                    'year'    => $selectedYear,
-                                    'month'   => $selectedMonth,
-                                ]) }}{{ $selectedOwnershipId ? '?ownership_id='.$selectedOwnershipId : '' }}"
-                               class="inline-flex items-center justify-center w-7 h-7 text-gray-500 hover:text-lime-600 transition-colors"
-                               title="Inserisci / Modifica Presenze">
-                                <i class="fas fa-file-alt"></i>
-                            </a>
+                        {{-- AZIONI --}}
+                        <td class="text-center border-l border-gray-200 px-1" style="min-width:110px;">
+                            <div class="flex items-center justify-center gap-1">
+                                <a href="{{ route('admin.staff.attendance.show', [
+                                        'staffId' => $person->id_personale,
+                                        'year'    => $selectedYear,
+                                        'month'   => $selectedMonth,
+                                    ]) }}{{ $selectedOwnershipId ? '?ownership_id='.$selectedOwnershipId : '' }}"
+                                   class="inline-flex items-center justify-center w-7 h-7 text-gray-500 hover:text-lime-600 transition-colors"
+                                   title="Inserisci / Modifica Presenze">
+                                    <i class="fas fa-file-alt"></i>
+                                </a>
+
+                                <a href="{{ route('admin.staff.activity-report', ['staff' => $person->id_personale]) }}?year={{ $selectedYear }}&month={{ $selectedMonth }}"
+                                   class="inline-flex items-center justify-center w-7 h-7 text-gray-500 hover:text-blue-600 transition-colors"
+                                   title="Report Attività {{ $mesi[(int)$selectedMonth] }} {{ $selectedYear }}"
+                                   target="_blank">
+                                    <i class="fas fa-chart-bar"></i>
+                                </a>
+                            </div>
                         </td>
                     </tr>
+                    @endforeach
                     @endforeach
                 </tbody>
             </table>
         </div>
     </div>
 
-    {{-- NOTA IN BASSO --}}
+    {{-- NOTA --}}
     <div class="mt-3 text-xs text-gray-400 bg-blue-50 border border-blue-200 rounded-lg p-3">
         <i class="fas fa-info-circle text-blue-500 mr-1"></i>
-        <strong>Nota:</strong> I checkbox delle presenze vanno spuntati manualmente. 
-        Il puntino blu <span class="text-blue-400"><i class="fas fa-circle text-[8px]"></i></span> indica che sono state rilevate attività per quel giorno, 
+        <strong>Nota:</strong> I checkbox delle presenze vanno spuntati manualmente.
+        Il puntino blu <span class="text-blue-400"><i class="fas fa-circle text-[8px]"></i></span> indica che sono state rilevate attività per quel giorno,
         ma la presenza va comunque confermata manualmente.
+    </div>
+
+    {{-- BOTTONI EXPORT --}}
+    <div class="mt-4 flex justify-end gap-3">
+        <a href="{{ route('admin.staff.attendance.export-pdf') }}?month={{ $selectedYear }}-{{ $selectedMonth }}{{ $selectedOwnershipId ? '&ownership_id='.$selectedOwnershipId : '' }}"
+           class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm">
+            <i class="fas fa-file-pdf"></i> Esporta PDF
+        </a>
+        <a href="{{ route('admin.staff.attendance.export-excel') }}?month={{ $selectedYear }}-{{ $selectedMonth }}{{ $selectedOwnershipId ? '&ownership_id='.$selectedOwnershipId : '' }}"
+           class="inline-flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm">
+            <i class="fas fa-file-excel"></i> Esporta Excel
+        </a>
     </div>
 
 </div>
@@ -259,8 +263,6 @@
 const monthSelect     = document.getElementById('monthSelect');
 const yearSelect      = document.getElementById('yearSelect');
 const ownershipFilter = document.getElementById('ownershipFilter');
-const dateFrom        = document.getElementById('date_from');
-const dateTo          = document.getElementById('date_to');
 const baseUrl         = '{{ route("admin.staff.attendance.index") }}';
 
 function buildParams(extraMonth = null) {
@@ -268,17 +270,13 @@ function buildParams(extraMonth = null) {
     const m = extraMonth ?? (yearSelect.value + '-' + monthSelect.value);
     params.append('month', m);
     if (ownershipFilter.value) params.append('ownership_id', ownershipFilter.value);
-    if (dateFrom.value)        params.append('date_from', dateFrom.value);
-    if (dateTo.value)          params.append('date_to', dateTo.value);
     return params;
 }
 
 document.getElementById('goToMonth').addEventListener('click', () => {
     window.location.href = baseUrl + '?' + buildParams();
 });
-document.getElementById('applyDateRange').addEventListener('click', () => {
-    window.location.href = baseUrl + '?' + buildParams();
-});
+
 ownershipFilter.addEventListener('change', () => {
     window.location.href = baseUrl + '?' + buildParams();
 });
@@ -289,6 +287,7 @@ document.getElementById('prevMonth').addEventListener('click', () => {
     const y = d.getFullYear();
     window.location.href = baseUrl + '?' + buildParams(y + '-' + m);
 });
+
 document.getElementById('nextMonth').addEventListener('click', () => {
     const d = new Date(yearSelect.value, parseInt(monthSelect.value), 1);
     const m = String(d.getMonth() + 1).padStart(2, '0');

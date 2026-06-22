@@ -109,6 +109,22 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/{id}/account-statement/export-pdf',   [AccountStatementController::class, 'exportPdf'])->name('account-statement.export-pdf');
             Route::get('/{id}/account-statement/export-excel', [AccountStatementController::class, 'exportExcel'])->name('account-statement.export-excel');
             Route::get('/{id}/account-statement', [AccountStatementController::class, 'index'])->name('account-statement');
+
+            // =============================================
+            // 🆕 GESTIONE COMUNICAZIONI
+            // =============================================
+            Route::prefix('{entityId}/communications')->name('communications.')->group(function () {
+                Route::get('/', [App\Http\Controllers\Admin\CommunicationController::class, 'index'])->name('index');
+                Route::post('/', [App\Http\Controllers\Admin\CommunicationController::class, 'store'])->name('store');
+                Route::get('/{id}', [App\Http\Controllers\Admin\CommunicationController::class, 'show'])->name('show');
+                Route::put('/{id}', [App\Http\Controllers\Admin\CommunicationController::class, 'update'])->name('update');
+                Route::delete('/{id}', [App\Http\Controllers\Admin\CommunicationController::class, 'destroy'])->name('destroy');
+                Route::get('/{id}/download', [App\Http\Controllers\Admin\CommunicationController::class, 'download'])->name('download');
+                
+                // Commenti
+                Route::post('/{communicationId}/comments', [App\Http\Controllers\Admin\CommunicationController::class, 'storeComment'])->name('comments.store');
+                Route::delete('/{communicationId}/comments/{commentId}', [App\Http\Controllers\Admin\CommunicationController::class, 'deleteComment'])->name('comments.delete');
+            });
         });
 
         // =============================================

@@ -255,6 +255,13 @@
                         
                         <td class="px-6 py-4 text-sm font-medium whitespace-nowrap">
                             <div class="flex space-x-3">
+                                {{-- Icona Comunicazioni --}}
+                                <a href="{{ route('admin.entities.communications.index', $entity->id_cliente) }}" 
+                                class="text-indigo-600 hover:text-indigo-900 transition-colors"
+                                title="Gestione Comunicazioni">
+                                    <i class="fa-solid fa-envelope text-lg"></i>
+                                </a>
+
                                 <a href="{{ route('admin.entities.account-statement', $entity->id_cliente) }}" 
                                 class="text-lime-600 hover:text-lime-900 transition-colors"
                                 title="Estratto Conto">

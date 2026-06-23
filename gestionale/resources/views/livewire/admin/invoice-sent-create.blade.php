@@ -313,10 +313,14 @@
                                 <div class="flex justify-between items-center py-1 text-sm border-b border-gray-100 last:border-0">
                                     <div class="font-medium text-gray-700">
                                         @if($vat['rate'] == 0)
-                                            @if($vat['nature_code'])
-                                                <span class="text-xs bg-gray-100 px-1 py-0.5 rounded">Cod. {{ $vat['nature_code'] }}</span>
+                                            @if(isset($vat['nature_code']) && $vat['nature_code'])
+                                                <span class="text-xs bg-gray-100 px-1 py-0.5 rounded">
+                                                    Cod. {{ $vat['nature_code'] }}
+                                                </span>
                                             @endif
-                                            <span class="text-gray-600">{{ Str::limit($vat['description'], 30) }}</span>
+                                            <span class="text-gray-600">
+                                                {{ isset($vat['description']) ? Str::limit($vat['description'], 30) : 'Esente/Non imponibile' }}
+                                            </span>
                                         @else
                                             <span class="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">{{ $vat['rate_percent'] }}%</span>
                                             <span class="text-gray-600">IVA</span>

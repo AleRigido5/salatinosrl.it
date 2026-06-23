@@ -368,10 +368,12 @@ class InvoiceSentCreate extends Component
             $key = (string)$vatRate;
             if (!isset($vatGroup[$key])) {
                 $vatGroup[$key] = [
-                    'rate' => $vatRate,
-                    'rate_percent' => $vatRate * 100,
-                    'taxable_amount' => 0,
-                    'vat_amount' => 0,
+                    'rate'          => $vatRate,
+                    'rate_percent'  => $vatRate * 100,
+                    'taxable_amount'=> 0,
+                    'vat_amount'    => 0,
+                    'description'   => $vatInfo['description'] ?? '',
+                    'nature_code'   => $vatInfo['sdi_nature'] ?? null,
                 ];
             }
             $vatGroup[$key]['taxable_amount'] += $taxable;
@@ -585,6 +587,13 @@ class InvoiceSentCreate extends Component
     
     public function save()
     {
+        foreach ($this->rows as $index => &$row) {
+            $row['quantity']   = str_replace(',', '.', $row['quantity'] ?? 0);
+            $row['unit_price'] = str_replace(',', '.', $row['unit_price'] ?? 0);
+            $row['discount_percentage'] = str_replace(',', '.', $row['discount_percentage'] ?? 0);
+        }
+        unset($row);
+
         Log::info('=== INIZIO SALVATAGGIO FATTURA VENDITA ===');
         Log::info('Dati ricevuti:', [
             'id_ownership' => $this->id_ownership,

@@ -254,7 +254,12 @@
                                 <div class="flex justify-between items-center py-1 text-sm border-b border-gray-100 last:border-0">
                                     <div class="font-medium text-gray-700">
                                         @if($vat['rate'] == 0)
-                                            <span class="text-xs bg-gray-100 px-1 py-0.5 rounded">{{ $vat['description'] }}</span>
+                                            <span class="text-xs bg-gray-100 px-1 py-0.5 rounded">
+                                                @if(!empty($vat['nature_code']))
+                                                    Cod. {{ $vat['nature_code'] }} - 
+                                                @endif
+                                                {{ $vat['description'] }}
+                                            </span>
                                         @else
                                             <span class="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">{{ $vat['rate_percent'] }}%</span>
                                             <span class="text-gray-600">IVA</span>
@@ -409,22 +414,25 @@
                                 questo è un limite accettabile: la riga mostra "IVA 0%" e
                                 l'informazione reale è nei vatSummaries.
                             --}}
-                            <td class="col-vat px-2 py-1">
-                                <select wire:model.live="rows.{{ $index }}.vat_rate_id"
-                                    class="w-full px-1 py-1 text-sm border rounded-md"
-                                    {{ $isReadonly ? 'disabled' : '' }}>
+                            <td class="col-vat px-2 py-1 align-top" style="width: 120px; min-width: 120px;">
+                                <select 
+                                    wire:model.live="rows.{{ $index }}.vat_rate_id"
+                                    wire:change="updateVatRate({{ $index }}, $event.target.value)"
+                                    class="w-full px-1 py-1 text-sm border rounded-md">
+                                    <option value="">Seleziona IVA</option>
                                     @foreach($vatRatesList as $vat)
                                         @php
-                                            $displayText = number_format($vat['rate_percent'], 0) . '%';
-                                            if ($vat['rate_percent'] == 0 && !empty($vat['sdi_nature'])) {
-                                                $displayText .= ' — ' . $vat['sdi_nature'];
+                                            $displayText = $vat['description'];
+                                            if (!empty($vat['sdi_nature'])) {
+                                                $displayText .= ' (Cod. ' . $vat['sdi_nature'] . ')';
                                             }
                                         @endphp
-                                        <option value="{{ $vat['id'] }}">{{ $displayText }}</option>
+                                        <option value="{{ $vat['id'] }}">
+                                            {{ number_format($vat['rate_percent'], 0) }}% - {{ $displayText }}
+                                        </option>
                                     @endforeach
                                 </select>
                             </td>
-
                             <td class="col-taxable px-2 py-1">
                                 <input type="text" readonly
                                     value="{{ number_format($row['taxable_amount'] ?? 0, 2, ',', '.') }}"

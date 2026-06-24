@@ -1,5 +1,4 @@
 <?php
-// app/Livewire/Admin/InvoiceSentCreate.php
 
 namespace App\Livewire\Admin;
 
@@ -13,7 +12,6 @@ use App\Models\Entity;
 use App\Models\CostCenter;
 use App\Models\Service;
 use App\Models\UnitaMisura;
-use App\Models\Vehicles;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -76,6 +74,7 @@ class InvoiceSentCreate extends Component
     public $paymentMethods = [];
     
     public $vatRatesList = [];
+    public $vatRatesMap = []; // Mappa per lookup veloce
     
     protected $rules = [
         'id_ownership' => 'required',
@@ -95,8 +94,6 @@ class InvoiceSentCreate extends Component
         Log::info('=== MOUNT InvoiceSentCreate ===');
         
         $this->data_invoice = date('Y-m-d');
-        Log::info('Data fattura impostata: ' . $this->data_invoice);
-        
         $this->loadVatRates();
         $this->loadUnitMeasures();
         $this->loadPaymentMethods();
@@ -105,7 +102,7 @@ class InvoiceSentCreate extends Component
         $this->addPayment();
         $this->calculatePaymentsTotal();
         
-        Log::info('Mount completato');
+        Log::info('Mount completato, vatRatesList caricati: ' . count($this->vatRatesList));
     }
     
     public function loadVatRates()
@@ -113,6 +110,7 @@ class InvoiceSentCreate extends Component
         $this->vatRatesList = DB::table('vat_rates')
             ->where('is_active', 1)
             ->orderBy('rate', 'desc')
+            ->orderBy('sdi_nature')
             ->get()
             ->map(function($item) {
                 return [
@@ -120,12 +118,46 @@ class InvoiceSentCreate extends Component
                     'description' => $item->description,
                     'rate' => (float)$item->rate,
                     'rate_percent' => (float)$item->rate * 100,
-                    'sdi_nature' => $item->sdi_nature,
+                    'sdi_nature' => $item->sdi_nature ?? '',
+                    'code' => $item->code ?? '',
                 ];
             })
             ->toArray();
+        
+        // Crea mappa per lookup veloce: [rate_sdi_nature] => id
+        $this->vatRatesMap = [];
+        foreach ($this->vatRatesList as $vat) {
+            $key = (float)$vat['rate'] . '_' . ($vat['sdi_nature'] ?? '');
+            $this->vatRatesMap[$key] = $vat['id'];
+        }
             
         Log::info('Aliquote IVA caricate: ' . count($this->vatRatesList));
+    }
+    
+    public function findVatRateId($rate, $sdiNature = '')
+    {
+        $key = (float)$rate . '_' . ($sdiNature ?? '');
+        
+        // Cerca esatta corrispondenza rate + sdi_nature
+        if (isset($this->vatRatesMap[$key])) {
+            return $this->vatRatesMap[$key];
+        }
+        
+        // Se non trova, cerca solo per rate (senza sdi_nature)
+        foreach ($this->vatRatesList as $vat) {
+            if ((float)$vat['rate'] === (float)$rate && empty($vat['sdi_nature'])) {
+                return $vat['id'];
+            }
+        }
+        
+        // Ultimo tentativo: cerca qualsiasi con quella rate
+        foreach ($this->vatRatesList as $vat) {
+            if ((float)$vat['rate'] === (float)$rate) {
+                return $vat['id'];
+            }
+        }
+        
+        return null;
     }
     
     public function loadUnitMeasures()
@@ -134,6 +166,7 @@ class InvoiceSentCreate extends Component
         ->orderBy('ordinamento')
         ->get(['id_um', 'nome', 'codice'])
         ->map(fn($um) => [
+            'id' => $um->id_um,
             'codice' => $um->codice,
             'nome' => $um->nome,
         ])
@@ -142,9 +175,7 @@ class InvoiceSentCreate extends Component
     
     public function loadPaymentMethods()
     {
-        // Carica le modalità di pagamento dalla configurazione
         $this->paymentMethods = config('gestionale.modalita_pagamento', []);
-        
         Log::info('Modalità di pagamento caricate: ' . count($this->paymentMethods));
     }
     
@@ -155,7 +186,6 @@ class InvoiceSentCreate extends Component
         if (!$this->id_ownership) {
             $this->companyIban = '';
             $this->companyBankName = '';
-            Log::info('Nessuna proprietà selezionata');
             return;
         }
         
@@ -168,17 +198,15 @@ class InvoiceSentCreate extends Component
         if ($bankAccount) {
             $this->companyIban = $bankAccount->iban ?? '';
             $this->companyBankName = $bankAccount->name ?? '';
-            Log::info('IBAN trovato: ' . $this->companyIban . ' - Banca: ' . $this->companyBankName);
+            Log::info('IBAN trovato: ' . $this->companyIban);
             
             if (count($this->payments) > 0) {
                 $this->payments[0]['iban'] = $this->companyIban;
                 $this->payments[0]['bank_name'] = $this->companyBankName;
-                Log::info('IBAN aggiornato nel pagamento');
             }
         } else {
             $this->companyIban = '';
             $this->companyBankName = '';
-            Log::warning('Nessun conto con default_invoice=1 per proprietà ID: ' . $this->id_ownership);
         }
     }
     
@@ -190,18 +218,25 @@ class InvoiceSentCreate extends Component
         $this->n_invoice = '';
         $this->loadCompanyBankAccount();
     }
-    
+
     public function loadAvailableSeries()
     {
         if (!$this->id_ownership) {
             $this->availableSeries = [];
-            Log::info('Nessuna proprietà selezionata per i sezionali');
             return;
         }
         
+        // Carica TUTTI i sezionali (anche quelli disattivati) per la proprietà selezionata
+        // Ordinati per anno decrescente (più recenti prima)
         $this->availableSeries = InvoiceSeries::where('id_ownership', $this->id_ownership)
-            ->where('year', date('Y'))
+            ->orderBy('year', 'desc')
+            ->orderBy('code')
             ->get()
+            ->map(function($series) {
+                // Aggiungi un flag per sapere se è attivo
+                $series->is_active = (bool)$series->active;
+                return $series;
+            })
             ->toArray();
             
         Log::info('Sezionali caricati per proprietà ' . $this->id_ownership . ': ' . count($this->availableSeries));
@@ -213,6 +248,11 @@ class InvoiceSentCreate extends Component
         
         $series = collect($this->availableSeries)->firstWhere('id', $this->selectedSeriesId);
         if ($series) {
+            // Controlla se il sezionale è attivo
+            if (!$series['active']) {
+                session()->flash('warning', 'ATTENZIONE: Questo sezionale è disattivato. La fattura verrà comunque creata ma il sezionale non sarà più utilizzabile per nuove fatture.');
+            }
+            
             // Calcola il nuovo progressivo (ultimo numero + 1)
             $nextNumber = $series['last_number'] + 1;
             
@@ -231,19 +271,27 @@ class InvoiceSentCreate extends Component
         if (!$this->selectedSeriesId) {
             return '';
         }
-        
         $series = collect($this->availableSeries)->firstWhere('id', $this->selectedSeriesId);
         if ($series) {
             $nextNumber = $series['last_number'] + 1;
             return $nextNumber . '/' . $series['code'] . '-' . $series['year'];
         }
-        
         return '';
     }
     
     public function addRow()
     {
         $index = count($this->rows);
+        
+        // Trova l'IVA al 22% di default (senza sdi_nature)
+        $defaultVatId = null;
+        foreach ($this->vatRatesList as $vat) {
+            if ((float)$vat['rate'] === 0.22 && empty($vat['sdi_nature'])) {
+                $defaultVatId = $vat['id'];
+                break;
+            }
+        }
+        
         $this->rows[] = [
             'code' => '',
             'description' => '',
@@ -251,7 +299,10 @@ class InvoiceSentCreate extends Component
             'unit_price' => 0.000,
             'unit_measure' => 'pz',
             'discount_percentage' => 0,
+            'vat_rate_id' => $defaultVatId,
             'vat_rate' => 0.22,
+            'vat_sdi_nature' => '',
+            'vat_description' => 'IVA 22%',
             'id_cost_center' => null,
             'id_service' => null,
             'taxable_amount' => 0,
@@ -264,24 +315,20 @@ class InvoiceSentCreate extends Component
         $this->selectedCostCenterId[$index] = '';
         $this->selectedCostCenterName[$index] = '';
         
-        $this->serviceSearch[$index]       = '';
-        $this->serviceResults[$index]      = [];
-        $this->selectedServiceId[$index]   = null;
+        $this->serviceSearch[$index] = '';
+        $this->serviceResults[$index] = [];
+        $this->selectedServiceId[$index] = null;
         $this->selectedServiceName[$index] = '';
         $this->showServiceDropdown[$index] = false;
         
         $this->calculateTotals();
-        
-        Log::info('Riga aggiunta, totale righe: ' . count($this->rows));
     }
     
     public function removeRow($index)
     {
-        // Rimuovi la riga
         unset($this->rows[$index]);
         $this->rows = array_values($this->rows);
 
-        // Rimuovi e reindicizza costCenter
         if (isset($this->costCenterSearch[$index])) unset($this->costCenterSearch[$index]);
         if (isset($this->costCenterResults[$index])) unset($this->costCenterResults[$index]);
         if (isset($this->selectedCostCenterId[$index])) unset($this->selectedCostCenterId[$index]);
@@ -293,7 +340,6 @@ class InvoiceSentCreate extends Component
         $this->selectedCostCenterName = array_values($this->selectedCostCenterName);
         $this->showCostCenterDropdown = array_values($this->showCostCenterDropdown);
 
-        // Rimuovi e reindicizza service
         if (isset($this->serviceSearch[$index])) unset($this->serviceSearch[$index]);
         if (isset($this->serviceResults[$index])) unset($this->serviceResults[$index]);
         if (isset($this->selectedServiceId[$index])) unset($this->selectedServiceId[$index]);
@@ -306,7 +352,6 @@ class InvoiceSentCreate extends Component
         $this->showServiceDropdown = array_values($this->showServiceDropdown);
 
         $this->calculateTotals();
-        Log::info('Riga rimossa, totale righe: ' . count($this->rows));
     }
     
     public function addPayment()
@@ -319,7 +364,6 @@ class InvoiceSentCreate extends Component
             'bank_name' => $this->companyBankName,
         ];
         $this->calculatePaymentsTotal();
-        Log::info('Pagamento aggiunto, totale pagamenti: ' . count($this->payments) . ', importo: ' . $this->importo_totale);
     }
     
     public function removePayment($index)
@@ -327,11 +371,20 @@ class InvoiceSentCreate extends Component
         unset($this->payments[$index]);
         $this->payments = array_values($this->payments);
         $this->calculatePaymentsTotal();
-        Log::info('Pagamento rimosso, totale pagamenti: ' . count($this->payments));
     }
     
-    public function updatedRows()
+    public function updatedRows($value, $key)
     {
+        if (str_ends_with((string)$key, '.vat_rate_id')) {
+            $parts = explode('.', $key);
+            $index = (int)$parts[1];
+            $vatInfo = collect($this->vatRatesList)->firstWhere('id', (int)$value);
+            if ($vatInfo) {
+                $this->rows[$index]['vat_rate'] = (float)$vatInfo['rate'];
+                $this->rows[$index]['vat_sdi_nature'] = $vatInfo['sdi_nature'] ?? '';
+                $this->rows[$index]['vat_description'] = $vatInfo['description'] ?? '';
+            }
+        }
         $this->calculateTotals();
     }
     
@@ -356,7 +409,8 @@ class InvoiceSentCreate extends Component
             $unitPrice = floatval($row['unit_price'] ?? 0);
             $discountPercentage = floatval($row['discount_percentage'] ?? 0);
             $vatRate = floatval($row['vat_rate'] ?? 0);
-            
+            $sdiNature = $row['vat_sdi_nature'] ?? '';
+
             $grossAmount = $quantity * $unitPrice;
             $discountAmount = $grossAmount * ($discountPercentage / 100);
             $totalDiscount += $discountAmount;
@@ -364,21 +418,30 @@ class InvoiceSentCreate extends Component
             $totalTaxable += $taxable;
             $vatAmount = $taxable * $vatRate;
             $totalVat += $vatAmount;
-            
-            $key = (string)$vatRate;
+
+            $key = $vatRate . '_' . $sdiNature;
+
             if (!isset($vatGroup[$key])) {
+                $vatInfo = collect($this->vatRatesList)->first(function($v) use ($vatRate, $sdiNature) {
+                    return (float)$v['rate'] === $vatRate && ($v['sdi_nature'] ?? '') === ($sdiNature ?? '');
+                });
+                
+                if (!$vatInfo) {
+                    $vatInfo = collect($this->vatRatesList)->firstWhere('rate', $vatRate);
+                }
+
                 $vatGroup[$key] = [
-                    'rate'          => $vatRate,
-                    'rate_percent'  => $vatRate * 100,
-                    'taxable_amount'=> 0,
-                    'vat_amount'    => 0,
-                    'description'   => $vatInfo['description'] ?? '',
-                    'nature_code'   => $vatInfo['sdi_nature'] ?? null,
+                    'rate' => $vatRate,
+                    'rate_percent' => $vatRate * 100,
+                    'taxable_amount' => 0,
+                    'vat_amount' => 0,
+                    'description' => $vatInfo['description'] ?? ('IVA ' . ($vatRate * 100) . '%'),
+                    'nature_code' => $sdiNature ?: ($vatInfo['sdi_nature'] ?? null),
                 ];
             }
             $vatGroup[$key]['taxable_amount'] += $taxable;
             $vatGroup[$key]['vat_amount'] += $vatAmount;
-            
+
             $row['taxable_amount'] = $taxable;
             $row['vat_amount'] = $vatAmount;
         }
@@ -393,8 +456,6 @@ class InvoiceSentCreate extends Component
             $this->payments[0]['amount'] = $this->importo_totale;
             $this->calculatePaymentsTotal();
         }
-        
-        Log::info('Totali calcolati - Imponibile: ' . $this->total_taxable . ', IVA: ' . $this->total_vat . ', Totale: ' . $this->importo_totale);
     }
     
     public function updatedCustomerSearch()
@@ -426,7 +487,6 @@ class InvoiceSentCreate extends Component
         $this->selectedCustomerName = $name;
         $this->customerSearch = $name;
         $this->showCustomerDropdown = false;
-        Log::info('Cliente selezionato: ID=' . $id . ', Nome=' . $name);
     }
     
     public function clearCustomer()
@@ -434,10 +494,8 @@ class InvoiceSentCreate extends Component
         $this->selectedCustomerId = '';
         $this->selectedCustomerName = '';
         $this->customerSearch = '';
-        Log::info('Cliente deselezionato');
     }
 
-    // ==================== AUTOCOMPLETE CENTRI DI COSTO ====================
     public function updatedCostCenterSearch($value, $key)
     {
         $index = (int) $key;
@@ -462,13 +520,11 @@ class InvoiceSentCreate extends Component
         $this->costCenterSearch[$index] = $name;
         $this->showCostCenterDropdown[$index] = false;
         $this->calculateTotals();
-        Log::info('Centro di costo selezionato riga ' . $index . ': ' . $name);
     }
     
-    // ==================== AUTOCOMPLETE SERVIZI ====================
     public function updatedServiceSearch($value, $key)
     {
-        $index = (int) $key; // cast a intero!
+        $index = (int) $key;
         
         if (strlen($value) < 2) {
             $this->serviceResults[$index] = [];
@@ -481,44 +537,42 @@ class InvoiceSentCreate extends Component
             ->limit(10)
             ->get()
             ->map(fn($s) => [
-                'id'            => $s->id,
-                'name'          => $s->Titolo,
+                'id' => $s->id,
+                'name' => $s->Titolo,
                 'descr_fattura' => $s->Descr_fattura ?? '',
-                'prezzo_un'     => $s->Prezzo_un ?? 0,
-            ])->values()->toArray(); // ->values() forza array indicizzato
+                'prezzo_un' => $s->Prezzo_un ?? 0,
+            ])->values()->toArray();
     }
     
-    /**
-     * Seleziona un servizio e popola i campi della riga
-     */
     public function selectService($index, $serviceId, $serviceName, $descrFattura, $prezzoUn)
     {
-        Log::info("Selezionato servizio - Index: {$index}, ID: {$serviceId}, Nome: {$serviceName}");
-        
         $this->rows[$index]['id_service'] = $serviceId;
         $this->selectedServiceId[$index] = $serviceId;
         $this->selectedServiceName[$index] = $serviceName;
         $this->serviceSearch[$index] = $serviceName;
         $this->showServiceDropdown[$index] = false;
         
-        // Popola la descrizione
         if (!empty($descrFattura)) {
             $this->rows[$index]['description'] = $descrFattura;
         } else {
             $this->rows[$index]['description'] = $serviceName;
         }
         
-        // Popola il prezzo
         if ($prezzoUn > 0 && (empty($this->rows[$index]['unit_price']) || $this->rows[$index]['unit_price'] == 0)) {
             $this->rows[$index]['unit_price'] = round((float)$prezzoUn, 3);
         }
         
-        // *** AGGIUNGI QUESTA PARTE: Imposta l'IVA predefinita dal servizio ***
         $service = \App\Models\Service::with('vatRate')->find($serviceId);
         if ($service && $service->vatRate) {
-            $this->rows[$index]['vat_rate'] = (float)$service->vatRate->rate;
-            $this->defaultServiceVatRate = (float)$service->vatRate->rate;
-            Log::info("IVA impostata dal servizio: " . $service->vatRate->rate * 100 . "% - " . $service->vatRate->description);
+            $vatInfo = $service->vatRate;
+            $vatId = $this->findVatRateId($vatInfo->rate, $vatInfo->sdi_nature ?? '');
+            
+            if ($vatId) {
+                $this->rows[$index]['vat_rate_id'] = $vatId;
+                $this->rows[$index]['vat_rate'] = (float)$vatInfo->rate;
+                $this->rows[$index]['vat_sdi_nature'] = $vatInfo->sdi_nature ?? '';
+                $this->rows[$index]['vat_description'] = $vatInfo->description ?? '';
+            }
         }
         
         $this->calculateTotals();
@@ -527,14 +581,12 @@ class InvoiceSentCreate extends Component
     public function openCustomerModal()
     {
         $this->showCustomerModal = true;
-        Log::info('Apertura modale nuovo cliente');
     }
     
     public function closeCustomerModal()
     {
         $this->showCustomerModal = false;
         $this->resetNewCustomerFields();
-        Log::info('Chiusura modale nuovo cliente');
     }
     
     public function resetNewCustomerFields()
@@ -552,8 +604,6 @@ class InvoiceSentCreate extends Component
     
     public function createCustomer()
     {
-        Log::info('Tentativo creazione nuovo cliente: ' . $this->newCustomerName);
-        
         $this->validate([
             'newCustomerName' => 'required|string|max:255',
         ]);
@@ -573,8 +623,6 @@ class InvoiceSentCreate extends Component
                 'valid' => 1,
             ]);
             
-            Log::info('Cliente creato con successo, ID: ' . $customer->id_cliente);
-            
             $this->selectCustomer($customer->id_cliente, $this->newCustomerName);
             $this->showCustomerModal = false;
             $this->resetNewCustomerFields();
@@ -588,55 +636,42 @@ class InvoiceSentCreate extends Component
     public function save()
     {
         foreach ($this->rows as $index => &$row) {
-            $row['quantity']   = str_replace(',', '.', $row['quantity'] ?? 0);
+            $row['quantity'] = str_replace(',', '.', $row['quantity'] ?? 0);
             $row['unit_price'] = str_replace(',', '.', $row['unit_price'] ?? 0);
             $row['discount_percentage'] = str_replace(',', '.', $row['discount_percentage'] ?? 0);
         }
         unset($row);
 
         Log::info('=== INIZIO SALVATAGGIO FATTURA VENDITA ===');
-        Log::info('Dati ricevuti:', [
-            'id_ownership' => $this->id_ownership,
-            'type_invoice' => $this->type_invoice,
-            'selectedSeriesId' => $this->selectedSeriesId,
-            'data_invoice' => $this->data_invoice,
-            'selectedCustomerId' => $this->selectedCustomerId,
-            'total_rows' => count($this->rows),
-            'total_payments' => count($this->payments),
-            'importo_totale' => $this->importo_totale
-        ]);
         
-        // Validazione
-        Log::info('Step 1: Validazione dati...');
         try {
             $this->validate();
-            Log::info('✅ Validazione superata');
         } catch (\Exception $e) {
             Log::error('❌ Errore validazione: ' . $e->getMessage());
-            Log::error('Validation errors: ' . json_encode($this->getErrorBag()));
             session()->flash('error', 'Errore validazione: ' . $e->getMessage());
             return null;
         }
         
         try {
             DB::beginTransaction();
-            Log::info('Step 2: Transazione iniziata');
             
-            // Aggiorna sezionale
-            Log::info('Step 3: Verifica sezionale ID: ' . $this->selectedSeriesId);
+            // Trova il sezionale
             $series = InvoiceSeries::find($this->selectedSeriesId);
             if (!$series) {
                 throw new \Exception('Sezionale non trovato per ID: ' . $this->selectedSeriesId);
             }
-            Log::info('✅ Sezionale trovato: ' . $series->code . ' - Ultimo numero: ' . $series->last_number);
             
-            $oldNumber = $series->last_number;
+            // Aggiorna il last_number anche se il sezionale è disattivato
+            // Questo permette di continuare a usare lo stesso sezionale anche se disattivato
+            // (utile per anni passati)
             $series->last_number += 1;
             $series->save();
-            Log::info('✅ Sezionale aggiornato: ' . $oldNumber . ' → ' . $series->last_number);
             
-            // Crea fattura
-            Log::info('Step 4: Creazione fattura...');
+            // Se il sezionale è disattivato, log di warning
+            if (!$series->active) {
+                Log::warning('Sezionale disattivato utilizzato: ' . $series->code . ' - ' . $series->year);
+            }
+            
             $invoiceData = [
                 'id_ownership' => $this->id_ownership,
                 'id_entities' => $this->selectedCustomerId,
@@ -653,26 +688,22 @@ class InvoiceSentCreate extends Component
                 'created_by' => Auth::guard('admin')->id(),
                 'updated_by' => Auth::guard('admin')->id(),
             ];
-            Log::info('Dati fattura:', $invoiceData);
             
             $invoice = InvoiceSent::create($invoiceData);
-            Log::info('✅ Fattura creata con ID: ' . $invoice->id);
-
-            // Salva righe
-            Log::info('Step 5: Salvataggio righe fattura (totale: ' . count($this->rows) . ')');
             
-            foreach ($this->rows as $index => $row) {
-                Log::info('--- Riga ' . $index . ' ---');
-                Log::info('Dati riga:', [
-                    'description' => $row['description'] ?? 'null',
-                    'quantity' => $row['quantity'] ?? 0,
-                    'unit_price' => $row['unit_price'] ?? 0,
-                    'vat_rate' => $row['vat_rate'] ?? 0,
-                    'discount_percentage' => $row['discount_percentage'] ?? 0,
-                    'taxable_amount' => $row['taxable_amount'] ?? 0,
-                ]);
+            foreach ($this->rows as $row) {
+                $vatRate = floatval($row['vat_rate'] ?? 0);
+                $sdiNature = $row['vat_sdi_nature'] ?? null;
                 
-                $rowData = [
+                if (!empty($row['vat_rate_id'])) {
+                    $vatInfo = collect($this->vatRatesList)->firstWhere('id', (int)$row['vat_rate_id']);
+                    if ($vatInfo) {
+                        $vatRate = (float)$vatInfo['rate'];
+                        $sdiNature = $vatInfo['sdi_nature'] ?? null;
+                    }
+                }
+                
+                InvoiceRow::create([
                     'document_id' => $invoice->id,
                     'document_type' => 'invoice_sent',
                     'code' => $row['code'] ?? null,
@@ -681,28 +712,15 @@ class InvoiceSentCreate extends Component
                     'unit_price' => round(floatval($row['unit_price'] ?? 0), 3),
                     'unit_measure' => $row['unit_measure'] ?? 'pz',
                     'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
-                    'vat_rate' => floatval($row['vat_rate'] ?? 0) * 100,
+                    'vat_rate' => $vatRate * 100,
+                    'sdi_nature' => $sdiNature,
                     'total' => floatval($row['taxable_amount'] ?? 0),
                     'id_cost_center' => $row['id_cost_center'] ?? null,
                     'id_service' => $row['id_service'] ?? null,
-                    'id_vehicle' => $row['id_vehicle'] ?? null,
-                ];
-                Log::info('Dati per InvoiceRow:', $rowData);
-                
-                InvoiceRow::create($rowData);
-                Log::info('✅ Riga ' . $index . ' salvata con successo');
+                ]);
             }
             
-            // Salva riepiloghi IVA
-            Log::info('Step 6: Salvataggio riepiloghi IVA (totale: ' . count($this->vatSummary) . ')');
-            
-            foreach ($this->vatSummary as $index => $vat) {
-                Log::info('Riepilogo IVA ' . $index . ':', [
-                    'rate' => $vat['rate'] * 100,
-                    'taxable_amount' => $vat['taxable_amount'],
-                    'vat_amount' => $vat['vat_amount']
-                ]);
-                
+            foreach ($this->vatSummary as $vat) {
                 DB::table('invoice_vat_summaries')->insert([
                     'vatable_id' => $invoice->id,
                     'vatable_type' => InvoiceSent::class,
@@ -713,13 +731,9 @@ class InvoiceSentCreate extends Component
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
-                Log::info('✅ Riepilogo IVA ' . $index . ' salvato');
             }
             
-            // Salva pagamenti
-            Log::info('Step 7: Salvataggio pagamenti (totale: ' . count($this->payments) . ')');
-            
-            foreach ($this->payments as $index => $payment) {
+            foreach ($this->payments as $payment) {
                 if ($payment['amount'] > 0) {
                     $iban = $payment['iban'] ?? $this->companyIban;
                     if (empty($iban)) {
@@ -731,7 +745,7 @@ class InvoiceSentCreate extends Component
                         $iban = $bankAccount->iban ?? null;
                     }
                     
-                    $paymentData = [
+                    DB::table('invoice_payments')->insert([
                         'payable_id' => $invoice->id,
                         'payable_type' => InvoiceSent::class,
                         'due_date' => $payment['due_date'],
@@ -743,26 +757,17 @@ class InvoiceSentCreate extends Component
                         'status' => 'issued',
                         'created_at' => now(),
                         'updated_at' => now(),
-                    ];
-                    Log::info('Dati pagamento ' . $index . ':', $paymentData);
-                    
-                    DB::table('invoice_payments')->insert($paymentData);
-                    Log::info('✅ Pagamento ' . $index . ' salvato');
+                    ]);
                 }
             }
             
             DB::commit();
-            Log::info('✅✅✅ TRANSIZIONE COMPLETATA CON SUCCESSO! Fattura ID: ' . $invoice->id);
-            
             session()->flash('success', 'Fattura ' . $this->n_invoice . ' creata con successo!');
             return redirect()->route('admin.invoices-sent.index');
             
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('❌❌❌ ERRORE GENERALE: ' . $e->getMessage());
-            Log::error('File: ' . $e->getFile() . ':' . $e->getLine());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
-            
+            Log::error('❌ ERRORE: ' . $e->getMessage());
             session()->flash('error', 'Errore: ' . $e->getMessage());
             return null;
         }

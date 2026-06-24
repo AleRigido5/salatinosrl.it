@@ -18,6 +18,7 @@ class InvoiceSeries extends Model
         'year',
         'last_number',
         'allowed_document_type',
+        'active',
         'created_by',
         'updated_by',
     ];
@@ -50,6 +51,11 @@ class InvoiceSeries extends Model
         $this->last_number += 1;
         $this->save();
         return $this->last_number;
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('active', 1);
     }
 
     // Ottiene o crea il sezionale per una proprietà e anno

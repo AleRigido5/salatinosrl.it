@@ -164,15 +164,67 @@
                     <!-- Nella view invoice-sent-create.blade.php, dopo il campo Proprietà -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Sezionale <span class="text-red-500">*</span></label>
-                        <select wire:model.live="selectedSeriesId" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500">
+                        <select wire:model.live="selectedSeriesId" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500">
                             <option value="">Seleziona sezionale</option>
                             @foreach($availableSeries as $series)
-                                <option value="{{ $series['id'] }}">
-                                    {{ $series['code'] }} - {{ $series['name'] }} (Anno {{ $series['year'] }})
+                                @php
+                                    $isActive = isset($series['active']) ? (bool)$series['active'] : true;
+                                    $year = $series['year'];
+                                    $currentYear = date('Y');
+                                    
+                                    // Determina l'icona dell'anno
+                                    if ($year == $currentYear) {
+                                        $yearIcon = '<i class="fas fa-check-circle text-green-500 mr-1"></i>';
+                                    } elseif ($year < $currentYear) {
+                                        $yearIcon = '<i class="fas fa-calendar-alt text-orange-500 mr-1"></i>';
+                                    } else {
+                                        $yearIcon = '<i class="fas fa-calendar-plus text-blue-500 mr-1"></i>';
+                                    }
+                                @endphp
+                                <option value="{{ $series['id'] }}" 
+                                        {{ !$isActive ? 'disabled' : '' }}
+                                        style="{{ !$isActive ? 'color: #999; background-color: #f5f5f5; cursor: not-allowed;' : '' }}"
+                                        title="{{ !$isActive ? '❌ Sezionale disattivato - non disponibile' : '' }}">
+                                    {!! $yearIcon !!}
+                                    {{ $series['code'] }} - {{ $series['name'] }} 
+                                    ({{ $year }}
+                                    @if(!$isActive)
+                                        <i class="fas fa-lock text-gray-400"></i> DISATTIVATO
+                                    @endif
+                                    )
                                 </option>
                             @endforeach
                         </select>
                         @error('selectedSeriesId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        
+                        @if($selectedSeriesId)
+                            @php
+                                $selectedSeries = collect($this->availableSeries)->firstWhere('id', $this->selectedSeriesId);
+                            @endphp
+                            @if($selectedSeries && !$selectedSeries['active'])
+                                <div class="mt-1 text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-1.5 flex items-center">
+                                    <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
+                                    <span>ATTENZIONE: Questo sezionale è <strong>disattivato</strong> e non può essere selezionato.</span>
+                                </div>
+                            @endif
+                            @if($selectedSeries && $selectedSeries['year'] != date('Y'))
+                                <div class="mt-1 text-xs {{ $selectedSeries['year'] < date('Y') ? 'text-orange-600 bg-orange-50 border border-orange-200' : 'text-blue-600 bg-blue-50 border border-blue-200' }} rounded-md px-3 py-1.5 flex items-center">
+                                    @if($selectedSeries['year'] < date('Y'))
+                                        <i class="fas fa-history text-orange-500 mr-2"></i>
+                                    @else
+                                        <i class="fas fa-clock text-blue-500 mr-2"></i>
+                                    @endif
+                                    <span>Sezionale dell'anno <strong>{{ $selectedSeries['year'] }}</strong> 
+                                        @if($selectedSeries['year'] < date('Y'))
+                                            (anno passato)
+                                        @else
+                                            (anno futuro)
+                                        @endif
+                                    </span>
+                                </div>
+                            @endif
+                        @endif
                     </div>
                     
                     <div>
@@ -430,15 +482,18 @@
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right" placeholder="0">
                             </td>
                             <td class="col-vat px-2 py-1 align-top" style="width: 120px; min-width: 120px;">
-                                <select wire:model.live="rows.{{ $index }}.vat_rate"
+                                <select wire:model.live="rows.{{ $index }}.vat_rate_id"
                                     class="w-full px-1 py-1 text-sm border rounded-md">
-                                    <option value="0">Seleziona IVA</option>
+                                    <option value="">Seleziona IVA</option>
                                     @foreach($vatRatesList as $vat)
-                                        <option value="{{ $vat['rate'] }}">
-                                            {{ $vat['description'] }}
-                                            @if($vat['sdi_nature'])
-                                                ({{ $vat['sdi_nature'] }})
-                                            @endif
+                                        @php
+                                            $displayText = $vat['description'];
+                                            if (!empty($vat['sdi_nature'])) {
+                                                $displayText .= ' (Cod. ' . $vat['sdi_nature'] . ')';
+                                            }
+                                        @endphp
+                                        <option value="{{ $vat['id'] }}">
+                                            {{ number_format($vat['rate_percent'], 0) }}% - {{ $displayText }}
                                         </option>
                                     @endforeach
                                 </select>

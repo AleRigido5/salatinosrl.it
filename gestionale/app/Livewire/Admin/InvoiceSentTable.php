@@ -95,6 +95,10 @@ class InvoiceSentTable extends Component
             $this->sortField = $savedFilters['sort_field'] ?? 'data_invoice';
             $this->sortDirection = $savedFilters['sort_direction'] ?? 'desc';
             $this->perPage = $savedFilters['per_page'] ?? 100;
+        } else {
+            // SE NON CI SONO FILTRI SALVATI, IMPOSTA IL MESE CORRENTE DI DEFAULT
+            $this->dateFrom = date('Y-m-01'); // Primo giorno del mese corrente
+            $this->dateTo = date('Y-m-d');    // Oggi
         }
         
         $this->updateTrashCount();
@@ -102,22 +106,32 @@ class InvoiceSentTable extends Component
 
     public function updateDateRange(array $data): void
     {
-        $this->dateFrom = $data['date_from'];
-        $this->dateTo = $data['date_to'];
+        $this->dateFrom = $data['date_from'] ?? '';
+        $this->dateTo = $data['date_to'] ?? '';
         $this->resetPage();
     }
 
     // ==================== AUTOCOMPLETE PROPRIETÀ ====================
     public function updatedOwnershipSearch(): void
     {
-        // Chiudi solo se c'è una selezione attiva E il testo corrisponde esattamente
-        if ($this->selectedOwnershipId !== '' && $this->ownershipSearch === $this->selectedOwnershipName) {
+        // Se il campo è vuoto, resetta tutto
+        if (empty(trim($this->ownershipSearch))) {
+            $this->selectedOwnershipId = '';
+            $this->selectedOwnershipName = '';
+            $this->ownershipResults = new Collection();
+            $this->showOwnershipDropdown = false;
+            $this->resetPage();
+            return;
+        }
+
+        // Se il testo è uguale al nome selezionato, nascondi il dropdown
+        if (!empty($this->selectedOwnershipId) && $this->ownershipSearch === $this->selectedOwnershipName) {
             $this->showOwnershipDropdown = false;
             return;
         }
 
-        // Reset selezione se l'utente ha modificato il testo dopo aver selezionato
-        if ($this->selectedOwnershipId !== '') {
+        // Se l'utente ha modificato il testo dopo aver selezionato, resetta la selezione
+        if (!empty($this->selectedOwnershipId) && $this->ownershipSearch !== $this->selectedOwnershipName) {
             $this->selectedOwnershipId = '';
             $this->selectedOwnershipName = '';
             $this->resetPage();
@@ -135,18 +149,21 @@ class InvoiceSentTable extends Component
                 ->orWhere('RagSocialePr', 'like', '%' . $this->ownershipSearch . '%');
             })
             ->limit(10)
-            ->get(['id_proprieta as id', 'RagAbbrev as name', 'Rag_Soc_intest as ragione_sociale']);
+            ->get(['id_proprieta as id', 'RagAbbrev as name', 'Rag_Soc_intest as ragione_sociale', 'valid']);
 
         $this->showOwnershipDropdown = $this->ownershipResults->isNotEmpty();
     }
 
-    public function selectOwnership(int $id, string $name): void
+    public function selectOwnership($id, string $name): void
     {
         $this->selectedOwnershipId = (string)$id;
         $this->selectedOwnershipName = $name;
         $this->ownershipSearch = $name;
         $this->showOwnershipDropdown = false;
         $this->resetPage();
+        
+        // Forza l'aggiornamento della vista
+        $this->dispatch('ownershipSelected', ['id' => $id, 'name' => $name]);
     }
 
     public function clearOwnership(): void
@@ -154,6 +171,7 @@ class InvoiceSentTable extends Component
         $this->selectedOwnershipId = '';
         $this->selectedOwnershipName = '';
         $this->ownershipSearch = '';
+        $this->showOwnershipDropdown = false;
         $this->resetPage();
         $this->dispatch('clearOwnershipInput');
     }
@@ -161,12 +179,24 @@ class InvoiceSentTable extends Component
     // ==================== AUTOCOMPLETE CLIENTE ====================
     public function updatedCustomerSearch(): void
     {
-        if ($this->selectedCustomerId && $this->customerSearch === $this->selectedCustomerName) {
+        // Se il testo di ricerca è uguale al nome selezionato, nascondi il dropdown
+        if (!empty($this->selectedCustomerId) && $this->customerSearch === $this->selectedCustomerName) {
             $this->showCustomerDropdown = false;
             return;
         }
 
-        if ($this->selectedCustomerId) {
+        // Se l'utente sta cancellando il testo, resetta la selezione
+        if (empty($this->customerSearch)) {
+            $this->selectedCustomerId = '';
+            $this->selectedCustomerName = '';
+            $this->customerResults = new Collection();
+            $this->showCustomerDropdown = false;
+            $this->resetPage();
+            return;
+        }
+
+        // Se l'utente ha modificato il testo dopo aver selezionato, resetta la selezione
+        if (!empty($this->selectedCustomerId) && $this->customerSearch !== $this->selectedCustomerName) {
             $this->selectedCustomerId = '';
             $this->selectedCustomerName = '';
             $this->resetPage();
@@ -192,7 +222,7 @@ class InvoiceSentTable extends Component
         $this->showCustomerDropdown = $this->customerResults->isNotEmpty();
     }
 
-    public function selectCustomer(int $id, string $name): void
+    public function selectCustomer($id, string $name): void
     {
         $this->selectedCustomerId = (string)$id;
         $this->selectedCustomerName = $name;
@@ -213,12 +243,24 @@ class InvoiceSentTable extends Component
     // ==================== AUTOCOMPLETE CENTRO DI COSTO ====================
     public function updatedCostCenterSearch(): void
     {
-        if ($this->selectedCostCenterId && $this->costCenterSearch === $this->selectedCostCenterName) {
+        // Se il testo di ricerca è uguale al nome selezionato, nascondi il dropdown
+        if (!empty($this->selectedCostCenterId) && $this->costCenterSearch === $this->selectedCostCenterName) {
             $this->showCostCenterDropdown = false;
             return;
         }
 
-        if ($this->selectedCostCenterId) {
+        // Se l'utente sta cancellando il testo, resetta la selezione
+        if (empty($this->costCenterSearch)) {
+            $this->selectedCostCenterId = '';
+            $this->selectedCostCenterName = '';
+            $this->costCenterResults = new Collection();
+            $this->showCostCenterDropdown = false;
+            $this->resetPage();
+            return;
+        }
+
+        // Se l'utente ha modificato il testo dopo aver selezionato, resetta la selezione
+        if (!empty($this->selectedCostCenterId) && $this->costCenterSearch !== $this->selectedCostCenterName) {
             $this->selectedCostCenterId = '';
             $this->selectedCostCenterName = '';
             $this->resetPage();
@@ -237,7 +279,7 @@ class InvoiceSentTable extends Component
         $this->showCostCenterDropdown = $this->costCenterResults->isNotEmpty();
     }
 
-    public function selectCostCenter(int $id, string $name): void
+    public function selectCostCenter($id, string $name): void
     {
         $this->selectedCostCenterId = (string)$id;
         $this->selectedCostCenterName = $name;
@@ -309,15 +351,12 @@ class InvoiceSentTable extends Component
         $this->clearCustomer();
         $this->clearCostCenter();
         
-        // Resetta le date a vuoto (nessun filtro data)
-        $this->dateFrom = '';
-        $this->dateTo = '';
+        // RESETTA AL MESE CORRENTE
+        $this->dateFrom = date('Y-m-01');
+        $this->dateTo = date('Y-m-d');
         
         $this->resetPage();
         
-        // Questo dispatcherà resetDates che:
-        // 1. Mostrerà visivamente il mese corrente nel DateRangeFilter
-        // 2. Invierà date vuote alla tabella (nessun filtro)
         $this->dispatch('resetDates');
         $this->dispatch('resetAllFilters');
     }
@@ -336,20 +375,17 @@ class InvoiceSentTable extends Component
 
     public function clearDates(): void
     {
-        // Resetta le date nel componente table a vuoto
-        $this->dateFrom = '';
-        $this->dateTo = '';
+        // RESETTA AL MESE CORRENTE
+        $this->dateFrom = date('Y-m-01');
+        $this->dateTo = date('Y-m-d');
         $this->resetPage();
-        
-        // Questo farà sì che il componente DateRangeFilter resetti la UI al mese corrente
-        // MA senza applicare il filtro perché nel resetDates() inviamo date vuote
         $this->dispatch('resetDates');
     }
 
     public function getInvoicesProperty()
     {
         $query = InvoiceSent::query()
-            ->with(['ownership', 'entity', 'rows.costCenter'])
+            ->with(['ownership', 'entity', 'rows.costCenter', 'rows.service'])
             ->when($this->search, fn($q) => $q->where('n_invoice', 'like', '%' . $this->search . '%'))
             ->when($this->status, fn($q) => $q->where('status', $this->status))
             ->when($this->type_invoice, fn($q) => $q->where('type_invoice', $this->type_invoice))
@@ -361,6 +397,11 @@ class InvoiceSentTable extends Component
             ->when($this->dateFrom, fn($q) => $q->whereDate('data_invoice', '>=', $this->dateFrom))
             ->when($this->dateTo, fn($q) => $q->whereDate('data_invoice', '<=', $this->dateTo))
             ->orderBy($this->sortField, $this->sortDirection);
+
+        // Se non ci sono filtri di data, limita agli ultimi 6 mesi per performance
+        if (empty($this->dateFrom) && empty($this->dateTo)) {
+            $query->whereDate('data_invoice', '>=', now()->subMonths(6));
+        }
 
         if ($this->perPage == 100000) {
             $results = $query->get();
@@ -409,7 +450,7 @@ class InvoiceSentTable extends Component
     public function showDetails(int $id): void
     {
         $this->selectedInvoice = InvoiceSent::with([
-            'ownership', 'entity', 'rows.costCenter', 'rows.vehicle',
+            'ownership', 'entity', 'rows.costCenter', 'rows.vehicle', 'rows.service',
             'payments', 'creator', 'updater', 'vatSummaries', 'invoiceSeries'
         ])->find($id);
 
@@ -608,10 +649,8 @@ class InvoiceSentTable extends Component
 
     public function getStatusesProperty(): array
     {
-        // Prendi la configurazione esistente o usa array vuoto
         $configStatuses = config('gestionale.invoice_status', []);
         
-        // Se non ha 'approved', aggiungilo manualmente
         if (!isset($configStatuses['approved'])) {
             $configStatuses['approved'] = [
                 'label' => 'Approvata',
@@ -619,7 +658,6 @@ class InvoiceSentTable extends Component
             ];
         }
         
-        // Assicurati che 'issued' abbia il label corretto
         if (isset($configStatuses['issued'])) {
             $configStatuses['issued']['label'] = 'Emessa';
             $configStatuses['issued']['badge_class'] = 'bg-yellow-100 text-yellow-800';

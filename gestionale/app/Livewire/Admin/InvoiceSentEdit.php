@@ -88,6 +88,28 @@ class InvoiceSentEdit extends Component
         'rows.*.quantity' => 'required|numeric|min:0',
         'rows.*.unit_price' => 'required|numeric|min:0',
     ];
+
+    protected function rules(): array
+    {
+        $rules = [
+            'id_ownership'    => 'required',
+            'type_invoice'    => 'required',
+            'selectedSeriesId'=> 'required',
+            'data_invoice'    => 'required|date',
+            'selectedCustomerId' => 'required',
+        ];
+        
+        foreach ($this->rows as $index => $row) {
+            if (isset($row['_delete']) && $row['_delete']) {
+                continue; // salta righe da eliminare
+            }
+            $rules["rows.{$index}.description"]  = 'required|string';
+            $rules["rows.{$index}.quantity"]      = 'required|numeric'; // rimosso min:0 per negativi
+            $rules["rows.{$index}.unit_price"]    = 'required|numeric'; // rimosso min:0 per storni
+        }
+        
+        return $rules;
+    }
     
     public function mount($id = null)
     {
@@ -497,32 +519,24 @@ class InvoiceSentEdit extends Component
      */
     public function updatedRows($value, $key)
     {
-        // Log per debug - commenta in produzione
-        // Log::info('updatedRows - key: ' . $key . ', value: ' . $value);
-        
-        // Verifica che la chiave sia una stringa
         if (!is_string($key)) {
             return;
         }
         
-        // Divide la chiave in parti (es. "rows.0.quantity" -> ["rows", "0", "quantity"])
         $parts = explode('.', $key);
         
-        // Verifica che ci siano almeno 2 parti (indice di riga e campo)
+        // Livewire passa key come "0.unit_price" (senza prefisso "rows.")
         if (count($parts) < 2) {
             return;
         }
         
-        // Estrae l'indice della riga e il campo
-        $index = (int)$parts[1];
-        $field = $parts[2] ?? '';
+        $index = (int)$parts[0]; // ← primo pezzo è l'indice
+        $field = $parts[1];       // ← secondo pezzo è il campo
         
-        // Verifica che l'indice esista nell'array rows
         if (!isset($this->rows[$index])) {
             return;
         }
         
-        // Gestione specifica per il campo vat_rate_id
         if ($field === 'vat_rate_id') {
             $vatInfo = collect($this->vatRatesList)->firstWhere('id', (int)$value);
             if ($vatInfo) {
@@ -534,7 +548,6 @@ class InvoiceSentEdit extends Component
             return;
         }
         
-        // Gestione dei campi numerici
         if (in_array($field, ['quantity', 'unit_price', 'discount_percentage'])) {
             if (is_string($value)) {
                 $value = str_replace(',', '.', $value);
@@ -544,10 +557,9 @@ class InvoiceSentEdit extends Component
             return;
         }
         
-        // Gestione degli altri campi (description, code, ecc.)
         $this->rows[$index][$field] = $value;
     }
-    
+        
     public function calculatePaymentsTotal()
     {
         $total = 0;
@@ -915,7 +927,7 @@ class InvoiceSentEdit extends Component
                         'id_unit_measure' => intval($row['id_unit_measure'] ?? 1),
                         'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
                         'vat_rate' => $vatRate * 100,
-                        'sdi_nature' => $sdiNature,
+                        // 'sdi_nature' => $sdiNature,
                         'total' => floatval($row['taxable_amount'] ?? 0),
                         'id_cost_center' => $row['id_cost_center'] ?? null,
                         'id_service' => $row['id_service'] ?? null,
@@ -933,7 +945,7 @@ class InvoiceSentEdit extends Component
                         'id_unit_measure' => intval($row['id_unit_measure'] ?? 1),
                         'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
                         'vat_rate' => $vatRate * 100,
-                        'sdi_nature' => $sdiNature,
+                        // 'sdi_nature' => $sdiNature,
                         'total' => floatval($row['taxable_amount'] ?? 0),
                         'id_cost_center' => $row['id_cost_center'] ?? null,
                         'id_service' => $row['id_service'] ?? null,

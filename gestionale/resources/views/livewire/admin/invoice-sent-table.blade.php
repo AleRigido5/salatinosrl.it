@@ -42,6 +42,7 @@
                 <div class="relative">
                     <i class="fas fa-building absolute left-3 top-2.5 text-gray-400 text-sm"></i>
                     <input type="text"
+                        id="ownership_input"          {{-- ← aggiungi questo --}}
                         wire:model.live.debounce.300ms="ownershipSearch"
                         x-on:focus="open = true"
                         x-on:keydown="open = true"

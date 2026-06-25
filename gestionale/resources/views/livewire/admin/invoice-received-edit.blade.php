@@ -62,7 +62,6 @@
             to { transform: translateX(0); opacity: 1; }
         }
 
-        /* Select IVA disabilitata ma visibile */
         select:disabled {
             background-color: #f9fafb;
             color: #374151;
@@ -73,12 +72,17 @@
             color: #374151;
             opacity: 1;
         }
+        
+        select option:disabled {
+            color: #999 !important;
+            background-color: #f5f5f5 !important;
+        }
     </style>
     
     <div class="mb-6 flex justify-between items-center">
         <h1 class="text-2xl font-bold text-gray-800">
-            <i class="fas fa-edit text-lime-500 mr-2"></i> Modifica Fattura di Acquisto
-            @if($is_manual)
+            <i class="fas fa-edit text-lime-500 mr-2"></i> Modifica Fattura di Vendita
+            @if($is_manual ?? true)
                 <span class="manual-badge ml-3">
                     <i class="fas fa-hand-paper mr-1"></i> Fattura Manuale — tutti i campi modificabili
                 </span>
@@ -88,7 +92,7 @@
                 </span>
             @endif
         </h1>
-        <a href="{{ route('admin.invoices-received.index') }}" 
+        <a href="{{ route('admin.invoices-sent.index') }}" 
            class="bg-gray-600 hover:bg-gray-900 text-white px-4 py-2 rounded-lg transition-colors flex items-center" title="Torna all'elenco">
             <i class="fas fa-arrow-left"></i>
         </a>
@@ -104,9 +108,9 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">
                             Proprietà <span class="text-red-500">*</span>
                         </label>
-                        <select wire:model="id_ownership" 
+                        <select wire:model.live="id_ownership" 
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
-                                {{ $isReadonly ? 'disabled' : '' }}>
+                                {{ $isReadonly ?? false ? 'disabled' : '' }}>
                             <option value="">Seleziona proprietà</option>
                             @foreach($ownerships as $o)
                                 <option value="{{ $o->id_proprieta }}">{{ $o->RagAbbrev }}</option>
@@ -117,11 +121,94 @@
                     
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Sezionale <span class="text-red-500">*</span>
+                        </label>
+                        <select wire:model.live="selectedSeriesId" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
+                                {{ $isReadonly ?? false ? 'disabled' : '' }}>
+                            <option value="">Seleziona sezionale</option>
+                            @php
+                                $currentYear = date('Y');
+                                $activeSeries = [];
+                                $inactiveSeries = [];
+                                foreach($availableSeries as $s) {
+                                    $isActive = isset($s['active']) ? (bool)$s['active'] : true;
+                                    if ($isActive) {
+                                        $activeSeries[] = $s;
+                                    } else {
+                                        $inactiveSeries[] = $s;
+                                    }
+                                }
+                            @endphp
+                            
+                            @if(count($activeSeries) > 0)
+                                <optgroup label="✅ Sezionali attivi">
+                                    @foreach($activeSeries as $series)
+                                        @php
+                                            $year = $series['year'];
+                                            $yearIcon = $year == $currentYear ? '✅' : '📅';
+                                            $yearClass = $year == $currentYear ? 'text-green-600' : 'text-orange-600';
+                                        @endphp
+                                        <option value="{{ $series['id'] }}" class="{{ $yearClass }}">
+                                            {{ $yearIcon }} {{ $series['code'] }} - {{ $series['name'] }} ({{ $year }})
+                                        </option>
+                                    @endforeach
+                                </optgroup>
+                            @endif
+                            
+                            @if(count($inactiveSeries) > 0)
+                                <optgroup label="🔒 Sezionali disattivati">
+                                    @foreach($inactiveSeries as $series)
+                                        <option value="{{ $series['id'] }}" 
+                                                disabled 
+                                                style="color: #999; background-color: #f5f5f5;"
+                                                title="❌ Sezionale disattivato - non disponibile">
+                                            {{ $series['code'] }} - {{ $series['name'] }} ({{ $series['year'] }}) 🔒
+                                        </option>
+                                    @endforeach
+                                </optgroup>
+                            @endif
+                        </select>
+                        @error('selectedSeriesId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        
+                        @if($selectedSeriesId)
+                            @php
+                                $selectedSeries = collect($availableSeries)->firstWhere('id', $selectedSeriesId);
+                            @endphp
+                            @if($selectedSeries)
+                                @if(!($selectedSeries['active'] ?? true))
+                                    <div class="mt-1 text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-1.5 flex items-center">
+                                        <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
+                                        <span>ATTENZIONE: Questo sezionale è <strong>disattivato</strong> e non può essere selezionato.</span>
+                                    </div>
+                                @endif
+                                @if($selectedSeries['year'] != date('Y'))
+                                    <div class="mt-1 text-xs {{ $selectedSeries['year'] < date('Y') ? 'text-orange-600 bg-orange-50 border border-orange-200' : 'text-blue-600 bg-blue-50 border border-blue-200' }} rounded-md px-3 py-1.5 flex items-center">
+                                        @if($selectedSeries['year'] < date('Y'))
+                                            <i class="fas fa-history text-orange-500 mr-2"></i>
+                                            <span>Sezionale dell'anno <strong>{{ $selectedSeries['year'] }}</strong> (anno passato)</span>
+                                        @else
+                                            <i class="fas fa-clock text-blue-500 mr-2"></i>
+                                            <span>Sezionale dell'anno <strong>{{ $selectedSeries['year'] }}</strong> (anno futuro)</span>
+                                        @endif
+                                    </div>
+                                @else
+                                    <div class="mt-1 text-xs text-green-600 bg-green-50 border border-green-200 rounded-md px-3 py-1.5 flex items-center">
+                                        <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                                        <span>Sezionale dell'anno corrente <strong>{{ date('Y') }}</strong></span>
+                                    </div>
+                                @endif
+                            @endif
+                        @endif
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
                             Tipo Documento <span class="text-red-500">*</span>
                         </label>
                         <select wire:model="type_invoice" 
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
-                                {{ $isReadonly ? 'disabled' : '' }}>
+                                {{ $isReadonly ?? false ? 'disabled' : '' }}>
                             <option value="">Seleziona tipo</option>
                             @foreach($typeDocuments as $code => $label)
                                 <option value="{{ $code }}">{{ $code }} - {{ $label }}</option>
@@ -129,57 +216,83 @@
                         </select>
                         @error('type_invoice') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
-                    
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
                             N. Fattura <span class="text-red-500">*</span>
                         </label>
                         <input type="text" wire:model="n_invoice" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 focus:ring-2 focus:ring-lime-500"
+                               readonly>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            N. Fattura Esterno <span class="text-gray-400 text-xs font-normal">(opzionale)</span>
+                        </label>
+                        <div class="relative">
+                            <i class="fas fa-file-invoice absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                            <input type="text" 
+                                wire:model="n_invoice_ext" 
+                                placeholder="Numero fattura del cliente..."
+                                class="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
+                                {{ $isReadonly ?? false ? 'disabled' : '' }}>
+                        </div>
+                        @error('n_invoice_ext') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Data Fattura <span class="text-red-500">*</span>
+                        </label>
+                        <input type="date" wire:model="data_invoice" 
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
-                               {{ $isReadonly ? 'disabled' : '' }}>
-                        @error('n_invoice') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                               {{ $isReadonly ?? false ? 'disabled' : '' }}>
+                        @error('data_invoice') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
-                            Fornitore <span class="text-red-500">*</span>
+                            Cliente <span class="text-red-500">*</span>
                         </label>
                         <div class="flex gap-2">
                             <div class="flex-1 relative" x-data="{ open: false }" x-on:click.away="open = false">
                                 <div class="relative">
                                     <i class="fas fa-user absolute left-3 top-2.5 text-gray-400 text-sm"></i>
                                     <input type="text"
-                                        id="supplier_input"
-                                        wire:model.live.debounce.300ms="supplierSearch"
-                                        value="{{ $supplierSearch }}"
-                                        x-on:focus="if (!{{ $isReadonly ? 'true' : 'false' }}) open = true"
-                                        x-on:input="if (!{{ $isReadonly ? 'true' : 'false' }}) { open = true; @this.set('supplierSearch', $event.target.value); }"
-                                        placeholder="Cerca fornitore..."
+                                        id="customer_input"
+                                        wire:model.live.debounce.300ms="customerSearch"
+                                        value="{{ $customerSearch }}"
+                                        x-on:focus="if (!{{ isset($isReadonly) && $isReadonly ? 'true' : 'false' }}) open = true"
+                                        x-on:input="if (!{{ isset($isReadonly) && $isReadonly ? 'true' : 'false' }}) { open = true; @this.set('customerSearch', $event.target.value); }"
+                                        placeholder="Cerca cliente..."
                                         class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                                         autocomplete="off"
-                                        {{ $isReadonly ? 'readonly' : '' }}>
-                                    @if($selectedSupplierId && !$isReadonly)
+                                        {{ isset($isReadonly) && $isReadonly ? 'readonly' : '' }}>
+                                    @if($selectedCustomerId && !($isReadonly ?? false))
                                         <button type="button"
-                                            wire:click="clearSupplier"
-                                            x-on:click="document.getElementById('supplier_input').value = ''"
+                                            wire:click="clearCustomer"
+                                            x-on:click="document.getElementById('customer_input').value = ''"
                                             class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
                                             <i class="fas fa-times-circle text-sm"></i>
                                         </button>
                                     @endif
                                 </div>
 
-                                @if(!$isReadonly)
-                                <div x-show="open && @entangle('showSupplierDropdown')"
+                                @if(!($isReadonly ?? false))
+                                <div x-show="open && @entangle('showCustomerDropdown')"
                                     class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                                    @if($supplierResults && count($supplierResults) > 0)
-                                        @foreach($supplierResults as $item)
+                                    @if($customerResults && count($customerResults) > 0)
+                                        @foreach($customerResults as $item)
                                             <div
                                                 x-on:click="
                                                     open = false;
-                                                    document.getElementById('supplier_input').value = '{{ addslashes($item['name']) }}';
-                                                    @this.call('selectSupplier', '{{ $item['id'] }}', '{{ addslashes($item['name']) }}');
+                                                    document.getElementById('customer_input').value = '{{ addslashes($item['name']) }}';
+                                                    @this.call('selectCustomer', '{{ $item['id'] }}', '{{ addslashes($item['name']) }}');
                                                 "
                                                 class="autocomplete-item">
                                                 <div class="font-medium text-gray-800">{{ $item['name'] }}</div>
@@ -195,45 +308,34 @@
                                 @endif
                             </div>
                             
-                            @if(!$isReadonly)
-                            <button type="button" wire:click="openSupplierModal" 
+                            @if(!($isReadonly ?? false))
+                            <button type="button" wire:click="openCustomerModal" 
                                     class="px-3 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors" 
-                                    title="Nuovo Fornitore">
+                                    title="Nuovo Cliente">
                                 <i class="fas fa-plus"></i>
                             </button>
                             @endif
                         </div>
-                        @if($selectedSupplierId && $selectedSupplierName)
+                        @if($selectedCustomerId && $selectedCustomerName)
                             <div class="mt-1 text-xs text-green-600">
-                                <i class="fas fa-check-circle"></i> {{ $selectedSupplierName }}
+                                <i class="fas fa-check-circle"></i> Cliente selezionato: {{ $selectedCustomerName }}
                             </div>
                         @endif
-                        @error('selectedSupplierId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        @error('selectedCustomerId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
-                            Data Fattura <span class="text-red-500">*</span>
-                        </label>
-                        <input type="date" wire:model="data_invoice" 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
-                               {{ $isReadonly ? 'disabled' : '' }}>
-                        @error('data_invoice') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Causale / Note</label>
+                        <textarea wire:model="causale" rows="2" 
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
+                                  placeholder="Note aggiuntive..."></textarea>
                     </div>
-                </div>
-                
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Causale / Note</label>
-                    {{-- Causale è SEMPRE modificabile --}}
-                    <textarea wire:model="causale" rows="2" 
-                              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
-                              placeholder="Note aggiuntive..."></textarea>
                 </div>
             </div>
             
             <!-- Colonna DESTRA: Totali -->
             <div class="lg:col-span-1">
-                <div class="totals-card">
+                <div class="totals-card" wire:key="totals-{{ count($vatSummary) }}">
                     <div class="grid grid-cols-2 gap-4 mb-3">
                         <div class="total-item border-b-0 pb-0">
                             <div class="total-label">TOTALE IMPONIBILE</div>
@@ -247,6 +349,7 @@
                     
                     <div class="border-b border-gray-200 mb-3"></div>
                     
+                    <!-- DETTAGLIO IVA PER ALIQUOTA - SI AGGIORNA DINAMICAMENTE -->
                     @if(count($vatSummary) > 0)
                         <div class="mb-3">
                             <div class="total-label text-center mb-2 pb-1 border-b border-gray-200">DETTAGLIO IVA PER ALIQUOTA</div>
@@ -254,11 +357,13 @@
                                 <div class="flex justify-between items-center py-1 text-sm border-b border-gray-100 last:border-0">
                                     <div class="font-medium text-gray-700">
                                         @if($vat['rate'] == 0)
-                                            <span class="text-xs bg-gray-100 px-1 py-0.5 rounded">
-                                                @if(!empty($vat['nature_code']))
-                                                    Cod. {{ $vat['nature_code'] }} - 
-                                                @endif
-                                                {{ $vat['description'] }}
+                                            @if(isset($vat['nature_code']) && $vat['nature_code'])
+                                                <span class="text-xs bg-gray-100 px-1 py-0.5 rounded">
+                                                    Cod. {{ $vat['nature_code'] }}
+                                                </span>
+                                            @endif
+                                            <span class="text-gray-600">
+                                                {{ isset($vat['description']) ? Str::limit($vat['description'], 30) : 'Esente/Non imponibile' }}
                                             </span>
                                         @else
                                             <span class="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">{{ $vat['rate_percent'] }}%</span>
@@ -290,72 +395,13 @@
             </div>
         </div>
 
-        {{-- CENTRO DI COSTO - Applica a TUTTE le righe --}}
-        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mt-6">
-            <label class="block text-sm font-medium mb-2 text-blue-800">
-                Applica Centro di Costo a TUTTE le {{ count($rows) }} righe
-            </label>
-            <div class="relative">
-                <input type="text"
-                    id="cost_center_all_input"
-                    value="{{ $cost_center_all_search }}"
-                    wire:model.live.debounce.500ms="cost_center_all_search"
-                    class="w-full border rounded-lg px-3 py-2"
-                    placeholder="Cerca centro di costo..."
-                    autocomplete="off">
-                @if(!empty($cost_center_all_results))
-                    <div class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                        @foreach($cost_center_all_results as $cc)
-                            <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                                wire:click="applyCostCenterToAllRows({{ $cc['id'] }})">
-                                {{ $cc['name'] }}
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-            </div>
-            @if($cost_center_all_search)
-                <div class="text-xs text-blue-600 mt-2">✅ Selezionato: "{{ $cost_center_all_search }}"</div>
-            @endif
-        </div>
-
-        {{-- MEZZO - Applica a TUTTE le righe --}}
-        <div class="bg-green-50 p-4 rounded-lg border border-green-200 mt-4">
-            <label class="block text-sm font-medium mb-2 text-green-800">
-                Applica Mezzo a TUTTE le {{ count($rows) }} righe
-            </label>
-            <div class="relative">
-                <input type="text"
-                    id="vehicle_all_input"
-                    value="{{ $vehicle_all_search }}"
-                    wire:model.live.debounce.500ms="vehicle_all_search"
-                    class="w-full border rounded-lg px-3 py-2"
-                    placeholder="Cerca mezzo (targa, marca, modello)..."
-                    autocomplete="off">
-                @if(!empty($vehicle_all_results))
-                    <div class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                        @foreach($vehicle_all_results as $vehicle)
-                            <div class="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                                wire:click="applyVehicleToAllRows({{ $vehicle['id'] }})"
-                                onclick="(function(){var el=document.getElementById('vehicle_all_input'); if(el){ el.value='{{ addslashes($vehicle['name']) }}'; el.dispatchEvent(new Event('input',{bubbles:true})); } })()">
-                                {{ $vehicle['name'] }}
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-            </div>
-            @if($vehicle_all_search)
-                <div class="text-xs text-green-600 mt-2">✅ Selezionato: "{{ $vehicle_all_search }}"</div>
-            @endif
-        </div>
-        
         <!-- RIGHE FATTURA -->
         <div class="mt-6">
             <div class="flex justify-between items-center mb-3">
                 <h3 class="text-lg font-semibold text-gray-800">
                     <i class="fas fa-list text-blue-500 mr-2"></i> Righe Fattura
                 </h3>
-                @if(!$isReadonly)
+                @if(!($isReadonly ?? false))
                 <button type="button" wire:click="addRow" 
                         class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-3 py-1 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
                     <i class="fas fa-plus"></i> Aggiungi riga
@@ -367,7 +413,7 @@
                 <table class="invoice-table min-w-full border rounded-lg">
                     <thead class="bg-gray-100">
                         <tr>
-                            <th class="col-description px-2 py-2 text-left text-xs font-medium">Descrizione</th>
+                            <th class="col-description px-2 py-2 text-left text-xs font-medium">Descrizione <span class="text-red-500">*</span></th>
                             <th class="col-quantity px-2 py-2 text-right text-xs font-medium">Qtà</th>
                             <th class="col-price px-2 py-2 text-right text-xs font-medium">Prezzo Unit.</th>
                             <th class="col-discount px-2 py-2 text-right text-xs font-medium">Sconto%</th>
@@ -384,41 +430,39 @@
                             <td class="col-description px-2 py-1">
                                 <input type="text" wire:model.live="rows.{{ $index }}.description"
                                     class="w-full px-1 py-1 text-sm border rounded-md"
-                                    {{ $isReadonly ? 'disabled' : '' }}>
+                                    {{ $isReadonly ?? false ? 'disabled' : '' }}>
+                                @error('rows.' . $index . '.description') 
+                                    <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> 
+                                @enderror
                             </td>
                             <td class="col-quantity px-2 py-1">
                                 <input type="number" step="0.001" wire:model.live="rows.{{ $index }}.quantity"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right"
-                                    {{ $isReadonly ? 'disabled' : '' }}>
+                                    {{ $isReadonly ?? false ? 'disabled' : '' }}>
+                                @error('rows.' . $index . '.quantity') 
+                                    <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> 
+                                @enderror
                             </td>
                             <td class="col-price px-2 py-1">
                                 <input type="number" step="0.0001" wire:model.live="rows.{{ $index }}.unit_price"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right"
-                                    {{ $isReadonly ? 'disabled' : '' }}>
+                                    {{ $isReadonly ?? false ? 'disabled' : '' }}>
+                                @error('rows.' . $index . '.unit_price') 
+                                    <p class="text-xs text-red-500 mt-0.5">{{ $message }}</p> 
+                                @enderror
                             </td>
                             <td class="col-discount px-2 py-1">
                                 <input type="number" step="0.01" wire:model.live="rows.{{ $index }}.discount_percentage" 
                                        class="w-full px-1 py-1 text-sm border rounded-md text-right"
-                                       {{ $isReadonly ? 'disabled' : '' }}>
+                                       {{ $isReadonly ?? false ? 'disabled' : '' }}>
                             </td>
 
-                            {{--
-                                Select IVA — il value di ogni option è la percentuale (es. 22).
-                                Il wire:model contiene la percentuale (es. 22).
-                                Livewire selezionerà automaticamente l'option il cui value
-                                corrisponde al valore di rows.$index.vat_rate.
-                                
-                                Le aliquote a 0% con sdi_nature diverse hanno tutte value=0,
-                                quindi il select mostrerà la prima con rate=0 trovata.
-                                Per le fatture importate con più nature diverse (N1, N2.2, N4...)
-                                questo è un limite accettabile: la riga mostra "IVA 0%" e
-                                l'informazione reale è nei vatSummaries.
-                            --}}
                             <td class="col-vat px-2 py-1 align-top" style="width: 120px; min-width: 120px;">
                                 <select 
-                                    wire:model.live="rows.{{ $index }}.vat_rate_id"
+                                    wire:model.live="rows.{{ $index }}.vat_rate"
                                     wire:change="updateVatRate({{ $index }}, $event.target.value)"
-                                    class="w-full px-1 py-1 text-sm border rounded-md">
+                                    class="w-full px-1 py-1 text-sm border rounded-md"
+                                    {{ $isReadonly ?? false ? 'disabled' : '' }}>
                                     <option value="">Seleziona IVA</option>
                                     @foreach($vatRatesList as $vat)
                                         @php
@@ -426,20 +470,22 @@
                                             if (!empty($vat['sdi_nature'])) {
                                                 $displayText .= ' (Cod. ' . $vat['sdi_nature'] . ')';
                                             }
+                                            $optionValue = $vat['rate'] . '|' . $vat['sdi_nature'];
                                         @endphp
-                                        <option value="{{ $vat['id'] }}">
+                                        <option value="{{ $optionValue }}">
                                             {{ number_format($vat['rate_percent'], 0) }}% - {{ $displayText }}
                                         </option>
                                     @endforeach
                                 </select>
                             </td>
+
                             <td class="col-taxable px-2 py-1">
                                 <input type="text" readonly
                                     value="{{ number_format($row['taxable_amount'] ?? 0, 2, ',', '.') }}"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right bg-gray-100 font-semibold">
                             </td>
 
-                            <!-- Campo Autocomplete Centro Di Costo con x-teleport -->
+                            <!-- Campo Autocomplete Centro Di Costo -->
                             <td class="col-cost-center px-2 py-1">
                                 <div class="w-full"
                                     x-data="{
@@ -461,10 +507,10 @@
                                             x-effect="$el.value = $wire.costCenterSearch[{{ $index }}] ?? ''"
                                             placeholder="Cerca centro..."
                                             class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
-                                            autocomplete="off">
+                                            autocomplete="off"
+                                            {{ $isReadonly ?? false ? 'readonly' : '' }}>
                                     </div>
 
-                                    <!-- Dropdown teleportato nel body, posizionato via JS -->
                                     <template x-teleport="body">
                                         <div
                                             x-show="open && @entangle('showCostCenterDropdown.' . $index)"
@@ -503,7 +549,7 @@
                                 </div>
                             </td>
 
-                            <!-- Campo Autocomplete Mezzi con x-teleport -->
+                            <!-- Campo Autocomplete Mezzi -->
                             <td class="col-vehicle px-2 py-1">
                                 <div class="w-full"
                                     x-data="{
@@ -525,10 +571,10 @@
                                             x-effect="$el.value = $wire.vehicleSearch[{{ $index }}] ?? ''"
                                             placeholder="Cerca mezzo..."
                                             class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
-                                            autocomplete="off">
+                                            autocomplete="off"
+                                            {{ $isReadonly ?? false ? 'readonly' : '' }}>
                                     </div>
 
-                                    <!-- Dropdown teleportato nel body -->
                                     <template x-teleport="body">
                                         <div
                                             x-show="open && @entangle('showVehicleDropdown.' . $index)"
@@ -571,7 +617,7 @@
                             </td>
 
                             <td class="col-actions px-2 py-1 text-center">
-                                @if(!$isReadonly && $index > 0)
+                                @if(!($isReadonly ?? false) && $index > 0)
                                     <button type="button" wire:click="removeRow({{ $index }})" 
                                             class="text-red-500 hover:text-red-700 transition-colors">
                                         <i class="fas fa-trash-alt"></i>
@@ -591,7 +637,7 @@
                 <h3 class="text-lg font-semibold text-gray-800">
                     <i class="fas fa-calendar-alt text-purple-500 mr-2"></i> Scadenze Pagamento
                 </h3>
-                @if(!$isReadonly)
+                @if(!($isReadonly ?? false))
                 <button type="button" wire:click="addPayment" 
                         class="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-3 py-1 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
                     <i class="fas fa-plus"></i> Aggiungi scadenza
@@ -619,18 +665,18 @@
                                     <input type="date" 
                                         wire:model.live="payments.{{ $index }}.due_date" 
                                         class="w-full px-2 py-1 text-sm border rounded-md"
-                                        {{ $isReadonly ? 'disabled' : '' }}>
+                                        {{ $isReadonly ?? false ? 'disabled' : '' }}>
                                 </td>
                                 <td class="px-3 py-2">
                                     <input type="number" step="0.01" 
                                         wire:model.live="payments.{{ $index }}.amount" 
                                         class="w-full px-2 py-1 text-sm border rounded-md text-right"
-                                        {{ $isReadonly ? 'disabled' : '' }}>
+                                        {{ $isReadonly ?? false ? 'disabled' : '' }}>
                                 </td>
                                 <td class="px-3 py-2">
                                     <select wire:model.live="payments.{{ $index }}.payment_method" 
                                         class="w-full px-2 py-1 text-sm border rounded-md"
-                                        {{ $isReadonly ? 'disabled' : '' }}>
+                                        {{ $isReadonly ?? false ? 'disabled' : '' }}>
                                         <option value="">— nessuna —</option>
                                         @foreach($paymentMethods as $code => $label)
                                             <option value="{{ $code }}">{{ $code }} — {{ $label }}</option>
@@ -642,11 +688,12 @@
                                         wire:model.live="payments.{{ $index }}.iban" 
                                         placeholder="IT00 XXXX..."
                                         class="w-full px-2 py-1 text-sm border rounded-md"
-                                        {{ $isReadonly ? 'disabled' : '' }}>
+                                        {{ $isReadonly ?? false ? 'disabled' : '' }}>
                                 </td>
                                 <td class="px-3 py-2">
                                     <select wire:model.live="payments.{{ $index }}.status"
-                                        class="w-full px-2 py-1 text-sm border rounded-md">
+                                        class="w-full px-2 py-1 text-sm border rounded-md"
+                                        {{ $isReadonly ?? false ? 'disabled' : '' }}>
                                         <option value="issued">Emessa</option>
                                         <option value="paid">Pagata</option>
                                         <option value="overdue">Scaduta</option>
@@ -654,7 +701,7 @@
                                     </select>
                                 </td>
                                 <td class="px-3 py-2 text-center">
-                                    @if(!$isReadonly && count($payments) > 1)
+                                    @if(!($isReadonly ?? false) && count($payments) > 1)
                                     <button type="button" 
                                         wire:click="removePayment({{ $index }})" 
                                         class="text-red-500 hover:text-red-700 transition-colors">
@@ -690,7 +737,7 @@
             @else
                 <div class="text-center text-gray-500 py-4 bg-gray-50 rounded-lg border border-dashed">
                     <i class="fas fa-calendar-alt mr-2"></i> Nessuna scadenza inserita
-                    @if(!$isReadonly)
+                    @if(!($isReadonly ?? false))
                     <button type="button" wire:click="addPayment" class="ml-3 text-purple-600 hover:text-purple-700 underline">
                         Aggiungi scadenza
                     </button>
@@ -701,7 +748,7 @@
         
         <!-- Bottoni -->
         <div class="mt-6 flex justify-end gap-3">
-            <a href="{{ route('admin.invoices-received.index') }}" 
+            <a href="{{ route('admin.invoices-sent.index') }}" 
                class="px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-gray-200 text-gray-700 hover:bg-gray-300">
                 Annulla
             </a>
@@ -712,19 +759,19 @@
         </div>
     </form>
     
-    <!-- MODALE CREAZIONE NUOVO FORNITORE -->
-    @if($showSupplierModal && !$isReadonly)
+    <!-- MODALE CREAZIONE NUOVO CLIENTE -->
+    @if($showCustomerModal && !($isReadonly ?? false))
     <div class="fixed inset-0 z-50 overflow-y-auto" 
          x-data="{ open: true }" x-show="open" 
-         x-on:keydown.escape.window="open = false; $wire.closeSupplierModal()">
+         x-on:keydown.escape.window="open = false; $wire.closeCustomerModal()">
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center">
-            <div class="fixed inset-0 bg-gray-500 bg-opacity-75" x-on:click="open = false; $wire.closeSupplierModal()"></div>
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75" x-on:click="open = false; $wire.closeCustomerModal()"></div>
             
             <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full relative">
                 <div class="bg-white px-6 pt-5 pb-4 border-b">
                     <div class="flex justify-between items-center">
-                        <h3 class="text-lg font-medium text-gray-900">Nuovo Fornitore</h3>
-                        <button type="button" wire:click="closeSupplierModal" class="text-gray-400 hover:text-gray-500">
+                        <h3 class="text-lg font-medium text-gray-900">Nuovo Cliente</h3>
+                        <button type="button" wire:click="closeCustomerModal" class="text-gray-400 hover:text-gray-500">
                             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                             </svg>
@@ -735,55 +782,55 @@
                 <div class="px-6 py-4 space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Ragione Sociale / Nome <span class="text-red-500">*</span></label>
-                        <input type="text" wire:model="newSupplierName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                        @error('newSupplierName') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        <input type="text" wire:model="newCustomerName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        @error('newCustomerName') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Partita IVA</label>
-                            <input type="text" wire:model="newSupplierPiva" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <input type="text" wire:model="newCustomerPiva" class="w-full px-3 py-2 border border-gray-300 rounded-md">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Codice Fiscale</label>
-                            <input type="text" wire:model="newSupplierCf" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <input type="text" wire:model="newCustomerCf" class="w-full px-3 py-2 border border-gray-300 rounded-md">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                            <input type="email" wire:model="newSupplierEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <input type="email" wire:model="newCustomerEmail" class="w-full px-3 py-2 border border-gray-300 rounded-md">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
-                            <input type="text" wire:model="newSupplierPhone" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <input type="text" wire:model="newCustomerPhone" class="w-full px-3 py-2 border border-gray-300 rounded-md">
                         </div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
-                        <input type="text" wire:model="newSupplierAddress" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <input type="text" wire:model="newCustomerAddress" class="w-full px-3 py-2 border border-gray-300 rounded-md">
                     </div>
                     <div class="grid grid-cols-3 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">CAP</label>
-                            <input type="text" wire:model="newSupplierCap" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <input type="text" wire:model="newCustomerCap" class="w-full px-3 py-2 border border-gray-300 rounded-md">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Città</label>
-                            <input type="text" wire:model="newSupplierCity" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <input type="text" wire:model="newCustomerCity" class="w-full px-3 py-2 border border-gray-300 rounded-md">
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
-                            <input type="text" wire:model="newSupplierProvince" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <input type="text" wire:model="newCustomerProvince" class="w-full px-3 py-2 border border-gray-300 rounded-md">
                         </div>
                     </div>
                 </div>
                 
                 <div class="bg-gray-50 px-6 py-3 flex justify-end gap-3">
-                    <button type="button" wire:click="closeSupplierModal" 
+                    <button type="button" wire:click="closeCustomerModal" 
                             class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">Annulla</button>
-                    <button type="button" wire:click="createSupplier" 
+                    <button type="button" wire:click="createCustomer" 
                             class="px-4 py-2 bg-lime-500 text-white rounded-md hover:bg-lime-600">
-                        <i class="fas fa-save mr-2"></i> Crea Fornitore
+                        <i class="fas fa-save mr-2"></i> Crea Cliente
                     </button>
                 </div>
             </div>

@@ -171,6 +171,7 @@ class EntitiesTable extends Component
                   ->orWhere('partita_iva', 'like', $searchTerm)
                   ->orWhere('codice_fiscale', 'like', $searchTerm)
                   ->orWhere('persona_riferimento', 'like', $searchTerm)
+                  // Subquery per indirizzi - usa il nome corretto della colonna
                   ->orWhereExists(function($subq) use ($searchTerm) {
                       $subq->select(DB::raw(1))
                           ->from('address')
@@ -182,6 +183,7 @@ class EntitiesTable extends Component
                                   ->orWhere('address.cap', 'like', $searchTerm);
                           });
                   })
+                  // Subquery per contatti - usa 'contacts' e non 'contatti'
                   ->orWhereExists(function($subq) use ($searchTerm) {
                       $subq->select(DB::raw(1))
                           ->from('contacts')

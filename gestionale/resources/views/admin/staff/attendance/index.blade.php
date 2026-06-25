@@ -74,16 +74,16 @@
     {{-- LEGENDA --}}
     <div class="flex flex-wrap gap-4 mb-3 text-xs text-gray-500 bg-white rounded-lg shadow border border-gray-200 p-3">
         <span class="flex items-center gap-1.5">
-            <span class="inline-block w-4 h-4 rounded" style="background:#fef2f2; border:1px solid #fca5a5;"></span> Domenica / Festivo
+            <span class="inline-block w-4 h-4 rounded" style="background:#fee2e2; border:1px solid #ef4444;"></span> Domenica / Festivo
         </span>
         <span class="flex items-center gap-1.5">
-            <span class="inline-block w-4 h-4 rounded" style="background:#f3f4f6; border:1px solid #d1d5db;"></span> Fuori periodo assunzione
+            <span class="inline-block w-4 h-4 rounded" style="background:#e5e7eb; border:1px solid #6b7280;"></span> Fuori periodo assunzione
         </span>
         <span class="flex items-center gap-1.5">
-            <span class="inline-block w-4 h-4 rounded" style="background:#eff6ff; border:1px solid #93c5fd;"></span> Malattia
+            <span class="inline-block w-4 h-4 rounded" style="background:#dbeafe; border:1px solid #3b82f6;"></span> Malattia
         </span>
         <span class="flex items-center gap-1.5">
-            <span class="inline-block w-4 h-4 rounded" style="background:#fefce8; border:1px solid #fcd34d;"></span> Ferie / Permesso
+            <span class="inline-block w-4 h-4 rounded" style="background:#fef08a; border:1px solid #eab308;"></span> Ferie / Permesso
         </span>
         <span class="flex items-center gap-1.5">
             <span class="inline-block w-4 h-4 rounded bg-white border border-gray-300 flex items-center justify-center font-bold text-gray-800 text-[10px]">X</span>
@@ -169,19 +169,19 @@
 
                             // 🎨 Colori celle
                             if ($isFestivo) {
-                                $bgCell = '#fef2f2'; // ROSSO - Domenica/Festivo
+                                $bgCell = '#fecaca'; // ROSSO - Domenica/Festivo
                                 $showX = false;
                                 $showActivity = false;
                             } elseif (!$isInAssunzione) {
-                                $bgCell = '#f3f4f6'; // GRIGIO - Fuori assunzione
+                                $bgCell = '#d1d5db'; // GRIGIO - Fuori assunzione
                                 $showX = false;
                                 $showActivity = false;
                             } elseif ($causale === 'malattia') {
-                                $bgCell = '#eff6ff'; // BLU - Malattia
+                                $bgCell = '#bfdbfe'; // BLU - Malattia
                                 $showX = false;
                                 $showActivity = false;
                             } elseif ($causale === 'ferie' || $causale === 'permesso') {
-                                $bgCell = '#fefce8'; // GIALLO - Ferie/Permesso
+                                $bgCell = '#fde68a'; // GIALLO - Ferie/Permesso
                                 $showX = false;
                                 $showActivity = false;
                             } else {

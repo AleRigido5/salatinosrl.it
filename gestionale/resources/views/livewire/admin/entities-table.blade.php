@@ -296,12 +296,12 @@
                                     </button>
                                     @endif
                                 @else
-                                    <button wire:click="restoreEntity({{ $entity->id_cliente }})" 
+                                    <button wire:click="restoreFromTrash({{ $entity->id_cliente }})" 
                                             class="text-green-600 hover:text-green-900 transition-colors"
                                             title="Ripristina">
                                         <i class="fas fa-trash-restore"></i>
                                     </button>
-                                    <button wire:click="forceDeleteEntity({{ $entity->id_cliente }})" 
+                                    <button wire:click="forceDeleteFromTrash({{ $entity->id_cliente }})" 
                                             onclick="return confirm('Eliminazione definitiva? Questa operazione non può essere annullata.')"
                                             class="text-red-600 hover:text-red-900 transition-colors"
                                             title="Elimina definitivamente">
@@ -317,7 +317,7 @@
                             <div class="text-gray-500">
                                 <i class="fas fa-building text-gray-400 text-5xl"></i>
                                 <p class="mt-2 text-sm">Nessun cliente/fornitore trovato</p>
-                                @if($search || $typeFilter || $statusFilter || $showDeleted)
+                                @if($activeSearch || $activeTypeFilter || $activeStatusFilter)
                                 <button wire:click="resetFilters" class="mt-2 text-sm text-blue-600 hover:text-blue-800">
                                     Resetta filtri
                                 </button>
@@ -342,51 +342,6 @@
         </div>
     </div>
     @endif
-
-    <style>
-        /* Stile paginazione bianco */
-        nav[role="navigation"] div.flex-1 {
-            display: none !important;
-        }
-        
-        nav[role="navigation"] .relative.z-0 {
-            justify-content: center !important;
-            display: flex !important;
-        }
-        
-        /* Personalizzazione link paginazione */
-        nav[role="navigation"] span[aria-current="page"] span,
-        nav[role="navigation"] .relative.inline-flex.items-center {
-            background-color: white !important;
-            border-color: #e5e7eb !important;
-            color: #374151 !important;
-        }
-        
-        nav[role="navigation"] span[aria-current="page"] span {
-            background-color: #10b981 !important;
-            border-color: #10b981 !important;
-            color: white !important;
-        }
-        
-        nav[role="navigation"] .relative.inline-flex.items-center:hover {
-            background-color: #f9fafb !important;
-            border-color: #d1d5db !important;
-        }
-        
-        /* Nasconde il testo "Showing" e "to" e "results" */
-        nav[role="navigation"] p.text-sm {
-            display: none !important;
-        }
-        
-        /* Centra completamente la paginazione */
-        nav[role="navigation"] > div:first-child {
-            justify-content: center !important;
-        }
-        
-        nav[role="navigation"] > div:first-child > div:first-child {
-            display: none !important;
-        }
-    </style>
 
     <!-- Modal di inserimento -->
     @if($showCreateModal)
@@ -697,12 +652,12 @@
                                             elseif($nomeSede == 'fiscale') $nomeSede = 'Sede Fiscale';
                                         @endphp
                                         {{ $nomeSede }}
-                                    </div>
-                                    <td class="px-3 py-2 text-gray-700">{{ $address->indirizzo ?: '-' }}</div>
-                                    <td class="px-3 py-2 text-gray-700">{{ $address->citta ?: '-' }}</div>
-                                    <td class="px-3 py-2 text-gray-700">{{ $address->provincia ?: '-' }}</div>
-                                    <td class="px-3 py-2 text-gray-700">{{ $address->cap ?: '-' }}</div>
-                                    <td class="px-3 py-2 text-gray-700">{{ $address->nazione ?: 'Italia' }}</div>
+                                    </td>
+                                    <td class="px-3 py-2 text-gray-700">{{ $address->indirizzo ?: '-' }}</td>
+                                    <td class="px-3 py-2 text-gray-700">{{ $address->citta ?: '-' }}</td>
+                                    <td class="px-3 py-2 text-gray-700">{{ $address->provincia ?: '-' }}</td>
+                                    <td class="px-3 py-2 text-gray-700">{{ $address->cap ?: '-' }}</td>
+                                    <td class="px-3 py-2 text-gray-700">{{ $address->nazione ?: 'Italia' }}</td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -753,7 +708,7 @@
                                         @endphp
                                         <i class="fas {{ $icona }} text-gray-500 mr-2 w-4"></i>
                                         {{ $tipoContatto }}
-                                    </div>
+                                    </td>
                                     <td class="px-3 py-2">
                                         @if(filter_var($contact->valore, FILTER_VALIDATE_EMAIL))
                                             <a href="mailto:{{ $contact->valore }}" class="text-blue-600 hover:text-blue-800">
@@ -766,7 +721,7 @@
                                         @else
                                             <span class="text-gray-800">{{ $contact->valore }}</span>
                                         @endif
-                                    </div>
+                                    </td>
                                     <td class="px-3 py-2 text-center">
                                         @if($contact->principale)
                                             <span class="inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -775,7 +730,7 @@
                                         @else
                                             <span class="text-gray-400 text-xs">-</span>
                                         @endif
-                                    </div>
+                                    </td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -925,7 +880,7 @@
     </div>
     @endif
 
-    <!-- Modal di conferma eliminazione -->
+    <!-- Modal Cestino -->
     @if($showTrashModal)
     <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" 
          x-data="{ show: true }" 
@@ -1116,4 +1071,50 @@
         </div>
     </div>
     @endif
+
+    <!-- Stile paginazione - inserito all'interno del div root -->
+    <style>
+        /* Stile paginazione bianco */
+        nav[role="navigation"] div.flex-1 {
+            display: none !important;
+        }
+        
+        nav[role="navigation"] .relative.z-0 {
+            justify-content: center !important;
+            display: flex !important;
+        }
+        
+        /* Personalizzazione link paginazione */
+        nav[role="navigation"] span[aria-current="page"] span,
+        nav[role="navigation"] .relative.inline-flex.items-center {
+            background-color: white !important;
+            border-color: #e5e7eb !important;
+            color: #374151 !important;
+        }
+        
+        nav[role="navigation"] span[aria-current="page"] span {
+            background-color: #10b981 !important;
+            border-color: #10b981 !important;
+            color: white !important;
+        }
+        
+        nav[role="navigation"] .relative.inline-flex.items-center:hover {
+            background-color: #f9fafb !important;
+            border-color: #d1d5db !important;
+        }
+        
+        /* Nasconde il testo "Showing" e "to" e "results" */
+        nav[role="navigation"] p.text-sm {
+            display: none !important;
+        }
+        
+        /* Centra completamente la paginazione */
+        nav[role="navigation"] > div:first-child {
+            justify-content: center !important;
+        }
+        
+        nav[role="navigation"] > div:first-child > div:first-child {
+            display: none !important;
+        }
+    </style>
 </div>

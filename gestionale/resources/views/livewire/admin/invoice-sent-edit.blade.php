@@ -313,20 +313,31 @@
                         <div class="mb-3">
                             <div class="total-label text-center mb-2 pb-1 border-b border-gray-200">DETTAGLIO IVA PER ALIQUOTA</div>
                             @foreach($vatSummary as $vat)
+                                @php
+                                    $ratePercent = $vat['rate'] * 100;
+                                    $displayText = $vat['description'] ?? 'IVA ' . number_format($ratePercent, 0) . '%';
+                                    $isZero = $vat['rate'] == 0;
+                                    $hasNature = !empty($vat['nature_code']);
+                                    
+                                    // Determina il badge da mostrare
+                                    if ($isZero && $hasNature) {
+                                        $badge = 'Cod. ' . $vat['nature_code'];
+                                        $badgeClass = 'bg-gray-100 text-gray-700';
+                                    } elseif ($isZero) {
+                                        $badge = '0%';
+                                        $badgeClass = 'bg-gray-100 text-gray-700';
+                                    } else {
+                                        $badge = number_format($ratePercent, 0) . '%';
+                                        $badgeClass = 'bg-blue-100 text-blue-800 font-bold';
+                                    }
+                                @endphp
                                 <div class="flex justify-between items-center py-1 text-sm border-b border-gray-100 last:border-0">
                                     <div class="font-medium text-gray-700">
-                                        @if($vat['rate'] == 0)
-                                            @if($vat['nature_code'])
-                                                <span class="text-xs bg-gray-100 px-1 py-0.5 rounded">Cod. {{ $vat['nature_code'] }}</span>
-                                            @endif
-                                            <span class="text-gray-600">{{ Str::limit($vat['description'], 30) }}</span>
-                                        @else
-                                            <span class="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">{{ $vat['rate_percent'] }}%</span>
-                                            <span class="text-gray-600">IVA</span>
-                                        @endif
+                                        <span class="text-xs {{ $badgeClass }} px-1 py-0.5 rounded">{{ $badge }}</span>
+                                        <span class="text-gray-600 text-xs ml-1">{{ $displayText }}</span>
                                     </div>
                                     <div class="text-right">
-                                        <div class="font-semibold">€ {{ number_format($vat['vat_amount'], 2, ',', '.') }}</div>
+                                        <div class="font-semibold text-sm">€ {{ number_format($vat['vat_amount'], 2, ',', '.') }}</div>
                                         <div class="text-xs text-gray-500">su € {{ number_format($vat['taxable_amount'], 2, ',', '.') }}</div>
                                     </div>
                                 </div>
@@ -429,15 +440,18 @@
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right" placeholder="0">
                             </td>
                             <td class="col-vat px-2 py-1 align-top" style="width: 120px; min-width: 120px;">
-                                <select wire:model.live="rows.{{ $index }}.vat_rate"
+                                <select wire:model.live="rows.{{ $index }}.vat_rate_id"
                                     class="w-full px-1 py-1 text-sm border rounded-md">
-                                    <option value="0">Seleziona IVA</option>
+                                    <option value="">Seleziona IVA</option>
                                     @foreach($vatRatesList as $vat)
-                                        <option value="{{ $vat['rate'] }}">
-                                            {{ $vat['description'] }}
-                                            @if($vat['sdi_nature'])
-                                                ({{ $vat['sdi_nature'] }})
-                                            @endif
+                                        @php
+                                            $displayText = $vat['description'];
+                                            if (!empty($vat['sdi_nature'])) {
+                                                $displayText .= ' (Cod. ' . $vat['sdi_nature'] . ')';
+                                            }
+                                        @endphp
+                                        <option value="{{ $vat['id'] }}">
+                                            {{ number_format($vat['rate_percent'], 0) }}% - {{ $displayText }}
                                         </option>
                                     @endforeach
                                 </select>

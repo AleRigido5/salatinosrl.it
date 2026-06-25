@@ -8,8 +8,10 @@ use App\Models\InvoiceSent;
 use App\Models\InvoiceReceived;
 use App\Models\InvoicePayment;
 use App\Models\Ownership;
-use App\Models\CostCenter;
+use App\Models\BankAccount;
+use App\Models\PaymentMethod;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class AccountStatementTable extends Component
 {
@@ -44,6 +46,11 @@ class AccountStatementTable extends Component
     public $typeDocuments = [];
     public $statuses = [];
     
+    protected $listeners = ['dateRangeUpdated' => 'handleDateRangeUpdated'];
+    
+    // Cache per i metodi di pagamento
+    protected $paymentMethodsCache = [];
+    
     public function mount($entityId, $entity = null, $dateFrom = null, $dateTo = null, $statementType = 'all')
     {
         $this->entityId = $entityId;
@@ -63,6 +70,29 @@ class AccountStatementTable extends Component
             'cancelled' => ['label' => 'Annullata', 'badge_class' => 'bg-red-100 text-red-800'],
         ];
         
+        // Pre-carica i metodi di pagamento in cache
+        $this->loadPaymentMethodsCache();
+        
+        $this->loadTransactions();
+    }
+    
+    /**
+     * Carica i metodi di pagamento in cache
+     */
+    private function loadPaymentMethodsCache()
+    {
+        $methods = PaymentMethod::where('is_active', true)->get();
+        foreach ($methods as $method) {
+            $this->paymentMethodsCache[$method->code] = $method->name;
+        }
+    }
+    
+    // ==================== GESTIONE DATE ====================
+    
+    public function handleDateRangeUpdated($data)
+    {
+        $this->dateFrom = $data['date_from'] ?? '';
+        $this->dateTo = $data['date_to'] ?? '';
         $this->loadTransactions();
     }
     
@@ -82,7 +112,7 @@ class AccountStatementTable extends Component
                   ->orWhere('Rag_Soc_intest', 'like', '%' . $this->ownershipSearch . '%');
             })
             ->limit(10)
-            ->get(['id_proprieta as id', 'RagAbbrev as name']);
+            ->get(['id_proprieta as id', 'RagAbbrev as name', 'Rag_Soc_intest as ragione_sociale']);
         
         $this->showOwnershipDropdown = count($this->ownershipResults) > 0;
     }
@@ -144,6 +174,9 @@ class AccountStatementTable extends Component
         $this->dateFrom = date('Y-m-d', strtotime('-12 months'));
         $this->dateTo = date('Y-m-d');
         $this->loadTransactions();
+        
+        // Notifica il componente DateRangeFilter per resettare la UI
+        $this->dispatch('resetDates');
     }
     
     public function resetFilters()
@@ -161,6 +194,9 @@ class AccountStatementTable extends Component
         $this->dateTo = date('Y-m-d');
         $this->statementType = 'all';
         $this->loadTransactions();
+        
+        // Resetta anche il componente date range
+        $this->dispatch('resetDates');
     }
     
     /**
@@ -204,14 +240,25 @@ class AccountStatementTable extends Component
                     ->get();
                     
                 foreach ($payments as $payment) {
+                    // Ottieni le informazioni del conto bancario tramite IBAN
+                    $bankInfo = $this->getBankAccountInfoByIban($payment->iban);
+                    $methodLabel = $this->getPaymentMethodLabel($payment->payment_method);
+                    
+                    // Costruisci la descrizione del pagamento
+                    if ($bankInfo) {
+                        $descrizione = 'Pagamento ricevuto: ' . $methodLabel . ' (' . $bankInfo['name'] . ' ' . $bankInfo['n_conto'] . ')';
+                    } else {
+                        $descrizione = 'Pagamento ricevuto: ' . $methodLabel;
+                    }
+                    
                     $transactions[] = [
                         'id'          => 'payment_sent_' . $payment->id,
                         'proprieta'   => $inv->ownership->RagAbbrev ?? $inv->ownership->Rag_Soc_intest ?? '-',
-                        'descrizione' => 'Pagamento ricevuto per fattura ' . $inv->n_invoice . ' (' . $payment->getPaymentMethodLabelAttribute() . ')',
+                        'descrizione' => $descrizione,
                         'data'        => $payment->paid_at ?? $payment->due_date,
                         'n_fattura'   => $inv->n_invoice,
                         'dare'        => 0,
-                        'avere'       => $payment->paid_amount,  // Riduce il credito
+                        'avere'       => $payment->paid_amount,
                         'saldo'       => 0,
                         'type'        => 'payment',
                         'payment_id'  => $payment->id,
@@ -240,21 +287,19 @@ class AccountStatementTable extends Component
                     'descrizione' => $isNC ? 'Nota di Credito ricevuta' : 'Fattura di Acquisto',
                     'data'        => $inv->data_invoice,
                     'n_fattura'   => $inv->n_invoice,
-                    'dare'        => $isNC ? $inv->importo_totale : 0,   // NC: riduce il debito (DARE)
-                    'avere'       => $isNC ? 0 : $inv->importo_totale,   // fattura: aumenta il debito (AVERE)
+                    'dare'        => $isNC ? $inv->importo_totale : 0,
+                    'avere'       => $isNC ? 0 : $inv->importo_totale,
                     'saldo'       => 0,
                     'type'        => 'invoice',
                 ];
             }
         }
 
-        // ==================== RAGGRUPPA I PAGAMENTI PER I FORNITORI ====================
-        // Raccogli tutti i pagamenti dei fornitori separatamente
+        // ==================== PAGAMENTI FORNITORI ====================
         $paymentsData = [];
 
         if (in_array($this->entity->entity_type, ['fornitore', 'entrambi'])) {
             
-            // Query per i pagamenti delle fatture ricevute
             $paymentQuery = InvoicePayment::whereHas('payable', function($q) {
                     $q->where('id_entities', $this->entityId);
                 })
@@ -262,7 +307,6 @@ class AccountStatementTable extends Component
                 ->where('paid_amount', '>', 0)
                 ->when($this->dateFrom && $this->dateTo, fn($q) => $q->whereBetween('paid_at', [$this->dateFrom, $this->dateTo]));
             
-            // Applica gli stessi filtri delle fatture
             if ($this->selectedOwnershipId) {
                 $paymentQuery->whereHas('payable', fn($q) => $q->where('id_ownership', $this->selectedOwnershipId));
             }
@@ -275,47 +319,60 @@ class AccountStatementTable extends Component
             
             $payments = $paymentQuery->with(['payable.ownership'])->get();
             
-            // Raggruppa i pagamenti per data e metodo di pagamento
+            // Raggruppa i pagamenti per IBAN e metodo
             $groupedPayments = [];
             foreach ($payments as $payment) {
                 $paymentDate = $payment->paid_at ? $payment->paid_at->format('Y-m-d') : null;
                 if (!$paymentDate) continue;
                 
-                $method = $payment->getPaymentMethodLabelAttribute();
+                $method = $this->getPaymentMethodLabel($payment->payment_method);
+                $iban = $payment->iban;
                 $proprieta = $payment->payable->ownership->RagAbbrev ?? $payment->payable->ownership->Rag_Soc_intest ?? '-';
                 
-                $groupKey = $paymentDate . '_' . $method . '_' . $proprieta;
+                // Ottieni info banca dall'IBAN
+                $bankInfo = $this->getBankAccountInfoByIban($iban);
+                $bankDetails = $bankInfo ? " (" . $bankInfo['name'] . ' ' . $bankInfo['n_conto'] . ")" : '';
+                
+                $groupKey = $paymentDate . '_' . $method . '_' . $iban . '_' . $proprieta;
                 
                 if (!isset($groupedPayments[$groupKey])) {
                     $groupedPayments[$groupKey] = [
                         'proprieta' => $proprieta,
                         'data' => $paymentDate,
                         'method' => $method,
+                        'bankDetails' => $bankDetails,
                         'total_amount' => 0,
                         'invoices' => []
                     ];
                 }
                 
                 $groupedPayments[$groupKey]['total_amount'] += $payment->paid_amount;
-                $groupedPayments[$groupKey]['invoices'][] = $payment->payable->n_invoice;
+                if ($payment->payable && $payment->payable->n_invoice) {
+                    $groupedPayments[$groupKey]['invoices'][] = $payment->payable->n_invoice;
+                }
             }
             
             // Crea una riga di pagamento per ogni gruppo
             foreach ($groupedPayments as $group) {
-                $descrizione = 'Pagamento fatture ' . implode(', ', array_unique($group['invoices'])) . ' (' . $group['method'] . ')';
+                $descrizione = 'Pagamento effettuato: ' . $group['method'] . $group['bankDetails'];
                 
-                // Se ci sono troppe fatture, accorcia la descrizione
-                if (count($group['invoices']) > 3) {
-                    $descrizione = 'Pagamento ' . count($group['invoices']) . ' fatture (' . $group['method'] . ')';
+                // Aggiungi i numeri fattura se presenti
+                if (count($group['invoices']) > 0) {
+                    $invoiceNumbers = array_unique($group['invoices']);
+                    if (count($invoiceNumbers) <= 3) {
+                        $descrizione = 'Pagamento fatture ' . implode(', ', $invoiceNumbers) . ': ' . $group['method'] . $group['bankDetails'];
+                    } else {
+                        $descrizione = 'Pagamento ' . count($invoiceNumbers) . ' fatture: ' . $group['method'] . $group['bankDetails'];
+                    }
                 }
                 
                 $paymentsData[] = [
-                    'id'          => 'payment_group_' . md5($group['data'] . $group['method']),
+                    'id'          => 'payment_group_' . md5($group['data'] . $group['method'] . $group['bankDetails']),
                     'proprieta'   => $group['proprieta'],
                     'descrizione' => $descrizione,
                     'data'        => $group['data'],
-                    'n_fattura'   => '',  // Vuoto per il riepilogo
-                    'dare'        => $group['total_amount'],   // Il pagamento va in DARE
+                    'n_fattura'   => '',
+                    'dare'        => $group['total_amount'],
                     'avere'       => 0,
                     'saldo'       => 0,
                     'type'        => 'payment_group',
@@ -323,7 +380,7 @@ class AccountStatementTable extends Component
             }
         }
 
-        // Unisci fatture e pagamenti raggruppati
+        // Unisci fatture e pagamenti
         $transactions = array_merge($transactions, $paymentsData);
 
         // Ordina per data crescente
@@ -337,21 +394,55 @@ class AccountStatementTable extends Component
         }
 
         $this->transactions = $transactions;
-
         $this->calculateTotals();
     }
     
-    private function getPaymentMethodLabel($method)
+    /**
+     * Ottiene le informazioni del conto bancario tramite IBAN
+     */
+    private function getBankAccountInfoByIban($iban)
     {
-        $methods = [
-            'MP05' => 'Bonifico Bancario',
-            'MP01' => 'Bonifico',
-            'MP02' => 'Assegno',
-            'MP03' => 'Contanti',
-            'MP08' => 'Carta di Credito',
-        ];
+        if (!$iban) return null;
         
-        return $methods[$method] ?? $method ?? 'Bonifico';
+        // Pulisci l'IBAN (rimuovi spazi)
+        $cleanIban = preg_replace('/\s+/', '', $iban);
+        
+        // Cerca il conto bancario con questo IBAN (pulito o con spazi)
+        $bankAccount = BankAccount::where('iban', $cleanIban)
+            ->orWhere('iban', $iban)
+            ->first();
+            
+        if (!$bankAccount) return null;
+        
+        return [
+            'name' => $bankAccount->name,
+            'n_conto' => $bankAccount->n_conto,
+            'iban' => $bankAccount->iban,
+        ];
+    }
+    
+    /**
+     * Ottiene l'etichetta del metodo di pagamento dal database
+     */
+    private function getPaymentMethodLabel($code)
+    {
+        if (!$code) {
+            return 'Non specificato';
+        }
+        
+        // Cerca nella cache
+        if (isset($this->paymentMethodsCache[$code])) {
+            return $this->paymentMethodsCache[$code];
+        }
+        
+        // Se non trovato in cache, cerca nel database
+        $method = PaymentMethod::where('code', $code)->first();
+        if ($method) {
+            $this->paymentMethodsCache[$code] = $method->name;
+            return $method->name;
+        }
+        
+        return $code; // Ritorna il codice se non trovato
     }
 
     public function getExportPdfUrl(): string

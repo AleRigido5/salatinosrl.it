@@ -202,8 +202,6 @@
                 @forelse($transactions as $transaction)
                 <tr class="hover:bg-gray-50">
                     <td class="px-4 py-3 text-sm">{{ $transaction['proprieta'] }}</td>
-                    {{-- <td class="px-4 py-3 text-sm">{{ $transaction['descrizione'] }}</td> --}}
-                    <!-- QUESTO È IL TD DELLA DESCRIZIONE - MODIFICA QUESTO -->
                     <td class="px-4 py-3 text-sm">
                         @if(isset($transaction['type']) && $transaction['type'] == 'payment')
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800 mr-2">
@@ -259,53 +257,7 @@
         </table>
     </div>
 
-    <!-- Card Riepilogo -->
-    @if(count($transactions) > 0)
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-        <div class="bg-red-50 rounded-lg p-4 border border-red-200">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-red-600 uppercase font-semibold">Totale DARE</p>
-                    <p class="text-2xl font-bold text-red-700">{{ number_format($totalDebit, 2, ',', '.') }} €</p>
-                    <p class="text-xs text-red-500 mt-1">Il cliente deve pagare</p>
-                </div>
-                <i class="fas fa-arrow-up text-red-400 text-3xl"></i>
-            </div>
-        </div>
-        
-        <div class="bg-green-50 rounded-lg p-4 border border-green-200">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-green-600 uppercase font-semibold">Totale AVERE</p>
-                    <p class="text-2xl font-bold text-green-700">{{ number_format($totalCredit, 2, ',', '.') }} €</p>
-                    <p class="text-xs text-green-500 mt-1">Il cliente ha pagato</p>
-                </div>
-                <i class="fas fa-arrow-down text-green-400 text-3xl"></i>
-            </div>
-        </div>
-        
-        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-gray-600 uppercase font-semibold">SALDO FINALE</p>
-                    <p class="text-2xl font-bold {{ $finalBalance > 0 ? 'text-red-700' : ($finalBalance < 0 ? 'text-green-700' : 'text-gray-700') }}">
-                        {{ number_format($finalBalance, 2, ',', '.') }} €
-                    </p>
-                    <p class="text-xs text-gray-500 mt-1">
-                        @if($finalBalance > 0)
-                            Il cliente deve ancora pagare
-                        @elseif($finalBalance < 0)
-                            Credito residuo verso il cliente
-                        @else
-                            Saldo pari a zero
-                        @endif
-                    </p>
-                </div>
-                <i class="fas fa-balance-scale text-gray-400 text-3xl"></i>
-            </div>
-        </div>
-    </div>
-
+    <!-- Solo pulsanti di esportazione -->
     <div class="flex justify-end gap-3 mt-4">
         <a href="{{ $this->getExportPdfUrl() }}" 
             class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium transition-colors">
@@ -318,5 +270,4 @@
             <span>Esporta Excel</span>
         </a>
     </div>
-    @endif
 </div>

@@ -95,6 +95,10 @@ class InvoicesReceivedTable extends Component
             $this->sortField = $savedFilters['sort_field'] ?? 'data_invoice';
             $this->sortDirection = $savedFilters['sort_direction'] ?? 'desc';
             $this->perPage = $savedFilters['per_page'] ?? 100000;
+        } else {
+            // SE NON CI SONO FILTRI SALVATI, IMPOSTA IL MESE CORRENTE DI DEFAULT
+            $this->dateFrom = date('Y-m-01'); // Primo giorno del mese corrente
+            $this->dateTo = date('Y-m-d');    // Oggi
         }
 
         $this->updateTrashCount();
@@ -321,7 +325,7 @@ class InvoicesReceivedTable extends Component
 
     public function resetFilters(): void
     {
-        session()->forget('invoices_received_filters'); // ← aggiungi questa riga
+        session()->forget('invoices_received_filters');
 
         $this->search = '';
         $this->status = '';
@@ -329,8 +333,11 @@ class InvoicesReceivedTable extends Component
         $this->clearOwnership();
         $this->clearSupplier();
         $this->clearCostCenter();
-        $this->dateFrom = '';
-        $this->dateTo = '';
+        
+        // RESETTA AL MESE CORRENTE INVECE DI VUOTO
+        $this->dateFrom = date('Y-m-01');
+        $this->dateTo = date('Y-m-d');
+        
         $this->resetPage();
         $this->dispatch('resetDates');
         $this->dispatch('resetDateRangeFilterWithoutApply');
@@ -357,8 +364,9 @@ class InvoicesReceivedTable extends Component
 
     public function clearDates(): void
     {
-        $this->dateFrom = '';
-        $this->dateTo = '';
+        // RESETTA AL MESE CORRENTE INVECE DI VUOTO
+        $this->dateFrom = date('Y-m-01');
+        $this->dateTo = date('Y-m-d');
         $this->resetPage();
         $this->dispatch('resetDateRangeFilterWithoutApply');
     }

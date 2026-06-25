@@ -492,13 +492,38 @@ class InvoiceSentEdit extends Component
         $this->calculatePaymentsTotal();
     }
     
-    // GESTIONE CAMBIO IVA - usa vat_rate_id come nel CREATE
+    /**
+     * Gestisce i cambiamenti delle proprietà delle righe
+     */
     public function updatedRows($value, $key)
     {
-        // Gestisce il cambio dell'IVA tramite vat_rate_id
-        if (str_ends_with((string)$key, '.vat_rate_id')) {
-            $parts = explode('.', $key);
-            $index = (int)$parts[1];
+        // Log per debug - commenta in produzione
+        // Log::info('updatedRows - key: ' . $key . ', value: ' . $value);
+        
+        // Verifica che la chiave sia una stringa
+        if (!is_string($key)) {
+            return;
+        }
+        
+        // Divide la chiave in parti (es. "rows.0.quantity" -> ["rows", "0", "quantity"])
+        $parts = explode('.', $key);
+        
+        // Verifica che ci siano almeno 2 parti (indice di riga e campo)
+        if (count($parts) < 2) {
+            return;
+        }
+        
+        // Estrae l'indice della riga e il campo
+        $index = (int)$parts[1];
+        $field = $parts[2] ?? '';
+        
+        // Verifica che l'indice esista nell'array rows
+        if (!isset($this->rows[$index])) {
+            return;
+        }
+        
+        // Gestione specifica per il campo vat_rate_id
+        if ($field === 'vat_rate_id') {
             $vatInfo = collect($this->vatRatesList)->firstWhere('id', (int)$value);
             if ($vatInfo) {
                 $this->rows[$index]['vat_rate'] = (float)$vatInfo['rate'];
@@ -509,22 +534,18 @@ class InvoiceSentEdit extends Component
             return;
         }
         
-        // Gestisce i campi numerici
-        if (str_ends_with((string)$key, '.unit_price') || 
-            str_ends_with((string)$key, '.quantity') || 
-            str_ends_with((string)$key, '.discount_percentage')) {
-            
-            $parts = explode('.', $key);
-            $index = (int)$parts[1];
-            $field = $parts[2];
-            
+        // Gestione dei campi numerici
+        if (in_array($field, ['quantity', 'unit_price', 'discount_percentage'])) {
             if (is_string($value)) {
                 $value = str_replace(',', '.', $value);
             }
-            
             $this->rows[$index][$field] = floatval($value);
             $this->calculateTotals();
+            return;
         }
+        
+        // Gestione degli altri campi (description, code, ecc.)
+        $this->rows[$index][$field] = $value;
     }
     
     public function calculatePaymentsTotal()

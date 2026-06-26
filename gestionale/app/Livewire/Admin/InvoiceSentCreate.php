@@ -283,14 +283,24 @@ class InvoiceSentCreate extends Component
     {
         $index = count($this->rows);
         
-        // Trova l'IVA al 22% di default (senza sdi_nature)
+        // Usa l'ultima IVA selezionata o default 22%
         $defaultVatId = null;
-        foreach ($this->vatRatesList as $vat) {
-            if ((float)$vat['rate'] === 0.22 && empty($vat['sdi_nature'])) {
-                $defaultVatId = $vat['id'];
-                break;
+        if (count($this->rows) > 0) {
+            $lastRow = end($this->rows);
+            $defaultVatId = $lastRow['vat_rate_id'] ?? null;
+        }
+        
+        if (!$defaultVatId) {
+            // Trova IVA al 22% di default
+            foreach ($this->vatRatesList as $vat) {
+                if ((float)$vat['rate'] === 0.22 && empty($vat['sdi_nature'])) {
+                    $defaultVatId = $vat['id'];
+                    break;
+                }
             }
         }
+        
+        $vatInfo = collect($this->vatRatesList)->firstWhere('id', $defaultVatId);
         
         $this->rows[] = [
             'code' => '',
@@ -300,15 +310,16 @@ class InvoiceSentCreate extends Component
             'unit_measure' => 'pz',
             'discount_percentage' => 0,
             'vat_rate_id' => $defaultVatId,
-            'vat_rate' => 0.22,
-            'vat_sdi_nature' => '',
-            'vat_description' => 'IVA 22%',
+            'vat_rate' => $vatInfo ? (float)$vatInfo['rate'] : 0.22,
+            'vat_sdi_nature' => $vatInfo ? ($vatInfo['sdi_nature'] ?? '') : '',
+            'vat_description' => $vatInfo ? ($vatInfo['description'] ?? 'IVA 22%') : 'IVA 22%',
             'id_cost_center' => null,
             'id_service' => null,
             'taxable_amount' => 0,
             'vat_amount' => 0,
         ];
         
+        // Inizializza array per autocomplete
         $this->costCenterSearch[$index] = '';
         $this->costCenterResults[$index] = [];
         $this->showCostCenterDropdown[$index] = false;
@@ -375,17 +386,45 @@ class InvoiceSentCreate extends Component
     
     public function updatedRows($value, $key)
     {
+        // Gestione specifica per vat_rate_id
         if (str_ends_with((string)$key, '.vat_rate_id')) {
             $parts = explode('.', $key);
             $index = (int)$parts[1];
-            $vatInfo = collect($this->vatRatesList)->firstWhere('id', (int)$value);
-            if ($vatInfo) {
-                $this->rows[$index]['vat_rate'] = (float)$vatInfo['rate'];
-                $this->rows[$index]['vat_sdi_nature'] = $vatInfo['sdi_nature'] ?? '';
-                $this->rows[$index]['vat_description'] = $vatInfo['description'] ?? '';
+            
+            // Assicurati che l'indice esista
+            if (!isset($this->rows[$index])) {
+                return;
             }
+            
+            Log::info('🔄 Aggiornamento IVA riga ' . $index . ' - nuovo valore ID: ' . $value);
+            
+            if ($value) {
+                $vatInfo = collect($this->vatRatesList)->firstWhere('id', (int)$value);
+                if ($vatInfo) {
+                    $this->rows[$index]['vat_rate'] = (float)$vatInfo['rate'];
+                    $this->rows[$index]['vat_sdi_nature'] = $vatInfo['sdi_nature'] ?? '';
+                    $this->rows[$index]['vat_description'] = $vatInfo['description'] ?? '';
+                    Log::info('✅ Riga ' . $index . ' - IVA impostata a: ' . ($vatInfo['rate'] * 100) . '%');
+                }
+            } else {
+                // Se viene selezionato "Seleziona IVA" (valore vuoto)
+                $this->rows[$index]['vat_rate'] = 0;
+                $this->rows[$index]['vat_sdi_nature'] = '';
+                $this->rows[$index]['vat_description'] = 'Nessuna IVA';
+                Log::info('⚠️ Riga ' . $index . ' - IVA rimossa');
+            }
+            
+            // Ricalcola i totali
+            $this->calculateTotals();
+            return;
         }
-        $this->calculateTotals();
+        
+        // Per altri campi, ricalcola solo se necessario
+        if (str_ends_with((string)$key, '.quantity') || 
+            str_ends_with((string)$key, '.unit_price') || 
+            str_ends_with((string)$key, '.discount_percentage')) {
+            $this->calculateTotals();
+        }
     }
     
     public function calculatePaymentsTotal()
@@ -405,12 +444,37 @@ class InvoiceSentCreate extends Component
         $vatGroup = [];
         
         foreach ($this->rows as $index => &$row) {
-            $quantity = floatval($row['quantity'] ?? 1);
-            $unitPrice = floatval($row['unit_price'] ?? 0);
-            $discountPercentage = floatval($row['discount_percentage'] ?? 0);
-            $vatRate = floatval($row['vat_rate'] ?? 0);
-            $sdiNature = $row['vat_sdi_nature'] ?? '';
+            // Assicurati che i valori siano numerici
+            $quantity = floatval(str_replace(',', '.', $row['quantity'] ?? 1));
+            $unitPrice = floatval(str_replace(',', '.', $row['unit_price'] ?? 0));
+            $discountPercentage = floatval(str_replace(',', '.', $row['discount_percentage'] ?? 0));
+            
+            // PREndi l'IVA DALLA RIGA CORRENTE usando l'index
+            $vatRateId = $row['vat_rate_id'] ?? null;
+            $vatRate = 0;
+            $sdiNature = '';
+            $vatDescription = '';
+            
+            if ($vatRateId) {
+                // Cerca l'IVA per questa riga
+                $vatInfo = collect($this->vatRatesList)->firstWhere('id', (int)$vatRateId);
+                if ($vatInfo) {
+                    $vatRate = (float)$vatInfo['rate'];
+                    $sdiNature = $vatInfo['sdi_nature'] ?? '';
+                    $vatDescription = $vatInfo['description'] ?? '';
+                    // Aggiorna la riga con i valori corretti
+                    $row['vat_rate'] = $vatRate;
+                    $row['vat_sdi_nature'] = $sdiNature;
+                    $row['vat_description'] = $vatDescription;
+                }
+            } else {
+                // Se non c'è vat_rate_id, usa i valori esistenti
+                $vatRate = floatval($row['vat_rate'] ?? 0);
+                $sdiNature = $row['vat_sdi_nature'] ?? '';
+                $vatDescription = $row['vat_description'] ?? '';
+            }
 
+            // Calcoli
             $grossAmount = $quantity * $unitPrice;
             $discountAmount = $grossAmount * ($discountPercentage / 100);
             $totalDiscount += $discountAmount;
@@ -419,38 +483,54 @@ class InvoiceSentCreate extends Component
             $vatAmount = $taxable * $vatRate;
             $totalVat += $vatAmount;
 
-            $key = $vatRate . '_' . $sdiNature;
-
+            // Crea chiave univoca per questa aliquota IVA
+            $key = $vatRate . '|' . ($sdiNature ?: 'default');
+            
+            // Inizializza il gruppo se non esiste
             if (!isset($vatGroup[$key])) {
-                $vatInfo = collect($this->vatRatesList)->first(function($v) use ($vatRate, $sdiNature) {
-                    return (float)$v['rate'] === $vatRate && ($v['sdi_nature'] ?? '') === ($sdiNature ?? '');
-                });
-                
-                if (!$vatInfo) {
-                    $vatInfo = collect($this->vatRatesList)->firstWhere('rate', $vatRate);
-                }
-
                 $vatGroup[$key] = [
                     'rate' => $vatRate,
                     'rate_percent' => $vatRate * 100,
                     'taxable_amount' => 0,
                     'vat_amount' => 0,
-                    'description' => $vatInfo['description'] ?? ('IVA ' . ($vatRate * 100) . '%'),
-                    'nature_code' => $sdiNature ?: ($vatInfo['sdi_nature'] ?? null),
+                    'description' => $vatDescription ?: ('IVA ' . ($vatRate * 100) . '%'),
+                    'nature_code' => $sdiNature ?: null,
+                    'row_index' => $index, // Traccia da quale riga viene
+                    'row_description' => $row['description'] ?? '' // Per debug
                 ];
             }
+            
+            // Aggiorna i totali per questo gruppo
             $vatGroup[$key]['taxable_amount'] += $taxable;
             $vatGroup[$key]['vat_amount'] += $vatAmount;
 
+            // Aggiorna la riga
             $row['taxable_amount'] = $taxable;
             $row['vat_amount'] = $vatAmount;
+            
+            // Log per debug (rimuovi in produzione)
+            Log::info('Riga ' . $index . ' - Descrizione: ' . ($row['description'] ?? '') . 
+                    ' - IVA: ' . ($vatRate * 100) . '%' . 
+                    ' - Imponibile: ' . $taxable . 
+                    ' - IVA: ' . $vatAmount);
         }
         
-        $this->vatSummary = array_values($vatGroup);
+        // Filtra e ordina il riepilogo IVA
+        $this->vatSummary = collect($vatGroup)
+            ->filter(function($v) {
+                return abs($v['taxable_amount']) > 0.0001 || abs($v['vat_amount']) > 0.0001;
+            })
+            ->sortByDesc('rate')
+            ->values()
+            ->toArray();
+        
         $this->total_taxable = $totalTaxable;
         $this->total_vat = $totalVat;
         $this->total_discount = $totalDiscount;
         $this->importo_totale = $totalTaxable + $totalVat;
+        
+        // Log del riepilogo (rimuovi in produzione)
+        Log::info('Riepilogo IVA: ' . json_encode($this->vatSummary));
         
         if (count($this->payments) > 0) {
             $this->payments[0]['amount'] = $this->importo_totale;
@@ -703,18 +783,24 @@ class InvoiceSentCreate extends Component
                     }
                 }
                 
+                // Calcola totale riga (può essere negativo)
+                $quantity = floatval($row['quantity'] ?? 1);
+                $unitPrice = floatval($row['unit_price'] ?? 0);
+                $discountPercentage = floatval($row['discount_percentage'] ?? 0);
+                $totalRow = ($quantity * $unitPrice) * (1 - $discountPercentage / 100);
+                
                 InvoiceRow::create([
                     'document_id' => $invoice->id,
                     'document_type' => 'invoice_sent',
                     'code' => $row['code'] ?? null,
                     'description' => $row['description'],
-                    'quantity' => round(floatval($row['quantity'] ?? 1), 2),
-                    'unit_price' => round(floatval($row['unit_price'] ?? 0), 3),
+                    'quantity' => round($quantity, 2),
+                    'unit_price' => round($unitPrice, 3),
                     'unit_measure' => $row['unit_measure'] ?? 'pz',
-                    'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
+                    'discount_percentage' => $discountPercentage,
                     'vat_rate' => $vatRate * 100,
                     'sdi_nature' => $sdiNature,
-                    'total' => floatval($row['taxable_amount'] ?? 0),
+                    'total' => round($totalRow, 2), // Può essere negativo
                     'id_cost_center' => $row['id_cost_center'] ?? null,
                     'id_service' => $row['id_service'] ?? null,
                 ]);

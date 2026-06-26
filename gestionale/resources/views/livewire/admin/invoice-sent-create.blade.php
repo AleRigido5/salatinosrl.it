@@ -483,6 +483,7 @@
                             </td>
                             <td class="col-vat px-2 py-1 align-top" style="width: 120px; min-width: 120px;">
                                 <select wire:model.live="rows.{{ $index }}.vat_rate_id"
+                                    wire:key="vat-select-{{ $index }}"
                                     class="w-full px-1 py-1 text-sm border rounded-md">
                                     <option value="">Seleziona IVA</option>
                                     @foreach($vatRatesList as $vat)
@@ -498,7 +499,6 @@
                                     @endforeach
                                 </select>
                             </td>
-
                             <td class="col-taxable px-2 py-1 align-top">
                                 <input type="text" readonly
                                     value="{{ number_format($row['taxable_amount'] ?? 0, 2, ',', '.') }}"

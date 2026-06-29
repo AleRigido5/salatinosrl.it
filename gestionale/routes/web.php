@@ -141,6 +141,17 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
             Route::get('activities/export-pdf',   [ActivityController::class, 'exportPdf'])->name('export-pdf');
             Route::get('activities/export-excel', [ActivityController::class, 'exportExcel'])->name('export-excel');
+
+            // =============================================
+            // 🆕 GESTIONE IMMAGINI ATTIVITÀ
+            // =============================================
+            Route::prefix('{activityId}/images')->name('images.')->group(function () {
+                Route::get('/', [App\Http\Controllers\Admin\ActivityImageController::class, 'index'])->name('index');
+                Route::post('/', [App\Http\Controllers\Admin\ActivityImageController::class, 'store'])->name('store');
+                Route::delete('/{imageId}', [App\Http\Controllers\Admin\ActivityImageController::class, 'destroy'])->name('destroy');
+                Route::delete('/all/delete', [App\Http\Controllers\Admin\ActivityImageController::class, 'destroyAll'])->name('destroyAll');
+                Route::post('/update-order', [App\Http\Controllers\Admin\ActivityImageController::class, 'updateOrder'])->name('update-order');
+            });
         });
 
         // =============================================

@@ -989,6 +989,17 @@
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </button>
                                 @endif
+                                 <!-- Pulsante Immagini -->
+                                <a href="{{ route('admin.activities.images.index', $activity->id) }}" 
+                                class="text-pink-500 hover:text-pink-700 transition-colors p-1 relative" 
+                                title="Gestisci Immagini">
+                                    <i class="fas fa-images"></i>
+                                    @if($activity->images_count > 0)
+                                    <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                                        {{ $activity->images_count }}
+                                    </span>
+                                    @endif
+                                </a>
                             </div>
                         </td>
                     </tr>

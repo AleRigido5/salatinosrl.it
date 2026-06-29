@@ -63,6 +63,24 @@ class Activity extends Model
     }
 
     /**
+     * Relazione con le immagini dell'attività
+     */
+    public function images()
+    {
+        return $this->hasMany(ActivityImage::class, 'activity_id', 'id')
+            ->orderBy('order')
+            ->orderBy('created_at', 'desc');
+    }
+
+    /**
+     * Conta le immagini dell'attività
+     */
+    public function getImagesCountAttribute()
+    {
+        return $this->images()->count();
+    }
+
+    /**
      * Relazione con la proprietà (ownership)
      * AGGIUNTA PER IL CALENDARIO PRESENZE
      */

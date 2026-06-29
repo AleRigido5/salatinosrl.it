@@ -35,6 +35,15 @@
 
     <!-- Filtri e Ricerca -->
     <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
+        <!-- RIGA SUPERIORE: Date Range Filter -->
+        @livewire('components.date-range-filter', [
+            'dateFrom' => $dateFrom, 
+            'dateTo' => $dateTo
+        ], key('date-filter-' . $dateFrom . $dateTo))
+        
+        <!-- Linea di separazione -->
+        <div class="border-t border-gray-200 my-4"></div>
+
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="relative md:col-span-2">
                 <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
@@ -86,6 +95,17 @@
                             </div>
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipologia</th>
+                        <!-- NUOVA COLONNA PROPRIETÀ -->
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('id_ownership')">
+                            <div class="flex items-center space-x-1">
+                                <span>Proprietà</span>
+                                @if($sortField === 'id_ownership')
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
+                                @else
+                                    <i class="fas fa-sort text-gray-400"></i>
+                                @endif
+                            </div>
+                        </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Associato a</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('data_inizio')">
                             <div class="flex items-center space-x-1">
@@ -128,6 +148,16 @@
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                                 {{ $expiration->tipologiaName }}
                             </span>
+                        </td>
+                        <!-- NUOVA COLONNA PROPRIETÀ -->
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            @if($expiration->ownershipLegacy)
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                                    {{ $expiration->ownershipLegacy->RagAbbrev ?? $expiration->ownershipLegacy->RagSocialePr }}
+                                </span>
+                            @else
+                                <span class="text-sm text-gray-400">-</span>
+                            @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             @php
@@ -186,7 +216,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-12 text-center">
+                        <td colspan="8" class="px-6 py-12 text-center">
                             <div class="text-gray-500">
                                 <i class="fas fa-calendar-times text-gray-400 text-5xl"></i>
                                 <p class="mt-2 text-sm">Nessuna scadenza trovata</p>
@@ -477,6 +507,19 @@
                             <div>
                                 <label class="text-sm font-medium text-gray-500">Tipologia</label>
                                 <p><span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">{{ $viewingExpiration->tipologiaName }}</span></p>
+                            </div>
+                            <!-- Aggiungi Proprietà -->
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Proprietà</label>
+                                <p class="text-gray-900">
+                                    @if($viewingExpiration->ownershipLegacy)
+                                        <span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">
+                                            {{ $viewingExpiration->ownershipLegacy->RagAbbrev ?? $viewingExpiration->ownershipLegacy->RagSocialePr }}
+                                        </span>
+                                    @else
+                                        -
+                                    @endif
+                                </p>
                             </div>
                             <div>
                                 <label class="text-sm font-medium text-gray-500">Data Inizio</label>

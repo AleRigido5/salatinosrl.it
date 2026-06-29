@@ -11,6 +11,7 @@ use App\Models\Staff;
 use App\Models\Entity;
 use App\Models\Ownership;
 use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 
 class StaffExpirationTable extends Component
 {
@@ -24,6 +25,10 @@ class StaffExpirationTable extends Component
     public $perPage = 15;
     public $sortField = 'data_fine';
     public $sortDirection = 'desc';
+    
+    // Date range filters per data_fine (data di scadenza)
+    public $dateFrom = '';
+    public $dateTo = '';
     
     public $showViewModal = false;
     public $viewingExpiration = null;
@@ -62,7 +67,13 @@ class StaffExpirationTable extends Component
     public $editEntityResults = [];
     
     protected $paginationTheme = 'tailwind';
-    protected $queryString = ['search', 'tipologiaFilter', 'statusFilter', 'staffId'];
+    protected $queryString = ['search', 'tipologiaFilter', 'statusFilter', 'staffId', 'dateFrom', 'dateTo'];
+    
+    // Listener per gli eventi del componente DateRangeFilter
+    protected $listeners = [
+        'dateRangeUpdated' => 'updateDateRange',
+        'resetDates' => 'resetDateRange'
+    ];
     
     public function mount($staffId = null, $staffName = null)
     {
@@ -71,12 +82,65 @@ class StaffExpirationTable extends Component
         $this->createDataInizio = date('Y-m-d');
         $this->createDataFine = date('Y-m-d', strtotime('+1 year'));
         
+        // Imposta il filtro sul mese corrente di default SOLO se non ci sono filtri stato
+        if (empty($this->dateFrom) && empty($this->dateTo) && empty($this->statusFilter)) {
+            $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
+            $this->dateTo = Carbon::now()->endOfMonth()->format('Y-m-d');
+        }
+        
         if ($this->staffId && !$this->staffName) {
             $staff = Staff::find($this->staffId);
             if ($staff) {
                 $this->staffName = $staff->full_name;
             }
         }
+    }
+    
+    // ==================== LISTENER PER DATE RANGE FILTER ====================
+    
+    /**
+     * Aggiorna i filtri data quando il componente DateRangeFilter invia l'evento
+     * Filtra sulla data_fine (data di scadenza)
+     */
+    public function updateDateRange($data)
+    {
+        $this->dateFrom = $data['date_from'] ?? '';
+        $this->dateTo = $data['date_to'] ?? '';
+        $this->resetPage();
+    }
+    
+    /**
+     * Resetta i filtri data al mese corrente
+     */
+    public function resetDateRange()
+    {
+        // Se non ci sono filtri stato, resetta al mese corrente
+        if (empty($this->statusFilter)) {
+            $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
+            $this->dateTo = Carbon::now()->endOfMonth()->format('Y-m-d');
+        } else {
+            // Se c'è un filtro stato, rimuovi il filtro data per vedere TUTTE le scadenze
+            $this->dateFrom = '';
+            $this->dateTo = '';
+        }
+        $this->resetPage();
+    }
+    
+    // ==================== METODI PER STATUS FILTER ====================
+    
+    /**
+     * Quando cambia il filtro stato, rimuovi automaticamente il filtro data
+     * per mostrare TUTTE le scadenze di quello stato
+     */
+    public function updatedStatusFilter()
+    {
+        // Rimuovi il filtro data quando selezioni uno stato
+        $this->dateFrom = '';
+        $this->dateTo = '';
+        $this->resetPage();
+        
+        // Notifica al componente DateRangeFilter di resettarsi
+        $this->dispatch('resetDates');
     }
     
     // ==================== AUTOCOMPLETE CREAZIONE ====================
@@ -364,6 +428,18 @@ class StaffExpirationTable extends Component
             $query->where('id_references', $this->staffId);
         }
 
+        // FILTRO DATA SCADENZA - Applicato SOLO se non c'è un filtro stato
+        // Se c'è un filtro stato, il filtro data viene ignorato per mostrare TUTTE le scadenze
+        if (empty($this->statusFilter)) {
+            if (!empty($this->dateFrom) && !empty($this->dateTo)) {
+                $query->whereBetween('data_fine', [$this->dateFrom, $this->dateTo]);
+            } elseif (!empty($this->dateFrom)) {
+                $query->whereDate('data_fine', '>=', $this->dateFrom);
+            } elseif (!empty($this->dateTo)) {
+                $query->whereDate('data_fine', '<=', $this->dateTo);
+            }
+        }
+
         if ($this->search) {
             $searchTerm = '%' . $this->search . '%';
             $query->where(function($q) use ($searchTerm) {
@@ -377,14 +453,20 @@ class StaffExpirationTable extends Component
             $query->where('id_settings', $this->tipologiaFilter);
         }
 
+        // FILTRO STATO - Questo filtra sempre, indipendentemente dal filtro data
         if ($this->statusFilter !== '') {
             if ($this->statusFilter === 'active') {
-                $query->whereNull('deleted_at');
+                $query->whereNull('deleted_at')
+                      ->where(function($q) {
+                          $q->whereNull('data_fine')
+                            ->orWhere('data_fine', '>=', now());
+                      });
             } elseif ($this->statusFilter === 'expired') {
-                $query->where('data_fine', '<', now())->whereNull('deleted_at');
+                $query->where('data_fine', '<', now())
+                      ->whereNull('deleted_at');
             } elseif ($this->statusFilter === 'expiring') {
                 $query->whereBetween('data_fine', [now(), now()->addDays(30)])
-                    ->whereNull('deleted_at');
+                      ->whereNull('deleted_at');
             }
         }
 
@@ -444,9 +526,15 @@ class StaffExpirationTable extends Component
         $this->search = '';
         $this->tipologiaFilter = '';
         $this->statusFilter = '';
+        // Resetta al mese corrente
+        $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
+        $this->dateTo = Carbon::now()->endOfMonth()->format('Y-m-d');
         $this->sortField = 'data_fine';
         $this->sortDirection = 'desc';
         $this->resetPage();
+        
+        // Notifica al componente DateRangeFilter di resettarsi al mese corrente
+        $this->dispatch('resetDates');
     }
     
     public function backToStaff()
@@ -461,7 +549,9 @@ class StaffExpirationTable extends Component
             'tipologie' => $this->tipologie,
             'ownerships' => $this->ownerships,
             'staffName' => $this->staffName,
-            'staffId' => $this->staffId
+            'staffId' => $this->staffId,
+            'dateFrom' => $this->dateFrom,
+            'dateTo' => $this->dateTo
         ]);
     }
 }

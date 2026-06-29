@@ -11,6 +11,7 @@ use App\Models\Vehicles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class DocumentController extends Controller
@@ -34,9 +35,10 @@ class DocumentController extends Controller
     }
 
     /**
-     * Genera il percorso della cartella per i documenti
+     * Genera il percorso su S3 per i documenti
+     * Il path su S3 inizierà con 's3://' per essere riconosciuto
      */
-    private function getDocumentFolderPath($tableRef, $idRef)
+    private function getDocumentS3Path($tableRef, $idRef)
     {
         switch ($tableRef) {
             case 'expiration-staff':
@@ -46,15 +48,16 @@ class DocumentController extends Controller
                     if ($staff) {
                         $staffName = $this->sanitizeFolderName($staff->full_name);
                         $titolo = $this->sanitizeFolderName($expiration->titolo);
-                        return "uploads/documents/expiration-staff/{$staffName}_{$titolo}";
+                        return "s3://documents/expiration-staff/{$staffName}_{$titolo}";
                     }
                 }
-                return "uploads/documents/expiration-staff/{$idRef}";
+                return "s3://documents/expiration-staff/{$idRef}";
                 
             case 'expiration-vehicles':
                 $expiration = Expiration::find($idRef);
-                if ($expiration && $expiration->id_references) {
-                    $vehicle = Vehicles::find($expiration->id_references);
+                if ($expiration) {
+                    // Cerca il veicolo dalla relazione vehicles
+                    $vehicle = $expiration->vehicles()->first();
                     if ($vehicle) {
                         $vehicleName = '';
                         if ($vehicle->marca) {
@@ -70,15 +73,18 @@ class DocumentController extends Controller
                             $vehicleName = 'mezzo_' . $vehicle->id;
                         }
                         $titolo = $this->sanitizeFolderName($expiration->titolo);
-                        return "uploads/documents/expiration-vehicles/{$vehicleName}_{$titolo}";
+                        return "s3://documents/expiration-vehicles/{$vehicleName}_{$titolo}";
                     }
                 }
-                return "uploads/documents/expiration-vehicles/{$idRef}";
+                return "s3://documents/expiration-vehicles/{$idRef}";
                 
             case 'staff':
                 $staff = Staff::find($idRef);
-                $staffName = $staff ? $this->sanitizeFolderName($staff->full_name) : $idRef;
-                return "uploads/documents/staff/{$staffName}";
+                if ($staff) {
+                    $staffName = $this->sanitizeFolderName($staff->full_name);
+                    return "s3://documents/staff/{$staffName}";
+                }
+                return "s3://documents/staff/{$idRef}";
                 
             case 'vehicles':
                 $vehicle = Vehicles::find($idRef);
@@ -96,15 +102,18 @@ class DocumentController extends Controller
                     if (empty($vehicleName)) {
                         $vehicleName = 'mezzo_' . $vehicle->id;
                     }
-                    return "uploads/documents/vehicles/{$vehicleName}";
+                    return "s3://documents/vehicles/{$vehicleName}";
                 }
-                return "uploads/documents/vehicles/{$idRef}";
+                return "s3://documents/vehicles/{$idRef}";
                 
             default:
-                return "uploads/documents/{$idRef}";
+                return "s3://documents/{$idRef}";
         }
     }
 
+    /**
+     * Mostra i documenti per un riferimento specifico
+     */
     public function index($tableRef, $idRef, Request $request)
     {
         $documents = Document::where('table_ref', $tableRef)
@@ -166,9 +175,20 @@ class DocumentController extends Controller
             $backUrl = route('admin.expiration-staff.index');
         }
         
-        return view('admin.documents.index', compact('documents', 'tableRef', 'idRef', 'title', 'backUrl', 'staffId', 'vehicleId'));
+        return view('admin.documents.index', compact(
+            'documents', 
+            'tableRef', 
+            'idRef', 
+            'title', 
+            'backUrl', 
+            'staffId', 
+            'vehicleId'
+        ));
     }
     
+    /**
+     * Salva i documenti su Amazon S3
+     */
     public function store(Request $request, $tableRef, $idRef)
     {
         $request->validate([
@@ -187,13 +207,10 @@ class DocumentController extends Controller
         $successCount = 0;
         $errors = [];
         
-        // Genera il percorso della cartella
-        $folderPath = $this->getDocumentFolderPath($tableRef, $idRef);
-        $fullPath = public_path($folderPath);
-        
-        if (!file_exists($fullPath)) {
-            mkdir($fullPath, 0755, true);
-        }
+        // Genera il percorso su S3 (include 's3://' come marcatore)
+        $s3PathWithPrefix = $this->getDocumentS3Path($tableRef, $idRef);
+        // Rimuovi 's3://' per il salvataggio effettivo
+        $s3Path = str_replace('s3://', '', $s3PathWithPrefix);
         
         foreach ($files as $file) {
             try {
@@ -204,31 +221,50 @@ class DocumentController extends Controller
                 $timestamp = time() . '_' . Str::random(4);
                 $savedName = $cleanOriginalName . '_' . $timestamp . '.' . $extension;
                 
-                $file->move($fullPath, $savedName);
+                // Percorso completo su S3
+                $fullS3Path = $s3Path . '/' . $savedName;
+                
+                // Leggi il contenuto del file
+                $content = file_get_contents($file->getRealPath());
+                
+                // Carica su S3
+                $saved = Storage::disk('s3')->put($fullS3Path, $content);
+                
+                if (!$saved) {
+                    throw new \Exception("Errore durante il caricamento su S3: {$originalName}");
+                }
                 
                 $title = $commonTitle ? $commonTitle . ' - ' . $originalName : $originalName;
                 
+                // Salva nel database con path_doc che contiene 's3://' come marcatore
                 Document::create([
                     'titolo' => $title,
                     'note' => $commonNote,
-                    'path_doc' => $folderPath,
+                    'path_doc' => $s3PathWithPrefix, // Es: 's3://documents/expiration-staff/...'
                     'file_name' => $savedName,
                     'table_ref' => $tableRef,
                     'id_ref' => $idRef,
-                    'drive_file_id' => null
                 ]);
                 
                 $successCount++;
                 
+                Log::info('Documento caricato su S3', [
+                    'path' => $fullS3Path,
+                    'file' => $savedName,
+                    'table_ref' => $tableRef,
+                    'id_ref' => $idRef
+                ]);
+                
             } catch (\Exception $e) {
                 $errors[] = "Errore per il file '{$originalName}': " . $e->getMessage();
+                Log::error('Errore caricamento documento su S3: ' . $e->getMessage());
             }
         }
         
         // Costruisci URL di redirect
         $redirectUrl = $this->buildRedirectUrl($tableRef, $idRef, $staffId, $vehicleId);
         
-        $message = "{$successCount} documento/i caricato/i con successo!";
+        $message = "{$successCount} documento/i caricato/i con successo su Amazon S3!";
         
         if (!empty($errors)) {
             return redirect($redirectUrl)->with('errors', $errors)->with('warning', $message);
@@ -237,6 +273,9 @@ class DocumentController extends Controller
         return redirect($redirectUrl)->with('success', $message);
     }
     
+    /**
+     * Elimina un documento da Amazon S3
+     */
     public function destroy($tableRef, $idRef, $documentId, Request $request)
     {
         try {
@@ -245,40 +284,97 @@ class DocumentController extends Controller
                 ->where('id', $documentId)
                 ->firstOrFail();
             
-            $filePath = public_path($document->path_doc . '/' . $document->file_name);
-            if (file_exists($filePath)) {
-                unlink($filePath);
+            // Verifica se è su S3 (path_doc inizia con 's3://')
+            if (str_starts_with($document->path_doc, 's3://')) {
+                $s3Path = str_replace('s3://', '', $document->path_doc) . '/' . $document->file_name;
+                $deleted = Storage::disk('s3')->delete($s3Path);
+                
+                if (!$deleted) {
+                    Log::warning('File non trovato su S3 durante eliminazione', ['path' => $s3Path]);
+                }
+            } else {
+                // Fallback per file locali (compatibilità con vecchi documenti)
+                $filePath = public_path($document->path_doc . '/' . $document->file_name);
+                if (file_exists($filePath)) {
+                    unlink($filePath);
+                }
             }
             
             $document->forceDelete();
             
             $redirectUrl = $this->buildRedirectUrl($tableRef, $idRef, $request->staff_id, $request->vehicle_id);
-            return redirect($redirectUrl)->with('success', 'Documento eliminato con successo!');
+            return redirect($redirectUrl)->with('success', 'Documento eliminato con successo da S3!');
             
         } catch (\Exception $e) {
+            Log::error('Errore durante eliminazione documento: ' . $e->getMessage());
             $redirectUrl = $this->buildRedirectUrl($tableRef, $idRef, $request->staff_id, $request->vehicle_id);
             return redirect($redirectUrl)->with('error', 'Errore durante l\'eliminazione: ' . $e->getMessage());
         }
     }
     
+    /**
+     * Scarica un documento da Amazon S3
+     */
     public function download($tableRef, $idRef, $documentId, Request $request)
     {
-        $document = Document::where('table_ref', $tableRef)
-            ->where('id_ref', $idRef)
-            ->where('id', $documentId)
-            ->firstOrFail();
-        
-        $filePath = public_path($document->path_doc . '/' . $document->file_name);
-        
-        if (file_exists($filePath)) {
-            $originalName = preg_replace('/_\d+_\w+\./', '.', $document->file_name);
-            return response()->download($filePath, $originalName);
+        try {
+            $document = Document::where('table_ref', $tableRef)
+                ->where('id_ref', $idRef)
+                ->where('id', $documentId)
+                ->firstOrFail();
+            
+            // Verifica se è su S3
+            if (str_starts_with($document->path_doc, 's3://')) {
+                $s3Path = str_replace('s3://', '', $document->path_doc) . '/' . $document->file_name;
+                $content = Storage::disk('s3')->get($s3Path);
+                
+                if (!$content) {
+                    throw new \Exception('File non trovato su S3');
+                }
+                
+                // Ottieni il nome originale del file (rimuovi timestamp e hash)
+                $originalName = $document->file_name;
+                // Cerca di estrarre il nome originale (prima del primo underscore)
+                $parts = explode('_', $document->file_name);
+                if (count($parts) >= 3) {
+                    // Rimuovi timestamp e hash (gli ultimi 2 elementi)
+                    array_pop($parts); // rimuovi hash
+                    array_pop($parts); // rimuovi timestamp
+                    $originalName = implode('_', $parts) . '.' . $document->extension;
+                }
+                
+                return response($content)
+                    ->header('Content-Type', 'application/octet-stream')
+                    ->header('Content-Disposition', 'attachment; filename="' . $originalName . '"');
+            } else {
+                // Fallback per file locali
+                $filePath = public_path($document->path_doc . '/' . $document->file_name);
+                
+                if (!file_exists($filePath)) {
+                    throw new \Exception('File non trovato');
+                }
+                
+                $originalName = $document->file_name;
+                $parts = explode('_', $document->file_name);
+                if (count($parts) >= 3) {
+                    array_pop($parts);
+                    array_pop($parts);
+                    $originalName = implode('_', $parts) . '.' . $document->extension;
+                }
+                
+                return response()->download($filePath, $originalName);
+            }
+            
+        } catch (\Exception $e) {
+            Log::error('Errore durante download documento: ' . $e->getMessage());
+            $redirectUrl = $this->buildRedirectUrl($tableRef, $idRef, $request->staff_id, $request->vehicle_id);
+            return redirect($redirectUrl)->with('error', 'Errore durante il download: ' . $e->getMessage());
         }
-        
-        $redirectUrl = $this->buildRedirectUrl($tableRef, $idRef, $request->staff_id, $request->vehicle_id);
-        return redirect($redirectUrl)->with('error', 'File non trovato');
     }
     
+    /**
+     * Elimina tutti i documenti di un riferimento da Amazon S3
+     */
     public function destroyAll($tableRef, $idRef, Request $request)
     {
         try {
@@ -298,16 +394,23 @@ class DocumentController extends Controller
             
             $count = 0;
             foreach ($documents as $document) {
-                $filePath = public_path($document->path_doc . '/' . $document->file_name);
-                if (file_exists($filePath)) {
-                    unlink($filePath);
+                // Verifica se è su S3
+                if (str_starts_with($document->path_doc, 's3://')) {
+                    $s3Path = str_replace('s3://', '', $document->path_doc) . '/' . $document->file_name;
+                    Storage::disk('s3')->delete($s3Path);
+                } else {
+                    // Fallback per file locali
+                    $filePath = public_path($document->path_doc . '/' . $document->file_name);
+                    if (file_exists($filePath)) {
+                        unlink($filePath);
+                    }
                 }
                 $document->forceDelete();
                 $count++;
             }
             
             $redirectUrl = $this->buildRedirectUrl($tableRef, $idRef, $request->staff_id, $request->vehicle_id);
-            return redirect($redirectUrl)->with('success', "{$count} documento/i eliminato/i con successo!");
+            return redirect($redirectUrl)->with('success', "{$count} documento/i eliminato/i con successo da S3!");
             
         } catch (\Exception $e) {
             Log::error('Errore destroyAll: ' . $e->getMessage());
@@ -316,6 +419,9 @@ class DocumentController extends Controller
         }
     }
     
+    /**
+     * Costruisce l'URL di redirect mantenendo i parametri
+     */
     private function buildRedirectUrl($tableRef, $idRef, $staffId = null, $vehicleId = null)
     {
         if ($tableRef === 'expiration-staff') {

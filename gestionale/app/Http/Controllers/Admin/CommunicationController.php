@@ -8,10 +8,48 @@ use App\Models\Communication;
 use App\Models\Entity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class CommunicationController extends Controller
 {
+    /**
+     * Pulisce una stringa per renderla utilizzabile come nome cartella
+     */
+    private function sanitizeFolderName($name)
+    {
+        if (empty($name)) {
+            return 'comunicazione';
+        }
+        
+        $name = preg_replace('/[^a-zA-Z0-9À-ÿ\s-]/u', '', $name);
+        $name = preg_replace('/[\s-]+/', '_', $name);
+        $name = substr($name, 0, 50);
+        $name = preg_replace('/_+/', '_', $name);
+        $name = trim($name, '_');
+        
+        return $name ?: 'comunicazione';
+    }
+
+    /**
+     * Genera il percorso su S3 per gli allegati delle comunicazioni
+     */
+    private function getCommunicationS3Path($entityId, $originalName)
+    {
+        $entity = Entity::find($entityId);
+        $entityName = $entity ? $this->sanitizeFolderName($entity->ragione_sociale ?? ($entity->nome . ' ' . $entity->cognome)) : 'entita_' . $entityId;
+        
+        // Genera un nome file pulito
+        $extension = pathinfo($originalName, PATHINFO_EXTENSION);
+        $baseName = pathinfo($originalName, PATHINFO_FILENAME);
+        $cleanBaseName = preg_replace('/[^a-zA-Z0-9-_]/', '_', $baseName);
+        $timestamp = time() . '_' . Str::random(4);
+        $savedName = $cleanBaseName . '_' . $timestamp . '.' . $extension;
+        
+        return "s3://communications/{$entityName}/" . $savedName;
+    }
+
     public function index($entityId)
     {
         if (!Auth::guard('admin')->user()->hasPermission('view_entities')) {
@@ -40,7 +78,7 @@ class CommunicationController extends Controller
             'testo' => 'required|string',
             'contatto' => 'nullable|string|max:255',
             'mittente' => 'nullable|string|max:255',
-            'allegato' => 'nullable|file|max:5120|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx,eml',
+            'allegato' => 'nullable|file|max:5120|mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,eml',
         ]);
 
         $allegatoPath = null;
@@ -48,8 +86,31 @@ class CommunicationController extends Controller
 
         if ($request->hasFile('allegato')) {
             $file = $request->file('allegato');
-            $allegatoPath = $file->store('communications/' . $entityId, 'public');
+            $originalName = $file->getClientOriginalName();
             $allegatoTipo = $file->getClientOriginalExtension();
+            
+            // Genera il percorso su S3
+            $s3PathWithPrefix = $this->getCommunicationS3Path($entityId, $originalName);
+            $s3Path = str_replace('s3://', '', $s3PathWithPrefix);
+            
+            // Leggi il contenuto del file
+            $content = file_get_contents($file->getRealPath());
+            
+            // Carica su S3
+            $saved = Storage::disk('s3')->put($s3Path, $content);
+            
+            if (!$saved) {
+                throw new \Exception("Errore durante il caricamento su S3: {$originalName}");
+            }
+            
+            // Salva il path con prefisso s3:// nel database
+            $allegatoPath = $s3PathWithPrefix;
+            
+            Log::info('Allegato comunicazione caricato su S3', [
+                'entity_id' => $entityId,
+                'path' => $s3Path,
+                'file' => $originalName
+            ]);
         }
 
         $communication = Communication::create([
@@ -127,9 +188,19 @@ class CommunicationController extends Controller
 
         $communication = Communication::where('id_entities', $entityId)->findOrFail($id);
 
-        // Elimina allegato se esiste
-        if ($communication->allegato && Storage::disk('public')->exists($communication->allegato)) {
-            Storage::disk('public')->delete($communication->allegato);
+        // Elimina allegato da S3 se esiste
+        if ($communication->allegato) {
+            if (str_starts_with($communication->allegato, 's3://')) {
+                $s3Path = str_replace('s3://', '', $communication->allegato);
+                Storage::disk('s3')->delete($s3Path);
+                Log::info('Allegato comunicazione eliminato da S3', [
+                    'path' => $s3Path,
+                    'communication_id' => $communication->id
+                ]);
+            } elseif (Storage::disk('public')->exists($communication->allegato)) {
+                // Fallback per file locali (compatibilità con vecchi allegati)
+                Storage::disk('public')->delete($communication->allegato);
+            }
         }
 
         $communication->delete();
@@ -148,15 +219,35 @@ class CommunicationController extends Controller
 
         $communication = Communication::where('id_entities', $entityId)->findOrFail($id);
 
-        if (!$communication->allegato || !Storage::disk('public')->exists($communication->allegato)) {
+        if (!$communication->allegato) {
             abort(404, 'File non trovato');
         }
 
-        $filename = basename($communication->allegato);
-        // Storage::download may not be available depending on filesystem adapter/version.
-        // Resolve the absolute path and use response()->download to ensure compatibility.
-        $filePath = Storage::disk('public')->path($communication->allegato);
-        return response()->download($filePath, $filename);
+        // Verifica se è su S3
+        if (str_starts_with($communication->allegato, 's3://')) {
+            $s3Path = str_replace('s3://', '', $communication->allegato);
+            
+            // Verifica che il file esista su S3
+            if (!Storage::disk('s3')->exists($s3Path)) {
+                abort(404, 'File non trovato su S3');
+            }
+            
+            $content = Storage::disk('s3')->get($s3Path);
+            $filename = basename($s3Path);
+            
+            return response($content)
+                ->header('Content-Type', 'application/octet-stream')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        } else {
+            // Fallback per file locali (compatibilità con vecchi allegati)
+            if (!Storage::disk('public')->exists($communication->allegato)) {
+                abort(404, 'File non trovato');
+            }
+            
+            $filename = basename($communication->allegato);
+            $filePath = Storage::disk('public')->path($communication->allegato);
+            return response()->download($filePath, $filename);
+        }
     }
 
     // ==================== COMMENTI ====================

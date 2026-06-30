@@ -88,8 +88,8 @@
                         <td class="px-4 py-3 text-center">
                             @if($comm->allegato)
                                 <a href="{{ route('admin.entities.communications.download', ['entityId' => $entity->id_cliente, 'id' => $comm->id]) }}"
-                                   class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
-                                   title="{{ $comm->allegato_nome }}">
+                                class="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
+                                title="{{ $comm->allegato_nome }}">
                                     <i class="{{ $comm->allegato_icon }} {{ $comm->allegato_color }}"></i>
                                     <span class="text-xs text-gray-500">{{ strtoupper($comm->allegato_tipo) }}</span>
                                 </a>

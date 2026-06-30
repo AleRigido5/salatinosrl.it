@@ -58,11 +58,42 @@ class Communication extends Model
         return $this->comments()->count();
     }
 
-    // Accessor per il link dell'allegato
+    /**
+     * Ottiene l'URL dell'allegato (supporta S3 e locale)
+     */
     public function getAllegatoUrlAttribute()
     {
-        if ($this->allegato) {
-            return Storage::url($this->allegato);
+        if (empty($this->allegato)) {
+            return null;
+        }
+        
+        // Verifica se è su S3 (path inizia con 's3://')
+        if (str_starts_with($this->path_doc, 's3://')) {
+            $path = str_replace('s3://', '', $this->path_doc);
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = Storage::disk('s3');
+            return $disk->url($path . '/' . $this->file_name);
+        }
+        
+        // Fallback per file locali (compatibilità con vecchi allegati)
+        return Storage::url($this->allegato);
+    }
+    
+    /**
+     * Verifica se l'allegato è su S3
+     */
+    public function getAllegatoIsOnS3Attribute()
+    {
+        return str_starts_with($this->allegato, 's3://');
+    }
+    
+    /**
+     * Ottiene il percorso su S3
+     */
+    public function getAllegatoS3PathAttribute()
+    {
+        if ($this->allegato_is_on_s3) {
+            return str_replace('s3://', '', $this->allegato);
         }
         return null;
     }
@@ -71,7 +102,9 @@ class Communication extends Model
     public function getAllegatoNomeAttribute()
     {
         if ($this->allegato) {
-            return basename($this->allegato);
+            // Rimuovi il prefisso s3:// se presente
+            $path = str_replace('s3://', '', $this->allegato);
+            return basename($path);
         }
         return null;
     }
@@ -83,6 +116,8 @@ class Communication extends Model
             'jpg' => 'fa-file-image',
             'jpeg' => 'fa-file-image',
             'png' => 'fa-file-image',
+            'gif' => 'fa-file-image',
+            'webp' => 'fa-file-image',
             'pdf' => 'fa-file-pdf',
             'doc' => 'fa-file-word',
             'docx' => 'fa-file-word',
@@ -101,6 +136,8 @@ class Communication extends Model
             'jpg' => 'text-red-500',
             'jpeg' => 'text-red-500',
             'png' => 'text-red-500',
+            'gif' => 'text-red-500',
+            'webp' => 'text-red-500',
             'pdf' => 'text-red-600',
             'doc' => 'text-blue-500',
             'docx' => 'text-blue-500',

@@ -30,9 +30,6 @@ class ActivityImage extends Model
         'deleted_at' => 'datetime'
     ];
 
-    /**
-     * Relazione con l'attività
-     */
     public function activity()
     {
         return $this->belongsTo(Activity::class, 'activity_id', 'id');
@@ -40,36 +37,33 @@ class ActivityImage extends Model
 
     /**
      * Ottiene l'URL del documento (supporta S3 e locale)
+     * Usa SEMPRE un URL temporaneo firmato per S3, valido sia per la galleria che per il modal.
      */
     public function getUrlAttribute()
     {
         if (empty($this->path_doc) || empty($this->file_name)) {
             return null;
         }
-        
-        // Verifica se è un percorso S3
+
         if (str_starts_with($this->path_doc, 's3://')) {
-            $path = str_replace('s3://', '', $this->path_doc);
+            $path = str_replace('s3://', '', $this->path_doc) . '/' . $this->file_name;
+
             /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
             $disk = Storage::disk('s3');
-            return $disk->url($path . '/' . $this->file_name);
+
+            // URL temporaneo firmato, funziona sia su bucket privati che pubblici
+            return $disk->temporaryUrl($path, now()->addHours(2));
         }
-        
+
         // Fallback per file locali
         return asset($this->path_doc . '/' . $this->file_name);
     }
-    
-    /**
-     * Verifica se il documento è su S3
-     */
+
     public function getIsOnS3Attribute()
     {
         return str_starts_with($this->path_doc, 's3://');
     }
-    
-    /**
-     * Ottiene il percorso su S3
-     */
+
     public function getS3PathAttribute()
     {
         if ($this->is_on_s3) {
@@ -78,17 +72,11 @@ class ActivityImage extends Model
         return null;
     }
 
-    /**
-     * Ottiene l'estensione del file
-     */
     public function getExtensionAttribute()
     {
         return strtolower(pathinfo($this->file_name, PATHINFO_EXTENSION));
     }
 
-    /**
-     * Ottiene l'icona per il tipo di file
-     */
     public function getIconAttribute()
     {
         return match($this->extension) {

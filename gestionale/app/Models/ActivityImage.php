@@ -55,6 +55,7 @@ class ActivityImage extends Model
             return $disk->url($path . '/' . $this->file_name);
         }
         
+        // Fallback per file locali
         return asset($this->path_doc . '/' . $this->file_name);
     }
     

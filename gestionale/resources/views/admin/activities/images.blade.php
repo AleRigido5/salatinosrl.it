@@ -29,12 +29,8 @@
             </div>
             <div class="flex gap-3">
                 <a href="{{ route('admin.activities.index') }}" 
-                   class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
-                    <i class="fas fa-arrow-left mr-2"></i> Torna alle attività
-                </a>
-                <a href="{{ route('admin.activities.edit', $activity->id) }}" 
-                   class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
-                    <i class="fas fa-edit mr-2"></i> Modifica attività
+                   class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center" title="Torna alle attività">
+                    <i class="fas fa-arrow-left"></i> 
                 </a>
             </div>
         </div>
@@ -102,13 +98,26 @@
             </div>
         @else
             <div id="image-grid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                @foreach($images as $image)
+                @foreach($images as $index => $image)
+                    @php
+                        // Debug: generiamo l'URL in vari modi per testare
+                        $s3Path = str_replace('s3://', '', $image->path_doc);
+                        $fullS3Path = $s3Path . '/' . $image->file_name;
+                        $debugUrl = $image->url;
+                        $directUrl = Storage::disk('s3')->url($fullS3Path);
+                        $temporaryUrl = Storage::disk('s3')->temporaryUrl($fullS3Path, now()->addMinutes(60));
+                    @endphp
+                    
                     <div class="image-item group relative bg-gray-100 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow" 
                          data-id="{{ $image->id }}">
-                        <img src="{{ $image->url }}" 
+                        
+                        <!-- Tentativo 1: URL generato da getUrlAttribute() -->
+                        <img src="{{ $debugUrl }}" 
                              alt="{{ $image->titolo ?? 'Immagine' }}" 
-                             class="w-full h-48 object-cover cursor-pointer"
-                             onclick="openImageModal('{{ $image->url }}', '{{ $image->titolo }}')">
+                             class="w-full h-48 object-cover cursor-pointer mt-12"
+                             onerror="handleImageError(this, '{{ $directUrl }}', '{{ $temporaryUrl }}', '{{ $fullS3Path }}')"
+                             onclick="openImageModal('{{ $debugUrl }}', '{{ $image->titolo }}')"
+                             id="img-{{ $image->id }}">
                         
                         <!-- Overlay info -->
                         <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -116,7 +125,7 @@
                         </div>
                         
                         <!-- Pulsanti azioni -->
-                        <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                             <button type="button" 
                                     onclick="openDeleteModal({{ $image->id }})"
                                     class="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-full shadow-md transition-colors"
@@ -124,7 +133,7 @@
                                 <i class="fas fa-times text-xs"></i>
                             </button>
                             <button type="button" 
-                                    onclick="openImageModal('{{ $image->url }}', '{{ $image->titolo }}')"
+                                    onclick="openImageModal('{{ $debugUrl }}', '{{ $image->titolo }}')"
                                     class="bg-blue-500 hover:bg-blue-600 text-white p-1.5 rounded-full shadow-md transition-colors"
                                     title="Visualizza">
                                 <i class="fas fa-expand text-xs"></i>
@@ -132,7 +141,7 @@
                         </div>
                         
                         <!-- Badge ordine -->
-                        <div class="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                        <div class="absolute top-12 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded z-20">
                             #{{ $loop->iteration }}
                         </div>
                     </div>
@@ -320,6 +329,41 @@
 
 <script>
     // ============================
+    // HANDLER PER ERRORI IMMAGINI
+    // ============================
+    
+    function handleImageError(img, directUrl, temporaryUrl, s3Path) {
+        console.log('Errore caricamento immagine:', {
+            currentSrc: img.src,
+            directUrl: directUrl,
+            temporaryUrl: temporaryUrl,
+            s3Path: s3Path
+        });
+        
+        // Prova con URL diretto
+        if (img.src !== directUrl && directUrl) {
+            console.log('Tentativo con URL diretto:', directUrl);
+            img.src = directUrl;
+            return;
+        }
+        
+        // Prova con URL temporaneo
+        if (img.src !== temporaryUrl && temporaryUrl) {
+            console.log('Tentativo con URL temporaneo:', temporaryUrl);
+            img.src = temporaryUrl;
+            return;
+        }
+        
+        // Se tutto fallisce, mostra un'immagine di placeholder
+        img.src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23f3f4f6%22 width=%22200%22 height=%22200%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%239ca3af%22 font-size=%2214%22 font-family=%22sans-serif%22%3EImmagine non disponibile%3C/text%3E%3C/svg%3E';
+        img.style.objectFit = 'contain';
+        img.style.padding = '20px';
+        
+        // Mostra il path nell'immagine per debug
+        console.error('Tutti i tentativi falliti per:', s3Path);
+    }
+    
+    // ============================
     // FUNZIONI MODALI
     // ============================
     
@@ -490,11 +534,10 @@
     
     // Clic sulla dropzone apre il file picker
     dropzone.addEventListener('click', (e) => {
-        // Non aprire il file picker se si clicca su un pulsante interno
         if (e.target.closest('button') || e.target.closest('#upload-preview')) return;
         fileInput.click();
-    });    
-
+    });
+    
     // Drag & Drop events
     dropzone.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -608,7 +651,6 @@
                 }
             });
             
-            // Leggi la risposta come testo prima di parsare JSON
             const text = await response.text();
             
             try {
@@ -623,7 +665,6 @@
                     showErrorModal(result.message || 'Errore durante il caricamento');
                 }
             } catch (jsonError) {
-                // Se non è JSON, mostra l'errore come testo
                 console.error('Risposta non JSON:', text);
                 showErrorModal('Errore del server: ' + text.substring(0, 200));
             }

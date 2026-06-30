@@ -395,10 +395,10 @@
                         @foreach($rows as $index => $row)
                         <tr class="border-b hover:bg-gray-50" wire:key="row-{{ $index }}">
                             <td class="col-code px-2 py-1 align-top">
-                                <input type="text" wire:model.live="rows.{{ $index }}.code" class="w-full px-1 py-1 text-sm border rounded-md">
+                                <input type="text" wire:model="rows.{{ $index }}.code" class="w-full px-1 py-1 text-sm border rounded-md">
                             </td>
                             <td class="col-description px-2 py-1 align-top">
-                                <textarea wire:model.live="rows.{{ $index }}.description"
+                                <textarea wire:model="rows.{{ $index }}.description"
                                     rows="6"
                                     class="w-full px-1 py-1 text-sm border rounded-md resize-y @error('rows.' . $index . '.description') field-error @enderror"
                                     placeholder="Descrizione articolo/servizio..."></textarea>
@@ -410,7 +410,7 @@
                                     x-init="$el.value = parseFloat($el.value || 0).toFixed(2)"
                                     x-on:blur="$el.value = parseFloat($el.value || 0).toFixed(2)"
                                     x-on:focus="$el.value = parseFloat($el.value || 0)"
-                                    wire:model.live="rows.{{ $index }}.quantity"
+                                    wire:model.live.debounce.500ms="rows.{{ $index }}.quantity"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right @error('rows.' . $index . '.quantity') field-error @enderror"
                                     required>
                             </td>
@@ -421,7 +421,7 @@
                                     x-init="$el.value = parseFloat($el.value || 0).toFixed(3)"
                                     x-on:blur="$el.value = parseFloat($el.value || 0).toFixed(3)"
                                     x-on:focus="$el.value = parseFloat($el.value || 0)"
-                                    wire:model.live="rows.{{ $index }}.unit_price"
+                                    wire:model.live.debounce.500ms="rows.{{ $index }}.unit_price"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right @error('rows.' . $index . '.unit_price') field-error @enderror"
                                     required>
                             </td>
@@ -436,11 +436,13 @@
                                 </select>
                             </td>
                             <td class="col-discount px-2 py-1 align-top">
-                                <input type="number" step="0.01" wire:model.live="rows.{{ $index }}.discount_percentage" 
+                                <input type="number" step="0.01" wire:model.live.debounce.500ms="rows.{{ $index }}.discount_percentage" 
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right" placeholder="0">
                             </td>
                             <td class="col-vat px-2 py-1 align-top" style="width: 120px; min-width: 120px;">
                                 <select wire:model.live="rows.{{ $index }}.vat_rate_id"
+                                    wire:loading.attr="disabled"
+                                    wire:target="rows.{{ $index }}.vat_rate_id"
                                     class="w-full px-1 py-1 text-sm border rounded-md">
                                     <option value="">Seleziona IVA</option>
                                     @foreach($vatRatesList as $vat)
@@ -651,7 +653,9 @@
             <a href="{{ route('admin.invoices-sent.index') }}" class="px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-gray-200 text-gray-700 hover:bg-gray-300">
                 Annulla
             </a>
-            <button type="submit" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+            <button type="submit" 
+                wire:loading.attr="disabled"
+                class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
                 <i class="fas fa-save mr-2"></i> Aggiorna Fattura
             </button>
         </div>

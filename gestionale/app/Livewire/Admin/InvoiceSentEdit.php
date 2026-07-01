@@ -134,16 +134,16 @@ class InvoiceSentEdit extends Component
         
         $this->invoiceId = $id;
         
-        // **FIX: Carica prima le liste di supporto**
+        // Carica prima le liste di supporto
         $this->loadVatRates();
         $this->loadUnitMeasures();
         $this->loadPaymentMethods();
         
-        // **FIX: Poi carica i dati della fattura**
+        // Poi carica i dati della fattura
         $this->loadInvoiceData();
         $this->loadCompanyBankAccount();
         
-        // **FIX: Marca come caricato**
+        // Marca come caricato
         $this->isLoaded = true;
         
         $this->dispatch('refresh');
@@ -174,32 +174,55 @@ class InvoiceSentEdit extends Component
             })
             ->toArray();
         
+        // Ricostruisci la mappa con chiavi normalizzate
         $this->vatRatesMap = [];
         foreach ($this->vatRatesList as $vat) {
             $key = (float)$vat['rate'] . '_' . ($vat['sdi_nature'] ?? '');
             $this->vatRatesMap[$key] = (int)$vat['id'];
         }
+        
+        Log::info('VAT Rates caricate: ' . count($this->vatRatesList));
     }
     
+    /**
+     * **FIX: Trova l'ID dell'aliquota IVA in modo più robusto**
+     */
     public function findVatRateId($rate, $sdiNature = '')
     {
         $rate = (float)$rate;
         $sdiNature = $this->cleanString($sdiNature);
-        $key = $rate . '_' . $sdiNature;
         
+        // Prova con rate + sdi_nature
+        $key = $rate . '_' . $sdiNature;
         if (isset($this->vatRatesMap[$key])) {
             return $this->vatRatesMap[$key];
         }
         
+        // Prova con rate + sdi_nature vuoto
         $keyEmpty = $rate . '_';
         if (isset($this->vatRatesMap[$keyEmpty])) {
             return $this->vatRatesMap[$keyEmpty];
         }
         
+        // Cerca per rate esatta
         foreach ($this->vatRatesList as $vat) {
             if ((float)$vat['rate'] === $rate) {
                 return $vat['id'];
             }
+        }
+        
+        // Se non trova, cerca per rate approssimativa (arrotondata a 2 decimali)
+        $roundedRate = round($rate, 2);
+        foreach ($this->vatRatesList as $vat) {
+            if (round((float)$vat['rate'], 2) === $roundedRate) {
+                return $vat['id'];
+            }
+        }
+        
+        // **FIX: Se ancora non trova, restituisci il primo disponibile come fallback**
+        if (count($this->vatRatesList) > 0) {
+            Log::warning('Aliquota IVA non trovata per rate: ' . $rate . ', sdi_nature: ' . $sdiNature . '. Uso fallback ID: ' . $this->vatRatesList[0]['id']);
+            return $this->vatRatesList[0]['id'];
         }
         
         return null;
@@ -236,7 +259,7 @@ class InvoiceSentEdit extends Component
         $this->selectedSeriesId = $this->invoice->id_invoice_series;
         $this->loadAvailableSeries();
         
-        // **FIX: Carica le righe DOPO che le liste IVA sono pronte**
+        // Carica le righe DOPO che le liste IVA sono pronte
         $this->loadRows();
         $this->loadPayments();
         
@@ -256,19 +279,23 @@ class InvoiceSentEdit extends Component
             $vatRate = $row->vat_rate / 100;
             $sdiNature = $this->cleanString($row->sdi_nature ?? '');
             
+            // **FIX: Trova l'ID IVA corrispondente**
             $vatId = $this->findVatRateId($vatRate, $sdiNature);
             
+            // **FIX: Trova le informazioni complete dell'IVA**
             $vatInfo = null;
             if ($vatId) {
                 $vatInfo = collect($this->vatRatesList)->firstWhere('id', $vatId);
             }
             
+            // Se non trova con l'ID, cerca per rate + sdi_nature
             if (!$vatInfo) {
                 $vatInfo = collect($this->vatRatesList)->first(function($v) use ($vatRate, $sdiNature) {
                     return (float)$v['rate'] === $vatRate && ($v['sdi_nature'] ?? '') === $sdiNature;
                 });
             }
             
+            // Se ancora non trova, cerca solo per rate
             if (!$vatInfo) {
                 $vatInfo = collect($this->vatRatesList)->firstWhere('rate', $vatRate);
             }
@@ -279,6 +306,15 @@ class InvoiceSentEdit extends Component
                 $vatRateId = $vatInfo['id'];
             }
             
+            // **FIX: Se ancora non abbiamo un ID valido, usa il primo della lista**
+            if (!$vatRateId && count($this->vatRatesList) > 0) {
+                $vatRateId = $this->vatRatesList[0]['id'];
+                $vatInfo = $this->vatRatesList[0];
+                Log::warning('Usato fallback IVA per riga ' . $index . ': ID ' . $vatRateId);
+            }
+            
+            Log::info('Caricamento riga ' . $index . ' - vat_rate: ' . ($vatRate * 100) . '%, vat_rate_id: ' . $vatRateId);
+            
             $this->rows[] = [
                 'id' => $row->id,
                 'code' => $this->cleanString($row->code ?? ''),
@@ -287,7 +323,7 @@ class InvoiceSentEdit extends Component
                 'unit_price' => round((float)$row->unit_price, 3),
                 'id_unit_measure' => $row->id_unit_measure ?? 1,
                 'discount_percentage' => $row->discount_percentage,
-                'vat_rate_id' => $vatRateId,
+                'vat_rate_id' => $vatRateId, // Ora è sempre un valore valido
                 'vat_rate' => $vatRate,
                 'vat_sdi_nature' => $sdiNature,
                 'vat_description' => $this->cleanString($vatInfo['description'] ?? ('IVA ' . ($vatRate * 100) . '%')),
@@ -336,6 +372,8 @@ class InvoiceSentEdit extends Component
             $this->serviceResults[$index] = [];
             $this->showServiceDropdown[$index] = false;
         }
+        
+        Log::info('Caricate ' . count($this->rows) . ' righe');
     }
     
     public function loadPayments()
@@ -445,6 +483,11 @@ class InvoiceSentEdit extends Component
                 $defaultVatId = $vat['id'];
                 break;
             }
+        }
+        
+        // **FIX: Se non trova il 22%, usa il primo disponibile**
+        if (!$defaultVatId && count($this->vatRatesList) > 0) {
+            $defaultVatId = $this->vatRatesList[0]['id'];
         }
         
         $this->rows[] = [
@@ -587,6 +630,8 @@ class InvoiceSentEdit extends Component
                     
                     // Ricalcola i totali
                     $this->calculateTotals();
+                } else {
+                    Log::warning('VAT ID non trovato: ' . $newVatId);
                 }
             } finally {
                 $this->updatingVat = false;

@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Collection;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -67,6 +68,9 @@ class StaffAttendanceController extends Controller
 
     /**
      * Trova l'assunzione più recente per un dipendente
+     * (usata solo per filtrare l'elenco dipendenti e per info generiche,
+     * NON deve più essere usata per calcolare se un singolo giorno rientra
+     * nel periodo di assunzione: per quello vedi getAssunzionePeriods())
      */
     private function findLatestAssunzione($person, $selectedOwnershipId)
     {
@@ -89,6 +93,54 @@ class StaffAttendanceController extends Controller
         });
 
         return $assunzioni->first();
+    }
+
+    /**
+     * 🆕 Restituisce TUTTI i periodi di assunzione di un dipendente
+     * (gestisce correttamente riassunzioni multiple / contratti rinnovati),
+     * opzionalmente filtrati per ownership.
+     *
+     * @return Collection di array ['inizio' => Carbon|null, 'fine' => Carbon|null]
+     */
+    private function getAssunzionePeriods($person, $selectedOwnershipId = null): Collection
+    {
+        $assunzioni = $person->expirations->filter(fn($e) =>
+            $e->table_references === 'staff' &&
+            str_contains(strtolower($e->titolo ?? ''), 'assunzione')
+        );
+
+        if (!empty($selectedOwnershipId)) {
+            $assunzioni = $assunzioni->filter(fn($e) =>
+                isset($e->id_ownership) && $e->id_ownership == $selectedOwnershipId
+            );
+        }
+
+        return $assunzioni->map(function ($e) {
+            return [
+                'inizio' => $e->data_inizio ? Carbon::parse($e->data_inizio)->startOfDay() : null,
+                'fine'   => $e->data_fine   ? Carbon::parse($e->data_fine)->endOfDay()     : null,
+            ];
+        })->values();
+    }
+
+    /**
+     * 🆕 Verifica se una data ricade in uno qualsiasi dei periodi di assunzione forniti.
+     * Se non esiste nessun periodo di assunzione registrato, non limita (torna true),
+     * per mantenere il comportamento originale in assenza di dati.
+     */
+    private function isDateInAssunzionePeriods(Carbon $date, Collection $periods): bool
+    {
+        if ($periods->isEmpty()) {
+            return true;
+        }
+
+        foreach ($periods as $periodo) {
+            if ($periodo['inizio'] && $date->lt($periodo['inizio'])) continue;
+            if ($periodo['fine']   && $date->gt($periodo['fine']))   continue;
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -209,12 +261,8 @@ class StaffAttendanceController extends Controller
         foreach ($staff as $person) {
             $pid = $person->id_personale;
 
-            $assExp = $this->findLatestAssunzione($person, $selectedOwnershipId);
-
-            $dataAss = $assExp && $assExp->data_inizio
-                ? Carbon::parse($assExp->data_inizio)->startOfDay() : null;
-            $dataLic = $assExp && $assExp->data_fine
-                ? Carbon::parse($assExp->data_fine)->endOfDay() : null;
+            // 🆕 Tutti i periodi di assunzione (non solo l'ultimo)
+            $assunzioniPeriodi = $this->getAssunzionePeriods($person, $selectedOwnershipId);
 
             $assenze = $person->expirations->filter(fn($e) =>
                 $e->table_references === 'staff' && 
@@ -230,9 +278,8 @@ class StaffAttendanceController extends Controller
                 $dk = $giorno->format('Y-m-d');
                 $isFestivo = $this->isFestivo($giorno);
 
-                $isInAss = true;
-                if ($dataAss && $giorno->lt($dataAss)) $isInAss = false;
-                if ($dataLic && $giorno->gt($dataLic)) $isInAss = false;
+                // 🆕 Verifica su TUTTI i periodi di assunzione
+                $isInAss = $this->isDateInAssunzionePeriods($giorno, $assunzioniPeriodi);
 
                 $expiration = $assenze->first(function ($e) use ($dk) {
                     $di = $e->data_inizio ? Carbon::parse($e->data_inizio)->format('Y-m-d') : null;
@@ -303,8 +350,12 @@ class StaffAttendanceController extends Controller
         $startDate = Carbon::createFromDate($year, $month, 1)->startOfDay();
         $endDate   = $startDate->copy()->endOfMonth();
 
-        // ── Assunzione ────────────────────────────────────────────────────
-        $assExp = $staff->expirations->filter(fn($e) =>
+        // 🆕 ── Tutti i periodi di assunzione (gestisce riassunzioni multiple) ──
+        $assunzioniPeriodi = $this->getAssunzionePeriods($staff);
+
+        // Manteniamo comunque dataAssunzione/dataLicenziamento dell'ultimo periodo,
+        // usati solo a scopo informativo (es. eventuali visualizzazioni nella view)
+        $assExpUltima = $staff->expirations->filter(fn($e) =>
             str_contains(strtolower($e->titolo ?? ''), 'assunzione')
         )->sort(function($a, $b) {
             if ($a->data_fine === null && $b->data_fine === null) return 0;
@@ -313,8 +364,8 @@ class StaffAttendanceController extends Controller
             return $b->data_fine <=> $a->data_fine;
         })->first();
 
-        $dataAssunzione    = $assExp && $assExp->data_inizio ? Carbon::parse($assExp->data_inizio)->startOfDay() : null;
-        $dataLicenziamento = $assExp && $assExp->data_fine  ? Carbon::parse($assExp->data_fine)->endOfDay() : null;
+        $dataAssunzione    = $assExpUltima && $assExpUltima->data_inizio ? Carbon::parse($assExpUltima->data_inizio)->startOfDay() : null;
+        $dataLicenziamento = $assExpUltima && $assExpUltima->data_fine  ? Carbon::parse($assExpUltima->data_fine)->endOfDay() : null;
 
         // ── Assenze (malattia, ferie, permesso) ──────────────────────────
         $assenze = $staff->expirations->filter(fn($e) => 
@@ -390,9 +441,8 @@ class StaffAttendanceController extends Controller
             $isSunday = $current->isSunday();
             $isFestivo = $this->isFestivo($current);
 
-            $isInAss = true;
-            if ($dataAssunzione    && $current->lt($dataAssunzione))    $isInAss = false;
-            if ($dataLicenziamento && $current->gt($dataLicenziamento)) $isInAss = false;
+            // 🆕 Verifica su TUTTI i periodi di assunzione, non solo l'ultimo
+            $isInAss = $this->isDateInAssunzionePeriods($current, $assunzioniPeriodi);
 
             $expiration = $assenze->first(function ($e) use ($dk) {
                 $di = $e->data_inizio ? Carbon::parse($e->data_inizio)->format('Y-m-d') : null;
@@ -747,12 +797,8 @@ class StaffAttendanceController extends Controller
         foreach ($staff as $person) {
             $pid = $person->id_personale;
 
-            $assExp = $this->findLatestAssunzione($person, $selectedOwnershipId);
-
-            $dataAss = $assExp && $assExp->data_inizio
-                ? Carbon::parse($assExp->data_inizio)->startOfDay() : null;
-            $dataLic = $assExp && $assExp->data_fine
-                ? Carbon::parse($assExp->data_fine)->endOfDay() : null;
+            // 🆕 Tutti i periodi di assunzione (non solo l'ultimo)
+            $assunzioniPeriodi = $this->getAssunzionePeriods($person, $selectedOwnershipId);
 
             $assenze = $person->expirations->filter(fn($e) =>
                 $e->table_references === 'staff' && 
@@ -768,9 +814,8 @@ class StaffAttendanceController extends Controller
                 $dk = $giorno->format('Y-m-d');
                 $isFestivo = $this->isFestivo($giorno);
 
-                $isInAss = true;
-                if ($dataAss && $giorno->lt($dataAss)) $isInAss = false;
-                if ($dataLic && $giorno->gt($dataLic)) $isInAss = false;
+                // 🆕 Verifica su TUTTI i periodi di assunzione
+                $isInAss = $this->isDateInAssunzionePeriods($giorno, $assunzioniPeriodi);
 
                 $expiration = $assenze->first(function ($e) use ($dk) {
                     $di = $e->data_inizio ? Carbon::parse($e->data_inizio)->format('Y-m-d') : null;
@@ -929,12 +974,8 @@ class StaffAttendanceController extends Controller
         foreach ($staff as $person) {
             $pid = $person->id_personale;
 
-            $assExp = $this->findLatestAssunzione($person, $selectedOwnershipId);
-
-            $dataAss = $assExp && $assExp->data_inizio
-                ? Carbon::parse($assExp->data_inizio)->startOfDay() : null;
-            $dataLic = $assExp && $assExp->data_fine
-                ? Carbon::parse($assExp->data_fine)->endOfDay() : null;
+            // 🆕 Tutti i periodi di assunzione (non solo l'ultimo)
+            $assunzioniPeriodi = $this->getAssunzionePeriods($person, $selectedOwnershipId);
 
             $assenze = $person->expirations->filter(fn($e) =>
                 $e->table_references === 'staff' && 
@@ -950,9 +991,8 @@ class StaffAttendanceController extends Controller
                 $dk = $giorno->format('Y-m-d');
                 $isFestivo = $this->isFestivo($giorno);
 
-                $isInAss = true;
-                if ($dataAss && $giorno->lt($dataAss)) $isInAss = false;
-                if ($dataLic && $giorno->gt($dataLic)) $isInAss = false;
+                // 🆕 Verifica su TUTTI i periodi di assunzione
+                $isInAss = $this->isDateInAssunzionePeriods($giorno, $assunzioniPeriodi);
 
                 $expiration = $assenze->first(function ($e) use ($dk) {
                     $di = $e->data_inizio ? Carbon::parse($e->data_inizio)->format('Y-m-d') : null;

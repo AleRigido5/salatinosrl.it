@@ -128,6 +128,15 @@
         .relative {
             position: relative;
         }
+
+        /* Overlay di blocco righe durante richieste Livewire in corso */
+        .rows-locking {
+            position: relative;
+        }
+        .rows-locking[wire\:loading-active] {
+            opacity: 0.6;
+            pointer-events: none;
+        }
     </style>
     
     <div class="mb-6 flex justify-between items-center">
@@ -369,12 +378,20 @@
                 <h3 class="text-lg font-semibold text-gray-800">
                     <i class="fas fa-list text-blue-500 mr-2"></i> Righe Fattura
                 </h3>
-                <button type="button" wire:click="addRow" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-3 py-1 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                <button type="button" wire:click="addRow" wire:loading.attr="disabled" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-3 py-1 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50">
                     <i class="fas fa-plus"></i> Aggiungi riga
                 </button>
             </div>
 
-            <div class="overflow-x-auto">
+            <!-- 
+                Wrapper con wire:loading: durante QUALSIASI richiesta Livewire generata dai campi
+                delle righe (quantity/unit_price/discount/vat) la tabella viene disabilitata via
+                pointer-events per evitare che l'utente scateni una seconda richiesta sovrapposta
+                mentre la prima è ancora in volo (causa principale della CorruptComponentPayloadException).
+            -->
+            <div class="overflow-x-auto rows-locking"
+                 wire:loading.class="opacity-60 pointer-events-none"
+                 wire:target="rows, addRow, removeRow, selectCostCenter, selectService">
                 <table class="invoice-table min-w-full border rounded-lg">
                     <thead class="bg-gray-100">
                         <tr>
@@ -395,22 +412,33 @@
                         @foreach($rows as $index => $row)
                         <tr class="border-b hover:bg-gray-50" wire:key="row-{{ $index }}">
                             <td class="col-code px-2 py-1 align-top">
-                                <input type="text" wire:model.live="rows.{{ $index }}.code" class="w-full px-1 py-1 text-sm border rounded-md">
+                                <input type="text" wire:model.live.debounce.500ms="rows.{{ $index }}.code" class="w-full px-1 py-1 text-sm border rounded-md">
                             </td>
                             <td class="col-description px-2 py-1 align-top">
-                                <textarea wire:model.live="rows.{{ $index }}.description"
+                                <textarea wire:model.live.debounce.500ms="rows.{{ $index }}.description"
                                     rows="6"
                                     class="w-full px-1 py-1 text-sm border rounded-md resize-y @error('rows.' . $index . '.description') field-error @enderror"
                                     placeholder="Descrizione articolo/servizio..."></textarea>
                             </td>
                             <td class="col-quantity px-2 py-1 align-top">
+                                {{--
+                                    FIX race condition:
+                                    - wire:model.live.blur.debounce.400ms invia al server solo dopo una
+                                      pausa nella digitazione E comunque non oltre il blur, riducendo
+                                      drasticamente il numero di richieste sovrapposte rispetto al
+                                      wire:model.live "nudo" (una richiesta per ogni tasto).
+                                    - La formattazione con Alpine avviene SOLO su focus/blur (non più ad
+                                      ogni input) quindi non entra più in conflitto con il valore che
+                                      Livewire sta per scrivere nel DOM in risposta alla request.
+                                --}}
                                 <input type="text" 
                                     inputmode="decimal"
                                     x-data="{}"
-                                    x-init="$el.value = parseFloat($el.value || 0).toFixed(2)"
-                                    x-on:blur="$el.value = parseFloat($el.value || 0).toFixed(2)"
                                     x-on:focus="$el.value = parseFloat($el.value || 0)"
-                                    wire:model.live="rows.{{ $index }}.quantity"
+                                    x-on:blur="$el.value = parseFloat($el.value || 0).toFixed(2)"
+                                    wire:model.live.blur.debounce.400ms="rows.{{ $index }}.quantity"
+                                    wire:loading.attr="disabled"
+                                    wire:target="rows.{{ $index }}.quantity"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right @error('rows.' . $index . '.quantity') field-error @enderror"
                                     required>
                             </td>
@@ -418,16 +446,19 @@
                                 <input type="text" 
                                     inputmode="decimal"
                                     x-data="{}"
-                                    x-init="$el.value = parseFloat($el.value || 0).toFixed(3)"
-                                    x-on:blur="$el.value = parseFloat($el.value || 0).toFixed(3)"
                                     x-on:focus="$el.value = parseFloat($el.value || 0)"
-                                    wire:model.live="rows.{{ $index }}.unit_price"
+                                    x-on:blur="$el.value = parseFloat($el.value || 0).toFixed(3)"
+                                    wire:model.live.blur.debounce.400ms="rows.{{ $index }}.unit_price"
+                                    wire:loading.attr="disabled"
+                                    wire:target="rows.{{ $index }}.unit_price"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right @error('rows.' . $index . '.unit_price') field-error @enderror"
                                     required>
                             </td>
                             <td class="col-um px-2 py-1 align-top">
-                                <select wire:model.live="rows.{{ $index }}.id_unit_measure"
-                                    class="w-full px-1 py-1 text-sm border rounded-md text-center">
+                                <select wire:model.live.debounce.200ms="rows.{{ $index }}.id_unit_measure"
+                                    wire:loading.attr="disabled"
+                                    wire:target="rows.{{ $index }}.id_unit_measure"
+                                    class="w-full px-1 py-1 text-sm border rounded-md text-center disabled:opacity-50 disabled:cursor-not-allowed">
                                     @foreach($unitMeasureList as $um)
                                         <option value="{{ $um['id'] }}">
                                             {{ $um['nome'] }} ({{ $um['codice'] }})
@@ -436,12 +467,22 @@
                                 </select>
                             </td>
                             <td class="col-discount px-2 py-1 align-top">
-                                <input type="number" step="0.01" wire:model.live="rows.{{ $index }}.discount_percentage" 
+                                <input type="number" step="0.01"
+                                    wire:model.live.blur.debounce.400ms="rows.{{ $index }}.discount_percentage"
+                                    wire:loading.attr="disabled"
+                                    wire:target="rows.{{ $index }}.discount_percentage"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right" placeholder="0">
                             </td>
                             <td class="col-vat px-2 py-1 align-top" style="width: 120px; min-width: 120px;">
-                                <select wire:model.live="rows.{{ $index }}.vat_rate_id"
-                                    class="w-full px-1 py-1 text-sm border rounded-md">
+                                <select 
+                                    wire:model.live.debounce.300ms="rows.{{ $index }}.vat_rate_id"
+                                    wire:loading.attr="disabled"
+                                    wire:target="rows.{{ $index }}.vat_rate_id, calculateTotals"
+                                    class="w-full px-1 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
+                                    id="vat_select_{{ $index }}"
+                                    {{-- Prevenire l'invio di richieste multiple --}}
+                                    wire:keydown.enter.prevent
+                                    wire:keydown.space.prevent>
                                     <option value="">Seleziona IVA</option>
                                     @foreach($vatRatesList as $vat)
                                         @php
@@ -455,6 +496,10 @@
                                         </option>
                                     @endforeach
                                 </select>
+                                {{-- Indicatore di caricamento specifico per questa riga --}}
+                                <div wire:loading wire:target="rows.{{ $index }}.vat_rate_id" class="text-xs text-lime-600 mt-0.5 flex items-center">
+                                    <i class="fas fa-spinner fa-spin mr-1"></i> Aggiornamento...
+                                </div>
                             </td>
                             <td class="col-taxable px-2 py-1 align-top">
                                 <input type="text" readonly
@@ -539,7 +584,7 @@
                             </td>
                             <td class="col-actions px-2 py-1 text-center align-top">
                                 @if($index > 0)
-                                    <button type="button" wire:click="removeRow({{ $index }})" class="text-red-500 hover:text-red-700 transition-colors">
+                                    <button type="button" wire:click="removeRow({{ $index }})" wire:loading.attr="disabled" class="text-red-500 hover:text-red-700 transition-colors disabled:opacity-50">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 @endif
@@ -557,13 +602,15 @@
                 <h3 class="text-lg font-semibold text-gray-800">
                     <i class="fas fa-calendar-alt text-purple-500 mr-2"></i> Scadenze Pagamento
                 </h3>
-                <button type="button" wire:click="addPayment" class="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-3 py-1 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                <button type="button" wire:click="addPayment" wire:loading.attr="disabled" class="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-3 py-1 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50">
                     <i class="fas fa-plus"></i> Aggiungi scadenza
                 </button>
             </div>
 
             @if(count($payments) > 0)
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto"
+                     wire:loading.class="opacity-60 pointer-events-none"
+                     wire:target="payments, addPayment, removePayment">
                     <table class="min-w-full border rounded-lg">
                         <thead class="bg-gray-100">
                             <tr>
@@ -584,7 +631,7 @@
                                  </td>
                                 <td class="px-3 py-2">
                                     <input type="number" step="0.01" 
-                                        wire:model.live="payments.{{ $index }}.amount" 
+                                        wire:model.live.blur.debounce.400ms="payments.{{ $index }}.amount" 
                                         class="w-full px-2 py-1 text-sm border rounded-md text-right @error('payments.' . $index . '.amount') field-error @enderror">
                                  </td>
                                 <td class="px-3 py-2">
@@ -598,7 +645,7 @@
                                  </td>
                                 <td class="px-3 py-2">
                                     <input type="text" 
-                                        wire:model.live="payments.{{ $index }}.iban" 
+                                        wire:model.live.debounce.500ms="payments.{{ $index }}.iban" 
                                         placeholder="IT00 XXXX XXXX XXXX XXXX XXXX XXX"
                                         class="w-full px-2 py-1 text-sm border rounded-md">
                                     @if(isset($payments[$index]['bank_name']) && $payments[$index]['bank_name'])
@@ -608,7 +655,8 @@
                                 <td class="px-3 py-2 text-center">
                                     <button type="button" 
                                         wire:click="removePayment({{ $index }})" 
-                                        class="text-red-500 hover:text-red-700 transition-colors"
+                                        wire:loading.attr="disabled"
+                                        class="text-red-500 hover:text-red-700 transition-colors disabled:opacity-50"
                                         title="Rimuovi scadenza">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
@@ -651,8 +699,12 @@
             <a href="{{ route('admin.invoices-sent.index') }}" class="px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-gray-200 text-gray-700 hover:bg-gray-300">
                 Annulla
             </a>
-            <button type="submit" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
-                <i class="fas fa-save mr-2"></i> Aggiorna Fattura
+            <button type="submit"
+                wire:loading.attr="disabled"
+                wire:target="update"
+                class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50">
+                <span wire:loading.remove wire:target="update"><i class="fas fa-save mr-2"></i> Aggiorna Fattura</span>
+                <span wire:loading wire:target="update"><i class="fas fa-spinner fa-spin mr-2"></i> Salvataggio...</span>
             </button>
         </div>
     </form>

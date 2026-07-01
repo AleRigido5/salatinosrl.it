@@ -78,6 +78,15 @@ class InvoiceSentEdit extends Component
     public $vatRatesList = [];
     public $vatRatesMap = [];
     
+    // **FIX: Flag per prevenire calcoli concorrenti**
+    public $isCalculating = false;
+    
+    // **FIX: Flag per prevenire aggiornamenti multipli dell'IVA**
+    public $updatingVat = false;
+    
+    // **FIX: Flag per tracciare se i dati sono già stati caricati**
+    public $isLoaded = false;
+    
     protected $rules = [
         'id_ownership' => 'required',
         'type_invoice' => 'required',
@@ -101,11 +110,11 @@ class InvoiceSentEdit extends Component
         
         foreach ($this->rows as $index => $row) {
             if (isset($row['_delete']) && $row['_delete']) {
-                continue; // salta righe da eliminare
+                continue;
             }
             $rules["rows.{$index}.description"]  = 'required|string';
-            $rules["rows.{$index}.quantity"]      = 'required|numeric'; // rimosso min:0 per negativi
-            $rules["rows.{$index}.unit_price"]    = 'required|numeric'; // rimosso min:0 per storni
+            $rules["rows.{$index}.quantity"]      = 'required|numeric';
+            $rules["rows.{$index}.unit_price"]    = 'required|numeric';
         }
         
         return $rules;
@@ -124,14 +133,26 @@ class InvoiceSentEdit extends Component
         }
         
         $this->invoiceId = $id;
+        
+        // **FIX: Carica prima le liste di supporto**
         $this->loadVatRates();
         $this->loadUnitMeasures();
         $this->loadPaymentMethods();
+        
+        // **FIX: Poi carica i dati della fattura**
         $this->loadInvoiceData();
         $this->loadCompanyBankAccount();
         
+        // **FIX: Marca come caricato**
+        $this->isLoaded = true;
+        
         $this->dispatch('refresh');
         Log::info('Mount completato');
+    }
+    
+    private function cleanString($value): string
+    {
+        return trim((string)($value ?? ''));
     }
     
     public function loadVatRates()
@@ -143,12 +164,12 @@ class InvoiceSentEdit extends Component
             ->get()
             ->map(function($item) {
                 return [
-                    'id' => $item->id,
-                    'description' => $item->description,
+                    'id' => (int)$item->id,
+                    'description' => $this->cleanString($item->description),
                     'rate' => (float)$item->rate,
                     'rate_percent' => (float)$item->rate * 100,
-                    'sdi_nature' => $item->sdi_nature ?? '',
-                    'code' => $item->code ?? '',
+                    'sdi_nature' => $this->cleanString($item->sdi_nature ?? ''),
+                    'code' => $this->cleanString($item->code ?? ''),
                 ];
             })
             ->toArray();
@@ -156,14 +177,14 @@ class InvoiceSentEdit extends Component
         $this->vatRatesMap = [];
         foreach ($this->vatRatesList as $vat) {
             $key = (float)$vat['rate'] . '_' . ($vat['sdi_nature'] ?? '');
-            $this->vatRatesMap[$key] = $vat['id'];
+            $this->vatRatesMap[$key] = (int)$vat['id'];
         }
     }
     
     public function findVatRateId($rate, $sdiNature = '')
     {
         $rate = (float)$rate;
-        $sdiNature = $sdiNature ?? '';
+        $sdiNature = $this->cleanString($sdiNature);
         $key = $rate . '_' . $sdiNature;
         
         if (isset($this->vatRatesMap[$key])) {
@@ -196,18 +217,18 @@ class InvoiceSentEdit extends Component
         $this->id_ownership = $this->invoice->id_ownership;
         $this->type_invoice = $this->invoice->type_invoice;
         $this->n_invoice = $this->invoice->n_invoice;
-        $this->n_invoice_ext = $this->invoice->n_invoice_ext ?? '';
+        $this->n_invoice_ext = $this->cleanString($this->invoice->n_invoice_ext ?? '');
         $this->data_invoice = date('Y-m-d', strtotime($this->invoice->data_invoice));
         $this->importo_totale = $this->invoice->importo_totale;
-        $this->causale = $this->invoice->causale ?? '';
+        $this->causale = $this->cleanString($this->invoice->causale ?? '');
         
         $this->selectedCustomerId = $this->invoice->id_entities;
         $customer = Entity::find($this->selectedCustomerId);
         if ($customer) {
             if ($customer->ragione_sociale) {
-                $this->selectedCustomerName = $customer->ragione_sociale;
+                $this->selectedCustomerName = $this->cleanString($customer->ragione_sociale);
             } else {
-                $this->selectedCustomerName = trim($customer->nome . ' ' . $customer->cognome);
+                $this->selectedCustomerName = $this->cleanString($customer->nome . ' ' . $customer->cognome);
             }
             $this->customerSearch = $this->selectedCustomerName;
         }
@@ -215,6 +236,7 @@ class InvoiceSentEdit extends Component
         $this->selectedSeriesId = $this->invoice->id_invoice_series;
         $this->loadAvailableSeries();
         
+        // **FIX: Carica le righe DOPO che le liste IVA sono pronte**
         $this->loadRows();
         $this->loadPayments();
         
@@ -232,54 +254,55 @@ class InvoiceSentEdit extends Component
         
         foreach ($invoiceRows as $index => $row) {
             $vatRate = $row->vat_rate / 100;
-            $sdiNature = $row->sdi_nature ?? '';
+            $sdiNature = $this->cleanString($row->sdi_nature ?? '');
             
-            // Trova l'ID dell'aliquota IVA corrispondente
             $vatId = $this->findVatRateId($vatRate, $sdiNature);
             
-            // CERCA L'INFORMAZIONE IVA COMPLETA
             $vatInfo = null;
             if ($vatId) {
                 $vatInfo = collect($this->vatRatesList)->firstWhere('id', $vatId);
             }
             
-            // Se non trova con l'ID, cerca per rate + sdi_nature
             if (!$vatInfo) {
                 $vatInfo = collect($this->vatRatesList)->first(function($v) use ($vatRate, $sdiNature) {
                     return (float)$v['rate'] === $vatRate && ($v['sdi_nature'] ?? '') === $sdiNature;
                 });
             }
             
-            // Se ancora non trova, cerca solo per rate
             if (!$vatInfo) {
                 $vatInfo = collect($this->vatRatesList)->firstWhere('rate', $vatRate);
             }
             
+            // **FIX: Assicurati che vat_rate_id sia sempre un intero valido**
+            $vatRateId = $vatId;
+            if (!$vatRateId && $vatInfo) {
+                $vatRateId = $vatInfo['id'];
+            }
+            
             $this->rows[] = [
                 'id' => $row->id,
-                'code' => $row->code ?? '',
-                'description' => $row->description,
+                'code' => $this->cleanString($row->code ?? ''),
+                'description' => $this->cleanString($row->description),
                 'quantity' => round((float)$row->quantity, 2),
                 'unit_price' => round((float)$row->unit_price, 3),
                 'id_unit_measure' => $row->id_unit_measure ?? 1,
                 'discount_percentage' => $row->discount_percentage,
-                'vat_rate_id' => $vatId,
+                'vat_rate_id' => $vatRateId,
                 'vat_rate' => $vatRate,
                 'vat_sdi_nature' => $sdiNature,
-                'vat_description' => $vatInfo['description'] ?? 'IVA ' . ($vatRate * 100) . '%',
+                'vat_description' => $this->cleanString($vatInfo['description'] ?? ('IVA ' . ($vatRate * 100) . '%')),
                 'id_cost_center' => $row->id_cost_center,
                 'id_service' => $row->id_service ?? null,
                 'taxable_amount' => $row->total,
                 'vat_amount' => $row->total * $vatRate,
             ];
             
-            // Carica centro di costo
             if ($row->id_cost_center) {
                 $costCenter = CostCenter::find($row->id_cost_center);
                 if ($costCenter) {
-                    $this->costCenterSearch[$index] = $costCenter->Nome;
+                    $this->costCenterSearch[$index] = $this->cleanString($costCenter->Nome);
                     $this->selectedCostCenterId[$index] = $row->id_cost_center;
-                    $this->selectedCostCenterName[$index] = $costCenter->Nome;
+                    $this->selectedCostCenterName[$index] = $this->cleanString($costCenter->Nome);
                 } else {
                     $this->costCenterSearch[$index] = '';
                     $this->selectedCostCenterId[$index] = '';
@@ -291,13 +314,12 @@ class InvoiceSentEdit extends Component
                 $this->selectedCostCenterName[$index] = '';
             }
             
-            // Carica servizio
             if ($row->id_service) {
                 $service = Service::find($row->id_service);
                 if ($service) {
-                    $this->serviceSearch[$index] = $service->Titolo;
+                    $this->serviceSearch[$index] = $this->cleanString($service->Titolo);
                     $this->selectedServiceId[$index] = $row->id_service;
-                    $this->selectedServiceName[$index] = $service->Titolo;
+                    $this->selectedServiceName[$index] = $this->cleanString($service->Titolo);
                 } else {
                     $this->serviceSearch[$index] = '';
                     $this->selectedServiceId[$index] = null;
@@ -327,9 +349,9 @@ class InvoiceSentEdit extends Component
                     'id' => $payment->id,
                     'due_date' => $payment->due_date,
                     'amount' => $payment->amount,
-                    'payment_method' => $payment->payment_method,
-                    'iban' => $payment->iban,
-                    'bank_name' => $payment->bank_name ?? '',
+                    'payment_method' => $this->cleanString($payment->payment_method),
+                    'iban' => $this->cleanString($payment->iban),
+                    'bank_name' => $this->cleanString($payment->bank_name ?? ''),
                 ];
             })
             ->toArray();
@@ -342,15 +364,14 @@ class InvoiceSentEdit extends Component
         ->get(['id_um', 'nome', 'codice'])
         ->map(fn($um) => [
             'id' => $um->id_um,
-            'codice' => $um->codice,
-            'nome' => $um->nome,
+            'codice' => $this->cleanString($um->codice),
+            'nome' => $this->cleanString($um->nome),
         ])
         ->toArray();
     }
     
     public function loadPaymentMethods()
     {
-        // Carica i metodi di pagamento dal config
         $this->paymentMethods = config('gestionale.modalita_pagamento', []);
         Log::info('Modalità di pagamento caricate: ' . count($this->paymentMethods));
     }
@@ -370,8 +391,8 @@ class InvoiceSentEdit extends Component
             ->first();
         
         if ($bankAccount) {
-            $this->companyIban = $bankAccount->iban ?? '';
-            $this->companyBankName = $bankAccount->name ?? '';
+            $this->companyIban = $this->cleanString($bankAccount->iban ?? '');
+            $this->companyBankName = $this->cleanString($bankAccount->name ?? '');
         } else {
             $this->companyIban = '';
             $this->companyBankName = '';
@@ -393,6 +414,7 @@ class InvoiceSentEdit extends Component
                 $payment['bank_name'] = $this->companyBankName;
             }
         }
+        unset($payment);
     }
     
     public function loadAvailableSeries()
@@ -516,6 +538,7 @@ class InvoiceSentEdit extends Component
     
     /**
      * Gestisce i cambiamenti delle proprietà delle righe
+     * **FIX: Prevenzione aggiornamenti concorrenti dell'IVA**
      */
     public function updatedRows($value, $key)
     {
@@ -525,26 +548,49 @@ class InvoiceSentEdit extends Component
         
         $parts = explode('.', $key);
         
-        // Livewire passa key come "0.unit_price" (senza prefisso "rows.")
         if (count($parts) < 2) {
             return;
         }
         
-        $index = (int)$parts[0]; // ← primo pezzo è l'indice
-        $field = $parts[1];       // ← secondo pezzo è il campo
+        $index = (int)$parts[0];
+        $field = $parts[1];
         
         if (!isset($this->rows[$index])) {
             return;
         }
         
+        // **FIX: Gestione dell'IVA con prevenzione di aggiornamenti multipli**
         if ($field === 'vat_rate_id') {
-            $vatInfo = collect($this->vatRatesList)->firstWhere('id', (int)$value);
-            if ($vatInfo) {
-                $this->rows[$index]['vat_rate'] = (float)$vatInfo['rate'];
-                $this->rows[$index]['vat_sdi_nature'] = $vatInfo['sdi_nature'] ?? '';
-                $this->rows[$index]['vat_description'] = $vatInfo['description'] ?? '';
+            // Se stiamo già aggiornando l'IVA, ignora la richiesta
+            if ($this->updatingVat) {
+                return;
             }
-            $this->calculateTotals();
+            
+            $this->updatingVat = true;
+            
+            try {
+                $newVatId = (int)$value;
+                $currentVatId = isset($this->rows[$index]['vat_rate_id']) ? (int)$this->rows[$index]['vat_rate_id'] : null;
+                
+                // Se l'ID non è cambiato, non fare nulla
+                if ($currentVatId === $newVatId) {
+                    $this->updatingVat = false;
+                    return;
+                }
+                
+                $vatInfo = collect($this->vatRatesList)->firstWhere('id', $newVatId);
+                if ($vatInfo) {
+                    $this->rows[$index]['vat_rate'] = (float)$vatInfo['rate'];
+                    $this->rows[$index]['vat_sdi_nature'] = $this->cleanString($vatInfo['sdi_nature'] ?? '');
+                    $this->rows[$index]['vat_description'] = $this->cleanString($vatInfo['description'] ?? '');
+                    $this->rows[$index]['vat_rate_id'] = $newVatId;
+                    
+                    // Ricalcola i totali
+                    $this->calculateTotals();
+                }
+            } finally {
+                $this->updatingVat = false;
+            }
             return;
         }
         
@@ -554,6 +600,11 @@ class InvoiceSentEdit extends Component
             }
             $this->rows[$index][$field] = floatval($value);
             $this->calculateTotals();
+            return;
+        }
+        
+        if (in_array($field, ['code', 'description'])) {
+            $this->rows[$index][$field] = is_string($value) ? $this->cleanString($value) : $value;
             return;
         }
         
@@ -569,83 +620,97 @@ class InvoiceSentEdit extends Component
         $this->total_payments_amount = $total;
     }
     
+    /**
+     * **FIX: Calcolo totali con prevenzione di esecuzioni concorrenti**
+     */
     public function calculateTotals()
     {
-        $totalTaxable = 0;
-        $totalVat = 0;
-        $totalDiscount = 0;
-        $vatGroup = [];
-        
-        foreach ($this->rows as $index => &$row) {
-            $quantity = floatval($row['quantity'] ?? 1);
-            $unitPrice = floatval($row['unit_price'] ?? 0);
-            $discountPercentage = floatval($row['discount_percentage'] ?? 0);
-            $vatRate = floatval($row['vat_rate'] ?? 0);
-            $sdiNature = $row['vat_sdi_nature'] ?? '';
-
-            $grossAmount = $quantity * $unitPrice;
-            $discountAmount = $grossAmount * ($discountPercentage / 100);
-            $totalDiscount += $discountAmount;
-            $taxable = $grossAmount - $discountAmount;
-            $totalTaxable += $taxable;
-            $vatAmount = $taxable * $vatRate;
-            $totalVat += $vatAmount;
-
-            $key = $vatRate . '_' . $sdiNature;
-
-            if (!isset($vatGroup[$key])) {
-                // Cerca le informazioni dell'IVA
-                $vatInfo = collect($this->vatRatesList)->first(function($v) use ($vatRate, $sdiNature) {
-                    return (float)$v['rate'] === $vatRate && ($v['sdi_nature'] ?? '') === ($sdiNature ?? '');
-                });
-                
-                if (!$vatInfo) {
-                    $vatInfo = collect($this->vatRatesList)->firstWhere('rate', $vatRate);
-                }
-
-                // Costruisci la descrizione corretta
-                $description = $vatInfo['description'] ?? '';
-                $ratePercent = $vatRate * 100;
-                
-                // Se non c'è descrizione, creane una
-                if (empty($description)) {
-                    if ($vatRate == 0) {
-                        $description = !empty($sdiNature) ? 'Esente/Non imponibile' : 'Esente IVA';
-                    } else {
-                        $description = 'IVA ' . number_format($ratePercent, 0) . '%';
-                    }
-                }
-
-                $vatGroup[$key] = [
-                    'rate' => $vatRate,
-                    'rate_percent' => $ratePercent,
-                    'taxable_amount' => 0,
-                    'vat_amount' => 0,
-                    'description' => $description,
-                    'nature_code' => $sdiNature ?: ($vatInfo['sdi_nature'] ?? null),
-                ];
-            }
-            $vatGroup[$key]['taxable_amount'] += $taxable;
-            $vatGroup[$key]['vat_amount'] += $vatAmount;
-
-            $row['taxable_amount'] = $taxable;
-            $row['vat_amount'] = $vatAmount;
+        // Evita calcoli concorrenti
+        if ($this->isCalculating) {
+            return;
         }
         
-        $this->vatSummary = array_values($vatGroup);
-        $this->total_taxable = $totalTaxable;
-        $this->total_vat = $totalVat;
-        $this->total_discount = $totalDiscount;
-        $this->importo_totale = $totalTaxable + $totalVat;
+        $this->isCalculating = true;
         
-        if (count($this->payments) === 1) {
-            $this->payments[0]['amount'] = $this->importo_totale;
-            $this->calculatePaymentsTotal();
+        try {
+            $totalTaxable = 0;
+            $totalVat = 0;
+            $totalDiscount = 0;
+            $vatGroup = [];
+            
+            foreach ($this->rows as $index => &$row) {
+                $quantity = floatval($row['quantity'] ?? 1);
+                $unitPrice = floatval($row['unit_price'] ?? 0);
+                $discountPercentage = floatval($row['discount_percentage'] ?? 0);
+                $vatRate = floatval($row['vat_rate'] ?? 0);
+                $sdiNature = $this->cleanString($row['vat_sdi_nature'] ?? '');
+
+                $grossAmount = $quantity * $unitPrice;
+                $discountAmount = $grossAmount * ($discountPercentage / 100);
+                $totalDiscount += $discountAmount;
+                $taxable = $grossAmount - $discountAmount;
+                $totalTaxable += $taxable;
+                $vatAmount = $taxable * $vatRate;
+                $totalVat += $vatAmount;
+
+                $key = $vatRate . '_' . $sdiNature;
+
+                if (!isset($vatGroup[$key])) {
+                    $vatInfo = collect($this->vatRatesList)->first(function($v) use ($vatRate, $sdiNature) {
+                        return (float)$v['rate'] === $vatRate && ($v['sdi_nature'] ?? '') === ($sdiNature ?? '');
+                    });
+                    
+                    if (!$vatInfo) {
+                        $vatInfo = collect($this->vatRatesList)->firstWhere('rate', $vatRate);
+                    }
+
+                    $description = $this->cleanString($vatInfo['description'] ?? '');
+                    $ratePercent = $vatRate * 100;
+                    
+                    if (empty($description)) {
+                        if ($vatRate == 0) {
+                            $description = !empty($sdiNature) ? 'Esente/Non imponibile' : 'Esente IVA';
+                        } else {
+                            $description = 'IVA ' . number_format($ratePercent, 0) . '%';
+                        }
+                    }
+
+                    $vatGroup[$key] = [
+                        'rate' => $vatRate,
+                        'rate_percent' => $ratePercent,
+                        'taxable_amount' => 0,
+                        'vat_amount' => 0,
+                        'description' => $description,
+                        'nature_code' => $sdiNature ?: ($vatInfo['sdi_nature'] ?? null),
+                    ];
+                }
+                $vatGroup[$key]['taxable_amount'] += $taxable;
+                $vatGroup[$key]['vat_amount'] += $vatAmount;
+
+                $row['taxable_amount'] = $taxable;
+                $row['vat_amount'] = $vatAmount;
+            }
+            unset($row);
+            
+            $this->vatSummary = array_values($vatGroup);
+            $this->total_taxable = $totalTaxable;
+            $this->total_vat = $totalVat;
+            $this->total_discount = $totalDiscount;
+            $this->importo_totale = $totalTaxable + $totalVat;
+            
+            if (count($this->payments) === 1) {
+                $this->payments[0]['amount'] = $this->importo_totale;
+                $this->calculatePaymentsTotal();
+            }
+        } finally {
+            $this->isCalculating = false;
         }
     }
     
     public function updatedCustomerSearch()
     {
+        $this->customerSearch = $this->cleanString($this->customerSearch);
+        
         if (strlen($this->customerSearch) < 2) {
             $this->customerResults = [];
             $this->showCustomerDropdown = false;
@@ -662,6 +727,11 @@ class InvoiceSentEdit extends Component
             })
             ->limit(10)
             ->get(['id_cliente as id', 'ragione_sociale as name', 'partita_iva as piva'])
+            ->map(function($item) {
+                $item->name = trim($item->name);
+                $item->piva = trim($item->piva ?? '');
+                return $item;
+            })
             ->toArray();
         
         $this->showCustomerDropdown = count($this->customerResults) > 0;
@@ -670,8 +740,8 @@ class InvoiceSentEdit extends Component
     public function selectCustomer($id, $name)
     {
         $this->selectedCustomerId = $id;
-        $this->selectedCustomerName = $name;
-        $this->customerSearch = $name;
+        $this->selectedCustomerName = $this->cleanString($name);
+        $this->customerSearch = $this->selectedCustomerName;
         $this->showCustomerDropdown = false;
     }
     
@@ -684,6 +754,9 @@ class InvoiceSentEdit extends Component
     
     public function updatedCostCenterSearch($value, $index)
     {
+        $value = $this->cleanString($value);
+        $this->costCenterSearch[$index] = $value;
+        
         if (strlen($value) < 2) {
             $this->costCenterResults[$index] = [];
             $this->showCostCenterDropdown[$index] = false;
@@ -706,6 +779,10 @@ class InvoiceSentEdit extends Component
             ->where('Nome', 'like', '%' . $value . '%')
             ->limit(10)
             ->get(['id', 'Nome as name'])
+            ->map(function($item) {
+                $item->name = trim($item->name);
+                return $item;
+            })
             ->toArray();
         
         $this->showCostCenterDropdown[$index] = count($this->costCenterResults[$index]) > 0;
@@ -713,6 +790,7 @@ class InvoiceSentEdit extends Component
 
     public function selectCostCenter($id, $name, $index)
     {
+        $name = $this->cleanString($name);
         $this->rows[$index]['id_cost_center'] = $id;
         $this->selectedCostCenterId[$index] = $id;
         $this->selectedCostCenterName[$index] = $name;
@@ -724,6 +802,8 @@ class InvoiceSentEdit extends Component
     public function updatedServiceSearch($value, $index): void
     {
         $idx = (int)$index;
+        $value = $this->cleanString($value);
+        $this->serviceSearch[$idx] = $value;
 
         if (strlen($value) < 2) {
             $this->serviceResults[$idx] = [];
@@ -756,8 +836,8 @@ class InvoiceSentEdit extends Component
 
         $this->serviceResults[$idx] = $results->map(fn($s) => [
             'id' => $s->id,
-            'name' => $s->Titolo,
-            'descr_fattura' => $s->Descr_fattura ?? '',
+            'name' => trim($s->Titolo),
+            'descr_fattura' => trim($s->Descr_fattura ?? ''),
             'prezzo_un' => $s->Prezzo_un,
         ])->toArray();
 
@@ -766,6 +846,9 @@ class InvoiceSentEdit extends Component
 
     public function selectService(int $index, int $serviceId, string $serviceName, string $descrFattura, $prezzoUn): void
     {
+        $serviceName = $this->cleanString($serviceName);
+        $descrFattura = $this->cleanString($descrFattura);
+        
         $this->rows[$index]['id_service'] = $serviceId;
         $this->selectedServiceId[$index] = $serviceId;
         $this->selectedServiceName[$index] = $serviceName;
@@ -790,8 +873,8 @@ class InvoiceSentEdit extends Component
             if ($vatId) {
                 $this->rows[$index]['vat_rate_id'] = $vatId;
                 $this->rows[$index]['vat_rate'] = (float)$vatInfo->rate;
-                $this->rows[$index]['vat_sdi_nature'] = $vatInfo->sdi_nature ?? '';
-                $this->rows[$index]['vat_description'] = $vatInfo->description ?? '';
+                $this->rows[$index]['vat_sdi_nature'] = $this->cleanString($vatInfo->sdi_nature ?? '');
+                $this->rows[$index]['vat_description'] = $this->cleanString($vatInfo->description ?? '');
             }
         }
 
@@ -842,15 +925,15 @@ class InvoiceSentEdit extends Component
         try {
             $customer = Entity::create([
                 'entity_type' => 'cliente',
-                'ragione_sociale' => $this->newCustomerName,
-                'partita_iva' => $this->newCustomerPiva,
-                'codice_fiscale' => $this->newCustomerCf,
-                'email' => $this->newCustomerEmail,
-                'telefono' => $this->newCustomerPhone,
-                'indirizzo' => $this->newCustomerAddress,
-                'cap' => $this->newCustomerCap,
-                'comune' => $this->newCustomerCity,
-                'provincia' => $this->newCustomerProvince,
+                'ragione_sociale' => trim($this->newCustomerName),
+                'partita_iva' => trim($this->newCustomerPiva),
+                'codice_fiscale' => trim($this->newCustomerCf),
+                'email' => trim($this->newCustomerEmail),
+                'telefono' => trim($this->newCustomerPhone),
+                'indirizzo' => trim($this->newCustomerAddress),
+                'cap' => trim($this->newCustomerCap),
+                'comune' => trim($this->newCustomerCity),
+                'provincia' => trim($this->newCustomerProvince),
                 'valid' => 1,
             ]);
             
@@ -901,12 +984,10 @@ class InvoiceSentEdit extends Component
             $existingRowIds = [];
             
             foreach ($this->rows as $row) {
-                // PRENDI LE INFO IVA CORRETTE
                 $vatRate = floatval($row['vat_rate'] ?? 0);
                 $sdiNature = $row['vat_sdi_nature'] ?? null;
                 $vatDescription = $row['vat_description'] ?? '';
                 
-                // Se c'è un vat_rate_id, usalo per ottenere le info corrette
                 if (!empty($row['vat_rate_id'])) {
                     $vatInfo = collect($this->vatRatesList)->firstWhere('id', (int)$row['vat_rate_id']);
                     if ($vatInfo) {
@@ -927,7 +1008,6 @@ class InvoiceSentEdit extends Component
                         'id_unit_measure' => intval($row['id_unit_measure'] ?? 1),
                         'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
                         'vat_rate' => $vatRate * 100,
-                        // 'sdi_nature' => $sdiNature,
                         'total' => floatval($row['taxable_amount'] ?? 0),
                         'id_cost_center' => $row['id_cost_center'] ?? null,
                         'id_service' => $row['id_service'] ?? null,
@@ -945,7 +1025,6 @@ class InvoiceSentEdit extends Component
                         'id_unit_measure' => intval($row['id_unit_measure'] ?? 1),
                         'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
                         'vat_rate' => $vatRate * 100,
-                        // 'sdi_nature' => $sdiNature,
                         'total' => floatval($row['taxable_amount'] ?? 0),
                         'id_cost_center' => $row['id_cost_center'] ?? null,
                         'id_service' => $row['id_service'] ?? null,

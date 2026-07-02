@@ -390,8 +390,9 @@
                 mentre la prima è ancora in volo (causa principale della CorruptComponentPayloadException).
             -->
             <div class="overflow-x-auto rows-locking"
-                 wire:loading.class="opacity-60 pointer-events-none"
-                 wire:target="rows, addRow, removeRow, selectCostCenter, selectService">
+                x-data
+                wire:loading.class="opacity-60 pointer-events-none"
+                wire:target="rows, addRow, removeRow, selectCostCenter, selectService">
                 <table class="invoice-table min-w-full border rounded-lg">
                     <thead class="bg-gray-100">
                         <tr>
@@ -412,47 +413,41 @@
                         @foreach($rows as $index => $row)
                         <tr class="border-b hover:bg-gray-50" wire:key="row-{{ $index }}">
                             <td class="col-code px-2 py-1 align-top">
-                                <input type="text" wire:model.live.debounce.500ms="rows.{{ $index }}.code" class="w-full px-1 py-1 text-sm border rounded-md">
+                                <input type="text" 
+                                    wire:model.live.debounce.500ms="rows.{{ $index }}.code" 
+                                    x-bind:disabled="$store.formLock.busy"
+                                    class="w-full px-1 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
                             </td>
                             <td class="col-description px-2 py-1 align-top">
                                 <textarea wire:model.live.debounce.500ms="rows.{{ $index }}.description"
                                     rows="6"
-                                    class="w-full px-1 py-1 text-sm border rounded-md resize-y @error('rows.' . $index . '.description') field-error @enderror"
+                                    x-bind:disabled="$store.formLock.busy"
+                                    class="w-full px-1 py-1 text-sm border rounded-md resize-y disabled:opacity-50 disabled:cursor-not-allowed @error('rows.' . $index . '.description') field-error @enderror"
                                     placeholder="Descrizione articolo/servizio..."></textarea>
                             </td>
                             <td class="col-quantity px-2 py-1 align-top">
-                                {{--
-                                    FIX race condition:
-                                    - wire:model.live.blur.debounce.400ms invia al server solo dopo una
-                                      pausa nella digitazione E comunque non oltre il blur, riducendo
-                                      drasticamente il numero di richieste sovrapposte rispetto al
-                                      wire:model.live "nudo" (una richiesta per ogni tasto).
-                                    - La formattazione con Alpine avviene SOLO su focus/blur (non più ad
-                                      ogni input) quindi non entra più in conflitto con il valore che
-                                      Livewire sta per scrivere nel DOM in risposta alla request.
-                                --}}
                                 <input type="text" 
                                     inputmode="decimal"
+                                    x-bind:disabled="$store.formLock.busy"
                                     wire:model.live.blur.debounce.400ms="rows.{{ $index }}.quantity"
                                     wire:loading.attr="disabled"
                                     wire:target="rows.{{ $index }}.quantity"
-                                    class="w-full px-1 py-1 text-sm border rounded-md text-right @error('rows.' . $index . '.quantity') field-error @enderror"
+                                    class="w-full px-1 py-1 text-sm border rounded-md text-right disabled:opacity-50 disabled:cursor-not-allowed @error('rows.' . $index . '.quantity') field-error @enderror"
                                     required>
                             </td>
                             <td class="col-price px-2 py-1 align-top">
                                 <input type="text" 
                                     inputmode="decimal"
-                                    x-data="{}"
-                                    x-on:focus="$el.value = parseFloat($el.value || 0)"
-                                    x-on:blur="$el.value = parseFloat($el.value || 0).toFixed(3)"
+                                    x-bind:disabled="$store.formLock.busy"
                                     wire:model.live.blur.debounce.400ms="rows.{{ $index }}.unit_price"
                                     wire:loading.attr="disabled"
                                     wire:target="rows.{{ $index }}.unit_price"
-                                    class="w-full px-1 py-1 text-sm border rounded-md text-right @error('rows.' . $index . '.unit_price') field-error @enderror"
+                                    class="w-full px-1 py-1 text-sm border rounded-md text-right disabled:opacity-50 disabled:cursor-not-allowed @error('rows.' . $index . '.unit_price') field-error @enderror"
                                     required>
                             </td>
                             <td class="col-um px-2 py-1 align-top">
                                 <select wire:model.live.debounce.200ms="rows.{{ $index }}.id_unit_measure"
+                                    x-bind:disabled="$store.formLock.busy"
                                     wire:loading.attr="disabled"
                                     wire:target="rows.{{ $index }}.id_unit_measure"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-center disabled:opacity-50 disabled:cursor-not-allowed">
@@ -465,21 +460,20 @@
                             </td>
                             <td class="col-discount px-2 py-1 align-top">
                                 <input type="number" step="0.01"
+                                    x-bind:disabled="$store.formLock.busy"
                                     wire:model.live.blur.debounce.400ms="rows.{{ $index }}.discount_percentage"
                                     wire:loading.attr="disabled"
                                     wire:target="rows.{{ $index }}.discount_percentage"
-                                    class="w-full px-1 py-1 text-sm border rounded-md text-right" placeholder="0">
+                                    class="w-full px-1 py-1 text-sm border rounded-md text-right disabled:opacity-50 disabled:cursor-not-allowed" placeholder="0">
                             </td>
                             <td class="col-vat px-2 py-1 align-top" style="width: 120px; min-width: 120px;">
                                 <select 
                                     wire:model.live.debounce.300ms="rows.{{ $index }}.vat_rate_id"
+                                    x-bind:disabled="$store.formLock.busy"
                                     wire:loading.attr="disabled"
                                     wire:target="rows.{{ $index }}.vat_rate_id, calculateTotals"
                                     class="w-full px-1 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
-                                    id="vat_select_{{ $index }}"
-                                    {{-- Prevenire l'invio di richieste multiple --}}
-                                    wire:keydown.enter.prevent
-                                    wire:keydown.space.prevent>
+                                    id="vat_select_{{ $index }}">
                                     <option value="">Seleziona IVA</option>
                                     @foreach($vatRatesList as $vat)
                                         @php
@@ -493,7 +487,6 @@
                                         </option>
                                     @endforeach
                                 </select>
-                                {{-- Indicatore di caricamento specifico per questa riga --}}
                                 <div wire:loading wire:target="rows.{{ $index }}.vat_rate_id" class="text-xs text-lime-600 mt-0.5 flex items-center">
                                     <i class="fas fa-spinner fa-spin mr-1"></i> Aggiornamento...
                                 </div>
@@ -510,8 +503,9 @@
                                         id="cost_center_input_{{ $index }}"
                                         wire:model.live.debounce.300ms="costCenterSearch.{{ $index }}"
                                         wire:focus="showCostCenterDropdown[{{ $index }}] = true"
+                                        x-bind:disabled="$store.formLock.busy"
                                         placeholder="Cerca centro..."
-                                        class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                                        class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                         autocomplete="off">
                                     
                                     @if(isset($showCostCenterDropdown[$index]) && $showCostCenterDropdown[$index])
@@ -545,8 +539,9 @@
                                         id="service_input_{{ $index }}"
                                         wire:model.live.debounce.300ms="serviceSearch.{{ $index }}"
                                         wire:focus="showServiceDropdown[{{ $index }}] = true"
+                                        x-bind:disabled="$store.formLock.busy"
                                         placeholder="Cerca servizio..."
-                                        class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                                        class="w-full pl-7 pr-6 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                         autocomplete="off">
                                     
                                     @if(isset($showServiceDropdown[$index]) && $showServiceDropdown[$index])
@@ -581,7 +576,11 @@
                             </td>
                             <td class="col-actions px-2 py-1 text-center align-top">
                                 @if($index > 0)
-                                    <button type="button" wire:click="removeRow({{ $index }})" wire:loading.attr="disabled" class="text-red-500 hover:text-red-700 transition-colors disabled:opacity-50">
+                                    <button type="button" 
+                                        wire:click="removeRow({{ $index }})" 
+                                        x-bind:disabled="$store.formLock.busy"
+                                        wire:loading.attr="disabled" 
+                                        class="text-red-500 hover:text-red-700 transition-colors disabled:opacity-50">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 @endif

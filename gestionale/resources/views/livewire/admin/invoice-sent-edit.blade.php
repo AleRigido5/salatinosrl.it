@@ -433,9 +433,6 @@
                                 --}}
                                 <input type="text" 
                                     inputmode="decimal"
-                                    x-data="{}"
-                                    x-on:focus="$el.value = parseFloat($el.value || 0)"
-                                    x-on:blur="$el.value = parseFloat($el.value || 0).toFixed(2)"
                                     wire:model.live.blur.debounce.400ms="rows.{{ $index }}.quantity"
                                     wire:loading.attr="disabled"
                                     wire:target="rows.{{ $index }}.quantity"

@@ -389,16 +389,9 @@
                 pointer-events per evitare che l'utente scateni una seconda richiesta sovrapposta
                 mentre la prima è ancora in volo (causa principale della CorruptComponentPayloadException).
             -->
-            
             <div class="overflow-x-auto rows-locking"
-                x-data
-                x-init="
-                    window.formBusy = window.formBusy || { value: false };
-                    Livewire.hook('request', () => window.formBusy.value = true);
-                    Livewire.hook('message.processed', () => window.formBusy.value = false);
-                "
-                wire:loading.class="opacity-60 pointer-events-none"
-                wire:target="rows, addRow, removeRow, selectCostCenter, selectService">
+                 wire:loading.class="opacity-60 pointer-events-none"
+                 wire:target="rows, addRow, removeRow, selectCostCenter, selectService">
                 <table class="invoice-table min-w-full border rounded-lg">
                     <thead class="bg-gray-100">
                         <tr>

@@ -277,43 +277,39 @@ class InvoiceSentEdit extends Component
         
         foreach ($invoiceRows as $index => $row) {
             $vatRate = $row->vat_rate / 100;
-            $sdiNature = $this->cleanString($row->sdi_nature ?? '');
             
-            // **FIX: Trova l'ID IVA corrispondente**
-            $vatId = $this->findVatRateId($vatRate, $sdiNature);
+            // Usa l'ID salvato in tabella (righe nuove/corrette dopo il fix)
+            $vatId = $row->vat_rate_id;
             
-            // **FIX: Trova le informazioni complete dell'IVA**
             $vatInfo = null;
             if ($vatId) {
                 $vatInfo = collect($this->vatRatesList)->firstWhere('id', $vatId);
             }
             
-            // Se non trova con l'ID, cerca per rate + sdi_nature
+            // Fallback per righe storiche salvate PRIMA del fix (vat_rate_id NULL in DB)
             if (!$vatInfo) {
-                $vatInfo = collect($this->vatRatesList)->first(function($v) use ($vatRate, $sdiNature) {
-                    return (float)$v['rate'] === $vatRate && ($v['sdi_nature'] ?? '') === $sdiNature;
-                });
+                $vatId = $this->findVatRateId($vatRate, '');
+                if ($vatId) {
+                    $vatInfo = collect($this->vatRatesList)->firstWhere('id', $vatId);
+                }
             }
             
-            // Se ancora non trova, cerca solo per rate
+            // Se ancora non trova, cerca solo per rate come ultima spiaggia
             if (!$vatInfo) {
                 $vatInfo = collect($this->vatRatesList)->firstWhere('rate', $vatRate);
+                if ($vatInfo) {
+                    $vatId = $vatInfo['id'];
+                }
             }
             
-            // **FIX: Assicurati che vat_rate_id sia sempre un intero valido**
-            $vatRateId = $vatId;
-            if (!$vatRateId && $vatInfo) {
-                $vatRateId = $vatInfo['id'];
-            }
-            
-            // **FIX: Se ancora non abbiamo un ID valido, usa il primo della lista**
-            if (!$vatRateId && count($this->vatRatesList) > 0) {
-                $vatRateId = $this->vatRatesList[0]['id'];
+            // Se ancora non abbiamo un ID valido, usa il primo della lista
+            if (!$vatId && count($this->vatRatesList) > 0) {
+                $vatId = $this->vatRatesList[0]['id'];
                 $vatInfo = $this->vatRatesList[0];
-                Log::warning('Usato fallback IVA per riga ' . $index . ': ID ' . $vatRateId);
+                Log::warning('Usato fallback IVA per riga ' . $index . ': ID ' . $vatId);
             }
             
-            Log::info('Caricamento riga ' . $index . ' - vat_rate: ' . ($vatRate * 100) . '%, vat_rate_id: ' . $vatRateId);
+            Log::info('Caricamento riga ' . $index . ' - vat_rate: ' . ($vatRate * 100) . '%, vat_rate_id: ' . $vatId);
             
             $this->rows[] = [
                 'id' => $row->id,
@@ -323,9 +319,9 @@ class InvoiceSentEdit extends Component
                 'unit_price' => round((float)$row->unit_price, 3),
                 'id_unit_measure' => $row->id_unit_measure ?? 1,
                 'discount_percentage' => $row->discount_percentage,
-                'vat_rate_id' => $vatRateId, // Ora è sempre un valore valido
+                'vat_rate_id' => $vatId, // Ora è sempre un valore valido
                 'vat_rate' => $vatRate,
-                'vat_sdi_nature' => $sdiNature,
+                'vat_sdi_nature' => $this->cleanString($vatInfo['sdi_nature'] ?? ''),
                 'vat_description' => $this->cleanString($vatInfo['description'] ?? ('IVA ' . ($vatRate * 100) . '%')),
                 'id_cost_center' => $row->id_cost_center,
                 'id_service' => $row->id_service ?? null,
@@ -613,13 +609,6 @@ class InvoiceSentEdit extends Component
             
             try {
                 $newVatId = (int)$value;
-                $currentVatId = isset($this->rows[$index]['vat_rate_id']) ? (int)$this->rows[$index]['vat_rate_id'] : null;
-                
-                // Se l'ID non è cambiato, non fare nulla
-                if ($currentVatId === $newVatId) {
-                    $this->updatingVat = false;
-                    return;
-                }
                 
                 $vatInfo = collect($this->vatRatesList)->firstWhere('id', $newVatId);
                 if ($vatInfo) {
@@ -1053,6 +1042,7 @@ class InvoiceSentEdit extends Component
                         'id_unit_measure' => intval($row['id_unit_measure'] ?? 1),
                         'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
                         'vat_rate' => $vatRate * 100,
+                        'vat_rate_id' => $row['vat_rate_id'] ?? null,   // <-- AGGIUNGI QUESTO
                         'total' => floatval($row['taxable_amount'] ?? 0),
                         'id_cost_center' => $row['id_cost_center'] ?? null,
                         'id_service' => $row['id_service'] ?? null,
@@ -1070,6 +1060,7 @@ class InvoiceSentEdit extends Component
                         'id_unit_measure' => intval($row['id_unit_measure'] ?? 1),
                         'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
                         'vat_rate' => $vatRate * 100,
+                        'vat_rate_id' => $row['vat_rate_id'] ?? null,   // <-- AGGIUNGI QUESTO
                         'total' => floatval($row['taxable_amount'] ?? 0),
                         'id_cost_center' => $row['id_cost_center'] ?? null,
                         'id_service' => $row['id_service'] ?? null,

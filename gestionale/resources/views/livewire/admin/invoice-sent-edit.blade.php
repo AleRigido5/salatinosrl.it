@@ -389,6 +389,7 @@
                 pointer-events per evitare che l'utente scateni una seconda richiesta sovrapposta
                 mentre la prima è ancora in volo (causa principale della CorruptComponentPayloadException).
             -->
+            
             <div class="overflow-x-auto rows-locking"
                 x-data
                 x-init="

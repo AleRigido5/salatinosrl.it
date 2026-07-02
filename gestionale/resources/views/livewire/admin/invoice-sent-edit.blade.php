@@ -390,8 +390,14 @@
                 mentre la prima è ancora in volo (causa principale della CorruptComponentPayloadException).
             -->
             <div class="overflow-x-auto rows-locking"
-                 wire:loading.class="opacity-60 pointer-events-none"
-                 wire:target="rows, addRow, removeRow, selectCostCenter, selectService">
+                x-data
+                x-init="
+                    window.formBusy = window.formBusy || { value: false };
+                    Livewire.hook('request', () => window.formBusy.value = true);
+                    Livewire.hook('message.processed', () => window.formBusy.value = false);
+                "
+                wire:loading.class="opacity-60 pointer-events-none"
+                wire:target="rows, addRow, removeRow, selectCostCenter, selectService">
                 <table class="invoice-table min-w-full border rounded-lg">
                     <thead class="bg-gray-100">
                         <tr>
@@ -412,47 +418,63 @@
                         @foreach($rows as $index => $row)
                         <tr class="border-b hover:bg-gray-50" wire:key="row-{{ $index }}">
                             <td class="col-code px-2 py-1 align-top">
-                                <input type="text" wire:model.live.debounce.500ms="rows.{{ $index }}.code" class="w-full px-1 py-1 text-sm border rounded-md">
+                                <input type="text" 
+                                    wire:model.live.debounce.500ms="rows.{{ $index }}.code" 
+                                    x-data
+                                    x-bind:disabled="window.formBusy?.value"
+                                    class="w-full px-1 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed">
                             </td>
                             <td class="col-description px-2 py-1 align-top">
                                 <textarea wire:model.live.debounce.500ms="rows.{{ $index }}.description"
                                     rows="6"
-                                    class="w-full px-1 py-1 text-sm border rounded-md resize-y @error('rows.' . $index . '.description') field-error @enderror"
+                                    x-data
+                                    x-bind:disabled="window.formBusy?.value"
+                                    class="w-full px-1 py-1 text-sm border rounded-md resize-y disabled:opacity-50 disabled:cursor-not-allowed @error('rows.' . $index . '.description') field-error @enderror"
                                     placeholder="Descrizione articolo/servizio..."></textarea>
                             </td>
                             <td class="col-quantity px-2 py-1 align-top">
                                 {{--
                                     FIX race condition:
                                     - wire:model.live.blur.debounce.400ms invia al server solo dopo una
-                                      pausa nella digitazione E comunque non oltre il blur, riducendo
-                                      drasticamente il numero di richieste sovrapposte rispetto al
-                                      wire:model.live "nudo" (una richiesta per ogni tasto).
-                                    - La formattazione con Alpine avviene SOLO su focus/blur (non più ad
-                                      ogni input) quindi non entra più in conflitto con il valore che
-                                      Livewire sta per scrivere nel DOM in risposta alla request.
+                                    pausa nella digitazione E comunque non oltre il blur, riducendo
+                                    drasticamente il numero di richieste sovrapposte rispetto al
+                                    wire:model.live "nudo" (una richiesta per ogni tasto).
+                                    - x-bind:disabled con lock globale window.formBusy impedisce che
+                                    l'utente possa scatenare una seconda richiesta (es. cambio IVA)
+                                    mentre una richiesta Livewire è già in volo su qualsiasi campo
+                                    della riga, prevenendo la CorruptComponentPayloadException.
                                 --}}
                                 <input type="text" 
                                     inputmode="decimal"
+                                    x-data
+                                    x-bind:disabled="window.formBusy?.value"
                                     wire:model.live.blur.debounce.400ms="rows.{{ $index }}.quantity"
                                     wire:loading.attr="disabled"
                                     wire:target="rows.{{ $index }}.quantity"
-                                    class="w-full px-1 py-1 text-sm border rounded-md text-right @error('rows.' . $index . '.quantity') field-error @enderror"
+                                    class="w-full px-1 py-1 text-sm border rounded-md text-right disabled:opacity-50 disabled:cursor-not-allowed @error('rows.' . $index . '.quantity') field-error @enderror"
                                     required>
                             </td>
                             <td class="col-price px-2 py-1 align-top">
+                                {{--
+                                    FIX: rimossi x-on:focus/x-on:blur che riscrivevano $el.value in
+                                    parallelo a wire:model, causa di desincronizzazione DOM/snapshot
+                                    durante richieste concorrenti. La formattazione a 3 decimali resta
+                                    gestita lato server (round in loadRows/update).
+                                --}}
                                 <input type="text" 
                                     inputmode="decimal"
-                                    x-data="{}"
-                                    x-on:focus="$el.value = parseFloat($el.value || 0)"
-                                    x-on:blur="$el.value = parseFloat($el.value || 0).toFixed(3)"
+                                    x-data
+                                    x-bind:disabled="window.formBusy?.value"
                                     wire:model.live.blur.debounce.400ms="rows.{{ $index }}.unit_price"
                                     wire:loading.attr="disabled"
                                     wire:target="rows.{{ $index }}.unit_price"
-                                    class="w-full px-1 py-1 text-sm border rounded-md text-right @error('rows.' . $index . '.unit_price') field-error @enderror"
+                                    class="w-full px-1 py-1 text-sm border rounded-md text-right disabled:opacity-50 disabled:cursor-not-allowed @error('rows.' . $index . '.unit_price') field-error @enderror"
                                     required>
                             </td>
                             <td class="col-um px-2 py-1 align-top">
                                 <select wire:model.live.debounce.200ms="rows.{{ $index }}.id_unit_measure"
+                                    x-data
+                                    x-bind:disabled="window.formBusy?.value"
                                     wire:loading.attr="disabled"
                                     wire:target="rows.{{ $index }}.id_unit_measure"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-center disabled:opacity-50 disabled:cursor-not-allowed">
@@ -465,21 +487,30 @@
                             </td>
                             <td class="col-discount px-2 py-1 align-top">
                                 <input type="number" step="0.01"
+                                    x-data
+                                    x-bind:disabled="window.formBusy?.value"
                                     wire:model.live.blur.debounce.400ms="rows.{{ $index }}.discount_percentage"
                                     wire:loading.attr="disabled"
                                     wire:target="rows.{{ $index }}.discount_percentage"
-                                    class="w-full px-1 py-1 text-sm border rounded-md text-right" placeholder="0">
+                                    class="w-full px-1 py-1 text-sm border rounded-md text-right disabled:opacity-50 disabled:cursor-not-allowed" placeholder="0">
                             </td>
                             <td class="col-vat px-2 py-1 align-top" style="width: 120px; min-width: 120px;">
+                                {{--
+                                    FIX: rimossi wire:keydown.enter.prevent e wire:keydown.space.prevent,
+                                    che su una <select> nativa possono interferire con la selezione via
+                                    tastiera e lasciare il DOM in stato incoerente proprio nel momento
+                                    in cui Livewire calcola lo snapshot per la richiesta. Aggiunto
+                                    x-bind:disabled per bloccare il cambio IVA finché un'altra richiesta
+                                    (es. quantity/unit_price) è ancora in volo.
+                                --}}
                                 <select 
                                     wire:model.live.debounce.300ms="rows.{{ $index }}.vat_rate_id"
+                                    x-data
+                                    x-bind:disabled="window.formBusy?.value"
                                     wire:loading.attr="disabled"
                                     wire:target="rows.{{ $index }}.vat_rate_id, calculateTotals"
                                     class="w-full px-1 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
-                                    id="vat_select_{{ $index }}"
-                                    {{-- Prevenire l'invio di richieste multiple --}}
-                                    wire:keydown.enter.prevent
-                                    wire:keydown.space.prevent>
+                                    id="vat_select_{{ $index }}">
                                     <option value="">Seleziona IVA</option>
                                     @foreach($vatRatesList as $vat)
                                         @php

@@ -14,6 +14,7 @@ use App\Models\Service;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class InvoiceSentEdit extends Component
 {
@@ -78,13 +79,13 @@ class InvoiceSentEdit extends Component
     public $vatRatesList = [];
     public $vatRatesMap = [];
     
-    // **FIX: Flag per prevenire calcoli concorrenti**
+    // Flag per prevenire calcoli concorrenti
     public $isCalculating = false;
     
-    // **FIX: Flag per prevenire aggiornamenti multipli dell'IVA**
+    // Flag per prevenire aggiornamenti multipli dell'IVA
     public $updatingVat = false;
     
-    // **FIX: Flag per tracciare se i dati sono già stati caricati**
+    // Flag per tracciare se i dati sono già stati caricati
     public $isLoaded = false;
     
     protected $rules = [
@@ -184,9 +185,6 @@ class InvoiceSentEdit extends Component
         Log::info('VAT Rates caricate: ' . count($this->vatRatesList));
     }
     
-    /**
-     * **FIX: Trova l'ID dell'aliquota IVA in modo più robusto**
-     */
     public function findVatRateId($rate, $sdiNature = '')
     {
         $rate = (float)$rate;
@@ -219,7 +217,7 @@ class InvoiceSentEdit extends Component
             }
         }
         
-        // **FIX: Se ancora non trova, restituisci il primo disponibile come fallback**
+        // Se ancora non trova, restituisci il primo disponibile come fallback
         if (count($this->vatRatesList) > 0) {
             Log::warning('Aliquota IVA non trovata per rate: ' . $rate . ', sdi_nature: ' . $sdiNature . '. Uso fallback ID: ' . $this->vatRatesList[0]['id']);
             return $this->vatRatesList[0]['id'];
@@ -278,7 +276,7 @@ class InvoiceSentEdit extends Component
         foreach ($invoiceRows as $index => $row) {
             $vatRate = $row->vat_rate / 100;
             
-            // Usa l'ID salvato in tabella (righe nuove/corrette dopo il fix)
+            // Usa l'ID salvato in tabella
             $vatId = $row->vat_rate_id;
             
             $vatInfo = null;
@@ -286,7 +284,7 @@ class InvoiceSentEdit extends Component
                 $vatInfo = collect($this->vatRatesList)->firstWhere('id', $vatId);
             }
             
-            // Fallback per righe storiche salvate PRIMA del fix (vat_rate_id NULL in DB)
+            // Fallback per righe storiche
             if (!$vatInfo) {
                 $vatId = $this->findVatRateId($vatRate, '');
                 if ($vatId) {
@@ -319,7 +317,7 @@ class InvoiceSentEdit extends Component
                 'unit_price' => round((float)$row->unit_price, 3),
                 'id_unit_measure' => $row->id_unit_measure ?? 1,
                 'discount_percentage' => $row->discount_percentage,
-                'vat_rate_id' => $vatId, // Ora è sempre un valore valido
+                'vat_rate_id' => $vatId,
                 'vat_rate' => $vatRate,
                 'vat_sdi_nature' => $this->cleanString($vatInfo['sdi_nature'] ?? ''),
                 'vat_description' => $this->cleanString($vatInfo['description'] ?? ('IVA ' . ($vatRate * 100) . '%')),
@@ -481,7 +479,6 @@ class InvoiceSentEdit extends Component
             }
         }
         
-        // **FIX: Se non trova il 22%, usa il primo disponibile**
         if (!$defaultVatId && count($this->vatRatesList) > 0) {
             $defaultVatId = $this->vatRatesList[0]['id'];
         }
@@ -577,7 +574,7 @@ class InvoiceSentEdit extends Component
     
     /**
      * Gestisce i cambiamenti delle proprietà delle righe
-     * **FIX: Prevenzione aggiornamenti concorrenti dell'IVA**
+     * Prevenzione aggiornamenti concorrenti dell'IVA
      */
     public function updatedRows($value, $key)
     {
@@ -598,10 +595,11 @@ class InvoiceSentEdit extends Component
             return;
         }
         
-        // **FIX: Gestione dell'IVA con prevenzione di aggiornamenti multipli**
+        // Gestione specifica per il cambiamento dell'IVA
         if ($field === 'vat_rate_id') {
-            // Se stiamo già aggiornando l'IVA, ignora la richiesta
+            // Prevenzione aggiornamenti concorrenti
             if ($this->updatingVat) {
+                Log::debug('Aggiornamento IVA già in corso, salto questa richiesta');
                 return;
             }
             
@@ -610,14 +608,16 @@ class InvoiceSentEdit extends Component
             try {
                 $newVatId = (int)$value;
                 
+                // Verifica che l'ID sia valido
                 $vatInfo = collect($this->vatRatesList)->firstWhere('id', $newVatId);
                 if ($vatInfo) {
+                    // Aggiorna solo i campi IVA, senza triggerare altri calcoli
                     $this->rows[$index]['vat_rate'] = (float)$vatInfo['rate'];
                     $this->rows[$index]['vat_sdi_nature'] = $this->cleanString($vatInfo['sdi_nature'] ?? '');
                     $this->rows[$index]['vat_description'] = $this->cleanString($vatInfo['description'] ?? '');
                     $this->rows[$index]['vat_rate_id'] = $newVatId;
                     
-                    // Ricalcola i totali
+                    // Ricalcola i totali in modo sicuro
                     $this->calculateTotals();
                 } else {
                     Log::warning('VAT ID non trovato: ' . $newVatId);
@@ -628,6 +628,7 @@ class InvoiceSentEdit extends Component
             return;
         }
         
+        // Gestione degli altri campi con debounce
         if (in_array($field, ['quantity', 'unit_price', 'discount_percentage'])) {
             if (is_string($value)) {
                 $value = str_replace(',', '.', $value);
@@ -655,12 +656,13 @@ class InvoiceSentEdit extends Component
     }
     
     /**
-     * **FIX: Calcolo totali con prevenzione di esecuzioni concorrenti**
+     * Calcolo totali con prevenzione di esecuzioni concorrenti
      */
     public function calculateTotals()
     {
         // Evita calcoli concorrenti
         if ($this->isCalculating) {
+            Log::debug('Calcolo già in corso, salto questa esecuzione');
             return;
         }
         
@@ -672,7 +674,11 @@ class InvoiceSentEdit extends Component
             $totalDiscount = 0;
             $vatGroup = [];
             
-            foreach ($this->rows as $index => &$row) {
+            // Assicurati che rows sia un array
+            $rows = is_array($this->rows) ? $this->rows : [];
+            
+            foreach ($rows as $index => &$row) {
+                // Normalizza i valori
                 $quantity = floatval($row['quantity'] ?? 1);
                 $unitPrice = floatval($row['unit_price'] ?? 0);
                 $discountPercentage = floatval($row['discount_percentage'] ?? 0);
@@ -736,6 +742,9 @@ class InvoiceSentEdit extends Component
                 $this->payments[0]['amount'] = $this->importo_totale;
                 $this->calculatePaymentsTotal();
             }
+            
+        } catch (\Exception $e) {
+            Log::error('Errore nel calcolo totali: ' . $e->getMessage());
         } finally {
             $this->isCalculating = false;
         }
@@ -1042,7 +1051,7 @@ class InvoiceSentEdit extends Component
                         'id_unit_measure' => intval($row['id_unit_measure'] ?? 1),
                         'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
                         'vat_rate' => $vatRate * 100,
-                        'vat_rate_id' => $row['vat_rate_id'] ?? null,   // <-- AGGIUNGI QUESTO
+                        'vat_rate_id' => $row['vat_rate_id'] ?? null,
                         'total' => floatval($row['taxable_amount'] ?? 0),
                         'id_cost_center' => $row['id_cost_center'] ?? null,
                         'id_service' => $row['id_service'] ?? null,
@@ -1060,7 +1069,7 @@ class InvoiceSentEdit extends Component
                         'id_unit_measure' => intval($row['id_unit_measure'] ?? 1),
                         'discount_percentage' => floatval($row['discount_percentage'] ?? 0),
                         'vat_rate' => $vatRate * 100,
-                        'vat_rate_id' => $row['vat_rate_id'] ?? null,   // <-- AGGIUNGI QUESTO
+                        'vat_rate_id' => $row['vat_rate_id'] ?? null,
                         'total' => floatval($row['taxable_amount'] ?? 0),
                         'id_cost_center' => $row['id_cost_center'] ?? null,
                         'id_service' => $row['id_service'] ?? null,

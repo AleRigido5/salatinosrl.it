@@ -383,15 +383,10 @@
                 </button>
             </div>
 
-            <!-- 
-                Wrapper con wire:loading: durante QUALSIASI richiesta Livewire generata dai campi
-                delle righe (quantity/unit_price/discount/vat) la tabella viene disabilitata via
-                pointer-events per evitare che l'utente scateni una seconda richiesta sovrapposta
-                mentre la prima è ancora in volo (causa principale della CorruptComponentPayloadException).
-            -->
+            <!-- Wrapper con wire:loading -->
             <div class="overflow-x-auto rows-locking"
                 wire:loading.class="opacity-60 pointer-events-none"
-                wire:target="rows, addRow, removeRow, selectCostCenter, selectService">
+                wire:target="rows, addRow, removeRow, selectCostCenter, selectService, calculateTotals">
                 <table class="invoice-table min-w-full border rounded-lg">
                     <thead class="bg-gray-100">
                         <tr>
@@ -411,14 +406,9 @@
                     <tbody>
                         @foreach($rows as $index => $row)
                         @php
-                            // Elenco di tutti i target della riga: quando UNO qualsiasi di questi
-                            // campi scatena una richiesta Livewire, TUTTI i campi della riga
-                            // vengono disabilitati da wire:loading. Nessuno stato JS custom:
-                            // è Livewire stesso a gestire il lifecycle, quindi non può restare
-                            // "bloccato" per sempre.
                             $rowTargets = "rows.{$index}.quantity, rows.{$index}.unit_price, rows.{$index}.vat_rate_id, rows.{$index}.discount_percentage, rows.{$index}.code, rows.{$index}.description, rows.{$index}.id_unit_measure, removeRow";
                         @endphp
-                        <tr class="border-b hover:bg-gray-50" wire:key="row-{{ $index }}">
+                        <tr class="border-b hover:bg-gray-50" wire:key="row-{{ $index }}-{{ $row['id'] ?? 'new' }}">
                             <td class="col-code px-2 py-1 align-top">
                                 <input type="text" 
                                     wire:model.live.debounce.500ms="rows.{{ $index }}.code" 
@@ -437,7 +427,7 @@
                             <td class="col-quantity px-2 py-1 align-top">
                                 <input type="text" 
                                     inputmode="decimal"
-                                    wire:model.live.blur.debounce.400ms="rows.{{ $index }}.quantity"
+                                    wire:model.live.debounce.500ms="rows.{{ $index }}.quantity"
                                     wire:loading.attr="disabled"
                                     wire:target="{{ $rowTargets }}"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right disabled:opacity-50 disabled:cursor-not-allowed @error('rows.' . $index . '.quantity') field-error @enderror"
@@ -446,7 +436,7 @@
                             <td class="col-price px-2 py-1 align-top">
                                 <input type="text" 
                                     inputmode="decimal"
-                                    wire:model.live.blur.debounce.400ms="rows.{{ $index }}.unit_price"
+                                    wire:model.live.debounce.500ms="rows.{{ $index }}.unit_price"
                                     wire:loading.attr="disabled"
                                     wire:target="{{ $rowTargets }}"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right disabled:opacity-50 disabled:cursor-not-allowed @error('rows.' . $index . '.unit_price') field-error @enderror"
@@ -466,14 +456,14 @@
                             </td>
                             <td class="col-discount px-2 py-1 align-top">
                                 <input type="number" step="0.01"
-                                    wire:model.live.blur.debounce.400ms="rows.{{ $index }}.discount_percentage"
+                                    wire:model.live.debounce.500ms="rows.{{ $index }}.discount_percentage"
                                     wire:loading.attr="disabled"
                                     wire:target="{{ $rowTargets }}"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right disabled:opacity-50 disabled:cursor-not-allowed" placeholder="0">
                             </td>
                             <td class="col-vat px-2 py-1 align-top" style="width: 120px; min-width: 120px;">
                                 <select 
-                                    wire:model.live.debounce.300ms="rows.{{ $index }}.vat_rate_id"
+                                    wire:model.live.debounce.500ms="rows.{{ $index }}.vat_rate_id"
                                     wire:loading.attr="disabled"
                                     wire:target="{{ $rowTargets }}"
                                     class="w-full px-1 py-1 text-sm border rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
@@ -625,7 +615,7 @@
                         </thead>
                         <tbody>
                             @foreach($payments as $index => $payment)
-                            <tr class="border-b hover:bg-gray-50" wire:key="payment-{{ $index }}">
+                            <tr class="border-b hover:bg-gray-50" wire:key="payment-{{ $index }}-{{ $payment['id'] ?? 'new' }}">
                                 <td class="px-3 py-2">
                                     <input type="date" 
                                         wire:model.live="payments.{{ $index }}.due_date" 
@@ -633,7 +623,7 @@
                                  </td>
                                 <td class="px-3 py-2">
                                     <input type="number" step="0.01" 
-                                        wire:model.live.blur.debounce.400ms="payments.{{ $index }}.amount" 
+                                        wire:model.live.debounce.500ms="payments.{{ $index }}.amount" 
                                         class="w-full px-2 py-1 text-sm border rounded-md text-right @error('payments.' . $index . '.amount') field-error @enderror">
                                  </td>
                                 <td class="px-3 py-2">

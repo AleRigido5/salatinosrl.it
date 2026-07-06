@@ -443,7 +443,6 @@ class StaffAttendanceController extends Controller
                 if ($assExpUltima === null) {
                     $assExpUltima = $e;
                 } else {
-                    // Scegli quella con data_fine più recente o null
                     if ($e->data_fine === null) {
                         $assExpUltima = $e;
                     } elseif ($assExpUltima->data_fine !== null && $e->data_fine > $assExpUltima->data_fine) {
@@ -643,7 +642,7 @@ class StaffAttendanceController extends Controller
 
     /**
      * ============================================================
-     * SAVE - Salva le presenze nel database
+     * SAVE - Salva le presenze NEL DATABASE
      * ============================================================
      */
     public function save(Request $request)
@@ -682,12 +681,51 @@ class StaffAttendanceController extends Controller
                 }
             }
 
-            // Salva usando il modello
-            $results = StaffAttendance::saveMany($changes);
+            // SALVA NEL DATABASE
+            $results = [];
+            $now = now();
+            $userId = Auth::guard('admin')->id();
+
+            foreach ($changes as $change) {
+                $staffId = $change['staff_id'];
+                $date = $change['date'];
+                $ownershipId = isset($change['ownership_id']) ? $change['ownership_id'] : null;
+                $isPresent = (bool) $change['checked'];
+
+                $attendance = StaffAttendance::updateOrCreate(
+                    [
+                        'id_staff' => $staffId,
+                        'id_ownership' => $ownershipId,
+                        'date' => $date,
+                    ],
+                    [
+                        'is_present' => $isPresent,
+                        'updated_at' => $now,
+                    ]
+                );
+
+                if ($attendance->wasRecentlyCreated) {
+                    $attendance->created_at = $now;
+                    $attendance->save();
+                }
+
+                $results[] = [
+                    'date' => $date,
+                    'ownership' => $ownershipId,
+                    'is_present' => $isPresent,
+                    'status' => $attendance->wasRecentlyCreated ? 'created' : 'updated',
+                ];
+            }
+
+            Log::info('Presenze salvate nel database', [
+                'staff_ids' => array_unique(array_column($changes, 'staff_id')),
+                'count' => count($changes),
+                'user_id' => $userId,
+            ]);
 
             return response()->json([
                 'success' => true,
-                'message' => count($results) . ' presenze salvate con successo',
+                'message' => count($results) . ' presenze salvate con successo nel database',
                 'results' => $results,
                 'saved_count' => count($results),
             ]);
@@ -721,7 +759,7 @@ class StaffAttendanceController extends Controller
         $startDate = Carbon::createFromDate($year, $month, 1)->startOfDay();
         $endDate = $startDate->copy()->endOfMonth();
 
-        // Presenze del mese
+        // Presenze del mese dal database
         $attendances = StaffAttendance::where('id_staff', $staffId)
             ->whereBetween('date', [$startDate, $endDate])
             ->where('is_present', true)
@@ -798,31 +836,8 @@ class StaffAttendanceController extends Controller
 
         $ownerships = $this->getFilteredOwnerships();
 
-        // Riepilogo da database
-        $report = StaffAttendance::getMonthlyReport($year, $month, $ownershipId);
-
-        // Aggiungi dettagli per ogni dipendente
-        $staffIds = array_keys($report);
-        if (!empty($staffIds)) {
-            $staffData = Staff::whereIn('id_personale', $staffIds)
-                ->with(['gruppo'])
-                ->get()
-                ->keyBy('id_personale');
-
-            foreach ($report as $staffId => &$data) {
-                $staff = isset($staffData[$staffId]) ? $staffData[$staffId] : null;
-                $data['name'] = $staff ? $staff->CognomePers . ' ' . $staff->NomePers : 'Sconosciuto';
-                $data['gruppo'] = $staff && $staff->gruppo ? $staff->gruppo->nome : 'Senza categoria';
-            }
-
-            // Ordina per gruppo e nome
-            usort($report, function($a, $b) {
-                if ($a['gruppo'] !== $b['gruppo']) {
-                    return strcmp($a['gruppo'], $b['gruppo']);
-                }
-                return strcmp($a['name'], $b['name']);
-            });
-        }
+        // Riepilogo dal database
+        $report = $this->getMonthlyReport($year, $month, $ownershipId);
 
         // Statistiche totali
         $totalStaff = count($report);
@@ -841,6 +856,67 @@ class StaffAttendanceController extends Controller
             'totalUniqueDays',
             'mediaPerStaff'
         ));
+    }
+
+    /**
+     * Genera report mensile dal database
+     */
+    private function getMonthlyReport($year, $month, $ownershipId = null)
+    {
+        $query = StaffAttendance::whereYear('date', $year)
+            ->whereMonth('date', $month)
+            ->where('is_present', true);
+
+        if ($ownershipId) {
+            $query->where('id_ownership', $ownershipId);
+        }
+
+        $attendances = $query->get();
+
+        $report = [];
+        foreach ($attendances as $att) {
+            $staffId = $att->id_staff;
+            if (!isset($report[$staffId])) {
+                $report[$staffId] = [
+                    'staff_id' => $staffId,
+                    'total' => 0,
+                    'unique_days' => 0,
+                    'days' => [],
+                ];
+            }
+            $report[$staffId]['total']++;
+            $dateKey = $att->date->format('Y-m-d');
+            if (!in_array($dateKey, $report[$staffId]['days'])) {
+                $report[$staffId]['days'][] = $dateKey;
+                $report[$staffId]['unique_days']++;
+            }
+        }
+
+        // Aggiungi nomi
+        $staffIds = array_keys($report);
+        if (!empty($staffIds)) {
+            $staffData = Staff::whereIn('id_personale', $staffIds)
+                ->with(['gruppo'])
+                ->get()
+                ->keyBy('id_personale');
+
+            foreach ($report as $staffId => &$data) {
+                $staff = isset($staffData[$staffId]) ? $staffData[$staffId] : null;
+                $data['name'] = $staff ? $staff->CognomePers . ' ' . $staff->NomePers : 'Sconosciuto';
+                $data['gruppo'] = $staff && $staff->gruppo ? $staff->gruppo->nome : 'Senza categoria';
+                unset($data['days']);
+            }
+
+            // Ordina per gruppo e nome
+            usort($report, function($a, $b) {
+                if ($a['gruppo'] !== $b['gruppo']) {
+                    return strcmp($a['gruppo'], $b['gruppo']);
+                }
+                return strcmp($a['name'], $b['name']);
+            });
+        }
+
+        return $report;
     }
 
     /**
@@ -1100,7 +1176,7 @@ class StaffAttendanceController extends Controller
 
         $staffIds = $staff->pluck('id_personale')->toArray();
 
-        // Presenze
+        // Presenze dal database
         $attendanceQuery = StaffAttendance::whereBetween('date', [$startOfMonth, $endOfMonth])
             ->whereIn('id_staff', $staffIds);
 
@@ -1361,29 +1437,7 @@ class StaffAttendanceController extends Controller
         $month = $request->get('month', now()->month);
         $ownershipId = $request->get('ownership_id');
 
-        $report = StaffAttendance::getMonthlyReport($year, $month, $ownershipId);
-
-        // Aggiungi nomi
-        $staffIds = array_keys($report);
-        if (!empty($staffIds)) {
-            $staffData = Staff::whereIn('id_personale', $staffIds)
-                ->with(['gruppo'])
-                ->get()
-                ->keyBy('id_personale');
-
-            foreach ($report as $staffId => &$data) {
-                $staff = isset($staffData[$staffId]) ? $staffData[$staffId] : null;
-                $data['name'] = $staff ? $staff->CognomePers . ' ' . $staff->NomePers : 'Sconosciuto';
-                $data['gruppo'] = $staff && $staff->gruppo ? $staff->gruppo->nome : 'Senza categoria';
-            }
-
-            usort($report, function($a, $b) {
-                if ($a['gruppo'] !== $b['gruppo']) {
-                    return strcmp($a['gruppo'], $b['gruppo']);
-                }
-                return strcmp($a['name'], $b['name']);
-            });
-        }
+        $report = $this->getMonthlyReport($year, $month, $ownershipId);
 
         // ── CREAZIONE EXCEL ──
         $spreadsheet = new Spreadsheet();
@@ -1459,7 +1513,7 @@ class StaffAttendanceController extends Controller
 
     /**
      * ============================================================
-     * DELETE - Cancella una presenza
+     * DELETE - Cancella una presenza dal database
      * ============================================================
      */
     public function delete(Request $request)
@@ -1487,9 +1541,16 @@ class StaffAttendanceController extends Controller
             
             $deleted = $query->delete();
 
+            Log::info('Presenza eliminata dal database', [
+                'staff_id' => $validated['staff_id'],
+                'date' => $validated['date'],
+                'ownership_id' => $validated['ownership_id'] ?? null,
+                'user_id' => Auth::guard('admin')->id(),
+            ]);
+
             return response()->json([
                 'success' => true,
-                'message' => 'Presenza eliminata con successo',
+                'message' => 'Presenza eliminata con successo dal database',
                 'deleted' => $deleted > 0,
             ]);
 
@@ -1535,11 +1596,38 @@ class StaffAttendanceController extends Controller
                 ];
             }
 
-            $results = StaffAttendance::saveMany($changes);
+            $results = [];
+            $now = now();
+
+            foreach ($changes as $change) {
+                $attendance = StaffAttendance::updateOrCreate(
+                    [
+                        'id_staff' => $change['staff_id'],
+                        'id_ownership' => $change['ownership_id'],
+                        'date' => $change['date'],
+                    ],
+                    [
+                        'is_present' => $change['checked'],
+                        'updated_at' => $now,
+                    ]
+                );
+
+                if ($attendance->wasRecentlyCreated) {
+                    $attendance->created_at = $now;
+                    $attendance->save();
+                }
+
+                $results[] = [
+                    'date' => $change['date'],
+                    'ownership' => $change['ownership_id'],
+                    'is_present' => $change['checked'],
+                    'status' => $attendance->wasRecentlyCreated ? 'created' : 'updated',
+                ];
+            }
 
             return response()->json([
                 'success' => true,
-                'message' => count($results) . ' presenze salvate con successo',
+                'message' => count($results) . ' presenze salvate con successo nel database',
                 'results' => $results,
             ]);
 
@@ -1593,7 +1681,7 @@ class StaffAttendanceController extends Controller
 
         $activeStaffIds = $activeStaff->pluck('id_personale')->toArray();
 
-        // Presenze del mese
+        // Presenze del mese dal database
         $attendanceQuery = StaffAttendance::whereBetween('date', [$startDate, $endDate])
             ->where('is_present', true);
 

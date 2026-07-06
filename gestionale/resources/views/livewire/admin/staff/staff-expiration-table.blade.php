@@ -33,6 +33,30 @@
         </div>
     </div>
 
+    <!-- Messaggi di Sistema -->
+    @if(session()->has('success'))
+    <div class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+        <i class="fas fa-check-circle mr-2"></i> {{ session('success') }}
+    </div>
+    @endif
+
+    @if(session()->has('error'))
+    <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+        <i class="fas fa-exclamation-circle mr-2"></i> {{ session('error') }}
+    </div>
+    @endif
+
+    @if($errors->any())
+    <div class="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+        <i class="fas fa-exclamation-circle mr-2"></i>
+        <ul class="list-disc list-inside">
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+    @endif
+
     <!-- Filtri e Ricerca -->
     <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200">
         <!-- RIGA SUPERIORE: Date Range Filter -->
@@ -95,7 +119,6 @@
                             </div>
                         </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipologia</th>
-                        <!-- NUOVA COLONNA PROPRIETÀ -->
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('id_ownership')">
                             <div class="flex items-center space-x-1">
                                 <span>Proprietà</span>
@@ -149,7 +172,6 @@
                                 {{ $expiration->tipologiaName }}
                             </span>
                         </td>
-                        <!-- NUOVA COLONNA PROPRIETÀ -->
                         <td class="px-6 py-4 whitespace-nowrap">
                             @if($expiration->ownershipLegacy)
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
@@ -201,7 +223,7 @@
                                 @endif
 
                                 <!-- Pulsante Documenti per Staff -->
-                                <a href="{{ route('admin.documents.index', ['expiration-staff', $expiration->id]) . '?staff_id=' . $staffId }}" 
+                                <a href="{{ route('admin.documents.index', ['expiration-staff', $expiration->id]) . '?staff_id=' . ($staffId ?? $expiration->id_references) }}" 
                                 class="text-indigo-600 hover:text-indigo-900 transition-colors relative"
                                 title="Gestisci Documenti">
                                     <i class="fas fa-paperclip"></i>
@@ -292,7 +314,7 @@
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="open = false"></div>
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
             
-            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
                 <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <div class="flex justify-between items-center mb-4 border-b pb-3">
                         <h2 class="text-xl font-bold text-gray-800">
@@ -332,6 +354,73 @@
                                 </select>
                             </div>
                         </div>
+
+                        <!-- CAMPO STAFF -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Dipendente <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative" x-data="{ open: false }" @click.away="open = false">
+                                <div class="relative">
+                                    <input type="text" 
+                                        wire:model.live.debounce.300ms="createStaffSearch" 
+                                        placeholder="Cerca dipendente per nome, cognome o email..."
+                                        class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent"
+                                        @focus="open = true"
+                                        @input="open = true">
+                                    <i class="fas fa-user absolute left-2.5 top-2.5 text-gray-400"></i>
+                                    
+                                    @if($createStaffNome)
+                                    <button type="button" 
+                                            wire:click="clearStaff" 
+                                            class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                    @endif
+                                </div>
+                                
+                                @if(count($createStaffResults) > 0)
+                                <div class="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto" x-show="open">
+                                    @foreach($createStaffResults as $staffResult)
+                                    <div class="px-4 py-2 hover:bg-lime-50 cursor-pointer border-b border-gray-100 last:border-0"
+                                        wire:click="selectStaff({{ $staffResult->id_personale }}, '{{ addslashes($staffResult->full_name) }}')"
+                                        @click="open = false">
+                                        <div class="font-medium text-gray-900">
+                                            {{ $staffResult->full_name }}
+                                        </div>
+                                        <div class="text-xs text-gray-500 flex flex-wrap gap-2 mt-0.5">
+                                            @if($staffResult->EmailPers)
+                                            <span class="inline-flex items-center">
+                                                <i class="fas fa-envelope mr-1 text-xs"></i>
+                                                {{ $staffResult->EmailPers }}
+                                            </span>
+                                            @endif
+                                            @if($staffResult->CellPers)
+                                            <span>{{ $staffResult->CellPers }}</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    @endforeach
+                                </div>
+                                @endif
+                            </div>
+                            
+                            @if($createStaffNome)
+                            <div class="mt-2 p-2 bg-green-50 rounded-md border border-green-200">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center text-sm text-green-700">
+                                        <i class="fas fa-check-circle mr-1"></i>
+                                        <span class="font-medium">Dipendente selezionato:</span>
+                                        <span class="ml-1">{{ $createStaffNome }}</span>
+                                    </div>
+                                    <button type="button" wire:click="clearStaff" class="text-green-600 hover:text-green-800">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            @endif
+                            @error('createStaffId') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                        </div>
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -368,12 +457,14 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Fornitore</label>
-                                <div class="relative">
+                                <div class="relative" x-data="{ open: false }" @click.away="open = false">
                                     <div class="relative">
                                         <input type="text" 
                                             wire:model.live.debounce.300ms="createEntitySearch" 
                                             placeholder="Cerca fornitore..."
-                                            class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
+                                            class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent"
+                                            @focus="open = true"
+                                            @input="open = true">
                                         <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
                                         
                                         @if($createEntityNome)
@@ -386,10 +477,11 @@
                                     </div>
                                     
                                     @if(count($createEntityResults) > 0)
-                                    <div class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                    <div class="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto" x-show="open">
                                         @foreach($createEntityResults as $result)
                                         <div class="px-4 py-2 hover:bg-lime-50 cursor-pointer border-b border-gray-100 last:border-0"
-                                            wire:click="selectEntity({{ $result->id_cliente }}, '{{ addslashes($result->ragione_sociale ?: $result->nome . ' ' . $result->cognome) }}')">
+                                            wire:click="selectEntity({{ $result->id_cliente }}, '{{ addslashes($result->ragione_sociale ?: $result->nome . ' ' . $result->cognome) }}')"
+                                            @click="open = false">
                                             <div class="font-medium text-gray-900">
                                                 {{ $result->ragione_sociale ?: $result->nome . ' ' . $result->cognome }}
                                             </div>
@@ -508,7 +600,6 @@
                                 <label class="text-sm font-medium text-gray-500">Tipologia</label>
                                 <p><span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">{{ $viewingExpiration->tipologiaName }}</span></p>
                             </div>
-                            <!-- Aggiungi Proprietà -->
                             <div>
                                 <label class="text-sm font-medium text-gray-500">Proprietà</label>
                                 <p class="text-gray-900">
@@ -573,7 +664,7 @@
                         <i class="fas fa-times mr-2"></i> Chiudi
                     </button>
                     @if(auth()->guard('admin')->user()->hasPermission('edit_expiration'))
-                    <a href="{{ route('admin.expiration-staff.edit', ['id' => $viewingExpiration->id, 'staff_id' => $staffId]) }}"
+                    <a href="{{ route('admin.expiration-staff.edit', ['id' => $viewingExpiration->id, 'staff_id' => $staffId ?? $viewingExpiration->id_references]) }}"
                        class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md">
                         <i class="fas fa-edit mr-2"></i> Modifica
                     </a>
@@ -596,7 +687,7 @@
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="open = false"></div>
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
             
-            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
                 <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <div class="flex justify-between items-center mb-4 border-b pb-3">
                         <h2 class="text-xl font-bold text-gray-800">
@@ -636,6 +727,73 @@
                                 </select>
                             </div>
                         </div>
+
+                        <!-- CAMPO STAFF - MODIFICA -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Dipendente <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative" x-data="{ open: false }" @click.away="open = false">
+                                <div class="relative">
+                                    <input type="text" 
+                                        wire:model.live.debounce.300ms="editStaffSearch" 
+                                        placeholder="Cerca dipendente per nome, cognome o email..."
+                                        class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent"
+                                        @focus="open = true"
+                                        @input="open = true">
+                                    <i class="fas fa-user absolute left-2.5 top-2.5 text-gray-400"></i>
+                                    
+                                    @if($editStaffNome)
+                                    <button type="button" 
+                                            wire:click="clearEditStaff" 
+                                            class="absolute right-2 top-2 text-gray-400 hover:text-gray-600">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                    @endif
+                                </div>
+                                
+                                @if(count($editStaffResults) > 0)
+                                <div class="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto" x-show="open">
+                                    @foreach($editStaffResults as $staffResult)
+                                    <div class="px-4 py-2 hover:bg-lime-50 cursor-pointer border-b border-gray-100 last:border-0"
+                                        wire:click="selectEditStaff({{ $staffResult->id_personale }}, '{{ addslashes($staffResult->full_name) }}')"
+                                        @click="open = false">
+                                        <div class="font-medium text-gray-900">
+                                            {{ $staffResult->full_name }}
+                                        </div>
+                                        <div class="text-xs text-gray-500 flex flex-wrap gap-2 mt-0.5">
+                                            @if($staffResult->EmailPers)
+                                            <span class="inline-flex items-center">
+                                                <i class="fas fa-envelope mr-1 text-xs"></i>
+                                                {{ $staffResult->EmailPers }}
+                                            </span>
+                                            @endif
+                                            @if($staffResult->CellPers)
+                                            <span>{{ $staffResult->CellPers }}</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    @endforeach
+                                </div>
+                                @endif
+                            </div>
+                            
+                            @if($editStaffNome)
+                            <div class="mt-2 p-2 bg-green-50 rounded-md border border-green-200">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center text-sm text-green-700">
+                                        <i class="fas fa-check-circle mr-1"></i>
+                                        <span class="font-medium">Dipendente selezionato:</span>
+                                        <span class="ml-1">{{ $editStaffNome }}</span>
+                                    </div>
+                                    <button type="button" wire:click="clearEditStaff" class="text-green-600 hover:text-green-800">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            @endif
+                            @error('editStaffId') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                        </div>
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -666,11 +824,13 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Fornitore</label>
-                                <div class="relative">
+                                <div class="relative" x-data="{ open: false }" @click.away="open = false">
                                     <input type="text" 
                                         wire:model.live.debounce.300ms="editEntitySearch" 
                                         placeholder="Cerca fornitore..."
-                                        class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                                        class="w-full px-3 py-2 pl-9 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                                        @focus="open = true"
+                                        @input="open = true">
                                     <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-400"></i>
                                     
                                     @if($editEntityNome)
@@ -681,10 +841,11 @@
                                 </div>
                                 
                                 @if(count($editEntityResults) > 0)
-                                <div class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                                <div class="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto" x-show="open">
                                     @foreach($editEntityResults as $result)
                                     <div class="px-4 py-2 hover:bg-lime-50 cursor-pointer border-b border-gray-100 last:border-0"
-                                        wire:click="selectEditEntity({{ $result->id_cliente }}, '{{ addslashes($result->ragione_sociale ?: $result->nome . ' ' . $result->cognome) }}')">
+                                        wire:click="selectEditEntity({{ $result->id_cliente }}, '{{ addslashes($result->ragione_sociale ?: $result->nome . ' ' . $result->cognome) }}')"
+                                        @click="open = false">
                                         <div class="font-medium text-gray-900">
                                             {{ $result->ragione_sociale ?: $result->nome . ' ' . $result->cognome }}
                                         </div>

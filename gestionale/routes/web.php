@@ -304,22 +304,37 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // =============================================
         // FATTURE DI VENDITA
-        // =============================================        
+        // =============================================       
         Route::prefix('invoices-sent')->name('invoices-sent.')->group(function () {
-            // Export PDF ed Excel (DEVONO essere PRIMA delle route con {id})
+            // Export
             Route::get('/export-pdf', [App\Http\Controllers\Admin\InvoiceSentController::class, 'exportPdf'])->name('export-pdf');
             Route::get('/export-excel', [App\Http\Controllers\Admin\InvoiceSentController::class, 'exportExcel'])->name('export-excel');
             
+            // Creazione
+            Route::get('/create', [App\Http\Controllers\Admin\InvoiceSentCreateController::class, 'create'])->name('create');
+            Route::post('/store', [App\Http\Controllers\Admin\InvoiceSentCreateController::class, 'store'])->name('store');
+            
+            // Modifica (nuovo controller)
+            Route::get('/{id}/edit', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'edit'])->name('edit');
+            Route::put('/{id}/update', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'update'])->name('update');
+            
+            // API (condivise)
+            Route::prefix('api')->name('api.')->group(function () {
+                Route::get('/search-customers', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'searchCustomers'])->name('search-customers');
+                Route::get('/search-cost-centers', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'searchCostCenters'])->name('search-cost-centers');
+                Route::get('/search-services', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'searchServices'])->name('search-services');
+                Route::get('/series', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'getSeries'])->name('series');
+                Route::get('/customer/{id}', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'getCustomerInfo'])->name('customer');
+                Route::get('/bank-account', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'getCompanyBankAccount'])->name('bank-account');
+                Route::post('/store-customer', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'storeCustomer'])->name('store-customer');
+            });
+            
             // Altre route
             Route::get('/', [App\Http\Controllers\Admin\InvoiceSentController::class, 'index'])->name('index');
-            Route::get('/create', [App\Http\Controllers\Admin\InvoiceSentController::class, 'create'])->name('create');
-            Route::get('/{id}/edit', [App\Http\Controllers\Admin\InvoiceSentController::class, 'edit'])->name('edit');
             Route::get('/{id}', [App\Http\Controllers\Admin\InvoiceSentController::class, 'show'])->name('show');
-
-            // Route::get('/{id}/pdf', [App\Http\Controllers\Admin\InvoiceSentController::class, 'generatePdf'])->name('pdf');
             Route::get('/{id}/preview', [App\Http\Controllers\Admin\InvoiceSentController::class, 'previewPdf'])->name('preview');
         });
-        
+
         // =============================================
         // GESTIONE SCADENZE (EXPIRATION)
         // =============================================

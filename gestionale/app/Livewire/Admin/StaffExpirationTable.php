@@ -1,5 +1,4 @@
 <?php
-// app/Livewire/Admin/StaffExpirationTable.php
 
 namespace App\Livewire\Admin;
 
@@ -11,6 +10,7 @@ use App\Models\Staff;
 use App\Models\Entity;
 use App\Models\Ownership;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class StaffExpirationTable extends Component
@@ -26,7 +26,6 @@ class StaffExpirationTable extends Component
     public $sortField = 'data_fine';
     public $sortDirection = 'desc';
     
-    // Date range filters per data_fine (data di scadenza)
     public $dateFrom = '';
     public $dateTo = '';
     
@@ -42,7 +41,13 @@ class StaffExpirationTable extends Component
     public $createQualifica = '';
     public $createOwnershipId = '';
     
-    // Autocomplete per entità (clienti/fornitori)
+    // Autocomplete per staff - CREAZIONE
+    public $createStaffSearch = '';
+    public $createStaffResults = [];
+    public $createStaffId = '';
+    public $createStaffNome = '';
+    
+    // Autocomplete per entità - CREAZIONE
     public $createEntitySearch = '';
     public $createEntityResults = [];
     public $createEntityId = '';
@@ -53,7 +58,6 @@ class StaffExpirationTable extends Component
     public $editingExpiration = null;
     public $editId = null;
     
-    // Form fields per modifica
     public $editTitolo = '';
     public $editTipologiaId = '';
     public $editDataInizio = '';
@@ -61,15 +65,26 @@ class StaffExpirationTable extends Component
     public $editNote = '';
     public $editQualifica = '';
     public $editOwnershipId = '';
+    
+    // Autocomplete per staff - MODIFICA
+    public $editStaffSearch = '';
+    public $editStaffResults = [];
+    public $editStaffId = '';
+    public $editStaffNome = '';
+    
+    // Autocomplete per entità - MODIFICA
     public $editEntityId = '';
     public $editEntityNome = '';
     public $editEntitySearch = '';
     public $editEntityResults = [];
     
+    // Messaggi di errore/successo
+    public $errorMessage = '';
+    public $successMessage = '';
+    
     protected $paginationTheme = 'tailwind';
     protected $queryString = ['search', 'tipologiaFilter', 'statusFilter', 'staffId', 'dateFrom', 'dateTo'];
     
-    // Listener per gli eventi del componente DateRangeFilter
     protected $listeners = [
         'dateRangeUpdated' => 'updateDateRange',
         'resetDates' => 'resetDateRange'
@@ -82,26 +97,25 @@ class StaffExpirationTable extends Component
         $this->createDataInizio = date('Y-m-d');
         $this->createDataFine = date('Y-m-d', strtotime('+1 year'));
         
-        // Imposta il filtro sul mese corrente di default SOLO se non ci sono filtri stato
-        if (empty($this->dateFrom) && empty($this->dateTo) && empty($this->statusFilter)) {
-            $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
-            $this->dateTo = Carbon::now()->endOfMonth()->format('Y-m-d');
-        }
-        
-        if ($this->staffId && !$this->staffName) {
+        // Pre-popola lo staff se passato
+        if ($this->staffId) {
             $staff = Staff::find($this->staffId);
             if ($staff) {
                 $this->staffName = $staff->full_name;
+                $this->createStaffId = $staff->id_personale;
+                $this->createStaffNome = $staff->full_name;
+                $this->createStaffSearch = $staff->full_name;
             }
+        }
+        
+        if (empty($this->dateFrom) && empty($this->dateTo) && empty($this->statusFilter)) {
+            $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
+            $this->dateTo = Carbon::now()->endOfMonth()->format('Y-m-d');
         }
     }
     
     // ==================== LISTENER PER DATE RANGE FILTER ====================
     
-    /**
-     * Aggiorna i filtri data quando il componente DateRangeFilter invia l'evento
-     * Filtra sulla data_fine (data di scadenza)
-     */
     public function updateDateRange($data)
     {
         $this->dateFrom = $data['date_from'] ?? '';
@@ -109,17 +123,12 @@ class StaffExpirationTable extends Component
         $this->resetPage();
     }
     
-    /**
-     * Resetta i filtri data al mese corrente
-     */
     public function resetDateRange()
     {
-        // Se non ci sono filtri stato, resetta al mese corrente
         if (empty($this->statusFilter)) {
             $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
             $this->dateTo = Carbon::now()->endOfMonth()->format('Y-m-d');
         } else {
-            // Se c'è un filtro stato, rimuovi il filtro data per vedere TUTTE le scadenze
             $this->dateFrom = '';
             $this->dateTo = '';
         }
@@ -128,36 +137,116 @@ class StaffExpirationTable extends Component
     
     // ==================== METODI PER STATUS FILTER ====================
     
-    /**
-     * Quando cambia il filtro stato, rimuovi automaticamente il filtro data
-     * per mostrare TUTTE le scadenze di quello stato
-     */
     public function updatedStatusFilter()
     {
-        // Rimuovi il filtro data quando selezioni uno stato
         $this->dateFrom = '';
         $this->dateTo = '';
         $this->resetPage();
-        
-        // Notifica al componente DateRangeFilter di resettarsi
         $this->dispatch('resetDates');
     }
     
-    // ==================== AUTOCOMPLETE CREAZIONE ====================
+    // ==================== AUTOCOMPLETE STAFF - CREAZIONE ====================
+    
+    public function updatedCreateStaffSearch()
+    {
+        $search = trim($this->createStaffSearch);
+        
+        if (strlen($search) >= 2) {
+            $searchTerm = '%' . $search . '%';
+            $this->createStaffResults = Staff::where(function($q) use ($searchTerm) {
+                    $q->where('NomePers', 'like', $searchTerm)
+                      ->orWhere('CognomePers', 'like', $searchTerm)
+                      ->orWhere('EmailPers', 'like', $searchTerm)
+                      ->orWhere(DB::raw("CONCAT(NomePers, ' ', CognomePers)"), 'like', $searchTerm)
+                      ->orWhere(DB::raw("CONCAT(CognomePers, ' ', NomePers)"), 'like', $searchTerm);
+                })
+                ->where('valid', 1)
+                ->orderBy('CognomePers')
+                ->orderBy('NomePers')
+                ->limit(10)
+                ->get();
+        } else {
+            $this->createStaffResults = [];
+        }
+    }
+    
+    public function selectStaff($id, $nome)
+    {
+        $this->createStaffId = $id;
+        $this->createStaffNome = $nome;
+        $this->createStaffSearch = $nome;
+        $this->createStaffResults = [];
+    }
+    
+    public function clearStaff()
+    {
+        $this->createStaffId = '';
+        $this->createStaffNome = '';
+        $this->createStaffSearch = '';
+        $this->createStaffResults = [];
+    }
+    
+    // ==================== AUTOCOMPLETE STAFF - MODIFICA ====================
+    
+    public function updatedEditStaffSearch()
+    {
+        $search = trim($this->editStaffSearch);
+        
+        if (strlen($search) >= 2) {
+            $searchTerm = '%' . $search . '%';
+            $this->editStaffResults = Staff::where(function($q) use ($searchTerm) {
+                    $q->where('NomePers', 'like', $searchTerm)
+                      ->orWhere('CognomePers', 'like', $searchTerm)
+                      ->orWhere('EmailPers', 'like', $searchTerm)
+                      ->orWhere(DB::raw("CONCAT(NomePers, ' ', CognomePers)"), 'like', $searchTerm)
+                      ->orWhere(DB::raw("CONCAT(CognomePers, ' ', NomePers)"), 'like', $searchTerm);
+                })
+                ->where('valid', 1)
+                ->orderBy('CognomePers')
+                ->orderBy('NomePers')
+                ->limit(10)
+                ->get();
+        } else {
+            $this->editStaffResults = [];
+        }
+    }
+    
+    public function selectEditStaff($id, $nome)
+    {
+        $this->editStaffId = $id;
+        $this->editStaffNome = $nome;
+        $this->editStaffSearch = $nome;
+        $this->editStaffResults = [];
+    }
+    
+    public function clearEditStaff()
+    {
+        $this->editStaffId = '';
+        $this->editStaffNome = '';
+        $this->editStaffSearch = '';
+        $this->editStaffResults = [];
+    }
+    
+    // ==================== AUTOCOMPLETE ENTITY - CREAZIONE ====================
     
     public function updatedCreateEntitySearch()
     {
-        if (strlen($this->createEntitySearch) >= 2) {
-            $this->createEntityResults = Entity::where(function($q) {
+        $search = trim($this->createEntitySearch);
+        
+        if (strlen($search) >= 2) {
+            $searchTerm = '%' . $search . '%';
+            $this->createEntityResults = Entity::where(function($q) use ($searchTerm) {
+                    $q->where('ragione_sociale', 'like', $searchTerm)
+                      ->orWhere('nome', 'like', $searchTerm)
+                      ->orWhere('cognome', 'like', $searchTerm)
+                      ->orWhere(DB::raw("CONCAT(nome, ' ', cognome)"), 'like', $searchTerm)
+                      ->orWhere(DB::raw("CONCAT(cognome, ' ', nome)"), 'like', $searchTerm);
+                })
+                ->where('valid', 1)
+                ->where(function($q) {
                     $q->where('entity_type', 'fornitore')
                       ->orWhere('entity_type', 'entrambi');
                 })
-                ->where(function($q) {
-                    $q->where('ragione_sociale', 'like', '%' . $this->createEntitySearch . '%')
-                      ->orWhere('nome', 'like', '%' . $this->createEntitySearch . '%')
-                      ->orWhere('cognome', 'like', '%' . $this->createEntitySearch . '%');
-                })
-                ->where('valid', 1)
                 ->orderBy('ragione_sociale')
                 ->limit(10)
                 ->get();
@@ -182,21 +271,26 @@ class StaffExpirationTable extends Component
         $this->createEntityResults = [];
     }
     
-    // ==================== AUTOCOMPLETE MODIFICA ====================
+    // ==================== AUTOCOMPLETE ENTITY - MODIFICA ====================
     
     public function updatedEditEntitySearch()
     {
-        if (strlen($this->editEntitySearch) >= 2) {
-            $this->editEntityResults = Entity::where(function($q) {
+        $search = trim($this->editEntitySearch);
+        
+        if (strlen($search) >= 2) {
+            $searchTerm = '%' . $search . '%';
+            $this->editEntityResults = Entity::where(function($q) use ($searchTerm) {
+                    $q->where('ragione_sociale', 'like', $searchTerm)
+                      ->orWhere('nome', 'like', $searchTerm)
+                      ->orWhere('cognome', 'like', $searchTerm)
+                      ->orWhere(DB::raw("CONCAT(nome, ' ', cognome)"), 'like', $searchTerm)
+                      ->orWhere(DB::raw("CONCAT(cognome, ' ', nome)"), 'like', $searchTerm);
+                })
+                ->where('valid', 1)
+                ->where(function($q) {
                     $q->where('entity_type', 'fornitore')
                       ->orWhere('entity_type', 'entrambi');
                 })
-                ->where(function($q) {
-                    $q->where('ragione_sociale', 'like', '%' . $this->editEntitySearch . '%')
-                      ->orWhere('nome', 'like', '%' . $this->editEntitySearch . '%')
-                      ->orWhere('cognome', 'like', '%' . $this->editEntitySearch . '%');
-                })
-                ->where('valid', 1)
                 ->orderBy('ragione_sociale')
                 ->limit(10)
                 ->get();
@@ -226,6 +320,16 @@ class StaffExpirationTable extends Component
     public function openCreateModal()
     {
         $this->resetCreateForm();
+        
+        if ($this->staffId) {
+            $staff = Staff::find($this->staffId);
+            if ($staff) {
+                $this->createStaffId = $staff->id_personale;
+                $this->createStaffNome = $staff->full_name;
+                $this->createStaffSearch = $staff->full_name;
+            }
+        }
+        
         $this->showCreateModal = true;
     }
     
@@ -248,6 +352,12 @@ class StaffExpirationTable extends Component
         $this->createEntityNome = '';
         $this->createEntitySearch = '';
         $this->createEntityResults = [];
+        $this->createStaffId = '';
+        $this->createStaffNome = '';
+        $this->createStaffSearch = '';
+        $this->createStaffResults = [];
+        $this->errorMessage = '';
+        $this->successMessage = '';
     }
 
     public function saveExpiration()
@@ -257,6 +367,7 @@ class StaffExpirationTable extends Component
             'createTipologiaId' => 'required|exists:settings,id',
             'createDataInizio' => 'required|date',
             'createDataFine' => 'nullable|date|after_or_equal:createDataInizio',
+            'createStaffId' => 'required|exists:staff,id_personale',
         ]);
         
         try {
@@ -271,7 +382,7 @@ class StaffExpirationTable extends Component
                 'note' => $this->createNote,
                 'created_by' => $adminId,
                 'updated_by' => $adminId,
-                'id_references' => $this->staffId,
+                'id_references' => $this->createStaffId,
                 'table_references' => Expiration::TABLE_STAFF,
             ];
             
@@ -283,14 +394,20 @@ class StaffExpirationTable extends Component
                 $data['id_entities'] = $this->createEntityId;
             }
             
-            Expiration::create($data);
+            $expiration = Expiration::create($data);
             
-            $this->closeCreateModal();
-            $this->dispatch('showSuccess', message: 'Scadenza creata con successo!');
-            $this->resetPage();
+            if ($expiration) {
+                $this->closeCreateModal();
+                session()->flash('success', 'Scadenza creata con successo!');
+                $this->resetPage();
+            } else {
+                throw new \Exception('Errore durante la creazione della scadenza');
+            }
             
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore durante il salvataggio: ' . $e->getMessage());
+            session()->flash('error', 'Errore durante il salvataggio: ' . $e->getMessage());
         }
     }
     
@@ -299,10 +416,10 @@ class StaffExpirationTable extends Component
     public function openEditModal($id)
     {
         try {
-            $expiration = Expiration::with(['setting', 'entityLegacy'])->find($id);
+            $expiration = Expiration::with(['setting', 'entityLegacy', 'staff'])->find($id);
             
             if (!$expiration) {
-                $this->dispatch('showError', message: 'Scadenza non trovata');
+                session()->flash('error', 'Scadenza non trovata');
                 return;
             }
             
@@ -315,6 +432,16 @@ class StaffExpirationTable extends Component
             $this->editNote = $expiration->note;
             $this->editQualifica = $expiration->subtitolo;
             $this->editOwnershipId = $expiration->id_ownership;
+            
+            // Carica staff associato
+            if ($expiration->id_references && $expiration->table_references == Expiration::TABLE_STAFF) {
+                $staff = Staff::find($expiration->id_references);
+                if ($staff) {
+                    $this->editStaffId = $staff->id_personale;
+                    $this->editStaffNome = $staff->full_name;
+                    $this->editStaffSearch = $staff->full_name;
+                }
+            }
             
             // Carica entità associata
             if ($expiration->id_entities) {
@@ -329,7 +456,7 @@ class StaffExpirationTable extends Component
             $this->showEditModal = true;
             
         } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore nel caricamento: ' . $e->getMessage());
+            session()->flash('error', 'Errore nel caricamento: ' . $e->getMessage());
         }
     }
     
@@ -350,10 +477,16 @@ class StaffExpirationTable extends Component
         $this->editNote = '';
         $this->editQualifica = '';
         $this->editOwnershipId = '';
+        $this->editStaffId = '';
+        $this->editStaffNome = '';
+        $this->editStaffSearch = '';
+        $this->editStaffResults = [];
         $this->editEntityId = '';
         $this->editEntityNome = '';
         $this->editEntitySearch = '';
         $this->editEntityResults = [];
+        $this->errorMessage = '';
+        $this->successMessage = '';
     }
     
     public function updateExpiration()
@@ -363,13 +496,14 @@ class StaffExpirationTable extends Component
             'editTipologiaId' => 'required|exists:settings,id',
             'editDataInizio' => 'required|date',
             'editDataFine' => 'nullable|date|after_or_equal:editDataInizio',
+            'editStaffId' => 'required|exists:staff,id_personale',
         ]);
         
         try {
             $expiration = Expiration::find($this->editId);
             
             if (!$expiration) {
-                $this->dispatch('showError', message: 'Scadenza non trovata');
+                session()->flash('error', 'Scadenza non trovata');
                 return;
             }
             
@@ -380,8 +514,9 @@ class StaffExpirationTable extends Component
                 'data_fine' => $this->editDataFine,
                 'subtitolo' => $this->editQualifica,
                 'note' => $this->editNote,
+                'id_references' => $this->editStaffId,
+                'table_references' => Expiration::TABLE_STAFF,
                 'updated_by' => Auth::guard('admin')->id(),
-                'updated_at' => now()
             ];
             
             if ($this->editOwnershipId) {
@@ -395,11 +530,13 @@ class StaffExpirationTable extends Component
             $expiration->update($data);
             
             $this->closeEditModal();
-            $this->dispatch('showSuccess', message: 'Scadenza aggiornata con successo!');
+            session()->flash('success', 'Scadenza aggiornata con successo!');
             $this->resetPage();
             
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore durante l\'aggiornamento: ' . $e->getMessage());
+            session()->flash('error', 'Errore durante l\'aggiornamento: ' . $e->getMessage());
         }
     }
     
@@ -423,13 +560,10 @@ class StaffExpirationTable extends Component
         $query = Expiration::query()
             ->where('table_references', Expiration::TABLE_STAFF);
 
-        // Se viene passato uno staffId specifico, filtra per quello staff
         if ($this->staffId) {
             $query->where('id_references', $this->staffId);
         }
 
-        // FILTRO DATA SCADENZA - Applicato SOLO se non c'è un filtro stato
-        // Se c'è un filtro stato, il filtro data viene ignorato per mostrare TUTTE le scadenze
         if (empty($this->statusFilter)) {
             if (!empty($this->dateFrom) && !empty($this->dateTo)) {
                 $query->whereBetween('data_fine', [$this->dateFrom, $this->dateTo]);
@@ -453,7 +587,6 @@ class StaffExpirationTable extends Component
             $query->where('id_settings', $this->tipologiaFilter);
         }
 
-        // FILTRO STATO - Questo filtra sempre, indipendentemente dal filtro data
         if ($this->statusFilter !== '') {
             if ($this->statusFilter === 'active') {
                 $query->whereNull('deleted_at')
@@ -492,7 +625,7 @@ class StaffExpirationTable extends Component
                 'updatedBy'
             ])->find($id);            
             if (!$expiration) {
-                $this->dispatch('showError', message: 'Scadenza non trovata');
+                session()->flash('error', 'Scadenza non trovata');
                 return;
             }
             
@@ -500,7 +633,7 @@ class StaffExpirationTable extends Component
             $this->showViewModal = true;
             
         } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore nel caricamento: ' . $e->getMessage());
+            session()->flash('error', 'Errore nel caricamento: ' . $e->getMessage());
         }
     }
     
@@ -526,14 +659,11 @@ class StaffExpirationTable extends Component
         $this->search = '';
         $this->tipologiaFilter = '';
         $this->statusFilter = '';
-        // Resetta al mese corrente
         $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
         $this->dateTo = Carbon::now()->endOfMonth()->format('Y-m-d');
         $this->sortField = 'data_fine';
         $this->sortDirection = 'desc';
         $this->resetPage();
-        
-        // Notifica al componente DateRangeFilter di resettarsi al mese corrente
         $this->dispatch('resetDates');
     }
     

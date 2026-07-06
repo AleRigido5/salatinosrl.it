@@ -1,15 +1,18 @@
 <?php
-// app/Models/Expiration.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Expiration extends Model
 {
+    use HasFactory, SoftDeletes;
+
     protected $table = 'expiration';
     protected $primaryKey = 'id';
+    protected $dates = ['deleted_at'];
 
     protected $fillable = [
         'id_ownership',
@@ -48,9 +51,16 @@ class Expiration extends Model
     
     const TYPE_ASSUNZIONE = 'Assunzione';
     const TYPE_VISITA_MEDICA = 'Visita medica';
+    const TYPE_CONTRATTO = 'Contratto';
+    const TYPE_CORSO_FORMATIVO = 'Corso formativo';
+    const TYPE_PATENTE = 'Patente';
+    const TYPE_ALTRO = 'Altro';
     
     // ==================== RELAZIONI ====================
     
+    /**
+     * Relazione con il setting (tipologia scadenza)
+     */
     public function setting()
     {
         return $this->belongsTo(Setting::class, 'id_settings', 'id');
@@ -76,7 +86,8 @@ class Expiration extends Model
      */
     public function staff()
     {
-        return $this->belongsTo(Staff::class, 'id_references', 'id_personale');
+        return $this->belongsTo(Staff::class, 'id_references', 'id_personale')
+            ->where('table_references', self::TABLE_STAFF);
     }
     
     /**
@@ -148,24 +159,32 @@ class Expiration extends Model
 
     // ==================== HELPER PER OTTENERE L'ENTITÀ ASSOCIATA ====================
     
+    /**
+     * Ottiene l'entità associata alla scadenza (Staff, Veicolo, Entity, Ownership)
+     */
     public function getLinkedEntityAttribute()
     {
+        // Controllo STAFF
         if ($this->table_references === self::TABLE_STAFF && $this->id_references) {
             return Staff::find($this->id_references);
         }
         
+        // Controllo VEHICLE
         if ($this->table_references === self::TABLE_VEHICLE) {
             return $this->vehicles;
         }
         
+        // Controllo ENTITY
         if ($this->table_references === self::TABLE_ENTITY && $this->id_references) {
             return Entity::find($this->id_references);
         }
         
+        // Controllo ENTITY legacy
         if ($this->id_entities) {
             return $this->entityLegacy;
         }
         
+        // Controllo OWNERSHIP legacy
         if ($this->id_ownership) {
             return $this->ownershipLegacy;
         }
@@ -173,8 +192,21 @@ class Expiration extends Model
         return null;
     }
     
+    /**
+     * Ottiene il nome dell'entità associata
+     */
     public function getLinkedEntityNameAttribute()
     {
+        // Controllo STAFF
+        if ($this->table_references === self::TABLE_STAFF && $this->id_references) {
+            $staff = Staff::find($this->id_references);
+            if ($staff) {
+                return $staff->full_name;
+            }
+            return '-';
+        }
+        
+        // Controllo VEHICLE
         if ($this->table_references === self::TABLE_VEHICLE) {
             $vehicles = $this->vehicles;
             if ($vehicles && $vehicles->count() > 0) {
@@ -187,27 +219,39 @@ class Expiration extends Model
             return '-';
         }
         
+        // Controllo ENTITY o altri
         $entity = $this->getLinkedEntityAttribute();
         
         if (!$entity) {
             return '-';
         }
         
+        // Per Staff
         if (isset($entity->full_name)) {
             return $entity->full_name;
         }
         
+        // Per Entity
         if (isset($entity->ragione_sociale)) {
             return $entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome);
         }
         
+        // Per Ownership
         if (isset($entity->RagSocialePr)) {
             return $entity->RagSocialePr;
+        }
+        
+        // Per Vehicles
+        if (isset($entity->targa)) {
+            return $entity->targa ?: ($entity->marca . ' ' . $entity->modello);
         }
         
         return '-';
     }
     
+    /**
+     * Ottiene il tipo dell'entità associata
+     */
     public function getLinkedEntityTypeAttribute()
     {
         if ($this->table_references === self::TABLE_STAFF) {
@@ -240,6 +284,31 @@ class Expiration extends Model
         }
         
         return 'N/D';
+    }
+
+    /**
+     * Ottiene il nome dello staff associato (se è una scadenza staff)
+     */
+    public function getStaffNameAttribute()
+    {
+        if ($this->table_references === self::TABLE_STAFF && $this->id_references) {
+            $staff = Staff::find($this->id_references);
+            if ($staff) {
+                return $staff->full_name;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Ottiene l'ID dello staff associato (se è una scadenza staff)
+     */
+    public function getStaffIdAttribute()
+    {
+        if ($this->table_references === self::TABLE_STAFF && $this->id_references) {
+            return $this->id_references;
+        }
+        return null;
     }
 
     // ==================== HELPER PER SCADENZE STAFF ====================
@@ -331,9 +400,6 @@ class Expiration extends Model
         });
     }
     
-    /**
-     * Scope per filtrare scadenze STAFF per tipo
-     */
     public function scopeForStaffByType($query, $staffId, $titolo)
     {
         return $query->forStaff($staffId)
@@ -350,25 +416,16 @@ class Expiration extends Model
         });
     }
     
-    /**
-     * Scope per scadenze STAFF (esclude legacy)
-     */
     public function scopeStaffExpirations($query)
     {
         return $query->where('table_references', self::TABLE_STAFF);
     }
     
-    /**
-     * Scope per Assunzione
-     */
     public function scopeAssunzione($query)
     {
         return $query->where('titolo', self::TYPE_ASSUNZIONE);
     }
     
-    /**
-     * Scope per Visita Medica
-     */
     public function scopeVisitaMedica($query)
     {
         return $query->where('titolo', self::TYPE_VISITA_MEDICA);
@@ -387,11 +444,15 @@ class Expiration extends Model
             return 'Disattivo';
         }
         
-        if ($this->data_fine && $this->data_fine < now()) {
+        if (!$this->data_fine) {
+            return 'Nessuna scadenza';
+        }
+        
+        if ($this->data_fine < now()) {
             return 'Scaduto';
         }
         
-        if ($this->data_fine && $this->data_fine <= now()->addDays(30)) {
+        if ($this->data_fine <= now()->addDays(30)) {
             return 'In scadenza';
         }
         
@@ -400,9 +461,9 @@ class Expiration extends Model
 
     public function getStatusBadgeAttribute()
     {
-        // if ($this->trashed()) {
-        //     return '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">Disattivo</span>';
-        // }
+        if ($this->trashed()) {
+            return '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">Disattivo</span>';
+        }
         
         if ($this->data_fine && $this->data_fine < now()) {
             return '<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Scaduto</span>';
@@ -410,6 +471,10 @@ class Expiration extends Model
         
         if ($this->data_fine && $this->data_fine <= now()->addDays(30)) {
             return '<span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">In scadenza</span>';
+        }
+        
+        if (!$this->data_fine) {
+            return '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">Nessuna scadenza</span>';
         }
         
         return '<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Attivo</span>';
@@ -507,8 +572,24 @@ class Expiration extends Model
                     </div>';
         }
         
+        if ($daysLeft && $daysLeft > 30) {
+            return '<div class="flex flex-col">
+                        <span class="text-sm font-mono text-green-600">' . $formattedDate . '</span>
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-1">
+                            Scade tra ' . $daysLeft . ' gg
+                        </span>
+                    </div>';
+        }
+        
         return '<div class="flex flex-col">
                     <span class="text-sm font-mono text-gray-700">' . $formattedDate . '</span>
                 </div>';
+    }
+
+    // ==================== MUTATOR ====================
+    
+    public function setDataFineAttribute($value)
+    {
+        $this->attributes['data_fine'] = $value ?: null;
     }
 }

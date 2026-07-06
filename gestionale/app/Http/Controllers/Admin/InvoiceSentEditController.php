@@ -199,12 +199,12 @@ class InvoiceSentEditController extends Controller
                     'data_invoice' => 'required|date',
                     'selected_customer_id' => 'required|exists:entities,id_cliente',
                     'n_invoice_ext' => 'nullable|string|max:100',
-                    'importo_totale' => 'numeric|min:0',
+                    'importo_totale' => 'numeric',
                     'rows.*.code' => 'nullable|string',
-                    'rows.*.quantity' => 'required|numeric|min:0',
-                    'rows.*.unit_price' => 'required|numeric|min:0',
+                    'rows.*.quantity' => 'required|numeric',
+                    'rows.*.unit_price' => 'required|numeric',
                     'payments' => 'array|nullable',
-                    'payments.*.amount' => 'numeric|min:0',
+                    'payments.*.amount' => 'numeric',
                 ]);
             }
             

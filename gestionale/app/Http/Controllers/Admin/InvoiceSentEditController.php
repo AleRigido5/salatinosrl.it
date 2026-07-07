@@ -13,6 +13,7 @@ use App\Models\Entity;
 use App\Models\CostCenter;
 use App\Models\Service;
 use App\Models\UnitaMisura;
+use App\Models\VatRate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -34,8 +35,8 @@ class InvoiceSentEditController extends Controller
         $paymentMethods = config('gestionale.modalita_pagamento', []);
         $unitMeasures = UnitaMisura::where('valid', 1)->orderBy('ordinamento')->get();
         
-        $vatRates = DB::table('vat_rates')
-            ->where('is_active', 1)
+        // Carica aliquote IVA
+        $vatRates = VatRate::where('is_active', 1)
             ->orderBy('rate', 'desc')
             ->orderBy('sdi_nature')
             ->get()
@@ -75,8 +76,11 @@ class InvoiceSentEditController extends Controller
         $rows = [];
         $costCenterIds = [];
         $serviceIds = [];
+        $totalTaxable = 0;
+        $totalVat = 0;
         
         foreach ($invoiceRows as $index => $row) {
+            // Calcola l'aliquota IVA in percentuale
             $vatRate = $row->vat_rate / 100;
             
             // Trova l'IVA corretta
@@ -88,6 +92,13 @@ class InvoiceSentEditController extends Controller
                 $vatInfo = collect($vatRates)->firstWhere('rate', $vatRate);
             }
             
+            // Calcola l'importo IVA
+            $vatAmount = $row->total * $vatRate;
+            
+            // Accumula totali
+            $totalTaxable += $row->total;
+            $totalVat += $vatAmount;
+            
             $rows[] = [
                 'id' => $row->id,
                 'code' => $row->code ?? '',
@@ -96,14 +107,14 @@ class InvoiceSentEditController extends Controller
                 'unit_price' => (float)$row->unit_price,
                 'id_unit_measure' => $row->id_unit_measure ?? 1,
                 'discount_percentage' => (float)$row->discount_percentage,
-                'vat_rate_id' => $row->vat_rate_id,
+                'vat_rate_id' => $row->vat_rate_id, // IMPORTANTE: ID IVA
                 'vat_rate' => $vatRate,
                 'vat_sdi_nature' => $vatInfo['sdi_nature'] ?? '',
                 'vat_description' => $vatInfo['description'] ?? '',
                 'id_cost_center' => $row->id_cost_center,
                 'id_service' => $row->id_service,
                 'taxable_amount' => (float)$row->total,
-                'vat_amount' => (float)$row->total * $vatRate,
+                'vat_amount' => $vatAmount,
             ];
             
             if ($row->id_cost_center) {
@@ -129,7 +140,7 @@ class InvoiceSentEditController extends Controller
                 ->toArray();
         }
         
-        // Carica pagamenti (senza stato)
+        // Carica pagamenti
         $payments = DB::table('invoice_payments')
             ->where('payable_id', $id)
             ->where('payable_type', InvoiceSent::class)
@@ -144,10 +155,8 @@ class InvoiceSentEditController extends Controller
                 ];
             })->toArray();
         
-        // Calcola totali e riepilogo IVA
+        // Calcola riepilogo IVA
         $vatSummary = $this->calculateVatSummary($rows);
-        $totalTaxable = array_sum(array_column($rows, 'taxable_amount'));
-        $totalVat = array_sum(array_column($rows, 'vat_amount'));
         $totalDiscount = array_sum(array_map(function($row) {
             return ($row['quantity'] * $row['unit_price']) * ($row['discount_percentage'] / 100);
         }, $rows));
@@ -199,12 +208,13 @@ class InvoiceSentEditController extends Controller
                     'data_invoice' => 'required|date',
                     'selected_customer_id' => 'required|exists:entities,id_cliente',
                     'n_invoice_ext' => 'nullable|string|max:100',
-                    'importo_totale' => 'numeric',
+                    'importo_totale' => 'numeric|min:0',
                     'rows.*.code' => 'nullable|string',
-                    'rows.*.quantity' => 'required|numeric',
-                    'rows.*.unit_price' => 'required|numeric',
+                    'rows.*.quantity' => 'required|numeric|min:0.001',
+                    'rows.*.unit_price' => 'required|numeric|min:0',
+                    'rows.*.vat_rate_id' => 'nullable|exists:vat_rates,id',
                     'payments' => 'array|nullable',
-                    'payments.*.amount' => 'numeric',
+                    'payments.*.amount' => 'numeric|min:0',
                 ]);
             }
             
@@ -231,6 +241,8 @@ class InvoiceSentEditController extends Controller
             // Aggiorna le righe
             $existingRowIds = [];
             $rows = $request->input('rows', []);
+            $totalTaxable = 0;
+            $totalVat = 0;
             
             foreach ($rows as $row) {
                 // Salta le righe marcate per eliminazione
@@ -241,26 +253,37 @@ class InvoiceSentEditController extends Controller
                     continue;
                 }
 
+                // Calcola il totale imponibile
+                $quantity = floatval(str_replace(',', '.', $row['quantity'] ?? 1));
+                $unitPrice = floatval(str_replace(',', '.', $row['unit_price'] ?? 0));
+                $discount = floatval(str_replace(',', '.', $row['discount_percentage'] ?? 0));
+                $grossAmount = $quantity * $unitPrice;
+                $discountAmount = $grossAmount * ($discount / 100);
+                $taxable = $grossAmount - $discountAmount;
+                
+                // Ottieni l'aliquota IVA
+                $vatRate = floatval($row['vat_rate'] ?? 0);
+                $vatAmount = $taxable * $vatRate;
+                
+                // Accumula totali
+                $totalTaxable += $taxable;
+                $totalVat += $vatAmount;
+
                 // Prepara i dati della riga
                 $rowData = [
                     'code' => $row['code'] ?? '',
                     'description' => $row['description'],
-                    'quantity' => floatval(str_replace(',', '.', $row['quantity'] ?? 1)),
-                    'unit_price' => floatval(str_replace(',', '.', $row['unit_price'] ?? 0)),
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
                     'id_unit_measure' => intval($row['id_unit_measure'] ?? 1),
-                    'discount_percentage' => floatval(str_replace(',', '.', $row['discount_percentage'] ?? 0)),
+                    'discount_percentage' => $discount,
                     'id_cost_center' => !empty($row['id_cost_center']) ? $row['id_cost_center'] : null,
                     'id_service' => !empty($row['id_service']) ? $row['id_service'] : null,
+                    'vat_rate_id' => $row['vat_rate_id'] ?? null,
+                    'vat_rate' => $vatRate * 100, // salva come percentuale
+                    'total' => $taxable,
                 ];
                 
-                // Se la fattura è manuale, aggiorna anche i dati IVA
-                if ($invoice->is_manual ?? false) {
-                    $vatRate = floatval($row['vat_rate'] ?? 0);
-                    $rowData['vat_rate'] = $vatRate * 100;
-                    $rowData['vat_rate_id'] = $row['vat_rate_id'] ?? null;
-                    $rowData['total'] = floatval(str_replace(',', '.', $row['taxable_amount'] ?? 0));
-                }
-
                 if (isset($row['id']) && $row['id']) {
                     InvoiceRow::where('id', $row['id'])->update($rowData);
                     $existingRowIds[] = $row['id'];
@@ -273,7 +296,7 @@ class InvoiceSentEditController extends Controller
                 }
             }
 
-            // Elimina righe rimosse (solo per fatture manuali)
+            // Elimina righe rimosse
             if ($invoice->is_manual ?? false) {
                 InvoiceRow::where('document_id', $id)
                     ->where('document_type', 'invoice_sent')
@@ -281,7 +304,7 @@ class InvoiceSentEditController extends Controller
                     ->delete();
             }
 
-            // Aggiorna pagamenti (solo per fatture manuali)
+            // Aggiorna pagamenti
             if ($invoice->is_manual ?? false) {
                 $existingPaymentIds = [];
                 $payments = $request->input('payments', []);
@@ -325,25 +348,29 @@ class InvoiceSentEditController extends Controller
                     ->where('vatable_type', InvoiceSent::class)
                     ->delete();
 
-                if ($request->has('vat_summary') && $request->vat_summary) {
-                    $vatSummary = json_decode($request->vat_summary, true);
-                    if (is_array($vatSummary)) {
-                        foreach ($vatSummary as $vat) {
-                            if (isset($vat['rate']) && isset($vat['taxable_amount']) && isset($vat['vat_amount'])) {
-                                DB::table('invoice_vat_summaries')->insert([
-                                    'vatable_id' => $id,
-                                    'vatable_type' => InvoiceSent::class,
-                                    'tax_rate' => floatval($vat['rate']) * 100,
-                                    'taxable_amount' => floatval($vat['taxable_amount']),
-                                    'tax_amount' => floatval($vat['vat_amount']),
-                                    'esigibilita_iva' => 'I',
-                                    'created_at' => now(),
-                                    'updated_at' => now(),
-                                ]);
-                            }
-                        }
-                    }
+                // Ricalcola il riepilogo IVA
+                $updatedRows = InvoiceRow::where('document_id', $id)
+                    ->where('document_type', 'invoice_sent')
+                    ->get();
+                
+                $vatSummary = $this->calculateVatSummaryFromRows($updatedRows);
+                
+                foreach ($vatSummary as $vat) {
+                    DB::table('invoice_vat_summaries')->insert([
+                        'vatable_id' => $id,
+                        'vatable_type' => InvoiceSent::class,
+                        'tax_rate' => floatval($vat['rate']) * 100,
+                        'taxable_amount' => floatval($vat['taxable_amount']),
+                        'tax_amount' => floatval($vat['vat_amount']),
+                        'esigibilita_iva' => 'I',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
                 }
+                
+                // Aggiorna l'importo totale della fattura
+                $invoice->importo_totale = $totalTaxable + $totalVat;
+                $invoice->save();
             }
 
             DB::commit();
@@ -382,6 +409,29 @@ class InvoiceSentEditController extends Controller
             }
             $vatSummary[$key]['taxable_amount'] += floatval($row['taxable_amount'] ?? 0);
             $vatSummary[$key]['vat_amount'] += floatval($row['vat_amount'] ?? 0);
+        }
+        return array_values($vatSummary);
+    }
+
+    private function calculateVatSummaryFromRows($rows)
+    {
+        $vatSummary = [];
+        foreach ($rows as $row) {
+            $rate = $row->vat_rate / 100;
+            $key = $rate . '|default';
+            
+            if (!isset($vatSummary[$key])) {
+                $vatSummary[$key] = [
+                    'rate' => $rate,
+                    'rate_percent' => $rate * 100,
+                    'taxable_amount' => 0,
+                    'vat_amount' => 0,
+                    'description' => 'IVA ' . ($rate * 100) . '%',
+                    'nature_code' => null,
+                ];
+            }
+            $vatSummary[$key]['taxable_amount'] += floatval($row->total);
+            $vatSummary[$key]['vat_amount'] += floatval($row->total * $rate);
         }
         return array_values($vatSummary);
     }
@@ -429,24 +479,40 @@ class InvoiceSentEditController extends Controller
     public function searchServices(Request $request)
     {
         $search = $request->get('q', '');
+        
         if (strlen($search) < 2) {
             return response()->json([]);
         }
 
-        $results = Service::where('Stato', 1)
-            ->where('Titolo', 'like', '%' . $search . '%')
-            ->orderBy('Titolo')
-            ->limit(10)
-            ->get()
-            ->map(fn($s) => [
-                'id' => $s->id,
-                'name' => $s->Titolo,
-                'descr_fattura' => $s->Descr_fattura ?? '',
-                'prezzo_un' => $s->Prezzo_un ?? 0,
-                'vat_rate_id' => $s->vat_rate_id ?? null,
-            ]);
+        try {
+            $results = Service::where('Stato', 1)
+                ->where(function($query) use ($search) {
+                    $query->where('Titolo', 'like', '%' . $search . '%')
+                          ->orWhere('Descrizione', 'like', '%' . $search . '%')
+                          ->orWhere('Descr_fattura', 'like', '%' . $search . '%');
+                })
+                ->orderBy('Titolo')
+                ->limit(10)
+                ->get()
+                ->map(function($service) {
+                    return [
+                        'id' => $service->id,
+                        'name' => $service->Titolo,
+                        'description' => $service->Descrizione ?? '',
+                        'descr_fattura' => $service->Descr_fattura ?? '',
+                        'prezzo_un' => $service->Prezzo_un ?? 0,
+                        'vat_rate_id' => $service->id_vat_rate ?? null,
+                        'unita_misura_id' => $service->UnitaMisura_id_unita ?? null,
+                        'category_id' => $service->id_categories ?? null,
+                    ];
+                });
 
-        return response()->json($results);
+            return response()->json($results);
+            
+        } catch (\Exception $e) {
+            Log::error('Error in searchServices: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     public function getSeries(Request $request)

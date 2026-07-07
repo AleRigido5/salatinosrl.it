@@ -1,15 +1,3 @@
-{{-- @extends('admin.layouts.app')
-
-@section('title', 'Modifica Fattura di Vendita')
-
-@section('content')
-    <div>
-        @livewire('admin.invoice-sent-edit', ['invoiceId' => $id])
-    </div>
-@endsection --}}
-
-
-
 {{-- resources/views/admin/invoice-sent/edit.blade.php --}}
 
 @extends('admin.layouts.app')
@@ -21,19 +9,10 @@
     <div class="mb-6 flex justify-between items-center">
         <h1 class="text-2xl font-bold text-gray-800">
             <i class="fas fa-edit text-lime-500 mr-2"></i> Modifica Fattura di Vendita
-            @if($is_manual)
-                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm ml-3">
-                    <i class="fas fa-hand-paper mr-1"></i> Fattura Manuale
-                </span>
-            @else
-                <span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm ml-3">
-                    <i class="fas fa-file-import mr-1"></i> Importata da XML
-                </span>
-            @endif
         </h1>
         <a href="{{ route('admin.invoices-sent.index') }}" 
            class="bg-gray-600 hover:bg-gray-900 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
-            <i class="fas fa-arrow-left mr-2"></i> Torna alla lista
+            <i class="fas fa-arrow-left"></i>
         </a>
     </div>
 
@@ -52,7 +31,7 @@
     @if(!$is_manual)
         <div class="mb-4 p-4 bg-yellow-50 border border-yellow-300 text-yellow-700 rounded-lg">
             <i class="fas fa-info-circle mr-2"></i>
-            <strong>Nota:</strong> Questa fattura è stata importata da XML. Puoi modificare solo la causale, i centri di costo e i mezzi associati alle righe.
+            <strong>Nota:</strong> Questa fattura è stata importata da XML. Puoi modificare solo la causale, i centri di costo e i servizi associati alle righe.
         </div>
     @endif
 
@@ -282,7 +261,7 @@
                             <th class="px-2 py-2 text-left text-xs font-medium" style="width:120px;">Aliquota IVA</th>
                             <th class="px-2 py-2 text-right text-xs font-medium" style="width:110px;">Imponibile</th>
                             <th class="px-2 py-2 text-left text-xs font-medium" style="width:160px;">Centro Costo</th>
-                            <th class="px-2 py-2 text-left text-xs font-medium" style="width:160px;">Mezzo</th>
+                            <th class="px-2 py-2 text-left text-xs font-medium" style="width:160px;">Servizio</th>
                             <th class="px-2 py-2 text-center text-xs font-medium" style="width:50px;"></th>
                         </tr>
                     </thead>
@@ -322,7 +301,6 @@
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right row-discount"
                                     {{ !$is_manual ? 'readonly' : '' }}>
                             </td>
-                            <!-- RIGHE FATTURA - PARTE DELL'ALIQUOTA IVA -->
                             <td class="px-2 py-1" style="width:120px;">
                                 <select name="rows[{{ $index }}][vat_rate_id]" 
                                         class="w-full px-1 py-1 text-sm border rounded-md row-vat"
@@ -330,7 +308,6 @@
                                     <option value="">Seleziona IVA</option>
                                     @foreach($vatRates as $vat)
                                         @php
-                                            // $vat è un array, non un oggetto
                                             $vatId = $vat['id'] ?? '';
                                             $vatRate = $vat['rate'] ?? 0;
                                             $vatDescription = $vat['description'] ?? '';
@@ -364,14 +341,14 @@
                                 <div class="cost-center-dropdown hidden absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"></div>
                             </td>
                             <td class="px-2 py-1" style="width:160px;">
-                                <input type="text" name="rows[{{ $index }}][vehicle_search]" 
-                                    placeholder="Cerca mezzo..." 
-                                    value="{{ old("rows.{$index}.vehicle_search", isset($services[$row['id_service']]) ? $services[$row['id_service']] : '') }}"
-                                    class="w-full px-1 py-1 text-sm border rounded-md vehicle-search" 
+                                <input type="text" name="rows[{{ $index }}][service_search]" 
+                                    placeholder="Cerca servizio..." 
+                                    value="{{ old("rows.{$index}.service_search", isset($services[$row['id_service']]) ? $services[$row['id_service']] : '') }}"
+                                    class="w-full px-1 py-1 text-sm border rounded-md service-search" 
                                     data-index="{{ $index }}" autocomplete="off"
                                     {{ !$is_manual ? 'readonly' : '' }}>
-                                <input type="hidden" name="rows[{{ $index }}][id_service]" value="{{ $row['id_service'] ?? '' }}" class="vehicle-id">
-                                <div class="vehicle-dropdown hidden absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"></div>
+                                <input type="hidden" name="rows[{{ $index }}][id_service]" value="{{ $row['id_service'] ?? '' }}" class="service-id">
+                                <div class="service-dropdown hidden absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"></div>
                             </td>
                             <td class="px-2 py-1 text-center" style="width:50px;">
                                 @if($is_manual)
@@ -595,7 +572,7 @@
         border: 1px solid #e5e7eb;
     }
     
-    .cost-center-dropdown, .vehicle-dropdown {
+    .cost-center-dropdown, .service-dropdown {
         position: absolute;
         z-index: 9999;
         background: white;
@@ -608,14 +585,14 @@
         margin-top: 2px;
     }
     
-    .cost-center-dropdown div, .vehicle-dropdown div {
+    .cost-center-dropdown div, .service-dropdown div {
         padding: 0.5rem 0.75rem;
         cursor: pointer;
         transition: background 0.15s;
         font-size: 0.875rem;
     }
     
-    .cost-center-dropdown div:hover, .vehicle-dropdown div:hover {
+    .cost-center-dropdown div:hover, .service-dropdown div:hover {
         background-color: #f3f4f6;
     }
     
@@ -739,9 +716,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="cost-center-dropdown hidden absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"></div>
                 </td>
                 <td class="px-2 py-1" style="width:160px;">
-                    <input type="text" placeholder="Cerca mezzo..." class="w-full px-1 py-1 text-sm border rounded-md vehicle-search" data-index="${index}" autocomplete="off">
-                    <input type="hidden" name="rows[${index}][id_service]" value="${row.id_service || ''}" class="vehicle-id">
-                    <div class="vehicle-dropdown hidden absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"></div>
+                    <input type="text" placeholder="Cerca servizio..." class="w-full px-1 py-1 text-sm border rounded-md service-search" data-index="${index}" autocomplete="off">
+                    <input type="hidden" name="rows[${index}][id_service]" value="${row.id_service || ''}" class="service-id">
+                    <div class="service-dropdown hidden absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"></div>
                 </td>
                 <td class="px-2 py-1 text-center" style="width:50px;">
                     <button type="button" class="remove-row-btn text-red-500 hover:text-red-700 transition-colors" data-index="${index}"><i class="fas fa-trash-alt"></i></button>
@@ -763,7 +740,7 @@ document.addEventListener('DOMContentLoaded', function() {
         rowsContainer.appendChild(rowElement);
         
         initCostCenterAutocomplete(rowIndex);
-        initVehicleAutocomplete(rowIndex);
+        initServiceAutocomplete(rowIndex);
         
         rowIndex++;
         calculateAllTotals();
@@ -1071,64 +1048,155 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // =============================================
-    // AUTOCOMPLETE MEZZI (Vehicles)
+    // AUTOCOMPLETE SERVIZI - VERSIONE CORRETTA
     // =============================================
-    function initVehicleAutocomplete(index) {
+    function initServiceAutocomplete(index) {
         const row = rowsContainer.querySelector(`tr[data-index="${index}"]`);
-        if (!row) return;
+        if (!row) {
+            console.log('❌ Row not found for index:', index);
+            return;
+        }
         
-        const searchInput = row.querySelector('.vehicle-search');
-        const dropdown = row.querySelector('.vehicle-dropdown');
-        const hiddenInput = row.querySelector('.vehicle-id');
+        const searchInput = row.querySelector('.service-search');
+        const dropdown = row.querySelector('.service-dropdown');
+        const hiddenInput = row.querySelector('.service-id');
         
-        if (!searchInput) return;
+        if (!searchInput) {
+            console.log('❌ Service search input not found for index:', index);
+            return;
+        }
+        
+        console.log('✅ Initializing service autocomplete for index:', index);
         
         let timeout = null;
         
-        searchInput.addEventListener('input', function() {
+        // Funzione per mostrare il dropdown
+        function showDropdown() {
+            dropdown.classList.remove('hidden');
+            dropdown.style.display = 'block';
+        }
+        
+        // Funzione per nascondere il dropdown
+        function hideDropdown() {
+            setTimeout(() => {
+                dropdown.classList.add('hidden');
+                dropdown.style.display = 'none';
+            }, 200);
+        }
+        
+        searchInput.addEventListener('input', function(e) {
             const query = this.value.trim();
+            console.log('🔍 Service search input:', query);
             
             if (query.length < 2) {
                 dropdown.classList.add('hidden');
+                dropdown.style.display = 'none';
                 return;
             }
             
             clearTimeout(timeout);
             timeout = setTimeout(() => {
-                fetch('/admin/vehicles/api/search?q=' + encodeURIComponent(query))
-                    .then(r => r.json())
+                // URL CORRETTO per la ricerca servizi
+                const url = '/admin/invoices-sent/api/search-services?q=' + encodeURIComponent(query);
+                console.log('📡 Fetching services from:', url);
+                
+                fetch(url)
+                    .then(response => {
+                        console.log('📡 Response status:', response.status);
+                        if (!response.ok) {
+                            throw new Error('HTTP error! status: ' + response.status);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
+                        console.log('📦 Services data received:', data);
                         dropdown.innerHTML = '';
-                        if (data.length === 0) {
-                            dropdown.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun mezzo trovato</div>';
+                        
+                        if (!data || data.length === 0) {
+                            dropdown.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun servizio trovato</div>';
                         } else {
                             data.forEach(item => {
                                 const div = document.createElement('div');
                                 div.className = 'px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0';
-                                div.innerHTML = `
-                                    <div class="font-medium text-gray-800">${item.name}</div>
-                                    ${item.plate ? `<div class="text-xs text-gray-500">Targa: ${item.plate}</div>` : ''}
-                                `;
+                                
+                                let html = `<div class="font-medium text-gray-800">${item.name}</div>`;
+                                if (item.descr_fattura) {
+                                    html += `<div class="text-xs text-gray-500">${item.descr_fattura}</div>`;
+                                }
+                                if (item.prezzo_un && parseFloat(item.prezzo_un) > 0) {
+                                    html += `<div class="text-xs text-green-600 font-semibold">€ ${parseFloat(item.prezzo_un).toFixed(3)}</div>`;
+                                }
+                                div.innerHTML = html;
+                                
                                 div.addEventListener('click', function() {
+                                    console.log('✅ Selected service:', item);
                                     searchInput.value = item.name;
                                     hiddenInput.value = item.id;
                                     dropdown.classList.add('hidden');
+                                    dropdown.style.display = 'none';
+                                    
+                                    // Aggiorna il prezzo unitario se presente
+                                    if (item.prezzo_un && parseFloat(item.prezzo_un) > 0) {
+                                        const unitPriceInput = row.querySelector('.row-unit-price');
+                                        if (unitPriceInput) {
+                                            unitPriceInput.value = parseFloat(item.prezzo_un).toFixed(3);
+                                            // Ricalcola il totale
+                                            const rowIndex = parseInt(row.dataset.index);
+                                            calculateRowTotal(rowIndex);
+                                        }
+                                    }
+                                    
+                                    // Aggiorna l'IVA se presente
+                                    if (item.vat_rate_id) {
+                                        const vatSelect = row.querySelector('.row-vat');
+                                        if (vatSelect) {
+                                            vatSelect.value = item.vat_rate_id;
+                                            // Ricalcola il totale
+                                            const rowIndex = parseInt(row.dataset.index);
+                                            calculateRowTotal(rowIndex);
+                                        }
+                                    }
+                                    
+                                    // Aggiorna la descrizione se presente
+                                    if (item.descr_fattura) {
+                                        const descTextarea = row.querySelector('.row-description');
+                                        if (descTextarea && !descTextarea.value.trim()) {
+                                            descTextarea.value = item.descr_fattura;
+                                        }
+                                    }
                                 });
+                                
                                 dropdown.appendChild(div);
                             });
                         }
-                        dropdown.classList.remove('hidden');
+                        
+                        showDropdown();
+                    })
+                    .catch(error => {
+                        console.error('❌ Error fetching services:', error);
+                        dropdown.innerHTML = '<div class="px-3 py-2 text-sm text-red-500 text-center">Errore nel caricamento dei servizi</div>';
+                        showDropdown();
                     });
             }, 300);
         });
         
         searchInput.addEventListener('blur', function() {
-            setTimeout(() => dropdown.classList.add('hidden'), 200);
+            hideDropdown();
         });
         
         searchInput.addEventListener('focus', function() {
-            if (this.value.trim().length >= 2) {
-                dropdown.classList.remove('hidden');
+            const query = this.value.trim();
+            if (query.length >= 2) {
+                // Trigger una ricerca quando l'input riceve focus
+                this.dispatchEvent(new Event('input'));
+            }
+        });
+        
+        // Gestione del tasto ESC per chiudere il dropdown
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                dropdown.classList.add('hidden');
+                dropdown.style.display = 'none';
             }
         });
     }
@@ -1378,7 +1446,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Inizializza autocomplete per le righe esistenti
     document.querySelectorAll('#rowsContainer tr').forEach((row, index) => {
         initCostCenterAutocomplete(index);
-        initVehicleAutocomplete(index);
+        initServiceAutocomplete(index);
     });
     
     // Calcola totali iniziali

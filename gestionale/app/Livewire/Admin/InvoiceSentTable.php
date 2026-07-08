@@ -1,5 +1,4 @@
 <?php
-// app/Livewire/Admin/InvoiceSentTable.php
 
 namespace App\Livewire\Admin;
 
@@ -64,6 +63,11 @@ class InvoiceSentTable extends Component
     public string $trashSortDirection = 'desc';
     public int $trashCount = 0;
 
+    // Statistiche
+    public string $statPeriod = 'monthly';
+    public Collection $statistics;
+    public string $periodDisplay = '';
+
     protected $listeners = [
         'dateRangeUpdated' => 'updateDateRange',
     ];
@@ -96,12 +100,13 @@ class InvoiceSentTable extends Component
             $this->sortDirection = $savedFilters['sort_direction'] ?? 'desc';
             $this->perPage = $savedFilters['per_page'] ?? 100;
         } else {
-            // SE NON CI SONO FILTRI SALVATI, IMPOSTA IL MESE CORRENTE DI DEFAULT
-            $this->dateFrom = date('Y-m-01'); // Primo giorno del mese corrente
-            $this->dateTo = date('Y-m-d');    // Oggi
+            $this->dateFrom = date('Y-m-01');
+            $this->dateTo = date('Y-m-d');
         }
         
         $this->updateTrashCount();
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function updateDateRange(array $data): void
@@ -109,12 +114,13 @@ class InvoiceSentTable extends Component
         $this->dateFrom = $data['date_from'] ?? '';
         $this->dateTo = $data['date_to'] ?? '';
         $this->resetPage();
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     // ==================== AUTOCOMPLETE PROPRIETÀ ====================
     public function updatedOwnershipSearch(): void
     {
-        // Se il campo è vuoto, resetta tutto
         if (empty(trim($this->ownershipSearch))) {
             $this->selectedOwnershipId = '';
             $this->selectedOwnershipName = '';
@@ -124,13 +130,11 @@ class InvoiceSentTable extends Component
             return;
         }
 
-        // Se il testo è uguale al nome selezionato, nascondi il dropdown
         if (!empty($this->selectedOwnershipId) && $this->ownershipSearch === $this->selectedOwnershipName) {
             $this->showOwnershipDropdown = false;
             return;
         }
 
-        // Se l'utente ha modificato il testo dopo aver selezionato, resetta la selezione
         if (!empty($this->selectedOwnershipId) && $this->ownershipSearch !== $this->selectedOwnershipName) {
             $this->selectedOwnershipId = '';
             $this->selectedOwnershipName = '';
@@ -161,9 +165,8 @@ class InvoiceSentTable extends Component
         $this->ownershipSearch = $name;
         $this->showOwnershipDropdown = false;
         $this->resetPage();
-        
-        // Forza l'aggiornamento della vista
-        $this->dispatch('ownershipSelected', ['id' => $id, 'name' => $name]);
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearOwnership(): void
@@ -174,18 +177,18 @@ class InvoiceSentTable extends Component
         $this->showOwnershipDropdown = false;
         $this->resetPage();
         $this->dispatch('clearOwnershipInput');
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     // ==================== AUTOCOMPLETE CLIENTE ====================
     public function updatedCustomerSearch(): void
     {
-        // Se il testo di ricerca è uguale al nome selezionato, nascondi il dropdown
         if (!empty($this->selectedCustomerId) && $this->customerSearch === $this->selectedCustomerName) {
             $this->showCustomerDropdown = false;
             return;
         }
 
-        // Se l'utente sta cancellando il testo, resetta la selezione
         if (empty($this->customerSearch)) {
             $this->selectedCustomerId = '';
             $this->selectedCustomerName = '';
@@ -195,7 +198,6 @@ class InvoiceSentTable extends Component
             return;
         }
 
-        // Se l'utente ha modificato il testo dopo aver selezionato, resetta la selezione
         if (!empty($this->selectedCustomerId) && $this->customerSearch !== $this->selectedCustomerName) {
             $this->selectedCustomerId = '';
             $this->selectedCustomerName = '';
@@ -229,6 +231,8 @@ class InvoiceSentTable extends Component
         $this->customerSearch = $name;
         $this->showCustomerDropdown = false;
         $this->resetPage();
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearCustomer(): void
@@ -238,18 +242,18 @@ class InvoiceSentTable extends Component
         $this->customerSearch = '';
         $this->resetPage();
         $this->dispatch('clearCustomerInput');
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     // ==================== AUTOCOMPLETE CENTRO DI COSTO ====================
     public function updatedCostCenterSearch(): void
     {
-        // Se il testo di ricerca è uguale al nome selezionato, nascondi il dropdown
         if (!empty($this->selectedCostCenterId) && $this->costCenterSearch === $this->selectedCostCenterName) {
             $this->showCostCenterDropdown = false;
             return;
         }
 
-        // Se l'utente sta cancellando il testo, resetta la selezione
         if (empty($this->costCenterSearch)) {
             $this->selectedCostCenterId = '';
             $this->selectedCostCenterName = '';
@@ -259,7 +263,6 @@ class InvoiceSentTable extends Component
             return;
         }
 
-        // Se l'utente ha modificato il testo dopo aver selezionato, resetta la selezione
         if (!empty($this->selectedCostCenterId) && $this->costCenterSearch !== $this->selectedCostCenterName) {
             $this->selectedCostCenterId = '';
             $this->selectedCostCenterName = '';
@@ -286,6 +289,8 @@ class InvoiceSentTable extends Component
         $this->costCenterSearch = $name;
         $this->showCostCenterDropdown = false;
         $this->resetPage();
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearCostCenter(): void
@@ -295,6 +300,122 @@ class InvoiceSentTable extends Component
         $this->costCenterSearch = '';
         $this->resetPage();
         $this->dispatch('clearCostCenterInput');
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
+    }
+
+    // ==================== STATISTICHE ====================
+    public function refreshStats(): void
+    {
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
+    }
+
+    public function updatedStatPeriod(): void
+    {
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
+    }
+
+    protected function calculateStatistics(): Collection
+    {
+        $query = InvoiceSent::query()
+            ->whereIn('status', ['approved', 'issued'])
+            ->with(['rows.service.category']) // Carica la relazione
+            ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
+            ->when($this->selectedCustomerId, fn($q) => $q->where('id_entities', $this->selectedCustomerId))
+            ->when($this->selectedCostCenterId, function($q) {
+                $q->whereHas('rows', fn($q2) => $q2->where('id_cost_center', $this->selectedCostCenterId));
+            });
+
+        $this->applyDateFilter($query);
+        
+        $invoices = $query->get();
+        
+        $stats = collect();
+        
+        foreach ($invoices as $invoice) {
+            foreach ($invoice->rows as $row) {
+                // CORREZIONE: usa 'valore' invece di 'Nome'
+                $categoryName = 'Non categorizzato';
+                
+                if ($row->service && $row->service->category) {
+                    // Il campo nella tabella settings si chiama 'valore'
+                    $categoryName = $row->service->category->valore ?? 'Non categorizzato';
+                }
+                
+                $existing = $stats->firstWhere('service_category', $categoryName);
+                
+                if ($existing) {
+                    $existing->total += $row->total;
+                    $existing->count += 1;
+                } else {
+                    $stats->push((object) [
+                        'service_category' => $categoryName,
+                        'total' => $row->total,
+                        'count' => 1,
+                    ]);
+                }
+            }
+        }
+        
+        return $stats->sortByDesc('total')->values();
+    }
+
+    protected function applyDateFilter($query): void
+    {
+        if ($this->dateFrom) {
+            $query->whereDate('data_invoice', '>=', $this->dateFrom);
+        }
+        if ($this->dateTo) {
+            $query->whereDate('data_invoice', '<=', $this->dateTo);
+        }
+        
+        if (empty($this->dateFrom) && empty($this->dateTo)) {
+            $now = now();
+            switch ($this->statPeriod) {
+                case 'monthly':
+                    $startDate = $now->copy()->startOfMonth();
+                    break;
+                case 'quarterly':
+                    $startDate = $now->copy()->subMonths(3)->startOfMonth();
+                    break;
+                case 'semestral':
+                    $startDate = $now->copy()->subMonths(6)->startOfMonth();
+                    break;
+                case 'yearly':
+                    $startDate = $now->copy()->subYear()->startOfMonth();
+                    break;
+                default:
+                    $startDate = $now->copy()->startOfMonth();
+            }
+            $query->whereDate('data_invoice', '>=', $startDate->format('Y-m-d'));
+            $query->whereDate('data_invoice', '<=', $now->format('Y-m-d'));
+        }
+    }
+
+    protected function getPeriodDisplay(): string
+    {
+        $from = $this->dateFrom ? date('d/m/Y', strtotime($this->dateFrom)) : '';
+        $to = $this->dateTo ? date('d/m/Y', strtotime($this->dateTo)) : '';
+        
+        if ($from && $to) {
+            return "Dal {$from} al {$to}";
+        }
+        
+        $now = now();
+        switch ($this->statPeriod) {
+            case 'monthly':
+                return "Mese corrente: " . $now->format('F Y');
+            case 'quarterly':
+                return "Ultimi 3 mesi: da " . $now->copy()->subMonths(3)->format('d/m/Y') . " al " . $now->format('d/m/Y');
+            case 'semestral':
+                return "Ultimi 6 mesi: da " . $now->copy()->subMonths(6)->format('d/m/Y') . " al " . $now->format('d/m/Y');
+            case 'yearly':
+                return "Ultimo anno: da " . $now->copy()->subYear()->format('d/m/Y') . " al " . $now->format('d/m/Y');
+            default:
+                return "Periodo selezionato";
+        }
     }
 
     // ==================== AGGIORNAMENTO STATO ====================
@@ -311,7 +432,6 @@ class InvoiceSentTable extends Component
             $invoice->status = $newStatus;
             $invoice->save();
 
-            // Aggiorna lo stato dei pagamenti associati
             if ($newStatus === 'issued') {
                 $invoice->payments()->update(['status' => 'issued']);
             }
@@ -320,13 +440,15 @@ class InvoiceSentTable extends Component
 
             $statusLabel = $newStatus === 'issued' ? 'Emessa' : 'Approvata';
             $this->dispatch('showSuccess', message: "Stato fattura aggiornato a '{$statusLabel}'");
+            
+            $this->statistics = $this->calculateStatistics();
+            $this->periodDisplay = $this->getPeriodDisplay();
 
         } catch (\Exception $e) {
             DB::rollBack();
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
-    
 
     // ==================== FILTRI E QUERY ====================
     public function sortBy(string $field): void
@@ -351,11 +473,12 @@ class InvoiceSentTable extends Component
         $this->clearCustomer();
         $this->clearCostCenter();
         
-        // RESETTA AL MESE CORRENTE
         $this->dateFrom = date('Y-m-01');
         $this->dateTo = date('Y-m-d');
         
         $this->resetPage();
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
         
         $this->dispatch('resetDates');
         $this->dispatch('resetAllFilters');
@@ -365,21 +488,32 @@ class InvoiceSentTable extends Component
     {
         $this->status = '';
         $this->resetPage();
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearTypeInvoice(): void
     {
         $this->type_invoice = '';
         $this->resetPage();
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
+    }
+
+    public function clearSearch(): void
+    {
+        $this->search = '';
+        $this->resetPage();
     }
 
     public function clearDates(): void
     {
-        // RESETTA AL MESE CORRENTE
         $this->dateFrom = date('Y-m-01');
         $this->dateTo = date('Y-m-d');
         $this->resetPage();
         $this->dispatch('resetDates');
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function getInvoicesProperty()
@@ -398,12 +532,11 @@ class InvoiceSentTable extends Component
             ->when($this->dateTo, fn($q) => $q->whereDate('data_invoice', '<=', $this->dateTo))
             ->orderBy($this->sortField, $this->sortDirection);
 
-        // Se non ci sono filtri di data, limita agli ultimi 6 mesi per performance
         if (empty($this->dateFrom) && empty($this->dateTo)) {
             $query->whereDate('data_invoice', '>=', now()->subMonths(6));
         }
 
-        if ($this->perPage == 100000) {
+        if ($this->perPage == 10000) {
             $results = $query->get();
             $page = \Illuminate\Pagination\Paginator::resolveCurrentPage();
             $perPage = $results->count();
@@ -420,7 +553,6 @@ class InvoiceSentTable extends Component
     }
 
     // ==================== NAVIGAZIONE CON FILTRI ====================
-
     public function editInvoice(int $id): mixed
     {
         session(['invoices_sent_filters' => [
@@ -467,72 +599,35 @@ class InvoiceSentTable extends Component
         $this->selectedInvoice = null;
     }
 
-    /**
-     * Genera l'URL per l'esportazione PDF con tutti i filtri attivi
-     */
+    // ==================== ESPORTAZIONI ====================
     public function getExportPdfUrl()
     {
         $params = [];
         
-        if ($this->dateFrom) {
-            $params['date_from'] = $this->dateFrom;
-        }
-        if ($this->dateTo) {
-            $params['date_to'] = $this->dateTo;
-        }
-        if ($this->selectedOwnershipId) {
-            $params['ownership_id'] = $this->selectedOwnershipId;
-        }
-        if ($this->selectedCustomerId) {
-            $params['customer_id'] = $this->selectedCustomerId;
-        }
-        if ($this->selectedCostCenterId) {
-            $params['cost_center_id'] = $this->selectedCostCenterId;
-        }
-        if ($this->status) {
-            $params['status'] = $this->status;
-        }
-        if ($this->type_invoice) {
-            $params['type_invoice'] = $this->type_invoice;
-        }
-        if ($this->search) {
-            $params['search'] = $this->search;
-        }
+        if ($this->dateFrom) $params['date_from'] = $this->dateFrom;
+        if ($this->dateTo) $params['date_to'] = $this->dateTo;
+        if ($this->selectedOwnershipId) $params['ownership_id'] = $this->selectedOwnershipId;
+        if ($this->selectedCustomerId) $params['customer_id'] = $this->selectedCustomerId;
+        if ($this->selectedCostCenterId) $params['cost_center_id'] = $this->selectedCostCenterId;
+        if ($this->status) $params['status'] = $this->status;
+        if ($this->type_invoice) $params['type_invoice'] = $this->type_invoice;
+        if ($this->search) $params['search'] = $this->search;
         
         return route('admin.invoices-sent.export-pdf', $params);
     }
 
-    /**
-     * Genera l'URL per l'esportazione Excel con tutti i filtri attivi
-     */
     public function getExportExcelUrl()
     {
         $params = [];
         
-        if ($this->dateFrom) {
-            $params['date_from'] = $this->dateFrom;
-        }
-        if ($this->dateTo) {
-            $params['date_to'] = $this->dateTo;
-        }
-        if ($this->selectedOwnershipId) {
-            $params['ownership_id'] = $this->selectedOwnershipId;
-        }
-        if ($this->selectedCustomerId) {
-            $params['customer_id'] = $this->selectedCustomerId;
-        }
-        if ($this->selectedCostCenterId) {
-            $params['cost_center_id'] = $this->selectedCostCenterId;
-        }
-        if ($this->status) {
-            $params['status'] = $this->status;
-        }
-        if ($this->type_invoice) {
-            $params['type_invoice'] = $this->type_invoice;
-        }
-        if ($this->search) {
-            $params['search'] = $this->search;
-        }
+        if ($this->dateFrom) $params['date_from'] = $this->dateFrom;
+        if ($this->dateTo) $params['date_to'] = $this->dateTo;
+        if ($this->selectedOwnershipId) $params['ownership_id'] = $this->selectedOwnershipId;
+        if ($this->selectedCustomerId) $params['customer_id'] = $this->selectedCustomerId;
+        if ($this->selectedCostCenterId) $params['cost_center_id'] = $this->selectedCostCenterId;
+        if ($this->status) $params['status'] = $this->status;
+        if ($this->type_invoice) $params['type_invoice'] = $this->type_invoice;
+        if ($this->search) $params['search'] = $this->search;
         
         return route('admin.invoices-sent.export-excel', $params);
     }
@@ -647,6 +742,7 @@ class InvoiceSentTable extends Component
         }
     }
 
+    // ==================== CONFIGURAZIONI ====================
     public function getStatusesProperty(): array
     {
         $configStatuses = config('gestionale.invoice_status', []);

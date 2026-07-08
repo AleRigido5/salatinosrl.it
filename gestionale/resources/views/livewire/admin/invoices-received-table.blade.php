@@ -5,18 +5,15 @@
             Fatture di Acquisto
         </h1>
         <div class="flex gap-2">
-            <!-- Pulsante per creazione manuale -->
             <a href="{{ route('admin.invoices-received.create') }}" 
             class="bg-gradient-to-r from-blue-400 to-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" title="Crea Manualmente">
                 <i class="fas fa-plus"></i>
             </a>
 
-            <!-- Pulsante per Import XML -->
             <a href="{{ route('admin.invoices-received.xml-import') }}" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" title="Importa XML">
                 <i class="fas fa-upload"></i> Importa XML
             </a>
 
-            <!-- Pulsante per cestino -->
             <div class="relative group">
                 <button wire:click="openTrashModal" class="relative px-5 py-2.5 rounded-lg shadow-md bg-gray-200 text-gray-700 hover:bg-gray-300" title="Cestino">
                     <i class="fas fa-trash-alt"></i>
@@ -30,16 +27,13 @@
 
     <!-- Card unica: Date Range + Filtri di Ricerca -->
     <div class="bg-white rounded-lg shadow p-4 mb-4 border border-gray-200">
-        <!-- RIGA SUPERIORE: Date Range Filter -->
         @livewire('components.date-range-filter', [
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo
         ], key('date-filter-' . $dateFrom . $dateTo))
         
-        <!-- Linea di separazione -->
         <div class="border-t border-gray-200 my-4"></div>
         
-        <!-- RIGA INFERIORE: Filtri -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <!-- Autocomplete Proprietà -->
             <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
@@ -312,6 +306,168 @@
         @endif
     </div>
 
+    <!-- ==================== STATISTICHE FATTURATO PER CENTRO DI COSTO ==================== -->
+    <div class="bg-white rounded-lg shadow p-4 mb-4 border border-gray-200">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="text-lg font-semibold text-gray-700">
+                <i class="fas fa-chart-pie mr-2 text-lime-600"></i>
+                Statistiche Fatturato per Centro di Costo
+            </h3>
+            <div class="flex gap-2">
+                <select wire:model.live="statPeriod" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                    <option value="monthly">Mensile</option>
+                    <option value="quarterly">Trimestrale</option>
+                    <option value="semestral">Semestrale</option>
+                    <option value="yearly">Annuale</option>
+                </select>
+                <button wire:click="refreshStats" class="px-3 py-1.5 bg-lime-600 hover:bg-lime-700 text-white rounded-md text-sm transition-colors">
+                    <i class="fas fa-sync-alt"></i> Aggiorna
+                </button>
+            </div>
+        </div>
+
+        <!-- Avviso se ci sono date personalizzate -->
+        {{-- @if($dateFrom || $dateTo)
+        <div class="text-xs text-yellow-600 bg-yellow-50 px-3 py-2 rounded-md mb-3">
+            <i class="fas fa-info-circle mr-1"></i>
+            Stai utilizzando un range di date personalizzato. Per usare i filtri periodici (mensile/trimestrale/etc.), 
+            <button wire:click="clearDates" class="underline hover:text-yellow-800 font-medium">rimuovi le date</button>.
+        </div>
+        @endif --}}
+
+        <!-- Loading -->
+        <div wire:loading wire:target="refreshStats, statPeriod" class="flex justify-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-lime-600"></div>
+        </div>
+
+        <!-- Statistiche -->
+        <div wire:loading.remove>
+            @if($statistics && $statistics->count() > 0)
+                <!-- Card Totali -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+                    <div class="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-3">
+                        <p class="text-xs text-blue-600 font-medium">Totale Fatturato</p>
+                        <p class="text-xl font-bold text-blue-800">{{ number_format($statistics->sum('total'), 2, ',', '.') }} €</p>
+                    </div>
+                    <div class="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-3">
+                        <p class="text-xs text-green-600 font-medium">Numero Righe</p>
+                        <p class="text-xl font-bold text-green-800">{{ $statistics->sum('count') }}</p>
+                    </div>
+                    <div class="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg p-3">
+                        <p class="text-xs text-purple-600 font-medium">Centri di Costo</p>
+                        <p class="text-xl font-bold text-purple-800">{{ $statistics->count() }}</p>
+                    </div>
+                    <div class="bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg p-3">
+                        <p class="text-xs text-orange-600 font-medium">Periodo</p>
+                        <p class="text-sm font-semibold text-orange-800">
+                            {{ $periodDisplay }}
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Tabella Statistiche -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Centro di Costo</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Fatturato</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">% sul Totale</th>
+                                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">N. Righe</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Media/Riga</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            @php
+                                $grandTotal = $statistics->sum('total');
+                            @endphp
+                            @foreach($statistics as $stat)
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                                        <i class="fas fa-building text-lime-500 mr-2"></i>
+                                        {{ $stat->cost_center }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+                                        {{ number_format($stat->total, 2, ',', '.') }} €
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-right">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <span class="text-gray-700">{{ $grandTotal > 0 ? number_format(($stat->total / $grandTotal) * 100, 1) : 0 }}%</span>
+                                            <div class="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                                <div class="h-full bg-gradient-to-r from-lime-400 to-lime-600 rounded-full transition-all" 
+                                                     style="width: {{ $grandTotal > 0 ? min(($stat->total / $grandTotal) * 100, 100) : 0 }}%"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-center">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            {{ $stat->count }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-right text-gray-600">
+                                        {{ $stat->count > 0 ? number_format($stat->total / $stat->count, 2, ',', '.') : 0 }} €
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot class="bg-gray-50">
+                            <tr>
+                                <td class="px-4 py-3 text-sm font-bold text-gray-900">TOTALE</td>
+                                <td class="px-4 py-3 text-sm text-right font-bold text-green-600">{{ number_format($grandTotal, 2, ',', '.') }} €</td>
+                                <td class="px-4 py-3 text-sm text-right font-bold text-gray-900">100%</td>
+                                <td class="px-4 py-3 text-sm text-center font-bold text-gray-900">{{ $statistics->sum('count') }}</td>
+                                <td class="px-4 py-3 text-sm text-right font-bold text-gray-900">
+                                    {{ $statistics->sum('count') > 0 ? number_format($grandTotal / $statistics->sum('count'), 2, ',', '.') : 0 }} €
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <!-- Grafico a barre semplificato -->
+                @if($statistics->count() > 1)
+                <div class="mt-4 pt-3 border-t border-gray-200">
+                    <p class="text-xs text-gray-500 mb-2">Distribuzione percentuale per centro di costo</p>
+                    <div class="flex h-4 rounded-full overflow-hidden">
+                        @foreach($statistics as $stat)
+                            @php
+                                $percentage = $grandTotal > 0 ? ($stat->total / $grandTotal) * 100 : 0;
+                                $colors = ['bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'];
+                                $colorIndex = $loop->index % count($colors);
+                            @endphp
+                            @if($percentage > 0)
+                                <div class="{{ $colors[$colorIndex] }} transition-all" style="width: {{ $percentage }}%"></div>
+                            @endif
+                        @endforeach
+                    </div>
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        @foreach($statistics as $stat)
+                            @php
+                                $colors = ['bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'];
+                                $colorIndex = $loop->index % count($colors);
+                                $percentage = $grandTotal > 0 ? ($stat->total / $grandTotal) * 100 : 0;
+                            @endphp
+                            @if($percentage > 0)
+                                <span class="inline-flex items-center gap-1 text-xs">
+                                    <span class="inline-block w-2 h-2 rounded-full {{ $colors[$colorIndex] }}"></span>
+                                    {{ Str::limit($stat->cost_center, 20) }}
+                                    ({{ number_format($percentage, 1) }}%)
+                                </span>
+                            @endif
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+            @else
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-chart-pie text-4xl text-gray-300 mb-2"></i>
+                    <p>Nessun dato disponibile per il periodo selezionato</p>
+                    <p class="text-xs text-gray-400 mt-1">Modifica i filtri o il periodo per visualizzare le statistiche</p>
+                </div>
+            @endif
+        </div>
+    </div>
+
     <!-- Tabella -->
     <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
         <div class="overflow-x-auto">
@@ -319,7 +475,7 @@
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('id_ownership')">
-                            Cliente 
+                            Proprietà 
                             @if($sortField === 'id_ownership')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
                         </th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('type_invoice')">
@@ -357,7 +513,6 @@
                     @endphp
                     <tr class="hover:bg-gray-50" wire:key="invoice-{{ $invoice->id }}">
                         <td class="px-4 py-3 text-sm">{{ $invoice->ownership->RagAbbrev ?? $invoice->ownership_name }}</td>
-                        <!-- Nella colonna Tipo Doc. -->
                         <td class="px-4 py-3 text-sm">
                             {{ $typeDocuments[$invoice->type_invoice] ?? $invoice->type_invoice }}
                             @if($invoice->is_manual)
@@ -379,7 +534,6 @@
                         <td class="px-4 py-3 text-right font-medium">{{ number_format($invoice->importo_totale, 2, ',', '.') }} €</td>
                         <td class="px-4 py-3 text-center">
                             <div class="flex items-center justify-center space-x-2">
-                                <!-- Icona Allegato -->
                                 @if($invoice->has_attachments)
                                     @php
                                         $firstAttachment = $invoice->getFirstAttachmentUrlAttribute();
@@ -394,7 +548,6 @@
                                     @endif
                                 @endif
                                 
-                                <!-- Altre icone esistenti... -->
                                 <button wire:click="editInvoice({{ $invoice->id }})" 
                                         class="text-yellow-600 hover:text-yellow-900" 
                                         title="Modifica">
@@ -483,14 +636,12 @@
                         $badgeClass = $statusConfig['badge_class'] ?? 'bg-gray-100 text-gray-800';
                     @endphp
                     
-                    <!-- RIGA SUPERIORE: Stato con Switch Button -->
                     <div class="flex justify-between items-center mb-6 p-4 bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-200">
                         <div class="flex items-center gap-3">
                             <i class="fas fa-tag text-gray-400"></i>
                             <span class="text-sm font-medium text-gray-600">Stato fattura:</span>
                         </div>
                         <div class="flex items-center gap-4">
-                            <!-- Switch Button per Emessa / Visionata -->
                             <div class="flex items-center gap-3">
                                 <span class="text-sm {{ $selectedInvoice->status === 'issued' ? 'font-bold text-red-600' : 'text-gray-400' }}">
                                     <i class="fas fa-pen mr-1"></i>Emessa
@@ -510,14 +661,12 @@
                                 </span>
                             </div>
                             
-                            <!-- Badge di stato (alternativo) -->
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $badgeClass }}">
                                 {{ $statusConfig['label'] ?? $selectedInvoice->status_label }}
                             </span>
                         </div>
                     </div>
                     
-                    <!-- Informazioni principali -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div class="bg-gray-50 p-3 rounded-lg">
                             <label class="block text-xs font-medium text-gray-500 uppercase">Fornitore</label>
@@ -545,7 +694,6 @@
                         @endif
                     </div>
                     
-                    <!-- Riferimenti Amministrativi -->
                     <div class="mb-4">
                         <h4 class="font-medium text-gray-900 mb-3 border-b pb-2">Riferimenti Amministrativi</h4>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -562,7 +710,6 @@
                         </div>
                     </div>
                     
-                    <!-- Documento Importato Manualmente (se non c'è XML) -->
                     @if(!$selectedInvoice->xml_filename)
                     <div class="mb-4">
                         <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
@@ -581,69 +728,6 @@
                     </div>
                     @endif
                     
-                    <!-- ==================== ALLEGATO ==================== -->
-                    {{-- <div class="mb-4">
-                        <h4 class="font-medium text-gray-900 mb-3 border-b pb-2">
-                            <i class="fas fa-paperclip mr-2 text-blue-500"></i> 
-                            Allegato
-                        </h4>
-                        
-                        @if($selectedInvoice->attachment)
-                            @php
-                                $attachmentPath = $selectedInvoice->attachment;
-                                $isUrl = filter_var($attachmentPath, FILTER_VALIDATE_URL);
-                                $fileName = basename($attachmentPath);
-                                $extension = pathinfo($fileName, PATHINFO_EXTENSION);
-                                
-                                $iconClass = match(strtolower($extension)) {
-                                    'pdf' => 'fa-file-pdf text-red-500',
-                                    'jpg', 'jpeg', 'png', 'gif', 'webp' => 'fa-file-image text-green-500',
-                                    'doc', 'docx' => 'fa-file-word text-blue-500',
-                                    'xls', 'xlsx' => 'fa-file-excel text-green-600',
-                                    'zip', 'rar', '7z' => 'fa-file-archive text-yellow-600',
-                                    'txt' => 'fa-file-alt text-gray-500',
-                                    default => 'fa-file text-gray-400'
-                                };
-                            @endphp
-                            <div class="bg-blue-50 rounded-lg p-3 flex items-center justify-between">
-                                <div class="flex items-center space-x-3">
-                                    <i class="fas {{ $iconClass }} text-2xl"></i>
-                                    <div>
-                                        <p class="text-sm font-medium text-gray-800">{{ $fileName }}</p>
-                                        <p class="text-xs text-gray-500">
-                                            @if($isUrl)
-                                                Allegato esterno
-                                            @else
-                                                Allegato locale
-                                            @endif
-                                        </p>
-                                    </div>
-                                </div>
-                                <div class="flex space-x-2">
-                                    @if($isUrl)
-                                        <a href="{{ $attachmentPath }}" target="_blank" 
-                                        class="text-blue-600 hover:text-blue-800 transition-colors p-1" 
-                                        title="Apri allegato">
-                                            <i class="fas fa-external-link-alt"></i>
-                                        </a>
-                                    @else
-                                        <button wire:click="downloadAttachment({{ $selectedInvoice->id }})" 
-                                                class="text-blue-600 hover:text-blue-800 transition-colors p-1" 
-                                                title="Scarica allegato">
-                                            <i class="fas fa-download"></i>
-                                        </button>
-                                    @endif
-                                </div>
-                            </div>
-                        @else
-                            <div class="bg-gray-50 rounded-lg p-3 text-center">
-                                <i class="fas fa-paperclip text-gray-300 text-xl mb-1"></i>
-                                <p class="text-sm text-gray-500">Nessun allegato presente</p>
-                            </div>
-                        @endif
-                    </div> --}}
-                    
-                    <!-- Piano Scadenze / Pagamenti -->
                     @if($selectedInvoice->payments && $selectedInvoice->payments->count() > 0)
                     <div class="mb-4">
                         <h4 class="font-medium text-gray-900 mb-3 border-b pb-2"><i class="fas fa-credit-card mr-2 text-green-600"></i> Piano Scadenze / Pagamenti @if($selectedInvoice->payments->count() > 1)<span class="text-xs text-gray-500 ml-2">({{ $selectedInvoice->payments->count() }} rate)</span>@endif</h4>
@@ -687,7 +771,6 @@
                     </div>
                     @endif
                     
-                    <!-- Righe Fattura -->
                     <div>
                         <h4 class="font-medium text-gray-900 mb-3 border-b pb-2">Righe Fattura</h4>
                         <div class="overflow-x-auto">
@@ -722,7 +805,6 @@
                         </div>
                     </div>
                     
-                    <!-- Metadati importazione -->
                     <div class="text-xs text-gray-400 border-t pt-3 mt-4">
                         <div class="grid grid-cols-2 gap-2">
                             <div><i class="fas fa-calendar-alt mr-1"></i> Importata il: {{ $selectedInvoice->imported_at ? $selectedInvoice->imported_at->format('d/m/Y H:i:s') : '-' }}</div>
@@ -755,7 +837,7 @@
     <!-- ==================== MODAL CESTINO ==================== -->
     @if($showTrashModal)
     <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" x-data="{ show: true }" x-show="show" x-transition.opacity.duration.200ms>
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl p-6 max-h-[90vh] overflow-y-auto" x-on:click.away="show = false; $wire.closeTrashModal()" x-transition.scale.origin.top">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl p-6 max-h-[90vh] overflow-y-auto" x-on:click.away="show = false; $wire.closeTrashModal()" x-transition.scale.origin.top>
             <div class="flex justify-between items-center mb-6 border-b pb-3">
                 <h2 class="text-2xl font-bold text-gray-800">
                     <i class="fas fa-trash-alt mr-2 text-red-600"></i>
@@ -807,7 +889,6 @@
                                     <button wire:click="restoreFromTrash({{ $invoice->id }})" class="text-green-600 hover:text-green-900 transition-colors" title="Ripristina">
                                         <i class="fas fa-trash-restore text-lg"></i>
                                     </button>
-                                    <!-- Icona ELIMINA DEFINITIVAMENTE con conferma Alpine.js -->
                                     <button 
                                         x-on:click="if(confirm('⚠️ ELIMINAZIONE DEFINITIVA! Questa operazione non è reversibile. Sei sicuro di voler eliminare permanentemente la fattura {{ $invoice->n_invoice }}?')) $wire.forceDeleteFromTrash({{ $invoice->id }})" 
                                         class="text-red-600 hover:text-red-900 transition-colors" 
@@ -836,7 +917,6 @@
             </div>
             @endif
             
-            <!-- Footer con bottoni: Svuota cestino a sinistra, Chiudi a destra -->
             <div class="flex justify-between items-center mt-6 pt-4 border-t">
                 @if($trashCount > 0)
                 <button 
@@ -845,7 +925,7 @@
                     <i class="fas fa-trash-alt mr-2"></i> Svuota cestino ({{ $trashCount }})
                 </button>
                 @else
-                <div></div> <!-- Spazio vuoto per mantenere l'allineamento -->
+                <div></div>
                 @endif
                 
                 <button wire:click="closeTrashModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
@@ -856,7 +936,6 @@
     </div>
     @endif
 
-    <!-- Stili per la paginazione (INCLUSI nel div principale) -->
     <style scoped>
         nav[role="navigation"] div.flex-1 {
             display: none !important;
@@ -893,7 +972,6 @@
 
     <script>
         document.addEventListener('livewire:initialized', () => {
-            // Evento per pulire l'input della proprietà
             Livewire.on('clearOwnershipInput', () => {
                 const input = document.getElementById('ownership_input');
                 if (input) input.value = '';
@@ -918,6 +996,16 @@
                 
                 const costCenterInput = document.getElementById('cost_center_input');
                 if (costCenterInput) costCenterInput.value = '';
+            });
+            
+            Livewire.on('resetDates', () => {
+                const dateInputs = document.querySelectorAll('input[type="date"]');
+                dateInputs.forEach(input => {
+                    if (input.id.includes('date-from') || input.id.includes('date-to')) {
+                        input.value = '';
+                        input.dispatchEvent(new Event('change'));
+                    }
+                });
             });
             
             Livewire.on('showSuccess', (event) => {

@@ -50,7 +50,7 @@ class InvoicesReceivedTable extends Component
     // Ordinamento
     public string $sortField = 'data_invoice';
     public string $sortDirection = 'desc';
-    public int $perPage = 100000; // Default: 100 per pagina
+    public int $perPage = 100000;
     
     // Modal
     public $selectedInvoice = null;
@@ -63,6 +63,11 @@ class InvoicesReceivedTable extends Component
     public string $trashSortField = 'deleted_at';
     public string $trashSortDirection = 'desc';
     public int $trashCount = 0;
+
+    // Statistiche per Centro di Costo
+    public string $statPeriod = 'monthly';
+    public Collection $statistics;
+    public string $periodDisplay = '';
 
     protected $listeners = [
         'dateRangeUpdated' => 'updateDateRange',
@@ -97,23 +102,174 @@ class InvoicesReceivedTable extends Component
             $this->perPage = $savedFilters['per_page'] ?? 100000;
         } else {
             // SE NON CI SONO FILTRI SALVATI, IMPOSTA IL MESE CORRENTE DI DEFAULT
-            $this->dateFrom = date('Y-m-01'); // Primo giorno del mese corrente
-            $this->dateTo = date('Y-m-d');    // Oggi
+            $this->dateFrom = date('Y-m-01');
+            $this->dateTo = date('Y-m-d');
         }
 
         $this->updateTrashCount();
+        
+        // Inizializza le statistiche
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function updateDateRange(array $data): void
     {
-        $this->dateFrom = $data['date_from'];
-        $this->dateTo = $data['date_to'];
+        $this->dateFrom = $data['date_from'] ?? '';
+        $this->dateTo = $data['date_to'] ?? '';
         $this->resetPage();
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
+    }
+
+    // ==================== STATISTICHE PER CENTRO DI COSTO ====================
+
+    public function refreshStats(): void
+    {
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
+    }
+
+    public function updatedStatPeriod(): void
+    {
+        // Rimuovi i filtri di data personalizzati
+        $this->dateFrom = '';
+        $this->dateTo = '';
+        
+        // Ricalcola le statistiche
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
+        
+        // Resetta il filtro date nel componente DateRangeFilter
+        $this->dispatch('resetDates');
+        $this->dispatch('resetDateRangeFilterWithoutApply');
+        
+        // Forza l'aggiornamento della vista
+        $this->resetPage();
+    }
+
+    protected function calculateStatistics(): Collection
+    {
+        $query = InvoiceReceived::query()
+            ->whereIn('status', ['approved', 'issued', 'viewed'])
+            ->with(['rows.costCenter'])
+            ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
+            ->when($this->selectedSupplierId, fn($q) => $q->where('id_entities', $this->selectedSupplierId))
+            ->when($this->selectedCostCenterId, function($q) {
+                $q->whereHas('rows', fn($q2) => $q2->where('id_cost_center', $this->selectedCostCenterId));
+            });
+
+        $this->applyDateFilter($query);
+        
+        $invoices = $query->get();
+        
+        $stats = collect();
+        
+        foreach ($invoices as $invoice) {
+            foreach ($invoice->rows as $row) {
+                // Ottieni il nome del centro di costo
+                $costCenterName = 'Non assegnato';
+                
+                if ($row->costCenter) {
+                    $costCenterName = $row->costCenter->Nome ?? 'Non assegnato';
+                }
+                
+                $existing = $stats->firstWhere('cost_center', $costCenterName);
+                
+                if ($existing) {
+                    $existing->total += $row->total;
+                    $existing->count += 1;
+                } else {
+                    $stats->push((object) [
+                        'cost_center' => $costCenterName,
+                        'total' => $row->total,
+                        'count' => 1,
+                    ]);
+                }
+            }
+        }
+        
+        return $stats->sortByDesc('total')->values();
+    }
+
+    protected function applyDateFilter($query): void
+    {
+        if ($this->dateFrom) {
+            $query->whereDate('data_invoice', '>=', $this->dateFrom);
+        }
+        if ($this->dateTo) {
+            $query->whereDate('data_invoice', '<=', $this->dateTo);
+        }
+        
+        // Se NON ci sono filtri di data personalizzati, usa il periodo selezionato
+        if (empty($this->dateFrom) && empty($this->dateTo)) {
+            $now = now();
+            switch ($this->statPeriod) {
+                case 'monthly':
+                    $startDate = $now->copy()->startOfMonth();
+                    break;
+                case 'quarterly':
+                    $startDate = $now->copy()->subMonths(3)->startOfMonth();
+                    break;
+                case 'semestral':
+                    $startDate = $now->copy()->subMonths(6)->startOfMonth();
+                    break;
+                case 'yearly':
+                    $startDate = $now->copy()->subYear()->startOfMonth();
+                    break;
+                default:
+                    $startDate = $now->copy()->startOfMonth();
+            }
+            $query->whereDate('data_invoice', '>=', $startDate->format('Y-m-d'));
+            $query->whereDate('data_invoice', '<=', $now->format('Y-m-d'));
+        }
+    }
+
+    protected function getPeriodDisplay(): string
+    {
+        $now = now();
+        
+        // Se non ci sono filtri di data, usa il periodo selezionato
+        if (empty($this->dateFrom) && empty($this->dateTo)) {
+            switch ($this->statPeriod) {
+                case 'monthly':
+                    return "Mese corrente: " . $now->format('F Y');
+                case 'quarterly':
+                    return "Ultimi 3 mesi: da " . $now->copy()->subMonths(3)->format('d/m/Y') . " al " . $now->format('d/m/Y');
+                case 'semestral':
+                    return "Ultimi 6 mesi: da " . $now->copy()->subMonths(6)->format('d/m/Y') . " al " . $now->format('d/m/Y');
+                case 'yearly':
+                    return "Ultimo anno: da " . $now->copy()->subYear()->format('d/m/Y') . " al " . $now->format('d/m/Y');
+                default:
+                    return "Periodo selezionato";
+            }
+        }
+        
+        // Se ci sono filtri di data personalizzati, mostrali
+        $from = $this->dateFrom ? date('d/m/Y', strtotime($this->dateFrom)) : '';
+        $to = $this->dateTo ? date('d/m/Y', strtotime($this->dateTo)) : '';
+        
+        if ($from && $to) {
+            return "Dal {$from} al {$to} (personalizzato)";
+        }
+        
+        return "Periodo selezionato";
     }
 
     // ==================== AUTOCOMPLETE PROPRIETÀ ====================
     public function updatedOwnershipSearch(): void
     {
+        if (empty(trim($this->ownershipSearch))) {
+            $this->selectedOwnershipId = '';
+            $this->selectedOwnershipName = '';
+            $this->ownershipResults = new Collection();
+            $this->showOwnershipDropdown = false;
+            $this->resetPage();
+            $this->statistics = $this->calculateStatistics();
+            $this->periodDisplay = $this->getPeriodDisplay();
+            return;
+        }
+
         if ($this->selectedOwnershipId !== '' && $this->ownershipSearch === $this->selectedOwnershipName) {
             $this->showOwnershipDropdown = false;
             return;
@@ -149,6 +305,8 @@ class InvoicesReceivedTable extends Component
         $this->ownershipSearch = $name;
         $this->showOwnershipDropdown = false;
         $this->resetPage();
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearOwnership(): void
@@ -158,11 +316,24 @@ class InvoicesReceivedTable extends Component
         $this->ownershipSearch = '';
         $this->resetPage();
         $this->dispatch('clearOwnershipInput');
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     // ==================== AUTOCOMPLETE FORNITORE ====================
     public function updatedSupplierSearch(): void
     {
+        if (empty(trim($this->supplierSearch))) {
+            $this->selectedSupplierId = '';
+            $this->selectedSupplierName = '';
+            $this->supplierResults = new Collection();
+            $this->showSupplierDropdown = false;
+            $this->resetPage();
+            $this->statistics = $this->calculateStatistics();
+            $this->periodDisplay = $this->getPeriodDisplay();
+            return;
+        }
+
         if ($this->selectedSupplierId !== '' && $this->supplierSearch === $this->selectedSupplierName) {
             $this->showSupplierDropdown = false;
             return;
@@ -194,7 +365,6 @@ class InvoicesReceivedTable extends Component
         $this->showSupplierDropdown = $this->supplierResults->isNotEmpty();
     }
 
-
     public function selectSupplier(int $id, string $name): void
     {
         $this->selectedSupplierId = (string)$id;
@@ -202,6 +372,8 @@ class InvoicesReceivedTable extends Component
         $this->supplierSearch = $name;
         $this->showSupplierDropdown = false;
         $this->resetPage();
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearSupplier(): void
@@ -211,11 +383,24 @@ class InvoicesReceivedTable extends Component
         $this->supplierSearch = '';
         $this->resetPage();
         $this->dispatch('clearSupplierInput');
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     // ==================== AUTOCOMPLETE CENTRO DI COSTO ====================
     public function updatedCostCenterSearch(): void
     {
+        if (empty(trim($this->costCenterSearch))) {
+            $this->selectedCostCenterId = '';
+            $this->selectedCostCenterName = '';
+            $this->costCenterResults = new Collection();
+            $this->showCostCenterDropdown = false;
+            $this->resetPage();
+            $this->statistics = $this->calculateStatistics();
+            $this->periodDisplay = $this->getPeriodDisplay();
+            return;
+        }
+
         if ($this->selectedCostCenterId !== '' && $this->costCenterSearch === $this->selectedCostCenterName) {
             $this->showCostCenterDropdown = false;
             return;
@@ -247,6 +432,8 @@ class InvoicesReceivedTable extends Component
         $this->costCenterSearch = $name;
         $this->showCostCenterDropdown = false;
         $this->resetPage();
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearCostCenter(): void
@@ -256,6 +443,8 @@ class InvoicesReceivedTable extends Component
         $this->costCenterSearch = '';
         $this->resetPage();
         $this->dispatch('clearCostCenterInput');
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     // ==================== AGGIORNAMENTO STATO FATTURA ====================
@@ -268,7 +457,6 @@ class InvoicesReceivedTable extends Component
                 return;
             }
             
-            // Verifica che lo stato sia valido (issued o viewed)
             if (!in_array($newStatus, ['issued', 'viewed'])) {
                 $this->dispatch('showError', message: 'Stato non valido');
                 return;
@@ -276,33 +464,28 @@ class InvoicesReceivedTable extends Component
             
             DB::beginTransaction();
             
-            // Aggiorna lo stato della fattura principale
             $invoice->status = $newStatus;
             $invoice->save();
             
-            // Aggiorna anche lo stato dei pagamenti associati
-            // Se la fattura è "Visionata", i pagamenti diventano "in_attesa" o rimangono invariati
-            // Se la fattura è "Emessa", i pagamenti tornano "in_attesa" (non ancora pagati)
             if ($newStatus === 'viewed') {
-                // Fattura visionata -> i pagamenti sono in attesa di pagamento
                 $invoice->payments()->update(['status' => 'In attesa']);
             } elseif ($newStatus === 'issued') {
-                // Fattura emessa -> i pagamenti sono ancora in attesa (non pagati)
-                // Se vuoi resettare i pagamenti a "pending" quando torni a "emessa"
                 $invoice->payments()->update(['status' => 'issued']);
             }
             
             DB::commit();
             
-            // Aggiorna anche l'istanza selezionata nel modal
             if ($this->selectedInvoice && $this->selectedInvoice->id === $id) {
                 $this->selectedInvoice->status = $newStatus;
-                // Ricarica i pagamenti aggiornati
                 $this->selectedInvoice->load('payments');
             }
             
             $statusLabel = $newStatus === 'issued' ? 'Emessa' : 'Visionata';
             $this->dispatch('showSuccess', message: "Stato fattura aggiornato a '{$statusLabel}' e pagamenti sincronizzati");
+            
+            // Ricalcola le statistiche
+            $this->statistics = $this->calculateStatistics();
+            $this->periodDisplay = $this->getPeriodDisplay();
             
         } catch (\Exception $e) {
             DB::rollBack();
@@ -334,7 +517,6 @@ class InvoicesReceivedTable extends Component
         $this->clearSupplier();
         $this->clearCostCenter();
         
-        // RESETTA AL MESE CORRENTE INVECE DI VUOTO
         $this->dateFrom = date('Y-m-01');
         $this->dateTo = date('Y-m-d');
         
@@ -342,18 +524,25 @@ class InvoicesReceivedTable extends Component
         $this->dispatch('resetDates');
         $this->dispatch('resetDateRangeFilterWithoutApply');
         $this->dispatch('resetAllFilters');
+        
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearStatus(): void
     {
         $this->status = '';
         $this->resetPage();
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearTypeInvoice(): void
     {
         $this->type_invoice = '';
         $this->resetPage();
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearSearch(): void
@@ -364,11 +553,12 @@ class InvoicesReceivedTable extends Component
 
     public function clearDates(): void
     {
-        // RESETTA AL MESE CORRENTE INVECE DI VUOTO
         $this->dateFrom = date('Y-m-01');
         $this->dateTo = date('Y-m-d');
         $this->resetPage();
         $this->dispatch('resetDateRangeFilterWithoutApply');
+        $this->statistics = $this->calculateStatistics();
+        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function getInvoicesProperty()
@@ -381,17 +571,14 @@ class InvoicesReceivedTable extends Component
             ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
             ->when($this->selectedSupplierId, fn($q) => $q->where('id_entities', $this->selectedSupplierId))
             ->when($this->selectedCostCenterId, function($q) {
-                // Filtra per centro di costo attraverso le righe fattura
                 $q->whereHas('rows', fn($q2) => $q2->where('id_cost_center', $this->selectedCostCenterId));
             })
             ->when($this->dateFrom, fn($q) => $q->whereDate('data_invoice', '>=', $this->dateFrom))
             ->when($this->dateTo, fn($q) => $q->whereDate('data_invoice', '<=', $this->dateTo))
             ->orderBy($this->sortField, $this->sortDirection);
 
-        // Gestione della paginazione "Tutti"
         if ($this->perPage == 10000) {
             $results = $query->get();
-            // Crea un paginatore manuale per mantenere la compatibilità con la view
             $page = \Illuminate\Pagination\Paginator::resolveCurrentPage();
             $perPage = $results->count();
             return new \Illuminate\Pagination\LengthAwarePaginator(
@@ -447,7 +634,6 @@ class InvoicesReceivedTable extends Component
             'vatSummaries'
         ])->find($id);
 
-        // Aggiungi questo per caricare gli allegati
         if ($this->selectedInvoice) {
             $this->selectedInvoice->attachments_list = $this->selectedInvoice->getAllAttachmentsAttribute();
         }
@@ -461,135 +647,38 @@ class InvoicesReceivedTable extends Component
         $this->selectedInvoice = null;
     }
 
-    /**
-     * Genera l'URL per l'esportazione PDF con tutti i filtri attivi
-     */
+    // ==================== ESPORTAZIONI ====================
     public function getExportPdfUrl()
     {
         $params = [];
         
-        if ($this->dateFrom) {
-            $params['date_from'] = $this->dateFrom;
-        }
-        if ($this->dateTo) {
-            $params['date_to'] = $this->dateTo;
-        }
-        if ($this->selectedOwnershipId) {
-            $params['ownership_id'] = $this->selectedOwnershipId;
-        }
-        if ($this->selectedSupplierId) {
-            $params['supplier_id'] = $this->selectedSupplierId;
-        }
-        if ($this->selectedCostCenterId) {
-            $params['cost_center_id'] = $this->selectedCostCenterId;
-        }
-        if ($this->status) {
-            $params['status'] = $this->status;
-        }
-        if ($this->type_invoice) {
-            $params['type_invoice'] = $this->type_invoice;
-        }
-        if ($this->search) {
-            $params['search'] = $this->search;
-        }
+        if ($this->dateFrom) $params['date_from'] = $this->dateFrom;
+        if ($this->dateTo) $params['date_to'] = $this->dateTo;
+        if ($this->selectedOwnershipId) $params['ownership_id'] = $this->selectedOwnershipId;
+        if ($this->selectedSupplierId) $params['supplier_id'] = $this->selectedSupplierId;
+        if ($this->selectedCostCenterId) $params['cost_center_id'] = $this->selectedCostCenterId;
+        if ($this->status) $params['status'] = $this->status;
+        if ($this->type_invoice) $params['type_invoice'] = $this->type_invoice;
+        if ($this->search) $params['search'] = $this->search;
         
         return route('admin.invoices-received.export-pdf', $params);
     }
 
-    /**
-     * Genera l'URL per l'esportazione Excel con tutti i filtri attivi
-     */
     public function getExportExcelUrl()
     {
         $params = [];
         
-        if ($this->dateFrom) {
-            $params['date_from'] = $this->dateFrom;
-        }
-        if ($this->dateTo) {
-            $params['date_to'] = $this->dateTo;
-        }
-        if ($this->selectedOwnershipId) {
-            $params['ownership_id'] = $this->selectedOwnershipId;
-        }
-        if ($this->selectedSupplierId) {
-            $params['supplier_id'] = $this->selectedSupplierId;
-        }
-        if ($this->selectedCostCenterId) {
-            $params['cost_center_id'] = $this->selectedCostCenterId;
-        }
-        if ($this->status) {
-            $params['status'] = $this->status;
-        }
-        if ($this->type_invoice) {
-            $params['type_invoice'] = $this->type_invoice;
-        }
-        if ($this->search) {
-            $params['search'] = $this->search;
-        }
+        if ($this->dateFrom) $params['date_from'] = $this->dateFrom;
+        if ($this->dateTo) $params['date_to'] = $this->dateTo;
+        if ($this->selectedOwnershipId) $params['ownership_id'] = $this->selectedOwnershipId;
+        if ($this->selectedSupplierId) $params['supplier_id'] = $this->selectedSupplierId;
+        if ($this->selectedCostCenterId) $params['cost_center_id'] = $this->selectedCostCenterId;
+        if ($this->status) $params['status'] = $this->status;
+        if ($this->type_invoice) $params['type_invoice'] = $this->type_invoice;
+        if ($this->search) $params['search'] = $this->search;
         
         return route('admin.invoices-received.export-excel', $params);
     }
-
-    // ==================== ALLEGATI ====================
-    
-    /**
-     * Scarica l'allegato della fattura
-     */
-    // public function downloadAttachment($invoiceId)
-    // {
-    //     try {
-    //         $invoice = InvoiceReceived::find($invoiceId);
-    //         if (!$invoice || !$invoice->attachment) {
-    //             $this->dispatch('showError', message: 'Nessun allegato trovato');
-    //             return;
-    //         }
-
-    //         // Se l'attachment è un percorso relativo
-    //         $attachmentPath = $invoice->attachment;
-            
-    //         // Verifica se il file esiste nello storage
-    //         if (Storage::disk('public')->exists($attachmentPath)) {
-    //             // Restituisci il file per il download
-    //             return response()->download(storage_path('app/public/' . $attachmentPath));
-    //         }
-            
-    //         // Se il percorso è un URL completo, apri in una nuova finestra
-    //         if (filter_var($attachmentPath, FILTER_VALIDATE_URL)) {
-    //             $this->dispatch('openWindow', url: $attachmentPath);
-    //             return;
-    //         }
-            
-    //         $this->dispatch('showError', message: 'File non trovato sul server');
-            
-    //     } catch (\Exception $e) {
-    //         Log::error('Errore download allegato: ' . $e->getMessage());
-    //         $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
-    //     }
-    // }
-
-    /**
-     * Verifica se l'allegato esiste
-     */
-    // public function attachmentExists($invoiceId)
-    // {
-    //     $invoice = InvoiceReceived::find($invoiceId);
-    //     if (!$invoice || !$invoice->attachment) {
-    //         return false;
-    //     }
-        
-    //     $attachmentPath = $invoice->attachment;
-        
-    //     if (Storage::disk('public')->exists($attachmentPath)) {
-    //         return true;
-    //     }
-        
-    //     if (filter_var($attachmentPath, FILTER_VALIDATE_URL)) {
-    //         return true;
-    //     }
-        
-    //     return false;
-    // }
 
     // ==================== ELIMINAZIONE ====================
     
@@ -707,9 +796,6 @@ class InvoicesReceivedTable extends Component
         }
     }
 
-    /**
-     * Svuota completamente il cestino (elimina definitivamente tutte le fatture)
-     */
     public function emptyTrash(): void
     {
         try {
@@ -724,16 +810,9 @@ class InvoicesReceivedTable extends Component
             DB::beginTransaction();
             
             foreach ($trashedInvoices as $invoice) {
-                // Elimina le righe associate
                 $invoice->rows()->forceDelete();
-                
-                // Elimina i pagamenti associati
                 $invoice->payments()->delete();
-                
-                // Elimina i riepiloghi IVA associati
                 $invoice->vatSummaries()->delete();
-                
-                // Elimina la fattura definitivamente
                 $invoice->forceDelete();
             }
             
@@ -741,8 +820,6 @@ class InvoicesReceivedTable extends Component
             
             $this->dispatch('showSuccess', message: "Cestino svuotato! {$count} fattura/e eliminate definitivamente.");
             $this->updateTrashCount();
-            
-            // Ricarica la lista delle fatture nel cestino (resetta la ricerca)
             $this->trashSearch = '';
             
         } catch (\Exception $e) {

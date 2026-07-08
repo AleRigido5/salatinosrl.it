@@ -981,6 +981,24 @@
                 if (costCenterInput) costCenterInput.value = '';
             });
 
+            // Ascolta l'evento resetDates dal componente Livewire
+            Livewire.on('resetDates', () => {
+                // Resetta il componente DateRangeFilter
+                const dateInputs = document.querySelectorAll('input[type="date"]');
+                dateInputs.forEach(input => {
+                    if (input.id.includes('date-from') || input.id.includes('date-to')) {
+                        input.value = '';
+                        // Trigger dell'evento change per aggiornare il componente
+                        input.dispatchEvent(new Event('change'));
+                    }
+                });
+                
+                // Se il componente DateRangeFilter ha un metodo reset, chiamalo
+                if (window.dateRangeFilter) {
+                    window.dateRangeFilter.reset();
+                }
+            });
+
             Livewire.on('showSuccess', (event) => {
                 console.log('Success:', event.message);
             });

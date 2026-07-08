@@ -313,8 +313,19 @@ class InvoiceSentTable extends Component
 
     public function updatedStatPeriod(): void
     {
+        // Rimuovi i filtri di data personalizzati
+        $this->dateFrom = '';
+        $this->dateTo = '';
+        
+        // Ricalcola le statistiche
         $this->statistics = $this->calculateStatistics();
         $this->periodDisplay = $this->getPeriodDisplay();
+        
+        // Resetta il filtro date nel componente DateRangeFilter
+        $this->dispatch('resetDates');
+        
+        // Forza l'aggiornamento della vista
+        $this->resetPage();
     }
 
     protected function calculateStatistics(): Collection
@@ -396,26 +407,33 @@ class InvoiceSentTable extends Component
 
     protected function getPeriodDisplay(): string
     {
+        $now = now();
+        
+        // Se non ci sono filtri di data, usa il periodo selezionato
+        if (empty($this->dateFrom) && empty($this->dateTo)) {
+            switch ($this->statPeriod) {
+                case 'monthly':
+                    return "Mese corrente: " . $now->format('F Y');
+                case 'quarterly':
+                    return "Ultimi 3 mesi: da " . $now->copy()->subMonths(3)->format('d/m/Y') . " al " . $now->format('d/m/Y');
+                case 'semestral':
+                    return "Ultimi 6 mesi: da " . $now->copy()->subMonths(6)->format('d/m/Y') . " al " . $now->format('d/m/Y');
+                case 'yearly':
+                    return "Ultimo anno: da " . $now->copy()->subYear()->format('d/m/Y') . " al " . $now->format('d/m/Y');
+                default:
+                    return "Periodo selezionato";
+            }
+        }
+        
+        // Se ci sono filtri di data personalizzati, mostrali
         $from = $this->dateFrom ? date('d/m/Y', strtotime($this->dateFrom)) : '';
         $to = $this->dateTo ? date('d/m/Y', strtotime($this->dateTo)) : '';
         
         if ($from && $to) {
-            return "Dal {$from} al {$to}";
+            return "Dal {$from} al {$to} (personalizzato)";
         }
         
-        $now = now();
-        switch ($this->statPeriod) {
-            case 'monthly':
-                return "Mese corrente: " . $now->format('F Y');
-            case 'quarterly':
-                return "Ultimi 3 mesi: da " . $now->copy()->subMonths(3)->format('d/m/Y') . " al " . $now->format('d/m/Y');
-            case 'semestral':
-                return "Ultimi 6 mesi: da " . $now->copy()->subMonths(6)->format('d/m/Y') . " al " . $now->format('d/m/Y');
-            case 'yearly':
-                return "Ultimo anno: da " . $now->copy()->subYear()->format('d/m/Y') . " al " . $now->format('d/m/Y');
-            default:
-                return "Periodo selezionato";
-        }
+        return "Periodo selezionato";
     }
 
     // ==================== AGGIORNAMENTO STATO ====================

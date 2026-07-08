@@ -22,7 +22,7 @@
             <i class="fas fa-plus-circle text-lime-500 mr-2"></i> Nuova Fattura di Vendita
         </h1>
         <a href="{{ route('admin.invoices-sent.index') }}" class="bg-gray-600 hover:bg-gray-900 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
-            <i class="fas fa-arrow-left mr-2"></i> Torna alla lista
+            <i class="fas fa-arrow-left"></i> 
         </a>
     </div>
 

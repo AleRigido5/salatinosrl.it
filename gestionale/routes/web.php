@@ -314,19 +314,19 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/create', [App\Http\Controllers\Admin\InvoiceSentCreateController::class, 'create'])->name('create');
             Route::post('/store', [App\Http\Controllers\Admin\InvoiceSentCreateController::class, 'store'])->name('store');
             
-            // Modifica (nuovo controller)
+            // Modifica
             Route::get('/{id}/edit', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'edit'])->name('edit');
             Route::put('/{id}/update', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'update'])->name('update');
             
-            // API (condivise)
+            // API - ROUTE PER L'AUTOCOMPLETE
             Route::prefix('api')->name('api.')->group(function () {
-                Route::get('/search-customers', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'searchCustomers'])->name('search-customers');
-                Route::get('/search-cost-centers', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'searchCostCenters'])->name('search-cost-centers');
-                Route::get('/search-services', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'searchServices'])->name('search-services');
-                Route::get('/series', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'getSeries'])->name('series');
-                Route::get('/customer/{id}', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'getCustomerInfo'])->name('customer');
-                Route::get('/bank-account', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'getCompanyBankAccount'])->name('bank-account');
-                Route::post('/store-customer', [App\Http\Controllers\Admin\InvoiceSentEditController::class, 'storeCustomer'])->name('store-customer');
+                Route::get('/search-customers', [App\Http\Controllers\Admin\InvoiceSentCreateController::class, 'searchCustomers'])->name('search-customers');
+                Route::get('/search-cost-centers', [App\Http\Controllers\Admin\InvoiceSentCreateController::class, 'searchCostCenters'])->name('search-cost-centers');
+                Route::get('/search-services', [App\Http\Controllers\Admin\InvoiceSentCreateController::class, 'searchServices'])->name('search-services');
+                Route::get('/series', [App\Http\Controllers\Admin\InvoiceSentCreateController::class, 'getSeries'])->name('series');
+                Route::get('/customer/{id}', [App\Http\Controllers\Admin\InvoiceSentCreateController::class, 'getCustomerInfo'])->name('customer');
+                Route::get('/bank-account', [App\Http\Controllers\Admin\InvoiceSentCreateController::class, 'getCompanyBankAccount'])->name('bank-account');
+                Route::post('/store-customer', [App\Http\Controllers\Admin\InvoiceSentCreateController::class, 'storeCustomer'])->name('store-customer');
             });
             
             // Altre route

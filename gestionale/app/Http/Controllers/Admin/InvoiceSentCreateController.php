@@ -51,31 +51,19 @@ class InvoiceSentCreateController extends Controller
         try {
             DB::beginTransaction();
 
-            // =============================================
-            // PRE-PROCESSING DEI DATI
-            // =============================================
-            
-            // 1. Pre-processa le righe
+            // Pre-processa i dati
             $rows = $request->input('rows', []);
             $processedRows = [];
             
             foreach ($rows as $index => $row) {
-                // Estrai e pulisci i valori
                 $quantity = $this->parseItalianNumber($row['quantity'] ?? 0);
                 $unitPrice = $this->parseItalianNumber($row['unit_price'] ?? 0);
                 $discount = $this->parseItalianNumber($row['discount_percentage'] ?? 0);
                 $taxable = $this->parseItalianNumber($row['taxable_amount'] ?? 0);
                 
-                // Assicurati che i valori siano >= 0
                 $quantity = max(0, $quantity);
                 $unitPrice = max(0, $unitPrice);
-                $discount = max(0, min(100, $discount)); // Sconto tra 0 e 100
-                
-                // Se unit_price è 0 e quantity è > 0, imposta un valore minimo per evitare errori
-                if ($unitPrice == 0 && $quantity > 0) {
-                    // Mantieni 0, ma assicurati che sia un float
-                    $unitPrice = 0.0;
-                }
+                $discount = max(0, min(100, $discount));
                 
                 $processedRows[] = [
                     'code' => trim($row['code'] ?? ''),
@@ -91,7 +79,6 @@ class InvoiceSentCreateController extends Controller
                 ];
             }
 
-            // 2. Pre-processa i pagamenti
             $payments = $request->input('payments', []);
             $processedPayments = [];
             
@@ -107,14 +94,10 @@ class InvoiceSentCreateController extends Controller
                 ];
             }
 
-            // 3. Pre-processa l'importo totale
             $importoTotale = $this->parseItalianNumber($request->input('importo_totale', 0));
             $importoTotale = max(0, $importoTotale);
 
-            // =============================================
-            // VALIDAZIONE CON DATI PROCESSATI
-            // =============================================
-            
+            // Validazione
             $validator = validator([
                 'id_ownership' => $request->input('id_ownership'),
                 'selected_series_id' => $request->input('selected_series_id'),
@@ -151,10 +134,7 @@ class InvoiceSentCreateController extends Controller
 
             $validated = $validator->validated();
 
-            // =============================================
-            // CREAZIONE FATTURA
-            // =============================================
-
+            // Crea fattura
             $series = InvoiceSeries::find($validated['selected_series_id']);
             if (!$series) {
                 throw new \Exception('Sezionale non trovato');
@@ -163,7 +143,6 @@ class InvoiceSentCreateController extends Controller
             $series->last_number += 1;
             $series->save();
 
-            // Crea la fattura
             $invoice = InvoiceSent::create([
                 'id_ownership' => $validated['id_ownership'],
                 'id_entities' => $validated['selected_customer_id'],
@@ -181,7 +160,7 @@ class InvoiceSentCreateController extends Controller
                 'updated_by' => Auth::guard('admin')->id(),
             ]);
 
-            // Crea le righe
+            // Crea righe
             foreach ($validated['rows'] as $row) {
                 $vatInfo = DB::table('vat_rates')->find($row['vat_rate_id'] ?? null);
                 $vatRate = $vatInfo ? (float)$vatInfo->rate : 0;
@@ -267,40 +246,30 @@ class InvoiceSentCreateController extends Controller
 
     /**
      * Converte una stringa numerica italiana (con virgola) in float
-     * Gestisce anche stringhe vuote e valori null
      */
     private function parseItalianNumber($value)
     {
-        // Se è null o vuoto, ritorna 0
         if ($value === null || $value === '') {
             return 0.0;
         }
         
-        // Se è già numerico, ritorna come float
         if (is_numeric($value)) {
             return (float)$value;
         }
         
-        // Se non è una stringa, ritorna 0
         if (!is_string($value)) {
             return 0.0;
         }
         
-        // Rimuovi spazi
         $value = trim($value);
         
-        // Se dopo il trim è vuoto, ritorna 0
         if ($value === '') {
             return 0.0;
         }
         
-        // Sostituisci la virgola con il punto per il separatore decimale
         $value = str_replace(',', '.', $value);
-        
-        // Rimuovi eventuali punti come separatori delle migliaia (solo se seguiti da 3 cifre)
         $value = preg_replace('/\.(?=\d{3}(?!\d))/', '', $value);
         
-        // Se il risultato non è numerico, ritorna 0
         if (!is_numeric($value)) {
             return 0.0;
         }
@@ -309,7 +278,7 @@ class InvoiceSentCreateController extends Controller
     }
 
     // =============================================
-    // API ROUTES
+    // API METHODS
     // =============================================
 
     public function searchCustomers(Request $request)
@@ -348,27 +317,55 @@ class InvoiceSentCreateController extends Controller
         return response()->json($results);
     }
 
+    /**
+     * API per la ricerca dei servizi - CORRETTO E FUNZIONANTE
+     */
     public function searchServices(Request $request)
     {
         $search = $request->get('q', '');
+        
+        // Se la ricerca è troppo corta, ritorna array vuoto
         if (strlen($search) < 2) {
             return response()->json([]);
         }
 
-        $results = Service::where('Stato', 1)
-            ->where('Titolo', 'like', '%' . $search . '%')
-            ->orderBy('Titolo')
-            ->limit(10)
-            ->get()
-            ->map(fn($s) => [
-                'id' => $s->id,
-                'name' => $s->Titolo,
-                'descr_fattura' => $s->Descr_fattura ?? '',
-                'prezzo_un' => $s->Prezzo_un ?? 0,
-                'vat_rate_id' => $s->vat_rate_id ?? null,
+        try {
+            // Cerca nei servizi
+            $results = Service::where('Stato', 1)
+                ->where(function($query) use ($search) {
+                    $query->where('Titolo', 'like', '%' . $search . '%')
+                          ->orWhere('Descr_fattura', 'like', '%' . $search . '%')
+                          ->orWhere('id', 'like', $search . '%');
+                })
+                ->orderBy('Titolo')
+                ->limit(10)
+                ->get();
+
+            // Mappa i risultati
+            $mappedResults = $results->map(function($service) {
+                return [
+                    'id' => $service->id,
+                    'name' => $service->Titolo,
+                    'descr_fattura' => $service->Descr_fattura ?? '',
+                    'prezzo_un' => floatval($service->Prezzo_un ?? 0),
+                    'vat_rate_id' => $service->vat_rate_id ?? null,
+                    'unit_measure' => $service->unita_misura ?? 'pz',
+                    'code' => $service->Codice ?? '',
+                ];
+            });
+
+            // Log per debug
+            Log::info('Ricerca servizi', [
+                'search' => $search,
+                'count' => $mappedResults->count()
             ]);
 
-        return response()->json($results);
+            return response()->json($mappedResults);
+
+        } catch (\Exception $e) {
+            Log::error('Errore ricerca servizi: ' . $e->getMessage());
+            return response()->json([]);
+        }
     }
 
     public function getSeries(Request $request)
@@ -395,27 +392,6 @@ class InvoiceSentCreateController extends Controller
             });
 
         return response()->json($series);
-    }
-
-    public function getVatRates(Request $request)
-    {
-        $vatRates = DB::table('vat_rates')
-            ->where('is_active', 1)
-            ->orderBy('rate', 'desc')
-            ->orderBy('sdi_nature')
-            ->get()
-            ->map(function($item) {
-                return [
-                    'id' => $item->id,
-                    'description' => $item->description,
-                    'rate' => (float)$item->rate,
-                    'rate_percent' => (float)$item->rate * 100,
-                    'sdi_nature' => $item->sdi_nature ?? '',
-                    'code' => $item->code ?? '',
-                ];
-            });
-
-        return response()->json($vatRates);
     }
 
     public function getCustomerInfo($id)

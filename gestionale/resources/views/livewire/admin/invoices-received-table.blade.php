@@ -313,7 +313,12 @@
                 <i class="fas fa-chart-pie mr-2 text-lime-600"></i>
                 Statistiche Fatturato per Centro di Costo
             </h3>
-            <div class="flex gap-2">
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" wire:model.live="excludeCreditNotes" 
+                        class="rounded border-gray-300 text-lime-600 focus:ring-lime-500 h-4 w-4">
+                    <label class="text-sm text-gray-600 cursor-pointer">Escludi Note di Credito (TD04)</label>
+                </div>
                 <select wire:model.live="statPeriod" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                     <option value="monthly">Mensile</option>
                     <option value="quarterly">Trimestrale</option>
@@ -336,22 +341,38 @@
         @endif --}}
 
         <!-- Loading -->
-        <div wire:loading wire:target="refreshStats, statPeriod" class="flex justify-center py-8">
+        <div wire:loading wire:target="refreshStats, statPeriod, excludeCreditNotes" class="flex justify-center py-8">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-lime-600"></div>
         </div>
 
         <!-- Statistiche -->
         <div wire:loading.remove>
             @if($statistics && $statistics->count() > 0)
+                @php
+                    $grandTotal = $statistics->sum('total');
+                    $totalCredits = $statistics->sum('credit_count');
+                    $totalDebits = $statistics->sum('debit_count');
+                @endphp
+                
                 <!-- Card Totali -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
                     <div class="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-3">
                         <p class="text-xs text-blue-600 font-medium">Totale Fatturato</p>
-                        <p class="text-xl font-bold text-blue-800">{{ number_format($statistics->sum('total'), 2, ',', '.') }} €</p>
+                        <p class="text-xl font-bold {{ $grandTotal < 0 ? 'text-red-600' : 'text-blue-800' }}">
+                            {{ number_format($grandTotal, 2, ',', '.') }} €
+                        </p>
                     </div>
                     <div class="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-3">
-                        <p class="text-xs text-green-600 font-medium">Numero Righe</p>
-                        <p class="text-xl font-bold text-green-800">{{ $statistics->sum('count') }}</p>
+                        <p class="text-xs text-green-600 font-medium">Totale Debiti (TD01, TD24, ecc.)</p>
+                        <p class="text-xl font-bold text-green-800">
+                            {{ number_format($statistics->filter(fn($s) => $s->total > 0)->sum('total'), 2, ',', '.') }} €
+                        </p>
+                    </div>
+                    <div class="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-3">
+                        <p class="text-xs text-red-600 font-medium">Totale Crediti (TD04)</p>
+                        <p class="text-xl font-bold text-red-800">
+                            {{ number_format(abs($statistics->filter(fn($s) => $s->total < 0)->sum('total')), 2, ',', '.') }} €
+                        </p>
                     </div>
                     <div class="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg p-3">
                         <p class="text-xs text-purple-600 font-medium">Centri di Costo</p>
@@ -378,24 +399,40 @@
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            @php
-                                $grandTotal = $statistics->sum('total');
-                            @endphp
                             @foreach($statistics as $stat)
                                 <tr class="hover:bg-gray-50">
                                     <td class="px-4 py-3 text-sm font-medium text-gray-900">
                                         <i class="fas fa-building text-lime-500 mr-2"></i>
                                         {{ $stat->cost_center }}
+                                        @if($stat->total < 0)
+                                            <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                <i class="fas fa-minus-circle mr-1"></i> Credito
+                                            </span>
+                                        @elseif($stat->credit_count > 0 && $stat->debit_count > 0)
+                                            <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                <i class="fas fa-arrows-left-right mr-1"></i> Misto
+                                            </span>
+                                        @endif
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-right font-semibold text-gray-900">
-                                        {{ number_format($stat->total, 2, ',', '.') }} €
+                                    <td class="px-4 py-3 text-sm text-right font-semibold {{ $stat->total < 0 ? 'text-red-600' : 'text-gray-900' }}">
+                                        @if($stat->total < 0)
+                                            <span class="text-red-600">
+                                                <i class="fas fa-minus-circle mr-1"></i>
+                                                {{ number_format(abs($stat->total), 2, ',', '.') }} €
+                                            </span>
+                                        @else
+                                            {{ number_format($stat->total, 2, ',', '.') }} €
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 text-sm text-right">
                                         <div class="flex items-center justify-end gap-2">
-                                            <span class="text-gray-700">{{ $grandTotal > 0 ? number_format(($stat->total / $grandTotal) * 100, 1) : 0 }}%</span>
+                                            <span class="{{ $stat->total < 0 ? 'text-red-600' : 'text-gray-700' }}">
+                                                {{ $grandTotal != 0 ? number_format(($stat->total / $grandTotal) * 100, 1) : 0 }}%
+                                            </span>
                                             <div class="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                                <div class="h-full bg-gradient-to-r from-lime-400 to-lime-600 rounded-full transition-all" 
-                                                     style="width: {{ $grandTotal > 0 ? min(($stat->total / $grandTotal) * 100, 100) : 0 }}%"></div>
+                                                <div class="h-full {{ $stat->total < 0 ? 'bg-red-500' : 'bg-gradient-to-r from-lime-400 to-lime-600' }} rounded-full transition-all" 
+                                                    style="width: {{ $grandTotal != 0 ? min(abs(($stat->total / $grandTotal) * 100), 100) : 0 }}%">
+                                                </div>
                                             </div>
                                         </div>
                                     </td>
@@ -403,8 +440,13 @@
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                             {{ $stat->count }}
                                         </span>
+                                        @if($stat->credit_count > 0)
+                                            <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" title="{{ $stat->credit_count }} righe di credito (TD04)">
+                                                <i class="fas fa-minus-circle"></i> {{ $stat->credit_count }}
+                                            </span>
+                                        @endif
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-right text-gray-600">
+                                    <td class="px-4 py-3 text-sm text-right {{ $stat->total < 0 ? 'text-red-600' : 'text-gray-600' }}">
                                         {{ $stat->count > 0 ? number_format($stat->total / $stat->count, 2, ',', '.') : 0 }} €
                                     </td>
                                 </tr>
@@ -413,10 +455,12 @@
                         <tfoot class="bg-gray-50">
                             <tr>
                                 <td class="px-4 py-3 text-sm font-bold text-gray-900">TOTALE</td>
-                                <td class="px-4 py-3 text-sm text-right font-bold text-green-600">{{ number_format($grandTotal, 2, ',', '.') }} €</td>
+                                <td class="px-4 py-3 text-sm text-right font-bold {{ $grandTotal < 0 ? 'text-red-600' : 'text-green-600' }}">
+                                    {{ number_format($grandTotal, 2, ',', '.') }} €
+                                </td>
                                 <td class="px-4 py-3 text-sm text-right font-bold text-gray-900">100%</td>
                                 <td class="px-4 py-3 text-sm text-center font-bold text-gray-900">{{ $statistics->sum('count') }}</td>
-                                <td class="px-4 py-3 text-sm text-right font-bold text-gray-900">
+                                <td class="px-4 py-3 text-sm text-right font-bold {{ $grandTotal < 0 ? 'text-red-600' : 'text-gray-900' }}">
                                     {{ $statistics->sum('count') > 0 ? number_format($grandTotal / $statistics->sum('count'), 2, ',', '.') : 0 }} €
                                 </td>
                             </tr>
@@ -431,12 +475,12 @@
                     <div class="flex h-4 rounded-full overflow-hidden">
                         @foreach($statistics as $stat)
                             @php
-                                $percentage = $grandTotal > 0 ? ($stat->total / $grandTotal) * 100 : 0;
+                                $percentage = $grandTotal != 0 ? ($stat->total / $grandTotal) * 100 : 0;
                                 $colors = ['bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'];
                                 $colorIndex = $loop->index % count($colors);
                             @endphp
-                            @if($percentage > 0)
-                                <div class="{{ $colors[$colorIndex] }} transition-all" style="width: {{ $percentage }}%"></div>
+                            @if(abs($percentage) > 0.1)
+                                <div class="{{ $colors[$colorIndex] }} transition-all" style="width: {{ abs($percentage) }}%"></div>
                             @endif
                         @endforeach
                     </div>
@@ -445,9 +489,9 @@
                             @php
                                 $colors = ['bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'];
                                 $colorIndex = $loop->index % count($colors);
-                                $percentage = $grandTotal > 0 ? ($stat->total / $grandTotal) * 100 : 0;
+                                $percentage = $grandTotal != 0 ? ($stat->total / $grandTotal) * 100 : 0;
                             @endphp
-                            @if($percentage > 0)
+                            @if(abs($percentage) > 0.1)
                                 <span class="inline-flex items-center gap-1 text-xs">
                                     <span class="inline-block w-2 h-2 rounded-full {{ $colors[$colorIndex] }}"></span>
                                     {{ Str::limit($stat->cost_center, 20) }}
@@ -458,6 +502,34 @@
                     </div>
                 </div>
                 @endif
+
+                <!-- Legenda -->
+                <div class="mt-3 pt-2 border-t border-gray-200">
+                    <div class="flex flex-wrap items-center gap-4 text-xs text-gray-500">
+                        <div class="flex items-center gap-1.5">
+                            <span class="inline-block w-3 h-3 rounded-full bg-green-500"></span>
+                            <span>Fatture Debito (TD01, TD24, ecc.)</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="inline-block w-3 h-3 rounded-full bg-red-500"></span>
+                            <span>Note di Credito (TD04) - in detrazione</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="inline-block w-3 h-3 rounded-full bg-yellow-500"></span>
+                            <span>Valori misti</span>
+                        </div>
+                        @if($grandTotal < 0)
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <i class="fas fa-exclamation-triangle mr-1"></i> Saldo negativo
+                            </span>
+                        @endif
+                        @if($excludeCreditNotes)
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                <i class="fas fa-filter mr-1"></i> Note di credito escluse
+                            </span>
+                        @endif
+                    </div>
+                </div>
             @else
                 <div class="text-center py-8 text-gray-500">
                     <i class="fas fa-chart-pie text-4xl text-gray-300 mb-2"></i>
@@ -517,6 +589,11 @@
                             {{ $typeDocuments[$invoice->type_invoice] ?? $invoice->type_invoice }}
                             @if($invoice->is_manual)
                                 <i class="fas fa-hand-paper text-yellow-500 ml-1" title="Fattura creata manualmente"></i>
+                            @endif
+                            @if(in_array($invoice->type_invoice, ['credit_note', 'NC', 'nota_credito']))
+                                <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                    <i class="fas fa-minus-circle mr-0.5"></i> Credito
+                                </span>
                             @endif
                         </td>
                         <td class="px-4 py-3 text-sm">{{ $invoice->data_invoice->format('d/m/Y') }}</td>
@@ -679,6 +756,11 @@
                         <div class="bg-gray-50 p-3 rounded-lg">
                             <label class="block text-xs font-medium text-gray-500 uppercase">Tipo Documento</label>
                             <p class="text-sm font-medium text-gray-900 mt-1">{{ $selectedInvoice->type_invoice_label }}</p>
+                            @if(in_array($selectedInvoice->type_invoice, ['credit_note', 'NC', 'nota_credito']))
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 mt-1">
+                                    <i class="fas fa-minus-circle mr-1"></i> Nota di Credito
+                                </span>
+                            @endif
                         </div>
                         @if($selectedInvoice->sdi_id)
                         <div class="bg-gray-50 p-3 rounded-lg">

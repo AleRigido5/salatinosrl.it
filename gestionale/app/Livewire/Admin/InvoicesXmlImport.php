@@ -740,6 +740,48 @@ class InvoicesXmlImport extends Component
     // UPLOAD E PARSING XML (SELEZIONA IL DRIVER)
     // ============================================
     
+    /**
+     * Rimuove i nodi Allegati e FatturaFirmata usando DOMDocument.
+     * Questo è molto più sicuro delle regex perché rispetta la struttura XML.
+     */
+    private function removeAttachmentsUsingDom($xmlString)
+    {
+        // Carica il documento XML
+        $dom = new \DOMDocument();
+        // Usa LIBXML_NOERROR per evitare warning su entità non definite, ecc.
+        $loaded = $dom->loadXML($xmlString, LIBXML_NOERROR | LIBXML_NOWARNING);
+        
+        if (!$loaded) {
+            Log::warning('DOMDocument non è riuscito a caricare l\'XML, uso il fallback regex.');
+            // Fallback alla funzione originale se DOMDocument fallisce
+            return $this->removeAttachmentsFromXml($xmlString);
+        }
+
+        // Lista dei tag da rimuovere
+        $tagsToRemove = ['Allegati', 'FatturaFirmata'];
+
+        foreach ($tagsToRemove as $tagName) {
+            // Cerca tutti i nodi con il tag specificato (anche con namespace)
+            $nodes = $dom->getElementsByTagName($tagName);
+            
+            // getElementsByTagName restituisce una "live list", quindi iteriamo all'indietro
+            for ($i = $nodes->length - 1; $i >= 0; $i--) {
+                $node = $nodes->item($i);
+                if ($node && $node->parentNode) {
+                    $node->parentNode->removeChild($node);
+                }
+            }
+        }
+
+        // Restituisci l'XML senza i nodi rimossi
+        $cleanedXml = $dom->saveXML();
+
+        // Rimuovi eventuali dichiarazioni XML dupliche (a volte DOMDocument ne aggiunge una)
+        $cleanedXml = preg_replace('/<\?xml.*?\?>/', '', $cleanedXml, 1);
+
+        return $cleanedXml;
+    }
+
     public function uploadXml()
     {
         $this->validate([
@@ -749,67 +791,83 @@ class InvoicesXmlImport extends Component
         try {
             $content = file_get_contents($this->xml_file->getRealPath());
             $content = $this->cleanUtf8String($content);
-            
-            $xml = simplexml_load_string($content);
-            
-            if ($xml === false) {
-                $this->addError('xml_file', 'File XML non valido');
+
+            // --- 1. Parsing del file originale (anche se ha allegati) ---
+            // Per poter leggere gli allegati, dobbiamo parse il file ORIGINALE.
+            // Se il file originale non è valido, non possiamo fare nulla.
+            $xmlOriginal = simplexml_load_string($content);
+            if ($xmlOriginal === false) {
+                $this->addError('xml_file', 'Il file XML non è valido.');
                 return;
             }
 
             $this->xml_filename = $this->xml_file->getClientOriginalName();
             $this->file_hash = hash('sha256', $content);
-            
-            // ============================================
-            // SELEZIONE DEL DRIVER IN BASE ALLA COSTANTE
-            // ============================================
+
+            // Estrai e salva gli allegati dal file ORIGINALE (prima di rimuoverli)
             if (self::STORAGE_DRIVER === 's3') {
                 Log::info('Utilizzo storage S3 per gli allegati');
-                $attachments = $this->extractAttachmentsToS3($xml);
+                $attachments = $this->extractAttachmentsToS3($xmlOriginal);
                 $this->extracted_attachments = $attachments;
-                
-                $cleanXmlContent = $this->removeAttachmentsFromXml($content);
-                $cleanXml = simplexml_load_string($cleanXmlContent);
-                $this->parseXmlInvoiceRobusto($cleanXml);
-                
-                if (!empty($attachments) && !empty($this->fornitore_denominazione)) {
-                    $this->renameS3FolderToSupplier($attachments);
-                }
             } else {
                 Log::info('Utilizzo storage locale per gli allegati');
-                $attachments = $this->extractAttachmentsToLocal($xml);
+                $attachments = $this->extractAttachmentsToLocal($xmlOriginal);
                 $this->extracted_attachments = $attachments;
-                
+            }
+
+            // --- 2. Rimuovi gli allegati in modo sicuro usando un DOMDocument ---
+            $cleanXmlContent = $this->removeAttachmentsUsingDom($content);
+
+            // --- 3. Parsing dell'XML "pulito" per l'estrazione dei dati ---
+            $cleanXml = simplexml_load_string($cleanXmlContent);
+            if ($cleanXml === false) {
+                // Se anche la versione pulita fallisce, usa la funzione originale come fallback
+                Log::warning('Parsing XML fallito con DOMDocument, tento con il metodo originale');
                 $cleanXmlContent = $this->removeAttachmentsFromXml($content);
                 $cleanXml = simplexml_load_string($cleanXmlContent);
-                $this->parseXmlInvoiceRobusto($cleanXml);
                 
-                if (!empty($attachments) && !empty($this->fornitore_denominazione)) {
+                if ($cleanXml === false) {
+                    Log::error('Parsing XML fallito anche con il metodo di fallback.', [
+                        'xml_preview' => substr($cleanXmlContent, 0, 1000)
+                    ]);
+                    $this->addError('xml_file', 'Impossibile analizzare il file XML dopo la rimozione degli allegati.');
+                    return;
+                }
+            }
+
+            // --- 4. Parsing dei dati della fattura ---
+            $this->parseXmlInvoiceRobusto($cleanXml);
+
+            // --- 5. Rinomina cartella (solo se ci sono allegati e fornitore trovato) ---
+            if (!empty($attachments) && !empty($this->fornitore_denominazione)) {
+                if (self::STORAGE_DRIVER === 's3') {
+                    $this->renameS3FolderToSupplier($attachments);
+                } else {
                     $this->renameLocalFolderToSupplier($attachments);
                 }
             }
-            
+
             // Verifica duplicati
             if ($this->checkInvoiceExists()) {
                 $this->dispatch('alert', [
-                    'type' => 'error', 
+                    'type' => 'error',
                     'message' => "❌ FATTURA DUPLICATA! Questa fattura è già stata importata."
                 ]);
                 return;
             }
-            
+
             $this->xml_parsed = true;
-            
+
             if (!empty($attachments)) {
                 $driverName = self::STORAGE_DRIVER === 's3' ? 'S3 (Cloud)' : 'Locale';
                 $this->dispatch('alert', [
-                    'type' => 'info', 
+                    'type' => 'info',
                     'message' => "📎 Estratti " . count($attachments) . " allegati dalla fattura e salvati su " . $driverName
                 ]);
             }
-            
+
             $this->dispatch('alert', ['type' => 'success', 'message' => 'XML analizzato con successo!']);
-            
+
         } catch (\Exception $e) {
             Log::error('Errore upload XML: ' . $e->getMessage());
             $this->addError('xml_file', 'Errore: ' . $e->getMessage());
@@ -850,6 +908,12 @@ class InvoicesXmlImport extends Component
 
     private function parseXmlInvoiceRobusto($xml)
     {
+        // Se $xml è false, non possiamo procedere
+        if ($xml === false) {
+            Log::error('parseXmlInvoiceRobusto chiamato con $xml = false');
+            return;
+        }
+
         // -------------------------------------------------------
         // Strategia: lavoriamo sull'XML grezzo PRIMA che SimpleXML
         // applichi i namespace, così le regex funzionano sempre.

@@ -11,6 +11,7 @@ use App\Models\Ownership;
 use App\Models\BankAccount;
 use App\Models\PaymentMethod;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class AccountStatementTable extends Component
@@ -295,88 +296,263 @@ class AccountStatementTable extends Component
             }
         }
 
-        // ==================== PAGAMENTI FORNITORI ====================
+        //! ==================== PAGAMENTI FORNITORI (con raggruppamento) ====================
+        // $paymentsData = [];
+
+        // if (in_array($this->entity->entity_type, ['fornitore', 'entrambi'])) {
+            
+        //     $paymentQuery = InvoicePayment::where('paid_amount', '>', 0)
+        //         ->where(function($query) {
+        //             // Gestione della data: se paid_at è NULL, usa due_date o created_at
+        //             $query->where(function($sub) {
+        //                 // Se paid_at è NULL, usa due_date o created_at
+        //                 $sub->whereNull('paid_at')
+        //                     ->where(function($dateSub) {
+        //                         $dateSub->whereBetween('due_date', [$this->dateFrom, $this->dateTo])
+        //                                 ->orWhereBetween('created_at', [$this->dateFrom, $this->dateTo]);
+        //                     });
+        //             })
+        //             ->orWhere(function($sub) {
+        //                 // Se paid_at non è NULL, usa paid_at
+        //                 $sub->whereNotNull('paid_at')
+        //                     ->whereBetween('paid_at', [$this->dateFrom, $this->dateTo]);
+        //             });
+        //         })
+        //         ->where(function($query) {
+        //             // Pagamenti associati a fatture ricevute di questa entità
+        //             $query->where('payable_type', 'App\\Models\\InvoiceReceived')
+        //                 ->whereHas('payable', function($q) {
+        //                     $q->where('id_entities', $this->entityId);
+        //                 });
+        //         })
+        //         ->orWhere(function($query) {
+        //             // Pagamenti associati a fatture emesse di questa entità
+        //             $query->where('payable_type', 'App\\Models\\InvoiceSent')
+        //                 ->whereHas('payable', function($q) {
+        //                     $q->where('id_entities', $this->entityId);
+        //                 });
+        //         });
+            
+        //     // Applica filtri aggiuntivi
+        //     if ($this->selectedOwnershipId) {
+        //         $paymentQuery->whereHas('payable', fn($q) => $q->where('id_ownership', $this->selectedOwnershipId));
+        //     }
+            
+        //     if ($this->type_invoice) {
+        //         $paymentQuery->whereHas('payable', fn($q) => $q->where('type_invoice', $this->type_invoice));
+        //     }
+            
+        //     if ($this->search) {
+        //         $paymentQuery->whereHas('payable', fn($q) => $q->where('n_invoice', 'like', '%' . $this->search . '%'));
+        //     }
+            
+        //     $payments = $paymentQuery->with(['payable.ownership'])->get();
+            
+        //     // Log dei risultati
+        //     Log::info('Pagamenti filtrati per fornitore (CON data fallback)', [
+        //         'entity_id' => $this->entityId,
+        //         'count' => $payments->count(),
+        //         'payment_ids' => $payments->pluck('id')->toArray(),
+        //         'payment_details' => $payments->map(function($p) {
+        //             return [
+        //                 'id' => $p->id,
+        //                 'payable_id' => $p->payable_id,
+        //                 'payable_type' => $p->payable_type,
+        //                 'paid_amount' => $p->paid_amount,
+        //                 'paid_at' => $p->paid_at,
+        //                 'due_date' => $p->due_date,
+        //                 'n_invoice' => $p->payable ? $p->payable->n_invoice : 'N/A'
+        //             ];
+        //         })->toArray()
+        //     ]);
+            
+        //     // Raggruppa i pagamenti
+        //     $groupedPayments = [];
+        //     foreach ($payments as $payment) {
+        //         // Usa paid_at se disponibile, altrimenti due_date o created_at
+        //         $paymentDate = $payment->paid_at 
+        //             ? $payment->paid_at->format('Y-m-d')
+        //             : ($payment->due_date 
+        //                 ? $payment->due_date->format('Y-m-d')
+        //                 : $payment->created_at->format('Y-m-d'));
+                
+        //         $method = $this->getPaymentMethodLabel($payment->payment_method);
+        //         $iban = $payment->iban;
+                
+        //         // Determina la proprietà
+        //         $proprieta = '-';
+        //         if ($payment->payable && $payment->payable->ownership) {
+        //             $proprieta = $payment->payable->ownership->RagAbbrev ?? $payment->payable->ownership->Rag_Soc_intest ?? '-';
+        //         }
+                
+        //         // Ottieni info banca dall'IBAN
+        //         $bankInfo = $this->getBankAccountInfoByIban($iban);
+        //         $bankDetails = $bankInfo ? " (" . $bankInfo['name'] . ' ' . $bankInfo['n_conto'] . ")" : '';
+                
+        //         $groupKey = $paymentDate . '_' . $method . '_' . $iban . '_' . $proprieta;
+                
+        //         if (!isset($groupedPayments[$groupKey])) {
+        //             $groupedPayments[$groupKey] = [
+        //                 'proprieta' => $proprieta,
+        //                 'data' => $paymentDate,
+        //                 'method' => $method,
+        //                 'bankDetails' => $bankDetails,
+        //                 'total_amount' => 0,
+        //                 'invoices' => []
+        //             ];
+        //         }
+                
+        //         $groupedPayments[$groupKey]['total_amount'] += $payment->paid_amount;
+                
+        //         // Raccogli i numeri fattura
+        //         if ($payment->payable && isset($payment->payable->n_invoice)) {
+        //             $groupedPayments[$groupKey]['invoices'][] = $payment->payable->n_invoice;
+        //         }
+        //     }
+            
+        //     // Log dei gruppi
+        //     Log::info('Gruppi di pagamento creati (CON data fallback)', [
+        //         'group_count' => count($groupedPayments),
+        //         'groups' => $groupedPayments
+        //     ]);
+            
+        //     // Crea le righe di pagamento
+        //     foreach ($groupedPayments as $group) {
+        //         $descrizione = 'Pagamento effettuato: ' . $group['method'] . $group['bankDetails'];
+                
+        //         if (count($group['invoices']) > 0) {
+        //             $invoiceNumbers = array_unique($group['invoices']);
+        //             if (count($invoiceNumbers) <= 3) {
+        //                 $descrizione = 'Pagamento fatture ' . implode(', ', $invoiceNumbers) . ': ' . $group['method'] . $group['bankDetails'];
+        //             } else {
+        //                 $descrizione = 'Pagamento ' . count($invoiceNumbers) . ' fatture: ' . $group['method'] . $group['bankDetails'];
+        //             }
+        //         }
+                
+        //         $paymentsData[] = [
+        //             'id'          => 'payment_group_' . md5($group['data'] . $group['method'] . $group['bankDetails'] . $group['proprieta']),
+        //             'proprieta'   => $group['proprieta'],
+        //             'descrizione' => $descrizione,
+        //             'data'        => $group['data'],
+        //             'n_fattura'   => '',
+        //             'dare'        => $group['total_amount'],
+        //             'avere'       => 0,
+        //             'saldo'       => 0,
+        //             'type'        => 'payment_group',
+        //         ];
+        //     }
+        // }
+
+        //? ==================== PAGAMENTI FORNITORI (SENZA RAGGRUPPAMENTO) ====================
         $paymentsData = [];
 
         if (in_array($this->entity->entity_type, ['fornitore', 'entrambi'])) {
             
-            $paymentQuery = InvoicePayment::whereHas('payable', function($q) {
-                    $q->where('id_entities', $this->entityId);
+            $paymentQuery = InvoicePayment::where('paid_amount', '>', 0)
+                ->where(function($query) {
+                    // Gestione della data: se paid_at è NULL, usa due_date o created_at
+                    $query->where(function($sub) {
+                        $sub->whereNull('paid_at')
+                            ->where(function($dateSub) {
+                                $dateSub->whereBetween('due_date', [$this->dateFrom, $this->dateTo])
+                                        ->orWhereBetween('created_at', [$this->dateFrom, $this->dateTo]);
+                            });
+                    })
+                    ->orWhere(function($sub) {
+                        $sub->whereNotNull('paid_at')
+                            ->whereBetween('paid_at', [$this->dateFrom, $this->dateTo]);
+                    });
                 })
-                ->where('payable_type', InvoiceReceived::class)
-                ->where('paid_amount', '>', 0)
-                ->when($this->dateFrom && $this->dateTo, fn($q) => $q->whereBetween('paid_at', [$this->dateFrom, $this->dateTo]));
+                ->where(function($query) {
+                    // Pagamenti associati a fatture ricevute di questa entità
+                    $query->where('payable_type', 'App\\Models\\InvoiceReceived')
+                        ->whereHas('payable', function($q) {
+                            $q->where('id_entities', $this->entityId);
+                        });
+                })
+                ->orWhere(function($query) {
+                    // Pagamenti associati a fatture emesse di questa entità
+                    $query->where('payable_type', 'App\\Models\\InvoiceSent')
+                        ->whereHas('payable', function($q) {
+                            $q->where('id_entities', $this->entityId);
+                        });
+                });
             
+            // Applica filtri aggiuntivi
             if ($this->selectedOwnershipId) {
                 $paymentQuery->whereHas('payable', fn($q) => $q->where('id_ownership', $this->selectedOwnershipId));
             }
+            
             if ($this->type_invoice) {
                 $paymentQuery->whereHas('payable', fn($q) => $q->where('type_invoice', $this->type_invoice));
             }
+            
             if ($this->search) {
                 $paymentQuery->whereHas('payable', fn($q) => $q->where('n_invoice', 'like', '%' . $this->search . '%'));
             }
             
-            $payments = $paymentQuery->with(['payable.ownership'])->get();
+            $payments = $paymentQuery->with(['payable.ownership', 'installmentTransactions'])->get();
             
-            // Raggruppa i pagamenti per IBAN e metodo
-            $groupedPayments = [];
+            // PER OGNI PAGAMENTO, MOSTRA LE RATE SINGOLE
             foreach ($payments as $payment) {
-                $paymentDate = $payment->paid_at ? $payment->paid_at->format('Y-m-d') : null;
-                if (!$paymentDate) continue;
+                // Usa paid_at se disponibile, altrimenti due_date o created_at
+                $paymentDate = $payment->paid_at 
+                    ? $payment->paid_at->format('Y-m-d')
+                    : ($payment->due_date 
+                        ? $payment->due_date->format('Y-m-d')
+                        : $payment->created_at->format('Y-m-d'));
                 
                 $method = $this->getPaymentMethodLabel($payment->payment_method);
                 $iban = $payment->iban;
-                $proprieta = $payment->payable->ownership->RagAbbrev ?? $payment->payable->ownership->Rag_Soc_intest ?? '-';
+                
+                // Determina la proprietà
+                $proprieta = '-';
+                if ($payment->payable && $payment->payable->ownership) {
+                    $proprieta = $payment->payable->ownership->RagAbbrev ?? $payment->payable->ownership->Rag_Soc_intest ?? '-';
+                }
                 
                 // Ottieni info banca dall'IBAN
                 $bankInfo = $this->getBankAccountInfoByIban($iban);
                 $bankDetails = $bankInfo ? " (" . $bankInfo['name'] . ' ' . $bankInfo['n_conto'] . ")" : '';
                 
-                $groupKey = $paymentDate . '_' . $method . '_' . $iban . '_' . $proprieta;
+                // Numero fattura
+                $n_fattura = '';
+                if ($payment->payable && isset($payment->payable->n_invoice)) {
+                    $n_fattura = $payment->payable->n_invoice;
+                }
                 
-                if (!isset($groupedPayments[$groupKey])) {
-                    $groupedPayments[$groupKey] = [
-                        'proprieta' => $proprieta,
-                        'data' => $paymentDate,
-                        'method' => $method,
-                        'bankDetails' => $bankDetails,
-                        'total_amount' => 0,
-                        'invoices' => []
+                // SE HA RATE, MOSTRA LE RATE SINGOLE
+                if ($payment->installmentTransactions->count() > 0) {
+                    foreach ($payment->installmentTransactions as $installment) {
+                        $paymentsData[] = [
+                            'id'          => 'installment_' . $installment->id,
+                            'proprieta'   => $proprieta,
+                            'descrizione' => 'Rata pagamento fattura ' . $n_fattura . ': ' . $method . $bankDetails,
+                            'data'        => $paymentDate,
+                            'n_fattura'   => $n_fattura,
+                            'dare'        => floatval($installment->allocated_amount), // 7000 o 5000
+                            'avere'       => 0,
+                            'saldo'       => 0,
+                            'type'        => 'installment',
+                            'payment_id'  => $payment->id,
+                            'installment_id' => $installment->id,
+                        ];
+                    }
+                } else {
+                    // SE NON HA RATE, MOSTRA IL PAGAMENTO SINGOLO
+                    $paymentsData[] = [
+                        'id'          => 'payment_' . $payment->id,
+                        'proprieta'   => $proprieta,
+                        'descrizione' => 'Pagamento fattura ' . $n_fattura . ': ' . $method . $bankDetails,
+                        'data'        => $paymentDate,
+                        'n_fattura'   => $n_fattura,
+                        'dare'        => floatval($payment->paid_amount),
+                        'avere'       => 0,
+                        'saldo'       => 0,
+                        'type'        => 'payment',
+                        'payment_id'  => $payment->id,
                     ];
                 }
-                
-                $groupedPayments[$groupKey]['total_amount'] += $payment->paid_amount;
-                if ($payment->payable && $payment->payable->n_invoice) {
-                    $groupedPayments[$groupKey]['invoices'][] = $payment->payable->n_invoice;
-                }
-            }
-            
-            // Crea una riga di pagamento per ogni gruppo
-            foreach ($groupedPayments as $group) {
-                $descrizione = 'Pagamento effettuato: ' . $group['method'] . $group['bankDetails'];
-                
-                // Aggiungi i numeri fattura se presenti
-                if (count($group['invoices']) > 0) {
-                    $invoiceNumbers = array_unique($group['invoices']);
-                    if (count($invoiceNumbers) <= 3) {
-                        $descrizione = 'Pagamento fatture ' . implode(', ', $invoiceNumbers) . ': ' . $group['method'] . $group['bankDetails'];
-                    } else {
-                        $descrizione = 'Pagamento ' . count($invoiceNumbers) . ' fatture: ' . $group['method'] . $group['bankDetails'];
-                    }
-                }
-                
-                $paymentsData[] = [
-                    'id'          => 'payment_group_' . md5($group['data'] . $group['method'] . $group['bankDetails']),
-                    'proprieta'   => $group['proprieta'],
-                    'descrizione' => $descrizione,
-                    'data'        => $group['data'],
-                    'n_fattura'   => '',
-                    'dare'        => $group['total_amount'],
-                    'avere'       => 0,
-                    'saldo'       => 0,
-                    'type'        => 'payment_group',
-                ];
             }
         }
 
@@ -384,7 +560,11 @@ class AccountStatementTable extends Component
         $transactions = array_merge($transactions, $paymentsData);
 
         // Ordina per data crescente
-        usort($transactions, fn($a, $b) => strcmp($a['data'], $b['data']));
+        usort($transactions, function($a, $b) {
+            $dateA = is_string($a['data']) ? $a['data'] : (method_exists($a['data'], 'format') ? $a['data']->format('Y-m-d') : $a['data']);
+            $dateB = is_string($b['data']) ? $b['data'] : (method_exists($b['data'], 'format') ? $b['data']->format('Y-m-d') : $b['data']);
+            return strcmp($dateA, $dateB);
+        });
 
         // Calcola saldo progressivo
         $saldo = 0;

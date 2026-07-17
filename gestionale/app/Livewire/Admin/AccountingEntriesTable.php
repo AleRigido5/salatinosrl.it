@@ -99,6 +99,7 @@ class AccountingEntriesTable extends Component
         $this->dateFrom = date('Y-m-01');
         $this->dateTo = date('Y-m-t');
         $this->filteredEntities = new Collection();
+        $this->ownershipResults = new Collection();
     }
     
     public function refreshTable(): void
@@ -131,6 +132,9 @@ class AccountingEntriesTable extends Component
         $this->entityName = '';
         $this->filteredEntities = new Collection();
         $this->showEntityDropdown = false;
+        $this->selectedOwnershipId = '';
+        $this->selectedOwnershipName = '';
+        $this->ownershipSearch = '';
         $this->type = '';
         $this->bankAccountId = '';
         $this->paymentMethodId = '';
@@ -295,8 +299,6 @@ class AccountingEntriesTable extends Component
      */
     public function updatedTypeValue($value)
     {
-        // Puoi aggiungere qui qualsiasi logica aggiuntiva
-        // Ad esempio, cambiare il colore di sfondo del modale o mostrare un messaggio
         if ($value === 'entrata') {
             $this->dispatch('alert', [
                 'type' => 'info',
@@ -654,61 +656,6 @@ class AccountingEntriesTable extends Component
         }
     }
     
-    // public function forceDeleteFromTrash(int $id): void
-    // {
-    //     try {
-    //         DB::beginTransaction();
-            
-    //         $entry = AccountingEntry::onlyTrashed()->find($id);
-    //         if ($entry) {
-    //             $description = $entry->description;
-                
-    //             // Verifica se questa scrittura è collegata a pagamenti di fatture
-    //             $installmentTransactions = InstallmentTransaction::onlyTrashed()
-    //                 ->where('id_accounting_entries', $entry->id)
-    //                 ->get();
-                
-    //             foreach ($installmentTransactions as $transaction) {
-    //                 $payment = $transaction->invoicePayment;
-    //                 if ($payment) {
-    //                     $invoice = $payment->payable;
-                        
-    //                     // Rimuovi l'importo allocato dal pagamento
-    //                     $newPaidAmount = max(0, $payment->paid_amount - $transaction->allocated_amount);
-    //                     $newResidual = $payment->amount - $newPaidAmount;
-                        
-    //                     $payment->update([
-    //                         'paid_amount' => $newPaidAmount,
-    //                         'residual_amount' => $newResidual,
-    //                         'status' => $newResidual <= 0.01 ? 'paid' : ($newPaidAmount > 0 ? 'partially_paid' : 'issued'),
-    //                         'paid_at' => $newResidual <= 0.01 ? now() : null,
-    //                     ]);
-                        
-    //                     // Aggiorna lo stato della fattura
-    //                     if ($invoice) {
-    //                         $this->updateInvoiceStatus($invoice);
-    //                     }
-    //                 }
-                    
-    //                 // Elimina definitivamente la transazione
-    //                 $transaction->forceDelete();
-    //             }
-                
-    //             // Elimina definitivamente la scrittura contabile
-    //             $entry->forceDelete();
-                
-    //             DB::commit();
-                
-    //             $this->dispatch('showSuccess', message: "Scrittura '{$description}' eliminata definitivamente.");
-    //             $this->dispatch('refreshAccountingEntries');
-    //             $this->dispatch('refreshPayments');
-    //         }
-    //     } catch (\Exception $e) {
-    //         DB::rollBack();
-    //         $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
-    //     }
-    // }
-
     public function forceDeleteFromTrash(int $id): void
     {
         try {
@@ -718,12 +665,10 @@ class AccountingEntriesTable extends Component
             if ($entry) {
                 $entryName = 'Scrittura del ' . $entry->entry_date->format('d/m/Y') . ' - ' . number_format($entry->amount, 2, ',', '.') . ' €';
                 
-                // Elimina le installment_transactions collegate (senza SoftDeletes o con)
-                // Verifica se il model usa SoftDeletes
+                // Elimina le installment_transactions collegate
                 if (method_exists(InstallmentTransaction::class, 'onlyTrashed')) {
                     $entry->installmentTransactions()->forceDelete();
                 } else {
-                    // Se non usa SoftDeletes, elimina direttamente
                     $entry->installmentTransactions()->delete();
                 }
                 
@@ -747,44 +692,97 @@ class AccountingEntriesTable extends Component
     
     public function getEntriesProperty()
     {
-        $query = AccountingEntry::with(['bankAccount', 'paymentMethod', 'invoice']);
-        
+        // Inizia con TUTTE le scritture contabili
+        $query = AccountingEntry::with([
+            'bankAccount', 
+            'paymentMethod', 
+            'invoice',
+            'invoicePayment.payable',
+            'installmentTransactions.invoicePayment.payable.ownership',
+            'installmentTransactions.invoicePayment.payable.entity'
+        ]);
+
+        // ==================== FILTRO RICERCA ====================
         if ($this->search) {
-            $query->where(function($q) {
-                $q->where('description', 'like', '%' . $this->search . '%')
-                ->orWhereHas('bankAccount', fn($sq) => $sq->where('name', 'like', '%' . $this->search . '%'))
-                ->orWhereHas('paymentMethod', fn($sq) => $sq->where('name', 'like', '%' . $this->search . '%'));
+            $searchTerm = '%' . $this->search . '%';
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('description', 'like', $searchTerm)
+                  ->orWhereHas('bankAccount', fn($sq) => $sq->where('name', 'like', $searchTerm))
+                  ->orWhereHas('paymentMethod', fn($sq) => $sq->where('name', 'like', $searchTerm))
+                  ->orWhereHas('invoice', fn($sq) => $sq->where('n_invoice', 'like', $searchTerm))
+                  ->orWhereHas('invoicePayment.payable', function($sq) use ($searchTerm) {
+                      $sq->where('n_invoice', 'like', $searchTerm);
+                  })
+                  ->orWhereHas('installmentTransactions', function($sq) use ($searchTerm) {
+                      $sq->whereHas('invoicePayment', function($sub) use ($searchTerm) {
+                          $sub->whereHas('payable', function($inner) use ($searchTerm) {
+                              $inner->where('n_invoice', 'like', $searchTerm);
+                          });
+                      });
+                  });
             });
         }
-        
+
+        // ==================== FILTRO TIPO ====================
         if ($this->type) {
             $query->where('type', $this->type);
         }
-        
+
+        // ==================== FILTRO DATA ====================
         if ($this->dateFrom) {
             $query->whereDate('entry_date', '>=', $this->dateFrom);
         }
-        
+
         if ($this->dateTo) {
             $query->whereDate('entry_date', '<=', $this->dateTo);
         }
-        
+
+        // ==================== FILTRO CONTO BANCARIO ====================
         if ($this->bankAccountId) {
             $query->where('bank_account_id', $this->bankAccountId);
         }
-        
+
+        // ==================== FILTRO METODO PAGAMENTO ====================
         if ($this->paymentMethodId) {
             $query->where('id_payments_methods', $this->paymentMethodId);
         }
 
+        // ==================== FILTRO PROPRIETÀ ====================
         if ($this->selectedOwnershipId) {
-            $query->whereHas('bankAccount', fn($q) => $q->where('id_ownership', $this->selectedOwnershipId));
+            $query->where(function($q) {
+                $q->whereHas('bankAccount', fn($sq) => $sq->where('id_ownership', $this->selectedOwnershipId))
+                  ->orWhereHas('invoice', fn($sq) => $sq->where('id_ownership', $this->selectedOwnershipId))
+                  ->orWhereHas('invoicePayment.payable', function($sq) {
+                      $sq->where('id_ownership', $this->selectedOwnershipId);
+                  })
+                  ->orWhereHas('installmentTransactions', function($sq) {
+                      $sq->whereHas('invoicePayment', function($sub) {
+                          $sub->whereHas('payable', function($inner) {
+                              $inner->where('id_ownership', $this->selectedOwnershipId);
+                          });
+                      });
+                  });
+            });
         }
 
+        // ==================== FILTRO ENTITÀ ====================
         if ($this->entityFilter) {
-            $query->whereHas('invoice', fn($q) => $q->where('id_entities', $this->entityFilter));
+            $query->where(function($q) {
+                $q->whereHas('invoice', fn($sq) => $sq->where('id_entities', $this->entityFilter))
+                  ->orWhereHas('invoicePayment.payable', function($sq) {
+                      $sq->where('id_entities', $this->entityFilter);
+                  })
+                  ->orWhereHas('installmentTransactions', function($sq) {
+                      $sq->whereHas('invoicePayment', function($sub) {
+                          $sub->whereHas('payable', function($inner) {
+                              $inner->where('id_entities', $this->entityFilter);
+                          });
+                      });
+                  });
+            });
         }
-        
+
+        // ==================== ESECUZIONE QUERY ====================
         if ($this->perPage == 100000) {
             $results = $query->orderBy($this->sortField, $this->sortDirection)->get();
             $page = \Illuminate\Pagination\Paginator::resolveCurrentPage();
@@ -797,7 +795,7 @@ class AccountingEntriesTable extends Component
                 ['path' => \Illuminate\Pagination\Paginator::resolveCurrentPath()]
             );
         }
-        
+
         return $query->orderBy($this->sortField, $this->sortDirection)
                     ->paginate($this->perPage);
     }
@@ -818,13 +816,12 @@ class AccountingEntriesTable extends Component
                     $displayName .= ' - ' . $account->n_conto;
                 }
                 
-                // Crea un oggetto stdClass con TUTTE le proprietà necessarie
                 $result = new \stdClass();
                 $result->id = $account->id;
                 $result->name = $displayName;
                 $result->ownership_name = $ownershipAbbrev;
                 $result->bank_name = $account->name;
-                $result->n_conto = $account->n_conto;  // Aggiungi questa proprietà
+                $result->n_conto = $account->n_conto;
                 $result->iban = $account->iban;
                 
                 return $result;

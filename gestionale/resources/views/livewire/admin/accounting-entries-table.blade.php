@@ -299,6 +299,7 @@
                             Data @if($sortField === 'entry_date')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
                         </th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Descrizione</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Entità</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Tipo</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Conto Bancario</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 cursor-pointer" wire:click="sortBy('amount')">
@@ -313,6 +314,16 @@
                     <tr class="hover:bg-gray-50" wire:key="entry-{{ $entry->id }}">
                         <td class="px-4 py-3 text-sm whitespace-nowrap">{{ $entry->entry_date->format('d/m/Y') }}</td>
                         <td class="px-4 py-3 text-sm max-w-xs truncate" title="{{ $entry->description }}">{{ Str::limit($entry->description, 50) }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            @if($entry->entity)
+                                <span class="text-gray-900">{{ $entry->entity_name }}</span>
+                                @if($entry->linked_invoice_details)
+                                    <br><small class="text-gray-400 text-xs">Fattura: {{ $entry->linked_invoice_details['n_invoice'] ?? '-' }}</small>
+                                @endif
+                            @else
+                                <span class="text-gray-400 text-xs">-</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-3">
                             <span class="px-2 py-1 rounded-full text-xs font-medium {{ $entry->type_badge_class }}">
                                 {{ $entry->type_label }}

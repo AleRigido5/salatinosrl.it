@@ -57,6 +57,117 @@ class AccountingEntry extends Model
         return $this->hasMany(InstallmentTransaction::class, 'id_accounting_entries');
     }
     
+    /**
+     * Ottiene l'entità (cliente/fornitore) tramite le transazioni collegate
+     */
+    public function getEntityAttribute()
+    {
+        // 1. Prova dalla fattura
+        if ($this->invoice && $this->invoice->entity) {
+            return $this->invoice->entity;
+        }
+        
+        // 2. Prova dal pagamento
+        if ($this->invoicePayment && $this->invoicePayment->payable && $this->invoicePayment->payable->entity) {
+            return $this->invoicePayment->payable->entity;
+        }
+        
+        // 3. Prova dalle installment_transactions
+        $installment = $this->installmentTransactions()->first();
+        if ($installment && $installment->invoicePayment && $installment->invoicePayment->payable) {
+            $payable = $installment->invoicePayment->payable;
+            if ($payable && isset($payable->entity)) {
+                return $payable->entity;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Ottiene il nome dell'entità
+     */
+    public function getEntityNameAttribute(): string
+    {
+        $entity = $this->entity;
+        if ($entity) {
+            return $entity->ragione_sociale ?? $entity->nome . ' ' . $entity->cognome ?? 'N/D';
+        }
+        return '-';
+    }
+    
+    /**
+     * Ottiene la proprietà tramite le transazioni collegate
+     */
+    public function getOwnershipAttribute()
+    {
+        // 1. Prova dalla fattura
+        if ($this->invoice && $this->invoice->ownership) {
+            return $this->invoice->ownership;
+        }
+        
+        // 2. Prova dal pagamento
+        if ($this->invoicePayment && $this->invoicePayment->payable && 
+            method_exists($this->invoicePayment->payable, 'ownership')) {
+            return $this->invoicePayment->payable->ownership ?? null;
+        }
+        
+        // 3. Prova dal conto bancario
+        if ($this->bankAccount && $this->bankAccount->ownership) {
+            return $this->bankAccount->ownership;
+        }
+        
+        // 4. Prova dalle installment_transactions
+        $installment = $this->installmentTransactions()->first();
+        if ($installment && $installment->invoicePayment && $installment->invoicePayment->payable) {
+            $payable = $installment->invoicePayment->payable;
+            if ($payable && method_exists($payable, 'ownership') && $payable->ownership) {
+                return $payable->ownership;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Ottiene il nome della proprietà
+     */
+    public function getOwnershipNameAttribute(): string
+    {
+        $ownership = $this->ownership;
+        if ($ownership) {
+            return $ownership->RagAbbrev ?? $ownership->Rag_Soc_intest ?? 'N/D';
+        }
+        return '-';
+    }
+    
+    /**
+     * Ottiene il numero di fattura collegato
+     */
+    public function getLinkedInvoiceNumberAttribute(): string
+    {
+        // 1. Prova dalla fattura
+        if ($this->invoice) {
+            return $this->invoice->n_invoice;
+        }
+        
+        // 2. Prova dal pagamento
+        if ($this->invoicePayment && $this->invoicePayment->payable && isset($this->invoicePayment->payable->n_invoice)) {
+            return $this->invoicePayment->payable->n_invoice;
+        }
+        
+        // 3. Prova dalle installment_transactions
+        $installment = $this->installmentTransactions()->first();
+        if ($installment && $installment->invoicePayment && $installment->invoicePayment->payable) {
+            $payable = $installment->invoicePayment->payable;
+            if ($payable && isset($payable->n_invoice)) {
+                return $payable->n_invoice;
+            }
+        }
+        
+        return '-';
+    }
+    
     public function getTypeLabelAttribute(): string
     {
         return $this->type === 'entrata' ? 'Entrata' : 'Uscita';

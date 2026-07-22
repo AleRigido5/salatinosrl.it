@@ -12,6 +12,7 @@ use App\Models\Ownership;
 use App\Models\Entity;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Builder;
 
 class InvoicePaymentsTable extends Component
 {
@@ -21,34 +22,39 @@ class InvoicePaymentsTable extends Component
     public string $search = '';
     public string $status = '';
     public string $invoiceSearch = '';
-    
+
     // Autocomplete Proprietà
     public string $ownershipSearch = '';
     public Collection $ownershipResults;
     public string $selectedOwnershipId = '';
     public string $selectedOwnershipName = '';
     public bool $showOwnershipDropdown = false;
-    
+
     // Autocomplete Fornitore
     public string $supplierSearch = '';
     public Collection $supplierResults;
     public string $selectedSupplierId = '';
     public string $selectedSupplierName = '';
     public bool $showSupplierDropdown = false;
-    
+
     // Date
     public string $dateFrom = '';
     public string $dateTo = '';
-    
+
     // Ordinamento
     public string $sortField = 'due_date';
     public string $sortDirection = 'asc';
     public int $perPage = 100;
-    
-    // Modal
+
+    // Modal dettagli
     public $selectedPayment = null;
     public bool $showModal = false;
-    
+
+    // Chiusura fattura con nota di credito
+    public ?int $closingInvoiceId = null;
+    public string $closeInvoiceSearch = '';
+    public Collection $creditNoteResults;
+
     // Cestino
     public bool $showTrashModal = false;
     public string $trashSearch = '';
@@ -66,6 +72,7 @@ class InvoicePaymentsTable extends Component
     {
         $this->ownershipResults = new Collection();
         $this->supplierResults = new Collection();
+        $this->creditNoteResults = new Collection();
     }
 
     public function updateDateRange(array $data): void
@@ -103,7 +110,7 @@ class InvoicePaymentsTable extends Component
             })
             ->limit(10)
             ->get(['id_proprieta as id', 'RagAbbrev as name']);
-        
+
         $this->showOwnershipDropdown = $this->ownershipResults->isNotEmpty();
     }
 
@@ -154,7 +161,7 @@ class InvoicePaymentsTable extends Component
             })
             ->limit(10)
             ->get(['id_cliente as id', 'ragione_sociale as name']);
-        
+
         $this->showSupplierDropdown = $this->supplierResults->isNotEmpty();
     }
 
@@ -177,7 +184,7 @@ class InvoicePaymentsTable extends Component
     }
 
     // ==================== FILTRI E QUERY ====================
-    
+
     public function sortBy(string $field): void
     {
         if ($this->sortField === $field) {
@@ -213,13 +220,17 @@ class InvoicePaymentsTable extends Component
         $this->resetPage();
     }
 
-    public function getPaymentsProperty()
+    /**
+     * Query di base condivisa tra elenco paginato e calcolo totali,
+     * così i due restano sempre coerenti con gli stessi filtri.
+     */
+    private function baseQuery(): Builder
     {
-        $query = InvoicePayment::query()
+        return InvoicePayment::query()
             ->with(['payable' => function($q) {
                 $q->with(['ownership', 'entity']);
             }])
-            // IMPORTANTE: Mostra TUTTI i pagamenti che hanno un residuo > 0
+            // Mostra TUTTI i pagamenti che hanno un residuo > 0
             // indipendentemente dallo stato memorizzato
             ->where(function($q) {
                 $q->where('residual_amount', '>', 0.01)
@@ -231,7 +242,6 @@ class InvoicePaymentsTable extends Component
                 });
             })
             ->when($this->status, function($q) {
-                // Filtra per stato solo se specificato
                 $q->where('status', $this->status);
             })
             ->when($this->invoiceSearch, function($q) {
@@ -244,14 +254,41 @@ class InvoicePaymentsTable extends Component
                 $q->whereHas('payable', fn($sq) => $sq->where('id_entities', $this->selectedSupplierId));
             })
             ->when($this->dateFrom, fn($q) => $q->whereDate('due_date', '>=', $this->dateFrom))
-            ->when($this->dateTo, fn($q) => $q->whereDate('due_date', '<=', $this->dateTo))
-            ->orderBy($this->sortField, $this->sortDirection);
+            ->when($this->dateTo, fn($q) => $q->whereDate('due_date', '<=', $this->dateTo));
+    }
 
-        return $query->paginate($this->perPage);
+    public function getPaymentsProperty()
+    {
+        return $this->baseQuery()
+            ->orderBy($this->sortField, $this->sortDirection)
+            ->paginate($this->perPage);
+    }
+
+    /**
+     * Totali calcolati su TUTTI i risultati filtrati (non solo la pagina corrente),
+     * con le note di credito conteggiate come importo negativo.
+     */
+    public function getTotalsProperty(): array
+    {
+        $totalAmount = 0;
+        $totalResidual = 0;
+
+        $this->baseQuery()->get()->each(function ($payment) use (&$totalAmount, &$totalResidual) {
+            $isCreditNote = $payment->payable && method_exists($payment->payable, 'isCreditNote') && $payment->payable->isCreditNote();
+            $residual = $payment->residual_amount > 0 ? $payment->residual_amount : $payment->amount;
+
+            $totalAmount += $isCreditNote ? -$payment->amount : $payment->amount;
+            $totalResidual += $isCreditNote ? -$residual : $residual;
+        });
+
+        return [
+            'amount' => $totalAmount,
+            'residual' => $totalResidual,
+        ];
     }
 
     // ==================== MODAL DETTAGLI ====================
-    
+
     public function showDetails(int $id): void
     {
         $this->selectedPayment = InvoicePayment::with(['payable.ownership', 'payable.entity'])->find($id);
@@ -264,17 +301,89 @@ class InvoicePaymentsTable extends Component
         $this->selectedPayment = null;
     }
 
+    // ==================== CHIUSURA FATTURA CON NOTA DI CREDITO ====================
+
+    public function openCloseModal(int $invoiceId): void
+    {
+        $this->closingInvoiceId = $invoiceId;
+        $this->closeInvoiceSearch = '';
+        $this->creditNoteResults = new Collection();
+    }
+
+    public function closeCloseModal(): void
+    {
+        $this->closingInvoiceId = null;
+        $this->closeInvoiceSearch = '';
+        $this->creditNoteResults = new Collection();
+    }
+
+    public function updatedCloseInvoiceSearch(): void
+    {
+        if (strlen($this->closeInvoiceSearch) < 2) {
+            $this->creditNoteResults = new Collection();
+            return;
+        }
+
+        $this->creditNoteResults = InvoiceReceived::where('type_invoice', 'TD04')
+            ->where('n_invoice', 'like', '%' . $this->closeInvoiceSearch . '%')
+            ->whereNull('closes_invoice_id') // non già usata per chiudere un'altra fattura
+            ->limit(10)
+            ->get();
+    }
+
+    public function closeInvoiceWithCreditNote(int $creditNoteId): void
+    {
+        if (!$this->closingInvoiceId) {
+            return;
+        }
+
+        DB::beginTransaction();
+        try {
+            $invoice = InvoiceReceived::findOrFail($this->closingInvoiceId);
+            $creditNote = InvoiceReceived::findOrFail($creditNoteId);
+
+            // Collega la nota di credito alla fattura che chiude
+            $creditNote->update(['closes_invoice_id' => $invoice->id]);
+
+            // Chiudi tutte le scadenze della fattura originale
+            $invoice->payments()->get()->each(function ($payment) {
+                $payment->paid_amount = $payment->amount;
+                $payment->status = 'paid';
+                $payment->paid_at = now();
+                $payment->save();
+            });
+
+            // Chiudi anche le scadenze della nota di credito stessa
+            // (non deve comparire come "da incassare")
+            $creditNote->payments()->get()->each(function ($payment) {
+                $payment->paid_amount = $payment->amount;
+                $payment->status = 'paid';
+                $payment->paid_at = now();
+                $payment->save();
+            });
+
+            DB::commit();
+
+            $this->closeCloseModal();
+            $this->dispatch('showSuccess', message: "Fattura {$invoice->n_invoice} chiusa con nota di credito {$creditNote->n_invoice}");
+            $this->dispatch('refreshPayments');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+
     // ==================== CESTINO ====================
-    
+
     public function getTrashCountProperty(): int
     {
         return InvoicePayment::onlyTrashed()->count();
     }
-    
+
     public function getTrashedPaymentsProperty()
     {
         $query = InvoicePayment::onlyTrashed()->with(['payable.ownership', 'payable.entity']);
-        
+
         if ($this->trashSearch) {
             $searchTerm = '%' . $this->trashSearch . '%';
             $query->where(function($q) use ($searchTerm) {
@@ -282,23 +391,23 @@ class InvoicePaymentsTable extends Component
                   ->orWhereHas('payable', fn($sq) => $sq->where('n_invoice', 'like', $searchTerm));
             });
         }
-        
+
         return $query->orderBy($this->trashSortField, $this->trashSortDirection)
                      ->paginate(10);
     }
-    
+
     public function openTrashModal(): void
     {
         $this->trashSearch = '';
         $this->showTrashModal = true;
     }
-    
+
     public function closeTrashModal(): void
     {
         $this->showTrashModal = false;
         $this->trashSearch = '';
     }
-    
+
     public function trashSortBy(string $field): void
     {
         if ($this->trashSortField === $field) {
@@ -308,20 +417,20 @@ class InvoicePaymentsTable extends Component
             $this->trashSortDirection = 'asc';
         }
     }
-    
+
     public function restoreFromTrash(int $id): void
     {
         try {
             DB::beginTransaction();
-            
+
             $payment = InvoicePayment::onlyTrashed()->find($id);
             if ($payment) {
                 $invoice = $payment->payable;
                 $paymentName = 'Pagamento di € ' . number_format($payment->amount, 2, ',', '.') . ' per fattura ' . ($invoice->n_invoice ?? '');
-                
+
                 // Ripristina il pagamento
                 $payment->restore();
-                
+
                 // RESETTA LO STATO A "EMESSA / IN ATTESA"
                 $payment->update([
                     'paid_amount' => 0,
@@ -329,27 +438,27 @@ class InvoicePaymentsTable extends Component
                     'status' => 'issued',
                     'paid_at' => null,
                 ]);
-                
+
                 // Aggiorna lo stato della fattura a "issued"
                 if ($invoice) {
                     $invoice->update(['status' => 'issued']);
                 }
-                
+
                 // Elimina le installment_transactions collegate
                 $payment->installmentTransactions()->forceDelete();
-                
+
                 // Elimina le accounting_entries collegate
                 $accountingEntries = AccountingEntry::whereHas('installmentTransactions', function($q) use ($payment) {
                     $q->where('id_invoice_payment', $payment->id);
                 })->get();
-                
+
                 foreach ($accountingEntries as $entry) {
                     $entry->installmentTransactions()->forceDelete();
                     $entry->forceDelete();
                 }
-                
+
                 DB::commit();
-                
+
                 $this->dispatch('showSuccess', message: "{$paymentName} ripristinato e stato resettato a 'Emessa / In attesa'");
                 $this->dispatch('refreshPayments');
             }
@@ -358,34 +467,34 @@ class InvoicePaymentsTable extends Component
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
-    
+
     public function forceDeleteFromTrash(int $id): void
     {
         try {
             DB::beginTransaction();
-            
+
             $payment = InvoicePayment::onlyTrashed()->find($id);
             if ($payment) {
                 $paymentName = 'Pagamento di € ' . number_format($payment->amount, 2, ',', '.');
-                
+
                 // Elimina le installment_transactions collegate
                 $payment->installmentTransactions()->forceDelete();
-                
+
                 // Elimina le accounting_entries collegate
                 $accountingEntries = AccountingEntry::whereHas('installmentTransactions', function($q) use ($payment) {
                     $q->where('id_invoice_payment', $payment->id);
                 })->get();
-                
+
                 foreach ($accountingEntries as $entry) {
                     $entry->installmentTransactions()->forceDelete();
                     $entry->forceDelete();
                 }
-                
+
                 // Elimina definitivamente il pagamento
                 $payment->forceDelete();
-                
+
                 DB::commit();
-                
+
                 $this->dispatch('showSuccess', message: "{$paymentName} eliminato definitivamente.");
                 $this->dispatch('refreshPayments');
             }
@@ -407,6 +516,7 @@ class InvoicePaymentsTable extends Component
     {
         return view('livewire.admin.invoice-payments-table', [
             'payments' => $this->payments,
+            'totals' => $this->totals,
             'statuses' => $this->statuses,
             'trashCount' => $this->trashCount,
             'trashedPayments' => $this->trashedPayments,

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -21,6 +22,7 @@ class InvoiceReceived extends Model
         'id_ownership',
         'id_entities',
         'type_invoice',
+        'closes_invoice_id',
         'n_invoice',
         'data_invoice',
         'importo_totale',
@@ -85,6 +87,21 @@ class InvoiceReceived extends Model
     public function vatSummaries(): MorphMany
     {
         return $this->morphMany(InvoiceVatSummary::class, 'vatable');
+    }
+
+    public function isCreditNote(): bool
+    {
+        return $this->type_invoice === self::TYPE_TD04;
+    }
+
+    public function closedInvoice(): BelongsTo
+    {
+        return $this->belongsTo(InvoiceReceived::class, 'closes_invoice_id');
+    }
+
+    public function closingCreditNote(): HasOne
+    {
+        return $this->hasOne(InvoiceReceived::class, 'closes_invoice_id');
     }
 
     public function creator()

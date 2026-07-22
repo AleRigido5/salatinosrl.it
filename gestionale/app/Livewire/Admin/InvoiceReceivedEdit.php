@@ -357,7 +357,7 @@ class InvoiceReceivedEdit extends Component
         $this->calculateTotals();
         $this->calculatePaymentsTotal();
 
-        if (!$this->is_manual && count($this->payments) > 0) {
+        if (!$this->is_manual && count($this->payments) === 1) {
             $this->payments[0]['amount'] = $this->importo_totale;
             $this->calculatePaymentsTotal();
         }

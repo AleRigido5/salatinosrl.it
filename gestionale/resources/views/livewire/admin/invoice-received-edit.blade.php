@@ -297,6 +297,81 @@
             </div>
         </div>
 
+        <!-- APPLICA CENTRO DI COSTO E MEZZO A TUTTE LE RIGHE -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <!-- Centro di Costo per tutte le righe -->
+            <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                <label class="block text-sm font-medium mb-2 text-blue-800">
+                    <i class="fas fa-building mr-1"></i> Applica Centro di Costo a TUTTE le {{ count($rows) }} righe
+                </label>
+                <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                    <input type="text"
+                        id="cost_center_all_input"
+                        wire:model.live.debounce.300ms="cost_center_all_search"
+                        x-on:focus="open = true"
+                        x-on:input="open = true"
+                        placeholder="Cerca centro di costo..."
+                        class="w-full border rounded-lg px-3 py-2 text-sm"
+                        autocomplete="off">
+                    <div x-show="open && @entangle('show_cost_center_all_dropdown')" x-cloak
+                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        @if(!empty($cost_center_all_results))
+                            @foreach($cost_center_all_results as $cc)
+                                <div class="autocomplete-item"
+                                    x-on:click="open = false"
+                                    wire:click="applyCostCenterToAllRows({{ $cc['id'] }})">
+                                    {{ $cc['name'] }}
+                                </div>
+                            @endforeach
+                        @else
+                            <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato</div>
+                        @endif
+                    </div>
+                </div>
+                @if($cost_center_all_search)
+                    <div class="text-xs text-blue-600 mt-2">
+                        <i class="fas fa-check-circle"></i> Ultimo applicato: "{{ $cost_center_all_search }}"
+                    </div>
+                @endif
+            </div>
+
+            <!-- Mezzo per tutte le righe -->
+            <div class="bg-green-50 p-3 rounded-lg border border-green-200">
+                <label class="block text-sm font-medium mb-2 text-green-800">
+                    <i class="fas fa-truck mr-1"></i> Applica Mezzo a TUTTE le {{ count($rows) }} righe
+                </label>
+                <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                    <input type="text"
+                        id="vehicle_all_input"
+                        wire:model.live.debounce.300ms="vehicle_all_search"
+                        x-on:focus="open = true"
+                        x-on:input="open = true"
+                        placeholder="Cerca mezzo (targa, marca, modello)..."
+                        class="w-full border rounded-lg px-3 py-2 text-sm"
+                        autocomplete="off">
+                    <div x-show="open && @entangle('show_vehicle_all_dropdown')" x-cloak
+                        class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        @if(!empty($vehicle_all_results))
+                            @foreach($vehicle_all_results as $vehicle)
+                                <div class="autocomplete-item"
+                                    x-on:click="open = false"
+                                    wire:click="applyVehicleToAllRows({{ $vehicle['id'] }})">
+                                    {{ $vehicle['name'] }}
+                                </div>
+                            @endforeach
+                        @else
+                            <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato</div>
+                        @endif
+                    </div>
+                </div>
+                @if($vehicle_all_search)
+                    <div class="text-xs text-green-600 mt-2">
+                        <i class="fas fa-check-circle"></i> Ultimo applicato: "{{ $vehicle_all_search }}"
+                    </div>
+                @endif
+            </div>
+        </div>
+
         <!-- RIGHE FATTURA -->
         <div class="mt-6">
             <div class="flex justify-between items-center mb-3">

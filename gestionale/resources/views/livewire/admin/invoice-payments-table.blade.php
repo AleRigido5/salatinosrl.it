@@ -69,7 +69,6 @@
                 </div>
             </div>
 
-
             <!-- Autocomplete Fornitore -->
             <div class="relative" x-data="{ open: false }" x-on:mousedown.away="open = false">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Fornitore</label>
@@ -157,6 +156,8 @@
                     <option value="100000">Tutti</option>
                     <option value="200">200</option>
                     <option value="100">100</option>
+                    <option value="50">50</option>
+                    <option value="25">25</option>
                 </select>
             </div>
         </div>
@@ -198,7 +199,7 @@
         @endif
     </div>
 
-    <!-- Tabella Scadenze con le colonne nell'ordine richiesto -->
+    <!-- Tabella Scadenze -->
     <div class="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
@@ -226,11 +227,14 @@
                     @php
                         $invoice = $payment->payable;
                         $isCreditNote = $invoice && method_exists($invoice, 'isCreditNote') && $invoice->isCreditNote();
-                        $isOverdue = $payment->due_date && $payment->due_date->isPast() && $payment->status !== 'paid';
+                        $isOverdue = $payment->due_date && $payment->due_date->isPast() && $payment->status !== 'paid' && $payment->status !== 'closed_credit_note';
                         $rowClass = $isOverdue ? 'bg-red-50' : ($isCreditNote ? 'bg-purple-50' : '');
                         $residual = $payment->residual_amount > 0 ? $payment->residual_amount : $payment->amount;
                         $displayAmount = $isCreditNote ? -$payment->amount : $payment->amount;
                         $displayResidual = $isCreditNote ? -$residual : $residual;
+                        $isClosedByNC = $payment->status === 'closed_credit_note' || 
+                                       ($payment->status === 'paid' && $invoice && 
+                                        (method_exists($invoice, 'closingCreditNote') && $invoice->closingCreditNote));
                     @endphp
                     <tr class="hover:bg-gray-50 {{ $rowClass }}" wire:key="payment-{{ $payment->id }}">
                         <td class="px-4 py-3 text-sm">{{ $invoice->ownership->RagAbbrev ?? $invoice->ownership_name ?? '-' }}</td>
@@ -246,17 +250,25 @@
                             @if($isCreditNote)
                                 <span class="ml-1 inline-flex px-1.5 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800">NC</span>
                             @endif
+                            @if($isClosedByNC && !$isCreditNote)
+                                <span class="ml-1 inline-flex px-1.5 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800">
+                                    <i class="fas fa-link mr-0.5"></i> NC
+                                </span>
+                            @endif
                         </td>
                         <td class="px-4 py-3 text-sm text-right font-medium {{ $isCreditNote ? 'text-purple-700' : '' }}">
                             {{ number_format($displayAmount, 2, ',', '.') }} €
                         </td>
-                        <td class="px-4 py-3 text-sm text-right font-medium {{ $isCreditNote ? 'text-purple-700' : 'text-orange-600' }}">
+                        <td class="px-4 py-3 text-sm text-right font-medium {{ $isCreditNote ? 'text-purple-700' : ($isClosedByNC ? 'text-green-600' : 'text-orange-600') }}">
                             {{ number_format($displayResidual, 2, ',', '.') }} €
                         </td>
                         <td class="px-4 py-3 text-sm">{{ $payment->payment_method_label ?? $payment->payment_method ?? '-' }}</td>
                         <td class="px-4 py-3 text-center">
                             @php
                                 $statusConfig = $statuses[$payment->status] ?? ['label' => $payment->status, 'badge_class' => 'bg-gray-100 text-gray-800'];
+                                if ($isClosedByNC && $payment->status !== 'closed_credit_note') {
+                                    $statusConfig = $statuses['closed_credit_note'];
+                                }
                             @endphp
                             <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $statusConfig['badge_class'] }}">
                                 {{ $statusConfig['label'] }}
@@ -266,7 +278,7 @@
                             <button wire:click="showDetails({{ $payment->id }})" class="text-blue-600 hover:text-blue-900" title="Dettagli">
                                 <i class="fa-regular fa-eye"></i>
                             </button>
-                            @if(!$isCreditNote && $residual > 0.01 && $invoice instanceof \App\Models\InvoiceReceived)
+                            @if(!$isCreditNote && $residual > 0.01 && $invoice instanceof \App\Models\InvoiceReceived && $payment->status !== 'closed_credit_note')
                                 <button wire:click="openCloseModal({{ $invoice->id }})" class="text-purple-600 hover:text-purple-900 ml-2" title="Chiudi con nota di credito">
                                     <i class="fas fa-link"></i>
                                 </button>
@@ -361,32 +373,74 @@
                     <i class="fas fa-times"></i>
                 </button>
             </div>
+            
+            @php
+                $currentInvoice = \App\Models\InvoiceReceived::find($closingInvoiceId);
+            @endphp
+            
+            @if($currentInvoice)
+                <div class="bg-gray-50 p-3 rounded-lg mb-3 text-sm">
+                    <div><strong>Fattura:</strong> {{ $currentInvoice->n_invoice }}</div>
+                    <div><strong>Importo:</strong> {{ number_format($currentInvoice->importo_totale, 2, ',', '.') }} €</div>
+                    <div><strong>Proprietà:</strong> {{ $currentInvoice->ownership->RagAbbrev ?? 'N/D' }}</div>
+                    <div><strong>Fornitore:</strong> {{ $currentInvoice->entity->ragione_sociale ?? 'N/D' }}</div>
+                </div>
+            @endif
+            
             <p class="text-xs text-gray-500 mb-3">
-                Seleziona la nota di credito da collegare. Entrambe le scadenze verranno chiuse come saldate.
+                <i class="fas fa-info-circle text-purple-500 mr-1"></i>
+                Cerca una nota di credito della stessa proprietà e fornitore
             </p>
+            
             <input type="text"
                 wire:model.live.debounce.300ms="closeInvoiceSearch"
-                placeholder="Cerca n. nota di credito..."
+                placeholder="Cerca n. nota di credito (es. 13)..."
                 class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 autocomplete="off">
+                
+            @if($closeInvoiceError)
+                <div class="mt-2 text-sm text-red-600">
+                    <i class="fas fa-exclamation-circle mr-1"></i> {{ $closeInvoiceError }}
+                </div>
+            @endif
+            
             <div class="mt-2 max-h-56 overflow-y-auto border rounded-md">
                 @forelse($creditNoteResults as $cn)
                     <div wire:click="closeInvoiceWithCreditNote({{ $cn->id }})"
-                         class="px-3 py-2 hover:bg-purple-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                        <div class="font-medium text-gray-800">NC {{ $cn->n_invoice }}</div>
-                        <div class="text-xs text-gray-500">{{ number_format($cn->importo_totale, 2, ',', '.') }} €</div>
+                         class="px-3 py-2 hover:bg-purple-50 cursor-pointer text-sm border-b border-gray-100 last:border-0 transition-colors">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <div class="font-medium text-gray-800">
+                                    <i class="fas fa-file-invoice text-purple-500 mr-1"></i>
+                                    NC {{ $cn->n_invoice }}
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                    {{ $cn->ownership->RagAbbrev ?? 'N/D' }} - 
+                                    {{ $cn->entity->ragione_sociale ?? 'N/D' }}
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-medium text-purple-600">{{ number_format($cn->importo_totale, 2, ',', '.') }} €</div>
+                                <div class="text-xs text-gray-400">{{ $cn->data_invoice ? date('d/m/Y', strtotime($cn->data_invoice)) : '' }}</div>
+                            </div>
+                        </div>
                     </div>
                 @empty
                     <div class="px-3 py-2 text-sm text-gray-400 text-center">
                         @if(strlen($closeInvoiceSearch) >= 2)
-                            Nessuna nota di credito trovata
+                            @if($closeInvoiceError)
+                                {{ $closeInvoiceError }}
+                            @else
+                                <i class="fas fa-search mr-1"></i> Nessuna nota di credito trovata
+                            @endif
                         @else
-                            Digita almeno 2 caratteri
+                            <i class="fas fa-keyboard mr-1"></i> Digita almeno 2 caratteri
                         @endif
                     </div>
                 @endforelse
             </div>
-            <div class="mt-4 flex justify-end">
+            
+            <div class="mt-4 flex justify-end gap-2">
                 <button wire:click="closeCloseModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-sm transition-colors">
                     Annulla
                 </button>
@@ -395,7 +449,7 @@
     </div>
     @endif
 
-    <!-- MODAL DETTAGLI SCADENZA  -->
+    <!-- MODAL DETTAGLI SCADENZA -->
     @if($showModal && $selectedPayment)
     @php
         $invoiceModal = $selectedPayment->payable;
@@ -465,7 +519,6 @@
                         </div>
                     </div>
 
-
                     <!-- Quarta riga: Modalità Pagamento e Stato affiancati -->
                     <div class="grid grid-cols-2 gap-4">
                         <div class="bg-gray-50 p-3 rounded-lg">
@@ -497,7 +550,6 @@
 
                     <!-- CRONOLOGIA PAGAMENTI EFFETTUATI -->
                     @php
-                        // Assicurati che $paymentHistory sia sempre una Collection
                         if (!($paymentHistory instanceof \Illuminate\Support\Collection)) {
                             $paymentHistory = collect($paymentHistory);
                         }
@@ -565,5 +617,80 @@
             </div>
         </div>
     </div>
-@endif
+    @endif
+
+    <!-- MODAL CESTINO -->
+    {{-- @if($showTrashModal)
+    <div x-data="{}" x-on:click.self="$wire.closeTrashModal()" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-500 bg-opacity-75">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="font-bold text-gray-900">
+                    <i class="fas fa-trash-alt text-red-500 mr-2"></i>
+                    Cestino Scadenze
+                </h3>
+                <button wire:click="closeTrashModal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="p-4">
+                <div class="mb-4">
+                    <input type="text" wire:model.live.debounce.300ms="trashSearch" 
+                           placeholder="Cerca nel cestino..." 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 cursor-pointer" wire:click="trashSortBy('deleted_at')">
+                                    Eliminato il
+                                    @if($trashSortField === 'deleted_at')<i class="fas fa-sort-{{ $trashSortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
+                                </th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Fattura</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500">Importo</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Proprietà</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">Fornitore</th>
+                                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            @forelse($trashedPayments as $trashed)
+                            @php
+                                $trashedInvoice = $trashed->payable;
+                            @endphp
+                            <tr>
+                                <td class="px-4 py-2 text-sm">{{ $trashed->deleted_at ? $trashed->deleted_at->format('d/m/Y H:i') : '-' }}</td>
+                                <td class="px-4 py-2 text-sm">{{ $trashedInvoice->n_invoice ?? '-' }}</td>
+                                <td class="px-4 py-2 text-sm text-right">{{ number_format($trashed->amount, 2, ',', '.') }} €</td>
+                                <td class="px-4 py-2 text-sm">{{ $trashedInvoice->ownership->RagAbbrev ?? '-' }}</td>
+                                <td class="px-4 py-2 text-sm">{{ $trashedInvoice->entity->ragione_sociale ?? '-' }}</td>
+                                <td class="px-4 py-2 text-center">
+                                    <button wire:click="restoreFromTrash({{ $trashed->id }})" class="text-green-600 hover:text-green-900 mr-2" title="Ripristina">
+                                        <i class="fas fa-undo"></i>
+                                    </button>
+                                    <button wire:click="forceDeleteFromTrash({{ $trashed->id }})" class="text-red-600 hover:text-red-900" title="Elimina definitivamente" onclick="return confirm('Sei sicuro di voler eliminare definitivamente questo pagamento?')">
+                                        <i class="fas fa-times-circle"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-gray-500">Il cestino è vuoto</td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                
+                @if($trashedPayments->hasPages())
+                <div class="mt-4">
+                    {{ $trashedPayments->links() }}
+                </div>
+                @endif
+            </div>
+        </div>
+    </div>
+    @endif --}}
 </div>

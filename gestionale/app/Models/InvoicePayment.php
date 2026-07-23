@@ -28,6 +28,8 @@ class InvoicePayment extends Model
         'paid_at',
         'status',
     ];
+
+    public bool $skipAutoStatus = false;
     
     protected $casts = [
         'due_date' => 'date',
@@ -126,7 +128,10 @@ class InvoicePayment extends Model
             $newResidual = max(0, $this->attributes['amount'] - $value);
             $this->attributes['residual_amount'] = $newResidual;
             
-            // Aggiorna automaticamente lo status
+            if ($this->skipAutoStatus) {
+                return; // lo stato viene gestito esplicitamente da chi chiama (es. chiusura con NC)
+            }
+            
             if ($newResidual <= 0.01) {
                 $this->attributes['status'] = 'paid';
                 if (empty($this->attributes['paid_at'])) {
@@ -209,16 +214,16 @@ class InvoicePayment extends Model
      */
     public function save(array $options = [])
     {
-        // Prima di salvare, assicurati che residual_amount sia corretto
         $this->attributes['residual_amount'] = max(0, $this->amount - $this->paid_amount);
         
-        // Assicurati che lo status sia corretto
-        if ($this->attributes['residual_amount'] <= 0.01) {
-            $this->attributes['status'] = 'paid';
-        } elseif ($this->paid_amount > 0) {
-            $this->attributes['status'] = 'partially_paid';
-        } else {
-            $this->attributes['status'] = 'issued';
+        if (!$this->skipAutoStatus) {
+            if ($this->attributes['residual_amount'] <= 0.01) {
+                $this->attributes['status'] = 'paid';
+            } elseif ($this->paid_amount > 0) {
+                $this->attributes['status'] = 'partially_paid';
+            } else {
+                $this->attributes['status'] = 'issued';
+            }
         }
         
         return parent::save($options);

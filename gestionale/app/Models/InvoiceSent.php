@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class InvoiceSent extends Model
@@ -20,6 +21,7 @@ class InvoiceSent extends Model
         'id_entities',
         'id_invoice_series',
         'type_invoice',
+        'closes_invoice_id',
         'n_invoice',
         'n_invoice_ext',
         'data_invoice',
@@ -86,6 +88,22 @@ class InvoiceSent extends Model
     public function updater()
     {
         return $this->belongsTo(Administrator::class, 'updated_by');
+    }
+
+    // Nota di credito
+    public function isCreditNote(): bool
+    {
+        return $this->type_invoice === 'TD04';
+    }
+
+    public function closedInvoice(): BelongsTo
+    {
+        return $this->belongsTo(InvoiceSent::class, 'closes_invoice_id');
+    }
+
+    public function closingCreditNote(): HasOne
+    {
+        return $this->hasOne(InvoiceSent::class, 'closes_invoice_id');
     }
 
     // Accessor

@@ -5,6 +5,7 @@ namespace App\Livewire\Admin;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\InvoicePayment;
+use App\Models\InvoiceSent;
 use App\Models\Ownership;
 use App\Models\Entity;
 use App\Models\InstallmentTransaction;
@@ -45,9 +46,14 @@ class InvoicePaymentsSentTable extends Component
     public $sortField = 'due_date';
     public $sortDirection = 'asc';
     
-    // Modal
+    // Modal dettagli
     public $showModal = false;
     public $selectedPayment = null;
+
+    // Chiusura fattura con nota di credito
+    public ?int $closingInvoiceId = null;
+    public string $closeInvoiceSearch = '';
+    public Collection $creditNoteResults;
     
     // Eventi ascoltati
     protected $listeners = [
@@ -61,12 +67,14 @@ class InvoicePaymentsSentTable extends Component
         'partially_paid' => ['label' => 'Pagato parzialmente', 'badge_class' => 'bg-blue-100 text-blue-800'],
         'paid' => ['label' => 'Pagato', 'badge_class' => 'bg-green-100 text-green-800'],
         'overdue' => ['label' => 'Scaduto', 'badge_class' => 'bg-red-100 text-red-800'],
+        'closed_credit_note' => ['label' => 'Saldato con NC', 'badge_class' => 'bg-purple-100 text-purple-800'],
     ];
     
     public function mount()
     {
         $this->ownershipResults = new Collection();
         $this->clientResults = new Collection();
+        $this->creditNoteResults = new Collection();
         $this->selectedOwnershipId = null;
         $this->selectedOwnershipName = '';
         $this->selectedClientId = null;
@@ -102,7 +110,6 @@ class InvoicePaymentsSentTable extends Component
         $this->clientResults = new Collection();
         $this->resetPage();
         
-        // Dispatch per resettare il componente date-range-filter
         $this->dispatch('resetDates');
     }
     
@@ -236,7 +243,7 @@ class InvoicePaymentsSentTable extends Component
     public function showDetails($paymentId)
     {
         $this->selectedPayment = InvoicePayment::with(['payable.entity', 'payable.ownership'])
-            ->where('payable_type', 'App\\Models\\InvoiceSent')
+            ->where('payable_type', InvoiceSent::class)
             ->find($paymentId);
         
         if ($this->selectedPayment) {
@@ -249,15 +256,95 @@ class InvoicePaymentsSentTable extends Component
         $this->showModal = false;
         $this->selectedPayment = null;
     }
+
+    // ==================== CHIUSURA FATTURA CON NOTA DI CREDITO ====================
+
+    public function openCloseModal(int $invoiceId): void
+    {
+        $this->closingInvoiceId = $invoiceId;
+        $this->closeInvoiceSearch = '';
+        $this->creditNoteResults = new Collection();
+    }
+
+    public function closeCloseModal(): void
+    {
+        $this->closingInvoiceId = null;
+        $this->closeInvoiceSearch = '';
+        $this->creditNoteResults = new Collection();
+    }
+
+    public function updatedCloseInvoiceSearch(): void
+    {
+        if (strlen($this->closeInvoiceSearch) < 2) {
+            $this->creditNoteResults = new Collection();
+            return;
+        }
+
+        try {
+            $this->creditNoteResults = InvoiceSent::where('type_invoice', 'TD04')
+                ->where('n_invoice', 'like', '%' . $this->closeInvoiceSearch . '%')
+                ->whereNull('closes_invoice_id')
+                ->limit(10)
+                ->get();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Errore ricerca nota di credito vendite: ' . $e->getMessage());
+            $this->creditNoteResults = new Collection();
+            $this->dispatch('showError', message: 'Errore nella ricerca: ' . $e->getMessage());
+        }
+    }
+
+    public function closeInvoiceWithCreditNote(int $creditNoteId): void
+    {
+        if (!$this->closingInvoiceId) {
+            return;
+        }
+
+        DB::beginTransaction();
+        try {
+            $invoice = InvoiceSent::findOrFail($this->closingInvoiceId);
+            $creditNote = InvoiceSent::findOrFail($creditNoteId);
+
+            // Collega la nota di credito alla fattura che chiude
+            $creditNote->update(['closes_invoice_id' => $invoice->id]);
+
+            // Chiudi tutte le scadenze della fattura originale
+            $invoice->payments()->get()->each(function ($payment) {
+                $payment->skipAutoStatus = true;
+                $payment->paid_amount = $payment->amount;
+                $payment->status = 'closed_credit_note';
+                $payment->paid_at = now();
+                $payment->save();
+            });
+
+            // Chiudi anche le scadenze della nota di credito stessa
+            $creditNote->payments()->get()->each(function ($payment) {
+                $payment->skipAutoStatus = true;
+                $payment->paid_amount = $payment->amount;
+                $payment->status = 'closed_credit_note';
+                $payment->paid_at = now();
+                $payment->save();
+            });
+
+            DB::commit();
+
+            $this->closeCloseModal();
+            $this->dispatch('showSuccess', message: "Fattura {$invoice->n_invoice} chiusa con nota di credito {$creditNote->n_invoice}");
+            $this->dispatch('refreshPayments');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('Errore chiusura fattura vendita con NC: ' . $e->getMessage());
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
     
     public function getPaymentsProperty()
     {
-        $query = InvoicePayment::where('payable_type', 'App\\Models\\InvoiceSent')
+        $query = InvoicePayment::where('payable_type', InvoiceSent::class)
             ->with(['payable.entity', 'payable.ownership'])
             ->join('invoices_sent', 'invoice_payments.payable_id', '=', 'invoices_sent.id')
             ->join('entities', 'invoices_sent.id_entities', '=', 'entities.id_cliente')
             ->select('invoice_payments.*')
-            // 🔥 IMPORTANTE: Mostra SOLO i pagamenti che hanno un residuo > 0
+            // Mostra SOLO i pagamenti che hanno un residuo > 0
             ->where(function($q) {
                 $q->where('invoice_payments.residual_amount', '>', 0.01)
                   ->orWhereRaw('invoice_payments.amount - invoice_payments.paid_amount > 0.01');

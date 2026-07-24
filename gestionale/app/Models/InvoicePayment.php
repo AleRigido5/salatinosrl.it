@@ -74,13 +74,52 @@ class InvoicePayment extends Model
     }
     
     /**
+     * Verifica se il pagamento è stato chiuso da una nota di credito
+     */
+    public function isClosedByCreditNote(): bool
+    {
+        // Se lo stato è esplicitamente 'closed_credit_note'
+        if ($this->status === 'closed_credit_note') {
+            return true;
+        }
+        
+        // Se è pagato, controlla se la fattura ha una NC che la chiude
+        if ($this->status === 'paid' && $this->payable) {
+            $payable = $this->payable;
+            
+            // Solo per InvoiceReceived
+            if ($payable instanceof \App\Models\InvoiceReceived) {
+                // Verifica se la fattura ha note di credito che la chiudono (nuova struttura)
+                if (method_exists($payable, 'closingCreditNotes') && $payable->closingCreditNotes()->exists()) {
+                    return true;
+                }
+                
+                // Verifica se è una nota di credito che chiude fatture (nuova struttura)
+                if (method_exists($payable, 'closedInvoices') && $payable->closedInvoices()->exists()) {
+                    return true;
+                }
+                
+                // Compatibilità con vecchia struttura (closes_invoice_id)
+                if (method_exists($payable, 'closingCreditNote') && $payable->closingCreditNote()->exists()) {
+                    return true;
+                }
+                
+                if (method_exists($payable, 'closedInvoice') && $payable->closedInvoice()->exists()) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
      * Accessor: Calcola il residuo dinamicamente
      * IMPORTANTE: Il residuo è sempre amount - paid_amount
      */
     public function getResidualAmountAttribute($value)
     {
         // Calcolo dinamico basato su amount e paid_amount
-        // Questo è il metodo più sicuro
         $calculatedResidual = max(0, $this->amount - $this->paid_amount);
         
         // Log per debug (rimuovi in produzione)
@@ -204,6 +243,7 @@ class InvoicePayment extends Model
             'issued' => 'bg-blue-100 text-blue-800',
             'partially_paid' => 'bg-yellow-100 text-yellow-800',
             'paid' => 'bg-green-100 text-green-800',
+            'closed_credit_note' => 'bg-purple-100 text-purple-800',
         ];
         
         return $statuses[$this->status] ?? 'bg-gray-100 text-gray-800';

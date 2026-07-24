@@ -94,15 +94,135 @@ class InvoiceReceived extends Model
         return $this->type_invoice === self::TYPE_TD04;
     }
 
+    // ==================== RELAZIONI PER NOTE DI CREDITO MULTIPLE ====================
+
+    /**
+     * Relazione inversa: fatture chiuse da questa nota di credito (via tabella ponte)
+     */
+    public function closedInvoices(): HasMany
+    {
+        return $this->hasMany(CreditNoteInvoiceRelation::class, 'credit_note_id');
+    }
+
+    /**
+     * Relazione: note di credito che chiudono questa fattura (via tabella ponte)
+     */
+    public function closingCreditNotes(): HasMany
+    {
+        return $this->hasMany(CreditNoteInvoiceRelation::class, 'invoice_id');
+    }
+
+    // ==================== METODI PER COMPATIBILITÀ CON VECCHIA STRUTTURA ====================
+
+    /**
+     * @deprecated Usa closingCreditNotes() per supporto multiple NC
+     * Mantenuto per compatibilità con codice esistente
+     */
     public function closedInvoice(): BelongsTo
     {
         return $this->belongsTo(InvoiceReceived::class, 'closes_invoice_id');
     }
 
+    /**
+     * @deprecated Usa closedInvoices() per supporto multiple NC
+     * Mantenuto per compatibilità con codice esistente
+     */
     public function closingCreditNote(): HasOne
     {
         return $this->hasOne(InvoiceReceived::class, 'closes_invoice_id');
     }
+
+    // ==================== METODI UTILI PER LE NC ====================
+
+    /**
+     * Ottiene tutte le fatture chiuse da questa NC con i dettagli
+     */
+    public function getClosedInvoicesListAttribute()
+    {
+        return $this->closedInvoices()->with('invoice')->get();
+    }
+
+    /**
+     * Verifica se questa fattura è chiusa da una o più note di credito
+     */
+    public function isClosedByCreditNote(): bool
+    {
+        // Controlla prima la nuova struttura (tabella ponte)
+        if ($this->closingCreditNotes()->exists()) {
+            return true;
+        }
+        
+        // Compatibilità con vecchia struttura
+        if ($this->closingCreditNote()->exists()) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Ottiene la prima NC che chiude questa fattura (per compatibilità)
+     */
+    public function getClosingCreditNoteAttribute()
+    {
+        // Prima controlla la nuova struttura
+        $relation = $this->closingCreditNotes()->first();
+        if ($relation) {
+            return $relation->creditNote;
+        }
+        
+        // Compatibilità con vecchia struttura
+        return $this->closingCreditNote()->first();
+    }
+
+    /**
+     * Ottiene il totale già allocato di questa NC
+     */
+    public function getAllocatedAmountAttribute(): float
+    {
+        return (float) $this->closedInvoices()->sum('allocated_amount');
+    }
+
+    /**
+     * Ottiene il residuo disponibile di questa NC
+     */
+    public function getRemainingAmountAttribute(): float
+    {
+        return max(0, (float) $this->importo_totale - $this->allocated_amount);
+    }
+
+    /**
+     * Verifica se la NC è completamente utilizzata
+     */
+    public function isFullyUsed(): bool
+    {
+        return $this->remaining_amount <= 0.01;
+    }
+
+    /**
+     * Ottiene il numero di fatture chiuse da questa NC
+     */
+    public function getClosedInvoicesCountAttribute(): int
+    {
+        return $this->closedInvoices()->count();
+    }
+
+    /**
+     * Ottiene l'elenco dei numeri delle fatture chiuse da questa NC
+     */
+    public function getClosedInvoicesNumbersAttribute(): string
+    {
+        $numbers = $this->closedInvoices()
+            ->with('invoice')
+            ->get()
+            ->pluck('invoice.n_invoice')
+            ->filter()
+            ->toArray();
+            
+        return implode(', ', $numbers);
+    }
+
+    // ==================== METODI ESISTENTI (NON MODIFICATI) ====================
 
     public function creator()
     {
@@ -197,7 +317,6 @@ class InvoiceReceived extends Model
             if (is_array($attachments) && !empty($attachments)) {
                 return $attachments[0];
             }
-            // Se è una stringa semplice (URL diretto)
             if (is_string($this->attachment) && filter_var($this->attachment, FILTER_VALIDATE_URL)) {
                 return $this->attachment;
             }

@@ -379,6 +379,13 @@ document.addEventListener('alpine:init', () => {
         },
         
         async searchItems() {
+            // Se il campo viene svuotato manualmente, azzera anche l'ID selezionato
+            // così il cliente non resta agganciato in memoria dopo la cancellazione.
+            if (this.search.length === 0) {
+                this.selectedId = '';
+                Alpine.store('client').selectedId = '';
+            }
+            
             if (this.search.length < 2) {
                 this.results = [];
                 this.open = false;
@@ -406,6 +413,14 @@ document.addEventListener('alpine:init', () => {
             this.open = false;
             this.results = [];
             Alpine.store('client').selectedId = item.id_cliente;
+        },
+        
+        clearSelection() {
+            this.search = '';
+            this.selectedId = '';
+            this.open = false;
+            this.results = [];
+            Alpine.store('client').selectedId = '';
         },
         
         moveDown() { if (this.highlightIndex < this.results.length - 1) this.highlightIndex++; },

@@ -80,11 +80,10 @@ class ActivityController extends Controller
         $filters = session('activities_filters', []);
         
         try {
-            // VALIDAZIONE - id_entities nullable
             $validated = $request->validate([
                 'data_activities' => 'required|date',
                 'id_cost_centers' => 'required|exists:cost_centers,id',
-                'id_entities' => 'nullable|exists:entities,id_cliente', // NULLABLE
+                'id_entities' => 'nullable|exists:entities,id_cliente',
                 'id_services' => 'required|exists:services,id',
                 'invoice_references' => 'nullable|string|max:255',
                 'note' => 'nullable|string',
@@ -99,54 +98,48 @@ class ActivityController extends Controller
             
             $activity = Activity::findOrFail($id);
             
-            // 1. RECUPERA I COSTI ORARI ESISTENTI PRIMA DI ELIMINARE
-            // Creiamo una mappa [id_staff => costo_orario]
-            $existingStaffCosts = [];
-            $existingStaffDetails = $activity->staffDetails()->get();
-            
-            foreach ($existingStaffDetails as $staffDetail) {
-                // Il campo costo_orario esiste già nella tabella
-                $existingStaffCosts[$staffDetail->id_staff] = $staffDetail->costo_orario ?? 0;
-            }
-            
-            Log::info('Step 1: Costi orari esistenti recuperati:', $existingStaffCosts);
-            
-            // 2. AGGIORNA I CAMPI BASE - id_entities può essere null
+            // 1. AGGIORNA I CAMPI BASE - id_entities può essere null
             $activity->update([
                 'data_activities' => $validated['data_activities'],
                 'id_cost_centers' => $validated['id_cost_centers'],
-                'id_entities' => !empty($validated['id_entities']) ? $validated['id_entities'] : null, // PERMETTE NULL
+                'id_entities' => !empty($validated['id_entities']) ? $validated['id_entities'] : null,
                 'id_services' => $validated['id_services'],
                 'invoice_references' => $validated['invoice_references'] ?? '',
                 'note' => $validated['note'] ?? null,
                 'updated_by' => Auth::guard('admin')->id(),
             ]);
             
-            Log::info('Step 2: Activity aggiornata - ID: ' . $activity->id . ', id_entities: ' . ($activity->id_entities ?? 'NULL'));
+            Log::info('Step 1: Activity aggiornata - ID: ' . $activity->id . ', id_entities: ' . ($activity->id_entities ?? 'NULL'));
+            
+            // 2. RECUPERA I COSTI ORARI ESISTENTI PRIMA DI ELIMINARE
+            // Mappa id_staff => costo_orario, così possiamo ripristinarlo se lo stesso
+            // membro dello staff è ancora presente dopo la modifica.
+            $existingCosti = $activity->staffDetails()
+                ->pluck('costo_orario', 'id_staff');
+            
+            Log::info('Step 2a: Costi orari esistenti recuperati - Totale: ' . $existingCosti->count());
             
             // 3. ELIMINA TUTTI GLI STAFF ESISTENTI
             $deleted = $activity->staffDetails()->delete();
-            Log::info('Step 3: Staff eliminati - Count: ' . $deleted);
+            Log::info('Step 2b: Staff eliminati - Count: ' . $deleted);
             
-            // 4. INSERISCI I NUOVI STAFF CON I COSTI ORARI PRESERVATI
+            // 4. INSERISCI I NUOVI STAFF (ripristinando il costo_orario se già presente)
             $staffInserted = 0;
             if (!empty($validated['staff'])) {
-                Log::info('Step 4: Inizio inserimento nuovi staff - Totale da inserire: ' . count($validated['staff']));
+                Log::info('Step 3: Inizio inserimento nuovi staff - Totale da inserire: ' . count($validated['staff']));
                 
                 foreach ($validated['staff'] as $index => $staffItem) {
                     if (!empty($staffItem['id_staff']) && !empty($staffItem['n_ore'])) {
                         
-                        // RECUPERA IL COSTO ORARIO PRECEDENTE SE ESISTE
-                        $staffId = $staffItem['id_staff'];
-                        $costoOrario = $existingStaffCosts[$staffId] ?? 0;
-                        
-                        Log::info("Staff ID {$staffId} - Costo orario preservato: {$costoOrario}");
+                        // Se questo membro dello staff era già associato a questa attività,
+                        // riusa il suo costo_orario storico. Altrimenti resta null.
+                        $costoOrario = $existingCosti->get($staffItem['id_staff']) ?? null;
                         
                         $newStaff = $activity->staffDetails()->create([
                             'id_activities' => $activity->id,
-                            'id_staff' => $staffId,
+                            'id_staff' => $staffItem['id_staff'],
                             'n_ore' => floatval($staffItem['n_ore']),
-                            'costo_orario' => $costoOrario, // COSTO ORARIO PRESERVATO
+                            'costo_orario' => $costoOrario,
                             'spese' => isset($staffItem['spese']) ? floatval($staffItem['spese']) : 0,
                             'note' => $staffItem['note'] ?? null,
                             'data_att' => $validated['data_activities'] ?? null,
@@ -154,7 +147,7 @@ class ActivityController extends Controller
                             'updated_by' => Auth::guard('admin')->id(),
                         ]);
                         $staffInserted++;
-                        Log::info("Step 4: Staff inserito - ID_staff: {$staffId}, Ore: {$staffItem['n_ore']}, Costo_orario: {$costoOrario}, Link ID: {$newStaff->id}");
+                        Log::info("Step 3: Staff inserito - ID_staff: {$staffItem['id_staff']}, Ore: {$staffItem['n_ore']}, Costo orario: " . ($costoOrario ?? 'NULL (nuovo)') . ", Link ID: {$newStaff->id}");
                     }
                 }
             }
@@ -165,7 +158,7 @@ class ActivityController extends Controller
             Log::info("Activity ID: {$activity->id}, Staff inseriti: {$staffInserted}");
             
             return redirect()->route('admin.activities.index', $filters)
-                ->with('success', "Attività modificata con successo! ({$staffInserted} persone associate)");
+                ->with('success', "Attività modificata con successo!");
                 
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();

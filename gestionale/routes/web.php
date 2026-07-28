@@ -286,6 +286,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // =============================================
         Route::prefix('invoice-payments')->name('invoice-payments.')->group(function () {
             Route::get('/', [App\Http\Controllers\Admin\InvoicePaymentController::class, 'index'])->name('index');
+            
+            // Rotte per esportazione - DEVONO ESSERE PRIMA della route {invoice}
+            Route::get('/export-pdf', [App\Http\Controllers\Admin\InvoicePaymentController::class, 'exportPdf'])->name('export-pdf');
+            Route::get('/export-excel', [App\Http\Controllers\Admin\InvoicePaymentController::class, 'exportExcel'])->name('export-excel');
         });
 
         // =============================================

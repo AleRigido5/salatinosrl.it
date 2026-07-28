@@ -56,7 +56,7 @@ class InvoicePaymentsTable extends Component
     public string $closeInvoiceSearch = '';
     public Collection $creditNoteResults;
     public string $closeInvoiceError = '';
-    public array $selectedCreditNotes = []; // Per supportare multiple NC
+    public array $selectedCreditNotes = [];
 
     protected $listeners = [
         'dateRangeUpdated' => 'updateDateRange',
@@ -235,7 +235,6 @@ class InvoicePaymentsTable extends Component
             })
             ->when($this->status, function($q) {
                 if ($this->status === 'closed_credit_note') {
-                    // Usa RAW SQL per filtrare le fatture chiuse con NC
                     $q->where(function($sq) {
                         $sq->where('invoice_payments.status', 'closed_credit_note')
                           ->orWhereRaw("
@@ -246,7 +245,6 @@ class InvoicePaymentsTable extends Component
                                   WHERE ir.id = invoice_payments.payable_id 
                                   AND ir.deleted_at IS NULL
                                   AND (
-                                      -- Fattura chiusa da nota di credito (via tabella ponte)
                                       EXISTS (
                                           SELECT 1 FROM credit_note_invoice_relations r
                                           INNER JOIN invoices_received nc ON nc.id = r.credit_note_id
@@ -255,13 +253,11 @@ class InvoicePaymentsTable extends Component
                                           AND nc.deleted_at IS NULL
                                       )
                                       OR 
-                                      -- È una nota di credito che chiude fatture (via tabella ponte)
                                       EXISTS (
                                           SELECT 1 FROM credit_note_invoice_relations r
                                           WHERE r.credit_note_id = ir.id
                                       )
                                       OR
-                                      -- Compatibilità con vecchia struttura (closes_invoice_id)
                                       EXISTS (
                                           SELECT 1 FROM invoices_received nc 
                                           WHERE nc.closes_invoice_id = ir.id 
@@ -322,7 +318,6 @@ class InvoicePaymentsTable extends Component
         $this->closeInvoiceError = '';
         $this->selectedCreditNotes = [];
         
-        // Carica le NC già selezionate per questa fattura
         $existingRelations = CreditNoteInvoiceRelation::where('invoice_id', $invoiceId)->get();
         foreach ($existingRelations as $rel) {
             $this->selectedCreditNotes[] = $rel->credit_note_id;
@@ -356,14 +351,11 @@ class InvoicePaymentsTable extends Component
                 return;
             }
 
-            // CERCA NOTE DI CREDITO DELLA STESSA PROPRIETÀ E FORNITORE
-            // CHE HANNO ANCORA RESIDUO DISPONIBILE
             $this->creditNoteResults = InvoiceReceived::where('type_invoice', 'TD04')
                 ->where('n_invoice', 'like', '%' . $this->closeInvoiceSearch . '%')
                 ->where('id_ownership', $invoice->id_ownership)
                 ->where('id_entities', $invoice->id_entities)
                 ->where(function($q) {
-                    // Mostra solo NC che hanno ancora residuo
                     $q->whereRaw('
                         importo_totale > COALESCE((
                             SELECT SUM(allocated_amount) 
@@ -390,10 +382,8 @@ class InvoicePaymentsTable extends Component
     public function toggleCreditNoteSelection(int $creditNoteId): void
     {
         if (in_array($creditNoteId, $this->selectedCreditNotes)) {
-            // Rimuovi dalla selezione
             $this->selectedCreditNotes = array_diff($this->selectedCreditNotes, [$creditNoteId]);
         } else {
-            // Aggiungi alla selezione
             $this->selectedCreditNotes[] = $creditNoteId;
         }
     }
@@ -419,16 +409,14 @@ class InvoicePaymentsTable extends Component
             foreach ($this->selectedCreditNotes as $creditNoteId) {
                 $creditNote = InvoiceReceived::findOrFail($creditNoteId);
 
-                // Verifica che la nota di credito non sia già collegata a questa fattura
                 $existingRelation = CreditNoteInvoiceRelation::where('credit_note_id', $creditNoteId)
                     ->where('invoice_id', $invoice->id)
                     ->first();
                     
                 if ($existingRelation) {
-                    continue; // Salta se già collegata
+                    continue;
                 }
 
-                // Calcola quanto allocare da questa NC
                 $remainingAmount = $creditNote->importo_totale - $creditNote->allocated_amount;
                 $amountToAllocate = min($invoice->importo_totale - $totalAllocated, $remainingAmount);
 
@@ -436,7 +424,6 @@ class InvoicePaymentsTable extends Component
                     continue;
                 }
 
-                // Crea la relazione
                 CreditNoteInvoiceRelation::create([
                     'credit_note_id' => $creditNoteId,
                     'invoice_id' => $invoice->id,
@@ -446,7 +433,6 @@ class InvoicePaymentsTable extends Component
                 $totalAllocated += $amountToAllocate;
                 $creditNotesUsed[] = $creditNote->n_invoice;
 
-                // Se la NC è completamente utilizzata, chiudi le sue scadenze
                 $newRemaining = $creditNote->remaining_amount;
                 if ($newRemaining <= 0.01) {
                     $creditNote->payments()->get()->each(function ($payment) {
@@ -460,7 +446,6 @@ class InvoicePaymentsTable extends Component
                 }
             }
 
-            // Se la fattura è completamente pagata, chiudi le sue scadenze
             $invoiceRemaining = $invoice->importo_totale - $totalAllocated;
             if ($invoiceRemaining <= 0.01) {
                 $invoice->payments()->get()->each(function ($payment) {
@@ -501,7 +486,6 @@ class InvoicePaymentsTable extends Component
         try {
             DB::beginTransaction();
             
-            // Correggi i pagamenti delle fatture chiuse da NC (via tabella ponte)
             $sql = "
                 UPDATE invoice_payments ip
                 SET ip.status = 'closed_credit_note',
@@ -515,7 +499,6 @@ class InvoicePaymentsTable extends Component
                       WHERE ir.id = ip.payable_id 
                       AND ir.deleted_at IS NULL
                       AND (
-                          -- Fattura chiusa da nota di credito (via tabella ponte)
                           EXISTS (
                               SELECT 1 FROM credit_note_invoice_relations r
                               INNER JOIN invoices_received nc ON nc.id = r.credit_note_id
@@ -524,13 +507,11 @@ class InvoicePaymentsTable extends Component
                               AND nc.deleted_at IS NULL
                           )
                           OR 
-                          -- È una nota di credito che chiude fatture (via tabella ponte)
                           EXISTS (
                               SELECT 1 FROM credit_note_invoice_relations r
                               WHERE r.credit_note_id = ir.id
                           )
                           OR
-                          -- Compatibilità con vecchia struttura (closes_invoice_id)
                           EXISTS (
                               SELECT 1 FROM invoices_received nc 
                               WHERE nc.closes_invoice_id = ir.id 
@@ -568,6 +549,88 @@ class InvoicePaymentsTable extends Component
             'paid' => ['label' => 'Pagato', 'badge_class' => 'bg-green-100 text-green-800'],
             'closed_credit_note' => ['label' => 'Saldato con NC', 'badge_class' => 'bg-purple-100 text-purple-800'],
         ];
+    }
+
+    // ==================== METODI PER ESPORTAZIONE ====================
+
+    /**
+     * Genera l'URL per l'esportazione PDF con tutti i filtri attivi
+     */
+    public function getExportPdfUrl()
+    {
+        $params = [];
+        
+        if ($this->selectedOwnershipId) {
+            $params['ownership_id'] = $this->selectedOwnershipId;
+        }
+        if ($this->selectedSupplierId) {
+            $params['supplier_id'] = $this->selectedSupplierId;
+        }
+        if ($this->invoiceSearch) {
+            $params['invoice_search'] = $this->invoiceSearch;
+        }
+        if ($this->status) {
+            $params['status'] = $this->status;
+        }
+        if ($this->dateFrom) {
+            $params['date_from'] = $this->dateFrom;
+        }
+        if ($this->dateTo) {
+            $params['date_to'] = $this->dateTo;
+        }
+        if ($this->sortField) {
+            $params['sort_field'] = $this->sortField;
+        }
+        if ($this->sortDirection) {
+            $params['sort_direction'] = $this->sortDirection;
+        }
+        
+        // Passa il per_page per limitare i risultati come nella tabella
+        if ($this->perPage != 100000) {
+            $params['per_page'] = $this->perPage;
+        }
+        
+        return route('admin.invoice-payments.export-pdf', $params);
+    }
+
+    /**
+     * Genera l'URL per l'esportazione Excel con tutti i filtri attivi
+     */
+    public function getExportExcelUrl()
+    {
+        $params = [];
+        
+        if ($this->selectedOwnershipId) {
+            $params['ownership_id'] = $this->selectedOwnershipId;
+        }
+        if ($this->selectedSupplierId) {
+            $params['supplier_id'] = $this->selectedSupplierId;
+        }
+        if ($this->invoiceSearch) {
+            $params['invoice_search'] = $this->invoiceSearch;
+        }
+        if ($this->status) {
+            $params['status'] = $this->status;
+        }
+        if ($this->dateFrom) {
+            $params['date_from'] = $this->dateFrom;
+        }
+        if ($this->dateTo) {
+            $params['date_to'] = $this->dateTo;
+        }
+        if ($this->sortField) {
+            $params['sort_field'] = $this->sortField;
+        }
+        if ($this->sortDirection) {
+            $params['sort_direction'] = $this->sortDirection;
+        }
+        
+        // Passa il per_page per limitare i risultati come nella tabella
+        if ($this->perPage != 100000) {
+            $params['per_page'] = $this->perPage;
+        }
+        
+        return route('admin.invoice-payments.export-excel', $params);
     }
 
     public function render()

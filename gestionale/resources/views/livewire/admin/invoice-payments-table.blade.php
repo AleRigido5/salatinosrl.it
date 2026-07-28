@@ -1,4 +1,4 @@
-<div>
+<d>
     <!-- Header con titolo -->
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold">
@@ -113,8 +113,6 @@
                     <option value="100000">Tutti</option>
                     <option value="200">200</option>
                     <option value="100">100</option>
-                    <option value="50">50</option>
-                    <option value="25">25</option>
                 </select>
             </div>
         </div>
@@ -254,6 +252,21 @@
             </table>
         </div>
     </div>
+
+     <!-- ====== PULSANTI ESPORTAZIONE ====== -->
+    <div class="flex gap-3 justify-end mt-3">
+        <a href="{{ $this->getExportPdfUrl() }}" 
+            target="_blank"
+            class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium transition-colors">
+            <i class="fas fa-file-pdf mr-2"></i> Esporta PDF
+        </a>
+        <a href="{{ $this->getExportExcelUrl() }}" 
+            target="_blank"
+            class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium transition-colors">
+            <i class="fas fa-file-excel mr-2"></i> Esporta Excel
+        </a>
+    </div>
+    <!-- ====== FINE PULSANTI ESPORTAZIONE ====== -->
 
     <!-- Paginazione -->
     @if($payments->hasPages())

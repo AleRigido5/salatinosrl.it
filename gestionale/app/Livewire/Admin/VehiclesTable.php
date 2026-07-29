@@ -6,9 +6,9 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Vehicles;
 use App\Models\Ownership;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
 
 class VehiclesTable extends Component
 {
@@ -18,14 +18,15 @@ class VehiclesTable extends Component
     public $tipoFilter = '';
     public $statoFilter = '';
     public $ownershipFilter = '';
-    public $perPage = 15;
+    public $polizzaSearch = '';
+    public $perPage = 100;
     public $sortField = 'id';
     public $sortDirection = 'asc';
-    
+
     // Modal visualizzazione
     public $showViewModal = false;
     public $viewingVehicle = null;
-    
+
     // Modal creazione
     public $showCreateModal = false;
     public $createTarga = '';
@@ -36,7 +37,7 @@ class VehiclesTable extends Component
     public $createValid = 1;
     public $createIdOwnership = '';
     public $createNote = '';
-    
+
     // Modal modifica
     public $showEditModal = false;
     public $editId = null;
@@ -48,21 +49,24 @@ class VehiclesTable extends Component
     public $editValid = 1;
     public $editIdOwnership = '';
     public $editNote = '';
-    
+
     // Modal eliminazione
     public $showDeleteModal = false;
     public $deleteId = null;
     public $deleteName = '';
-    
+
     protected $paginationTheme = 'tailwind';
-    protected $queryString = ['search', 'tipoFilter', 'statoFilter', 'ownershipFilter', 'sortField', 'sortDirection'];
-    
+    protected $queryString = [
+        'search', 'tipoFilter', 'statoFilter', 'ownershipFilter',
+        'polizzaSearch', 'perPage', 'sortField', 'sortDirection'
+    ];
+
     protected $listeners = [
         'filters-reset' => 'resetFilters'
     ];
-    
+
     // ==================== TIPI E STATI ====================
-    
+
     public function getTipiListProperty()
     {
         $tipi = Vehicles::select('tipologia')
@@ -70,7 +74,7 @@ class VehiclesTable extends Component
             ->distinct()
             ->pluck('tipologia', 'tipologia')
             ->toArray();
-        
+
         if (empty($tipi)) {
             return [
                 'Autocarro' => 'Autocarro',
@@ -86,19 +90,19 @@ class VehiclesTable extends Component
                 'motociclo' => 'motociclo'
             ];
         }
-        
+
         return $tipi;
     }
-    
+
     public function getProprietaListProperty()
     {
         $ownerships = Ownership::all();
         $list = [];
-        
+
         foreach ($ownerships as $ownership) {
             if (!empty($ownership->RagAbbrev)) {
                 $nome = $ownership->RagAbbrev;
-            } 
+            }
             elseif (!empty($ownership->Rag_Soc_intest)) {
                 $nome = $ownership->Rag_Soc_intest;
             }
@@ -108,13 +112,13 @@ class VehiclesTable extends Component
             else {
                 $nome = 'Proprietà ' . $ownership->id_proprieta;
             }
-            
+
             $list[$ownership->id_proprieta] = $nome;
         }
-        
+
         return $list;
     }
-    
+
     public function getStatiListProperty()
     {
         return [
@@ -122,23 +126,22 @@ class VehiclesTable extends Component
             '0' => 'Disattivi'
         ];
     }
-    
-    // ==================== QUERY ====================
-    
-    public function getVehiclesProperty()
+
+    public function getPerPageOptionsProperty()
     {
-        Log::info('VehiclesTable: getVehiclesProperty chiamato', [
-            'search' => $this->search,
-            'tipoFilter' => $this->tipoFilter,
-            'statoFilter' => $this->statoFilter,
-            'ownershipFilter' => $this->ownershipFilter,
-            'sortField' => $this->sortField,
-            'sortDirection' => $this->sortDirection
-        ]);
-        
+        return [
+            '100' => '100',
+            '200' => '200',
+            'all' => 'Tutto',
+        ];
+    }
+
+    // ==================== QUERY CONDIVISA (tabella + export) ====================
+
+    protected function buildFilteredQuery()
+    {
         $query = Vehicles::with('ownership', 'expirations');
-        
-        // Filtri di ricerca
+
         if ($this->search) {
             $query->where(function($q) {
                 $q->where('targa', 'like', '%'.$this->search.'%')
@@ -146,20 +149,25 @@ class VehiclesTable extends Component
                   ->orWhere('modello', 'like', '%'.$this->search.'%');
             });
         }
-        
+
         if ($this->tipoFilter) {
             $query->where('tipologia', $this->tipoFilter);
         }
-        
+
         if ($this->statoFilter !== '') {
             $query->where('valid', $this->statoFilter);
         }
-        
+
         if ($this->ownershipFilter) {
             $query->where('id_ownership', $this->ownershipFilter);
         }
-        
-        // Ordinamento esplicito per campo
+
+        if ($this->polizzaSearch) {
+            $query->whereHas('expirations', function($q) {
+                $q->where('codice', 'like', '%'.$this->polizzaSearch.'%');
+            });
+        }
+
         switch ($this->sortField) {
             case 'id':
                 $query->orderBy('id', $this->sortDirection);
@@ -187,24 +195,32 @@ class VehiclesTable extends Component
                 $query->orderBy('id', 'asc');
                 break;
         }
-        
-        return $query->paginate($this->perPage);
+
+        return $query;
     }
-    
+
+    public function getVehiclesProperty()
+    {
+        $query = $this->buildFilteredQuery();
+
+        if ($this->perPage === 'all') {
+            $total = (clone $query)->count();
+            return $query->paginate($total > 0 ? $total : 1);
+        }
+
+        return $query->paginate((int) $this->perPage);
+    }
+
     // ==================== SORTING ====================
-    
+
     public function sortBy($field)
     {
-        Log::info('VehiclesTable: sortBy chiamato', ['field' => $field]);
-        
-        // Lista dei campi validi per l'ordinamento
         $validSortFields = ['id', 'id_ownership', 'tipologia', 'marca', 'targa', 'immatricolazione', 'valid'];
-        
+
         if (!in_array($field, $validSortFields)) {
-            Log::warning('VehiclesTable: sortBy - campo non valido', ['field' => $field]);
             return;
         }
-        
+
         if ($this->sortField === $field) {
             $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
         } else {
@@ -213,88 +229,71 @@ class VehiclesTable extends Component
         }
         $this->resetPage();
     }
-    
+
     // ==================== FILTRI ====================
-    
+
     public function resetFilters()
     {
-        Log::info('VehiclesTable: resetFilters chiamato');
-        
         $this->search = '';
         $this->tipoFilter = '';
         $this->statoFilter = '';
         $this->ownershipFilter = '';
+        $this->polizzaSearch = '';
         $this->sortField = 'id';
         $this->sortDirection = 'asc';
         $this->resetPage();
         $this->dispatch('filters-reset');
         $this->dispatch('table-refreshed');
     }
-    
-    public function updatingSearch()
-    {
-        $this->resetPage();
-    }
-    
-    public function updatingTipoFilter()
-    {
-        $this->resetPage();
-    }
-    
-    public function updatingStatoFilter()
-    {
-        $this->resetPage();
-    }
-    
-    public function updatingOwnershipFilter()
-    {
-        $this->resetPage();
-    }
-    
+
+    public function updatingSearch() { $this->resetPage(); }
+    public function updatingTipoFilter() { $this->resetPage(); }
+    public function updatingStatoFilter() { $this->resetPage(); }
+    public function updatingOwnershipFilter() { $this->resetPage(); }
+    public function updatingPolizzaSearch() { $this->resetPage(); }
+    public function updatedPerPage() { $this->resetPage(); }
+
     // ==================== VISUALIZZAZIONE ====================
-    
+
     public function viewVehicle($id)
     {
-        Log::info('VehiclesTable: viewVehicle chiamato', ['id' => $id]);
-        
         try {
             $vehicle = Vehicles::with(['createdBy', 'updatedBy', 'ownership'])->find($id);
-            
+
             if (!$vehicle) {
                 $this->dispatch('showError', message: 'Mezzo non trovato');
                 return;
             }
-            
+
             $this->viewingVehicle = $vehicle;
             $this->showViewModal = true;
-            
+
         } catch (\Exception $e) {
             Log::error('VehiclesTable: viewVehicle errore', ['error' => $e->getMessage()]);
             $this->dispatch('showError', message: 'Errore nel caricamento: ' . $e->getMessage());
         }
     }
-    
+
     public function closeViewModal()
     {
         $this->showViewModal = false;
         $this->viewingVehicle = null;
     }
-    
+
     // ==================== CREAZIONE ====================
-    
+
     public function openCreateModal()
     {
-        Log::info('VehiclesTable: openCreateModal chiamato');
         $this->resetCreateForm();
         $this->showCreateModal = true;
     }
-    
+
     public function closeCreateModal()
     {
         $this->showCreateModal = false;
         $this->resetCreateForm();
     }
-    
+
     public function resetCreateForm()
     {
         $this->createTarga = '';
@@ -306,11 +305,9 @@ class VehiclesTable extends Component
         $this->createIdOwnership = '';
         $this->createNote = '';
     }
-    
+
     public function saveVehicle()
     {
-        Log::info('VehiclesTable: saveVehicle chiamato', ['targa' => $this->createTarga]);
-        
         $this->validate([
             'createTarga' => 'required|string|max:20|unique:vehicles,targa',
             'createMarca' => 'nullable|string|max:255',
@@ -319,10 +316,10 @@ class VehiclesTable extends Component
             'createImmatricolazione' => 'nullable|date',
             'createIdOwnership' => 'required|exists:ownership,id_proprieta',
         ]);
-        
+
         try {
             $adminId = Auth::guard('admin')->id();
-            
+
             $vehicle = Vehicles::create([
                 'targa' => strtoupper($this->createTarga),
                 'marca' => $this->createMarca,
@@ -335,43 +332,30 @@ class VehiclesTable extends Component
                 'created_by' => $adminId,
                 'updated_by' => $adminId
             ]);
-            
-            Log::info('VehiclesTable: saveVehicle successo', ['id' => $vehicle->id]);
-            
+
             $this->closeCreateModal();
             $this->dispatch('showSuccess', message: "Mezzo '{$vehicle->targa}' creato con successo!");
             $this->resetPage();
             $this->dispatch('table-refreshed');
-            
+
         } catch (\Exception $e) {
             Log::error('VehiclesTable: saveVehicle errore', ['error' => $e->getMessage()]);
             $this->dispatch('showError', message: 'Errore durante il salvataggio: ' . $e->getMessage());
         }
     }
-    
+
     // ==================== MODIFICA ====================
-    
+
     public function openEditModal($id)
     {
-        Log::info('VehiclesTable: openEditModal chiamato', ['id' => $id]);
-        
         try {
             $vehicle = Vehicles::with('ownership')->find($id);
-            
+
             if (!$vehicle) {
-                Log::error('VehiclesTable: openEditModal - mezzo non trovato', ['id' => $id]);
                 $this->dispatch('showError', message: 'Mezzo non trovato');
                 return;
             }
-            
-            Log::info('VehiclesTable: openEditModal - vehicle trovato', [
-                'id' => $vehicle->id,
-                'targa' => $vehicle->targa,
-                'tipologia' => $vehicle->tipologia,
-                'valid' => $vehicle->valid,
-                'id_ownership' => $vehicle->id_ownership
-            ]);
-            
+
             $this->editId = $vehicle->id;
             $this->editTarga = $vehicle->targa;
             $this->editMarca = $vehicle->marca;
@@ -381,29 +365,21 @@ class VehiclesTable extends Component
             $this->editValid = $vehicle->valid;
             $this->editIdOwnership = $vehicle->id_ownership;
             $this->editNote = $vehicle->note;
-            
-            Log::info('VehiclesTable: openEditModal successo - dati caricati', [
-                'editId' => $this->editId,
-                'editTarga' => $this->editTarga,
-                'editTipologia' => $this->editTipologia,
-                'editIdOwnership' => $this->editIdOwnership
-            ]);
-            
+
             $this->showEditModal = true;
-            
+
         } catch (\Exception $e) {
-            Log::error('VehiclesTable: openEditModal errore', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            Log::error('VehiclesTable: openEditModal errore', ['error' => $e->getMessage()]);
             $this->dispatch('showError', message: 'Errore nel caricamento: ' . $e->getMessage());
         }
     }
-    
+
     public function closeEditModal()
     {
-        Log::info('VehiclesTable: closeEditModal chiamato');
         $this->showEditModal = false;
         $this->resetEditForm();
     }
-    
+
     public function resetEditForm()
     {
         $this->editId = null;
@@ -416,18 +392,9 @@ class VehiclesTable extends Component
         $this->editIdOwnership = '';
         $this->editNote = '';
     }
-    
+
     public function updateVehicle()
     {
-        Log::info('VehiclesTable: updateVehicle chiamato', [
-            'editId' => $this->editId,
-            'editTarga' => $this->editTarga,
-            'editTipologia' => $this->editTipologia,
-            'editIdOwnership' => $this->editIdOwnership,
-            'editValid' => $this->editValid
-        ]);
-        
-        // Validazione con messaggi di errore dettagliati
         try {
             $validator = validator([
                 'editTarga' => $this->editTarga,
@@ -444,39 +411,26 @@ class VehiclesTable extends Component
                 'editImmatricolazione' => 'nullable|date',
                 'editIdOwnership' => 'required|exists:ownership,id_proprieta',
             ]);
-            
+
             if ($validator->fails()) {
-                Log::error('VehiclesTable: updateVehicle - validazione fallita', [
-                    'errors' => $validator->errors()->toArray()
-                ]);
                 $this->dispatch('showError', message: 'Errore di validazione: ' . json_encode($validator->errors()->toArray()));
                 return;
             }
-            
+
         } catch (\Exception $e) {
-            Log::error('VehiclesTable: updateVehicle - eccezione validazione', ['error' => $e->getMessage()]);
             $this->dispatch('showError', message: 'Errore di validazione: ' . $e->getMessage());
             return;
         }
-        
+
         try {
             $vehicle = Vehicles::find($this->editId);
-            
+
             if (!$vehicle) {
-                Log::error('VehiclesTable: updateVehicle - mezzo non trovato', ['editId' => $this->editId]);
                 $this->dispatch('showError', message: 'Mezzo non trovato');
                 return;
             }
-            
-            Log::info('VehiclesTable: updateVehicle - vehicle trovato prima dell\'update', [
-                'id' => $vehicle->id,
-                'old_targa' => $vehicle->targa,
-                'new_targa' => strtoupper($this->editTarga),
-                'old_valid' => $vehicle->valid,
-                'new_valid' => $this->editValid
-            ]);
-            
-            $updateData = [
+
+            $vehicle->update([
                 'targa' => strtoupper($this->editTarga),
                 'marca' => $this->editMarca,
                 'modello' => $this->editModello,
@@ -487,150 +441,236 @@ class VehiclesTable extends Component
                 'note' => $this->editNote,
                 'updated_by' => Auth::guard('admin')->id(),
                 'updated_at' => now()
-            ];
-            
-            Log::info('VehiclesTable: updateVehicle - dati da aggiornare', $updateData);
-            
-            $result = $vehicle->update($updateData);
-            
-            Log::info('VehiclesTable: updateVehicle - risultato update', [
-                'result' => $result,
-                'affected_rows' => $vehicle->wasChanged() ? 'si' : 'no',
-                'changes' => $vehicle->getChanges()
             ]);
-            
-            // Verifica se l'update ha avuto successo
+
             $updatedVehicle = Vehicles::find($this->editId);
-            
-            Log::info('VehiclesTable: updateVehicle - verifica post update', [
-                'targa_nel_db' => $updatedVehicle->targa,
-                'targa_inserita' => strtoupper($this->editTarga)
-            ]);
-            
+
             $this->closeEditModal();
             $this->dispatch('showSuccess', message: "Mezzo '{$updatedVehicle->targa}' aggiornato con successo!");
             $this->resetPage();
             $this->dispatch('table-refreshed');
-            
-        } catch (\Illuminate\Database\QueryException $e) {
-            Log::error('VehiclesTable: updateVehicle - errore database', [
-                'error' => $e->getMessage(),
-                'sql' => $e->getSql() ?? 'N/A',
-                'bindings' => $e->getBindings() ?? []
-            ]);
-            $this->dispatch('showError', message: 'Errore database: ' . $e->getMessage());
-            
+
         } catch (\Exception $e) {
-            Log::error('VehiclesTable: updateVehicle - errore generico', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+            Log::error('VehiclesTable: updateVehicle errore', ['error' => $e->getMessage()]);
             $this->dispatch('showError', message: 'Errore durante l\'aggiornamento: ' . $e->getMessage());
         }
     }
-    
+
     // ==================== ELIMINAZIONE ====================
-    
+
     public function confirmDelete($id)
     {
-        Log::info('VehiclesTable: confirmDelete chiamato', ['id' => $id]);
-        
         $vehicle = Vehicles::find($id);
-        
+
         if (!$vehicle) {
             $this->dispatch('showError', message: 'Mezzo non trovato');
             return;
         }
-        
+
         $this->deleteId = $vehicle->id;
         $this->deleteName = $vehicle->full_name ?? $vehicle->targa;
         $this->showDeleteModal = true;
     }
-    
+
     public function deleteVehicle()
     {
-        Log::info('VehiclesTable: deleteVehicle chiamato', ['deleteId' => $this->deleteId]);
-        
         try {
             $vehicle = Vehicles::find($this->deleteId);
-            
+
             if (!$vehicle) {
                 $this->dispatch('showError', message: 'Mezzo non trovato');
                 return;
             }
-            
+
             $vehicleName = $vehicle->full_name ?? $vehicle->targa;
             $vehicle->delete();
-            
-            Log::info('VehiclesTable: deleteVehicle successo', ['deleted' => $vehicleName]);
-            
+
             $this->dispatch('showSuccess', message: "Mezzo '{$vehicleName}' eliminato con successo!");
-            
+
             $this->showDeleteModal = false;
             $this->deleteId = null;
             $this->deleteName = '';
-            
+
             $this->resetPage();
             $this->dispatch('table-refreshed');
-            
+
         } catch (\Exception $e) {
             Log::error('VehiclesTable: deleteVehicle errore', ['error' => $e->getMessage()]);
             $this->dispatch('showError', message: 'Errore durante l\'eliminazione: ' . $e->getMessage());
             $this->showDeleteModal = false;
         }
     }
-    
+
     public function cancelDelete()
     {
         $this->showDeleteModal = false;
         $this->deleteId = null;
         $this->deleteName = '';
     }
-    
+
     // ==================== CAMBIO STATO ====================
-    
+
     public function toggleStatus($id)
     {
-        Log::info('VehiclesTable: toggleStatus chiamato', ['id' => $id]);
-        
         try {
             $vehicle = Vehicles::find($id);
-            
+
             if (!$vehicle) {
                 $this->dispatch('showError', message: 'Mezzo non trovato');
                 return;
             }
-            
+
             $newStatus = $vehicle->valid == 1 ? 0 : 1;
             $vehicle->update([
                 'valid' => $newStatus,
                 'updated_by' => Auth::guard('admin')->id(),
                 'updated_at' => now()
             ]);
-            
+
             $statusText = $newStatus == 1 ? 'attivato' : 'disattivato';
-            Log::info('VehiclesTable: toggleStatus successo', ['id' => $id, 'newStatus' => $newStatus]);
-            
+
             $this->dispatch('showSuccess', message: "Mezzo '{$vehicle->targa}' {$statusText} con successo!");
             $this->resetPage();
             $this->dispatch('table-refreshed');
-            
+
         } catch (\Exception $e) {
             Log::error('VehiclesTable: toggleStatus errore', ['error' => $e->getMessage()]);
             $this->dispatch('showError', message: 'Errore durante il cambio di stato: ' . $e->getMessage());
         }
     }
-    
-    // ==================== METODO PER SCADENZE ====================
-    
+
+    // ==================== SCADENZE ====================
+
     public function goToExpiration($vehicleId)
     {
-        Log::info('VehiclesTable: goToExpiration chiamato', ['vehicleId' => $vehicleId]);
         return redirect()->route('admin.expiration-vehicle.index', ['vehicleId' => $vehicleId]);
     }
-    
+
+    // ==================== EXPORT (senza classi/viste esterne) ====================
+
+    public function exportExcel()
+    {
+        try {
+            $vehicles = $this->buildFilteredQuery()->get();
+            $filename = 'mezzi_' . now()->format('Y-m-d_His') . '.csv';
+
+            return response()->streamDownload(function () use ($vehicles) {
+                // BOM per far riconoscere correttamente gli accenti a Excel
+                echo "\xEF\xBB\xBF";
+
+                $output = fopen('php://output', 'w');
+
+                fputcsv($output, ['ID', 'Proprietà', 'Tipo', 'Marca', 'Modello', 'Targa', 'Immatricolazione', 'Stato'], ';');
+
+                foreach ($vehicles as $vehicle) {
+                    fputcsv($output, [
+                        $vehicle->id,
+                        $vehicle->proprieta_nome,
+                        $vehicle->tipologia,
+                        $vehicle->marca,
+                        $vehicle->modello,
+                        $vehicle->targa,
+                        $vehicle->immatricolazione ? $vehicle->immatricolazione->format('d/m/Y') : '-',
+                        $vehicle->valid ? 'Attivo' : 'Disattivo',
+                    ], ';');
+                }
+
+                fclose($output);
+            }, $filename, [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('VehiclesTable: exportExcel errore', ['error' => $e->getMessage()]);
+            $this->dispatch('showError', message: 'Errore durante l\'esportazione: ' . $e->getMessage());
+        }
+    }
+
+    public function exportPdf()
+    {
+        try {
+            $vehicles = $this->buildFilteredQuery()->get();
+
+            // HTML generato direttamente qui, senza vista Blade esterna
+            $rows = '';
+            foreach ($vehicles as $vehicle) {
+                $immatricolazione = $vehicle->immatricolazione ? $vehicle->immatricolazione->format('d/m/Y') : '-';
+                $statoLabel = $vehicle->valid ? 'Attivo' : 'Disattivo';
+                $statoClass = $vehicle->valid ? 'color:#15803d;font-weight:bold;' : 'color:#b91c1c;';
+
+                $rows .= '<tr>'
+                    . '<td>' . e($vehicle->id) . '</td>'
+                    . '<td>' . e($vehicle->proprieta_nome) . '</td>'
+                    . '<td>' . e($vehicle->tipologia) . '</td>'
+                    . '<td>' . e($vehicle->marca ?: '-') . '</td>'
+                    . '<td>' . e($vehicle->modello ?: '-') . '</td>'
+                    . '<td>' . e($vehicle->targa ?: '-') . '</td>'
+                    . '<td>' . e($immatricolazione) . '</td>'
+                    . '<td style="' . $statoClass . '">' . e($statoLabel) . '</td>'
+                    . '</tr>';
+            }
+
+            if ($vehicles->isEmpty()) {
+                $rows = '<tr><td colspan="8" style="text-align:center;">Nessun mezzo trovato</td></tr>';
+            }
+
+            $generatedAt = now()->format('d/m/Y H:i');
+            $total = $vehicles->count();
+
+            $html = <<<HTML
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <style>
+                        body { font-family: sans-serif; font-size: 11px; color: #333; }
+                        h2 { margin-bottom: 4px; }
+                        .subtitle { color: #666; font-size: 10px; margin-bottom: 16px; }
+                        table { width: 100%; border-collapse: collapse; }
+                        th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: left; }
+                        th { background: #f3f4f6; font-weight: bold; }
+                        tr:nth-child(even) { background: #fafafa; }
+                    </style>
+                </head>
+                <body>
+                    <h2>Elenco Mezzi</h2>
+                    <div class="subtitle">Generato il {$generatedAt} — Totale: {$total} mezzi</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Proprietà</th>
+                                <th>Tipo</th>
+                                <th>Marca</th>
+                                <th>Modello</th>
+                                <th>Targa</th>
+                                <th>Immatricolazione</th>
+                                <th>Stato</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {$rows}
+                        </tbody>
+                    </table>
+                </body>
+                </html>
+                HTML;
+
+            $pdf = Pdf::loadHTML($html)->setPaper('a4', 'landscape');
+            $filename = 'mezzi_' . now()->format('Y-m-d_His') . '.pdf';
+
+            return response()->streamDownload(function () use ($pdf) {
+                echo $pdf->output();
+            }, $filename);
+
+        } catch (\Exception $e) {
+            Log::error('VehiclesTable: exportPdf errore', ['error' => $e->getMessage()]);
+            $this->dispatch('showError', message: 'Errore durante l\'esportazione PDF: ' . $e->getMessage());
+        }
+    }
+
     // ==================== RENDER ====================
-    
+
     public function render()
     {
         return view('livewire.admin.vehicles.vehicles-table', [
@@ -638,6 +678,7 @@ class VehiclesTable extends Component
             'tipiList' => $this->tipiList,
             'statiList' => $this->statiList,
             'proprietaList' => $this->proprietaList,
+            'perPageOptions' => $this->perPageOptions,
         ]);
     }
 }

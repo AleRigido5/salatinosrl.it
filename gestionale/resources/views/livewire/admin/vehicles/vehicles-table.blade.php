@@ -19,7 +19,7 @@
     </div>
 
     <!-- Filtri e Ricerca -->
-    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200" wire:key="filters-{{ $search }}-{{ $tipoFilter }}-{{ $statoFilter }}-{{ $ownershipFilter }}">
+    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200" wire:key="filters-{{ $search }}-{{ $tipoFilter }}-{{ $statoFilter }}-{{ $ownershipFilter }}-{{ $polizzaSearch }}-{{ $perPage }}">
         <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
             <!-- Proprietà (col 2) -->
             <div class="md:col-span-2">
@@ -31,8 +31,8 @@
                 </select>
             </div>
             
-            <!-- Tipo (col 3) -->
-            <div class="md:col-span-3">
+            <!-- Tipo (col 2) -->
+            <div class="md:col-span-2">
                 <select wire:model.live="tipoFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                     <option value="">Tutti i tipi</option>
                     @foreach($tipiList as $value => $label)
@@ -41,12 +41,21 @@
                 </select>
             </div>
             
-            <!-- Ricerca (col 5) -->
-            <div class="relative md:col-span-5">
+            <!-- Ricerca (col 3) -->
+            <div class="relative md:col-span-3">
                 <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
                 <input type="text" 
                        wire:model.live.debounce.300ms="search" 
                        placeholder="Cerca per targa, marca, modello..." 
+                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
+            </div>
+
+            <!-- Ricerca per numero di polizza (col 2) -->
+            <div class="relative md:col-span-2">
+                <i class="fas fa-file-contract absolute left-3 top-2.5 text-gray-400"></i>
+                <input type="text"
+                       wire:model.live.debounce.300ms="polizzaSearch"
+                       placeholder="N. polizza..."
                        class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
             </div>
             
@@ -59,14 +68,30 @@
                     @endforeach
                 </select>
             </div>
+
+            <!-- Record per pagina (col 1) -->
+            <div class="md:col-span-1">
+                <select wire:model.live="perPage" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                    @foreach($perPageOptions as $value => $label)
+                        <option value="{{ $value }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
         
         <div class="flex justify-between items-center mt-4">
-            @if($search || $tipoFilter || $statoFilter || $ownershipFilter)
+            @if($search || $tipoFilter || $statoFilter || $ownershipFilter || $polizzaSearch)
             <button wire:click="resetFilters" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
                 <i class="fas fa-sync-alt mr-1"></i>
                 Resetta filtri
             </button>
+            @endif
+
+            @if($polizzaSearch)
+            <span class="text-sm text-gray-600">
+                <i class="fas fa-info-circle mr-1 text-lime-600"></i>
+                {{ $vehicles->total() }} {{ $vehicles->total() == 1 ? 'mezzo trovato' : 'mezzi trovati' }} per la polizza "<strong>{{ $polizzaSearch }}</strong>"
+            </span>
             @endif
         </div>
     </div>
@@ -146,16 +171,14 @@
                     @php
                         // Ottieni l'ultima scadenza (quella con data_fine più grande)
                         $nextExpiration = null;
-                        $expirationStatus = '';
                         $expirationColor = '';
                         $expirationDate = '';
                         $expirationTitle = '';
-                        
+
                         if($vehicle->expirations && $vehicle->expirations->count() > 0) {
-                            // Trova la scadenza con data_fine più grande (ultima)
                             $latestExpiration = null;
                             $latestDate = null;
-                            
+
                             foreach($vehicle->expirations as $exp) {
                                 if($exp->data_fine) {
                                     if($latestExpiration === null || $exp->data_fine > $latestDate) {
@@ -164,14 +187,17 @@
                                     }
                                 }
                             }
-                            
+
                             if($latestExpiration) {
                                 $nextExpiration = $latestExpiration;
                                 $expirationTitle = $nextExpiration->titolo;
                                 $expirationDate = $nextExpiration->data_fine->format('d/m/Y');
                                 $today = now();
-                                
-                                if($nextExpiration->data_fine < $today) {
+
+                                if($nextExpiration->status === 'renewed') {
+                                    // Scadenza rinnovata: sempre verde, indipendentemente dalla data
+                                    $expirationColor = 'text-green-600 bg-green-50';
+                                } elseif($nextExpiration->data_fine < $today) {
                                     $expirationColor = 'text-red-600 bg-red-50';
                                 } elseif($nextExpiration->data_fine <= $today->copy()->addDays(30)) {
                                     $expirationColor = 'text-yellow-600 bg-yellow-50';
@@ -250,7 +276,15 @@
                                 <div class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium {{ $expirationColor }}">
                                     <i class="fas fa-calendar-alt mr-1"></i>
                                     {{ $expirationDate }}
+                                    @if($nextExpiration->status === 'renewed')
+                                        <i class="fas fa-check-circle ml-1" title="Rinnovata"></i>
+                                    @endif
                                 </div>
+                                @if($nextExpiration->codice)
+                                <div class="text-xs text-gray-400">
+                                    Pol. {{ $nextExpiration->codice }}
+                                </div>
+                                @endif
                             </div>
                             @else
                             <span class="text-sm text-gray-400 italic">Nessuna scadenza</span>
@@ -304,7 +338,7 @@
                             <div class="text-gray-500">
                                 <i class="fas fa-truck fa-3x text-gray-400 mb-3"></i>
                                 <p class="mt-2 text-sm">Nessun mezzo trovato</p>
-                                @if($search || $tipoFilter || $statoFilter || $ownershipFilter)
+                                @if($search || $tipoFilter || $statoFilter || $ownershipFilter || $polizzaSearch)
                                 <button wire:click="resetFilters" class="mt-2 text-sm text-lime-600 hover:text-lime-800">
                                     Resetta filtri
                                 </button>
@@ -317,6 +351,20 @@
             </table>
         </div>
     </div>
+
+    <!-- Bottoni Export -->
+    <div class="flex justify-end gap-3 mt-6">
+        <button wire:click="exportPdf"
+                class="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+            <i class="fas fa-file-pdf"></i>
+            <span>Esporta PDF</span>
+        </button>
+        <button wire:click="exportExcel"
+                class="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+            <i class="fas fa-file-excel"></i>
+            <span>Esporta Excel</span>
+        </button>
+    </div>
     
     <!-- Paginazione -->
     @if($vehicles->hasPages())
@@ -326,6 +374,12 @@
         </div>
         <div class="flex justify-center">
             {{ $vehicles->links() }}
+        </div>
+    </div>
+    @else
+    <div class="mt-6">
+        <div class="text-sm text-gray-500">
+            Mostrando {{ $vehicles->total() }} di {{ $vehicles->total() }} risultati
         </div>
     </div>
     @endif
@@ -725,7 +779,6 @@
     <script>
         document.addEventListener('livewire:init', function () {
             Livewire.on('filters-reset', () => {
-                // Forza il refresh dei select
                 const selects = document.querySelectorAll('select');
                 selects.forEach(select => {
                     select.dispatchEvent(new Event('change'));

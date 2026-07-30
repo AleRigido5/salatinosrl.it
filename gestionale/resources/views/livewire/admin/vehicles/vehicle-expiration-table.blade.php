@@ -21,19 +21,18 @@
                                 $vehicleTitle = 'Scadenze per mezzo ' . $vehicleName;
                             }
                             
-                            // Sottotitolo: TIPOLOGIA - ANNO IMMATRICOLAZIONE
-                            // Sottotitolo: TIPOLOGIA - TARGA - ANNO IMMATRICOLAZIONE
+                            // Sottotitolo: TIPOLOGIA - TARGA - DATA IMMATRICOLAZIONE COMPLETA
                             $tipologia = $vehicle->tipologia ?? '';
                             $targa = $vehicle->targa ?? '';
-                            $anno = '';
+                            $dataImmatricolazione = '';
                             if($vehicle->immatricolazione && $vehicle->immatricolazione != '0000-00-00') {
                                 try {
                                     $date = date_create($vehicle->immatricolazione);
                                     if($date && $date->format('Y') > 1900 && $date->format('Y') <= date('Y') + 1) {
-                                        $anno = $date->format('Y');
+                                        $dataImmatricolazione = $date->format('d/m/Y');
                                     }
                                 } catch(Exception $e) {
-                                    $anno = '';
+                                    $dataImmatricolazione = '';
                                 }
                             }
                             
@@ -44,8 +43,8 @@
                             if ($targa) {
                                 $subtitleParts[] = 'Targa ' . $targa;
                             }
-                            if ($anno) {
-                                $subtitleParts[] = 'Immatricolazione ' . $anno;
+                            if ($dataImmatricolazione) {
+                                $subtitleParts[] = 'Immatricolazione ' . $dataImmatricolazione;
                             }
                             $vehicleSubtitle = implode(' - ', $subtitleParts);
                         }

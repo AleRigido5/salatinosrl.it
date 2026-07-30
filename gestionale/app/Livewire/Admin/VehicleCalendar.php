@@ -280,11 +280,38 @@ class VehicleCalendar extends Component
         ];
         return $colors[$settingId] ?? 'bg-gray-100 text-gray-800 border-gray-200';
     }
+
+    /**
+     * Ottiene il colore da usare per il badge di una scadenza, dando priorità
+     * allo stato "renewed" (sempre verde) rispetto alla tipologia.
+     */
+    public function getBadgeColorForExpiration($expiration)
+    {
+        if ($expiration->status === 'renewed') {
+            return 'bg-green-100 text-green-800 border-green-200';
+        }
+
+        return $expiration->setting
+            ? $this->getTypeColor($expiration->id_settings)
+            : $this->getTypeColorFromExpiration($expiration);
+    }
+
+    /**
+     * Ottiene il nome della proprietà (ownership) del veicolo collegato alla scadenza
+     */
+    public function getOwnershipNameForExpiration($expiration)
+    {
+        $vehicle = $expiration->vehicles->first();
+        if ($vehicle && $vehicle->ownership) {
+            return $vehicle->ownership->RagAbbrev ?? $vehicle->ownership->Rag_Soc_intest ?? null;
+        }
+        return null;
+    }
     
     public function getExpirationsProperty()
     {
         $query = Expiration::query()
-            ->with(['vehicles', 'setting'])
+            ->with(['vehicles.ownership', 'setting'])
             ->where('table_references', 'vehicles')
             ->whereNotNull('data_fine');
         
@@ -296,6 +323,8 @@ class VehicleCalendar extends Component
                 ->whereDate('data_fine', '<=', now()->addDays(30));
         } elseif ($this->expirationStatus === 'valid') {
             $query->whereDate('data_fine', '>', now()->addDays(30));
+        } elseif ($this->expirationStatus === 'renewed') {
+            $query->where('status', 'renewed');
         }
         
         // Filtro per tipologia (id_settings)
@@ -335,7 +364,7 @@ class VehicleCalendar extends Component
     public function getPaginatedExpirationsProperty()
     {
         $query = Expiration::query()
-            ->with(['vehicles', 'setting'])
+            ->with(['vehicles.ownership', 'setting'])
             ->where('table_references', 'vehicles')
             ->whereNotNull('data_fine');
         
@@ -347,6 +376,8 @@ class VehicleCalendar extends Component
                 ->whereDate('data_fine', '<=', now()->addDays(30));
         } elseif ($this->expirationStatus === 'valid') {
             $query->whereDate('data_fine', '>', now()->addDays(30));
+        } elseif ($this->expirationStatus === 'renewed') {
+            $query->where('status', 'renewed');
         }
 
         // Filtro per tipologia (id_settings)

@@ -160,11 +160,13 @@
                                 $expStatus = $this->getExpirationStatus($exp->data_fine);
                                 $vehicle = $exp->vehicles->first();
                                 $label = $exp->setting ? $exp->setting->valore : $this->getTypeLabelFromExpiration($exp);
-                                $color = $exp->setting ? $this->getTypeColor($exp->id_settings) : $this->getTypeColorFromExpiration($exp);
+                                $isRenewed = $exp->status === 'renewed';
+                                $color = $this->getBadgeColorForExpiration($exp);
+                                $ownershipName = $this->getOwnershipNameForExpiration($exp);
                             @endphp
                             <div class="text-xs p-1 rounded {{ $color }} truncate"
-                                title="{{ $vehicle ? $vehicle->targa . ' - ' . $vehicle->marca . ' ' . $vehicle->modello : '—' }} - {{ $label }}">
-                                <i class="fas {{ $expStatus->icon }} text-xs mr-1"></i>
+                                title="{{ $vehicle ? $vehicle->targa . ' - ' . $vehicle->marca . ' ' . $vehicle->modello : '—' }} - {{ $label }}{{ $ownershipName ? ' - ' . $ownershipName : '' }}{{ $isRenewed ? ' - Rinnovata' : '' }}">
+                                <i class="fas {{ $isRenewed ? 'fa-check-circle' : $expStatus->icon }} text-xs mr-1"></i>
                                 {{ $vehicle ? $vehicle->targa : '—' }}
                             </div>
                         @endforeach
@@ -205,9 +207,11 @@
                                     $expStatus = $this->getExpirationStatus($exp->data_fine);
                                     $vehicle = $exp->vehicles->first();
                                     $label = $exp->setting ? $exp->setting->valore : $this->getTypeLabelFromExpiration($exp);
-                                    $color = $exp->setting ? $this->getTypeColor($exp->id_settings) : $this->getTypeColorFromExpiration($exp);
+                                    $isRenewed = $exp->status === 'renewed';
+                                    $color = $this->getBadgeColorForExpiration($exp);
+                                    $ownershipName = $this->getOwnershipNameForExpiration($exp);
                                 @endphp
-                                <div class="border rounded-lg p-4 {{ $expStatus->class }} bg-white shadow-sm">
+                                <div class="border rounded-lg p-4 {{ $isRenewed ? 'text-green-600 font-semibold' : $expStatus->class }} bg-white shadow-sm">
                                     <div class="flex justify-between items-start">
                                         <div>
                                             <div class="flex items-center gap-2 mb-1">
@@ -217,7 +221,15 @@
                                                 <span class="text-sm font-medium text-gray-800">
                                                     {{ $vehicle ? $vehicle->targa . ' - ' . $vehicle->marca . ' ' . $vehicle->modello : '—' }}
                                                 </span>
+                                                @if($isRenewed)
+                                                    <i class="fas fa-check-circle text-green-600" title="Rinnovata"></i>
+                                                @endif
                                             </div>
+                                            @if($ownershipName)
+                                            <p class="text-xs text-gray-500 mb-1">
+                                                <i class="fas fa-building mr-1"></i>{{ $ownershipName }}
+                                            </p>
+                                            @endif
                                             <p class="text-sm text-gray-600 mt-1">{{ $exp->titolo ?? 'Scadenza' }}</p>
                                             @if($exp->note)
                                                 <p class="text-xs text-gray-500 mt-1">{{ $exp->note }}</p>
@@ -225,7 +237,11 @@
                                         </div>
                                         <div class="text-right">
                                             <div class="text-sm font-mono">{{ \Carbon\Carbon::parse($exp->data_fine)->format('d/m/Y') }}</div>
-                                            @if(\Carbon\Carbon::parse($exp->data_fine)->isPast())
+                                            @if($isRenewed)
+                                                <span class="text-xs text-green-600 font-medium">
+                                                    <i class="fas fa-check-circle mr-1"></i>RINNOVATA
+                                                </span>
+                                            @elseif(\Carbon\Carbon::parse($exp->data_fine)->isPast())
                                                 <span class="text-xs text-red-500 font-medium">SCADUTA</span>
                                             @elseif(\Carbon\Carbon::now()->diffInDays(\Carbon\Carbon::parse($exp->data_fine)) <= 30)
                                                 <span class="text-xs text-yellow-600">In scadenza</span>
@@ -333,6 +349,7 @@
                         <option value="expired">Scadute</option>
                         <option value="expiring">In scadenza</option>
                         <option value="valid">Valide</option>
+                        <option value="renewed">Rinnovate</option>
                     </select>
                 </div>
             </div>
@@ -386,6 +403,7 @@
                         <i class="fas fa-flag-checkered mr-1 text-xs"></i> 
                         @if($expirationStatus === 'expired') Scadute
                         @elseif($expirationStatus === 'expiring') In scadenza
+                        @elseif($expirationStatus === 'renewed') Rinnovate
                         @else Valide
                         @endif
                         <button wire:click="$set('expirationStatus', '')" class="ml-1 hover:text-lime-900">
@@ -434,6 +452,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('id_references')">
                             <div class="flex items-center gap-1">Veicolo @if($sortField === 'id_references')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }}"></i>@endif</div>
                         </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Proprietà</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('id_settings')">
                             <div class="flex items-center gap-1">Tipologia @if($sortField === 'id_settings')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }}"></i>@endif</div>
                         </th>
@@ -447,14 +466,19 @@
                     @php
                         $status = $this->getExpirationStatus($exp->data_fine);
                         $vehicle = $exp->vehicles->first();
+                        $isRenewed = $exp->status === 'renewed';
                         
                         // Determina label e colore della tipologia
                         $label = $exp->setting ? $exp->setting->valore : $this->getTypeLabelFromExpiration($exp);
-                        $color = $exp->setting ? $this->getTypeColor($exp->id_settings) : $this->getTypeColorFromExpiration($exp);
+                        $color = $this->getBadgeColorForExpiration($exp);
+                        $ownershipName = $this->getOwnershipNameForExpiration($exp);
                     @endphp
                     <tr class="hover:bg-gray-50">
                         <td class="px-4 py-3 text-sm font-mono whitespace-nowrap">
                             {{ Carbon\Carbon::parse($exp->data_fine)->format('d/m/Y') }}
+                            @if($isRenewed)
+                                <i class="fas fa-check-circle text-green-600 ml-1" title="Rinnovata"></i>
+                            @endif
                         </td>
                         <td class="px-4 py-3 text-sm">
                             @if($vehicle)
@@ -463,6 +487,9 @@
                             @else
                                 <span class="text-gray-400">—</span>
                             @endif
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-700">
+                            {{ $ownershipName ?: '-' }}
                         </td>
                         <td class="px-4 py-3">
                             <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $color }}">
@@ -476,7 +503,11 @@
                             {{ $exp->note ?: '—' }}
                         </td>
                         <td class="px-4 py-3 text-center">
-                            @if(Carbon\Carbon::parse($exp->data_fine)->isPast())
+                            @if($isRenewed)
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <i class="fas fa-check-circle mr-1"></i> Rinnovata
+                                </span>
+                            @elseif(Carbon\Carbon::parse($exp->data_fine)->isPast())
                                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                     <i class="fas fa-exclamation-circle mr-1"></i> Scaduta
                                 </span>
@@ -493,7 +524,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                        <td colspan="7" class="px-6 py-12 text-center text-gray-500">
                             <i class="fas fa-calendar-times text-4xl mb-2 text-gray-300"></i>
                             <p>Nessuna scadenza trovata</p>
                         </td>

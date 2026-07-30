@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Entity;
 use App\Models\InvoiceSent;
 use App\Models\InvoiceReceived;
+use App\Models\AccountingEntry;
 use App\Models\Ownership;
 use Barryvdh\DomPDF\Facade\Pdf;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -41,6 +42,10 @@ class AccountStatementController extends Controller
 
     // ==================== HELPER PRIVATO ====================
 
+    /**
+     * Costruisce l'elenco completo dei movimenti (fatture + pagamenti da accounting_entries)
+     * per una entità, applicando gli stessi filtri usati dalla vista Livewire.
+     */
     private function buildTransactions(Entity $entity, Request $request): array
     {
         $transactions = [];
@@ -51,6 +56,7 @@ class AccountStatementController extends Controller
         $status      = $request->status;
         $search      = $request->search;
 
+        // ==================== CLIENTE: fatture emesse a lui ====================
         if (in_array($entity->entity_type, ['cliente', 'entrambi'])) {
             $sent = InvoiceSent::where('id_entities', $entity->id_cliente)
                 ->when($dateFrom && $dateTo, fn($q) => $q->whereBetween('data_invoice', [$dateFrom, $dateTo]))
@@ -75,6 +81,7 @@ class AccountStatementController extends Controller
             }
         }
 
+        // ==================== FORNITORE: fatture ricevute da lui ====================
         if (in_array($entity->entity_type, ['fornitore', 'entrambi'])) {
             $received = InvoiceReceived::where('id_entities', $entity->id_cliente)
                 ->when($dateFrom && $dateTo, fn($q) => $q->whereBetween('data_invoice', [$dateFrom, $dateTo]))
@@ -99,6 +106,10 @@ class AccountStatementController extends Controller
             }
         }
 
+        // ==================== MOVIMENTI DI CASSA/BANCA (accounting_entries) ====================
+        $entryRows = $this->buildAccountingEntryRows($entity, $dateFrom, $dateTo, $ownershipId, $typeInvoice, $search);
+        $transactions = array_merge($transactions, $entryRows);
+
         usort($transactions, fn($a, $b) => strcmp(
             is_string($a['data']) ? $a['data'] : $a['data']->format('Y-m-d'),
             is_string($b['data']) ? $b['data'] : $b['data']->format('Y-m-d')
@@ -111,6 +122,95 @@ class AccountStatementController extends Controller
         }
 
         return $transactions;
+    }
+
+    /**
+     * Costruisce le righe dei movimenti di cassa/banca a partire da accounting_entries,
+     * collegate all'entità tramite:
+     * accounting_entries -> installment_transactions -> invoice_payments -> payable (InvoiceSent | InvoiceReceived)
+     */
+    private function buildAccountingEntryRows(
+        Entity $entity,
+        ?string $dateFrom,
+        ?string $dateTo,
+        ?string $ownershipId,
+        ?string $typeInvoice,
+        ?string $search
+    ): array {
+        $entityId = $entity->id_cliente;
+
+        $entries = AccountingEntry::whereHas('installmentTransactions.invoicePayment', function ($q) use ($entityId, $ownershipId, $typeInvoice, $search) {
+                $q->where(function ($sub) use ($entityId, $ownershipId, $typeInvoice, $search) {
+                    $sub->where('payable_type', InvoiceReceived::class)
+                        ->whereHas('payable', function ($q2) use ($entityId, $ownershipId, $typeInvoice, $search) {
+                            $q2->where('id_entities', $entityId);
+                            if ($ownershipId) {
+                                $q2->where('id_ownership', $ownershipId);
+                            }
+                            if ($typeInvoice) {
+                                $q2->where('type_invoice', $typeInvoice);
+                            }
+                            if ($search) {
+                                $q2->where('n_invoice', 'like', '%' . $search . '%');
+                            }
+                        });
+                })->orWhere(function ($sub) use ($entityId, $ownershipId, $typeInvoice, $search) {
+                    $sub->where('payable_type', InvoiceSent::class)
+                        ->whereHas('payable', function ($q2) use ($entityId, $ownershipId, $typeInvoice, $search) {
+                            $q2->where('id_entities', $entityId);
+                            if ($ownershipId) {
+                                $q2->where('id_ownership', $ownershipId);
+                            }
+                            if ($typeInvoice) {
+                                $q2->where('type_invoice', $typeInvoice);
+                            }
+                            if ($search) {
+                                $q2->where('n_invoice', 'like', '%' . $search . '%');
+                            }
+                        });
+                });
+            })
+            ->when($dateFrom && $dateTo, fn($q) => $q->whereBetween('entry_date', [$dateFrom, $dateTo]))
+            ->with([
+                'paymentMethod',
+                'bankAccount',
+                'installmentTransactions.invoicePayment.payable.ownership',
+            ])
+            ->get();
+
+        $rows = [];
+        foreach ($entries as $entry) {
+            $proprieta = '-';
+            $firstInstallment = $entry->installmentTransactions->first();
+            if ($firstInstallment && $firstInstallment->invoicePayment && $firstInstallment->invoicePayment->payable) {
+                $payable = $firstInstallment->invoicePayment->payable;
+                if ($payable->ownership) {
+                    $proprieta = $payable->ownership->RagAbbrev ?? $payable->ownership->Rag_Soc_intest ?? '-';
+                }
+            }
+
+            $methodLabel = $entry->paymentMethod->name ?? 'Non specificato';
+            $bankLabel = $entry->bankAccount
+                ? trim($entry->bankAccount->name . ' ' . $entry->bankAccount->n_conto)
+                : null;
+
+            $isUscita = $entry->type === 'uscita';
+            $label = $isUscita ? 'Pagamento effettuato' : 'Incasso ricevuto';
+
+            $descrizione = $label . ': ' . $methodLabel . ($bankLabel ? ' (' . $bankLabel . ')' : '');
+
+            $rows[] = [
+                'proprieta'   => $proprieta,
+                'descrizione' => $descrizione,
+                'data'        => $entry->entry_date,
+                'n_fattura'   => '-',
+                'dare'        => $isUscita ? floatval($entry->amount) : 0,
+                'avere'       => $isUscita ? 0 : floatval($entry->amount),
+                'saldo'       => 0,
+            ];
+        }
+
+        return $rows;
     }
 
     // ==================== EXPORT PDF ====================

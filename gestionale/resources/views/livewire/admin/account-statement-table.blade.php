@@ -47,6 +47,7 @@
                 <div class="relative">
                     <i class="fas fa-building absolute left-3 top-2.5 text-gray-400 text-sm"></i>
                     <input type="text"
+                        id="ownership_input"
                         wire:model.live.debounce.300ms="ownershipSearch"
                         x-on:focus="open = true"
                         x-on:keydown="open = true"
@@ -75,7 +76,6 @@
                                     @this.set('selectedOwnershipId', '{{ $item->id }}');
                                     @this.set('selectedOwnershipName', '{{ addslashes($item->name) }}');
                                     @this.set('showOwnershipDropdown', false);
-                                    @this.call('resetPage');
                                 "
                                 class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
                                 <div class="font-medium text-gray-800">{{ $item->name }}</div>

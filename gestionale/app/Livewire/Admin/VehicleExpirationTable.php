@@ -422,6 +422,8 @@ class VehicleExpirationTable extends Component
             } elseif ($this->statusFilter === 'expiring') {
                 $query->whereBetween('data_fine', [now(), now()->addDays(30)])
                     ->whereNull('deleted_at');
+            } elseif ($this->statusFilter === 'renewed') {
+                $query->where('status', 'renewed');
             }
         }
 
@@ -465,6 +467,42 @@ class VehicleExpirationTable extends Component
     {
         $this->showViewModal = false;
         $this->viewingExpiration = null;
+    }
+
+    // ==================== TOGGLE STATO RINNOVATA ====================
+
+    public function toggleRenewedStatus($id)
+    {
+        try {
+            $expiration = Expiration::find($id);
+
+            if (!$expiration) {
+                $this->dispatch('showError', message: 'Scadenza non trovata');
+                return;
+            }
+
+            $newStatus = $expiration->status === 'renewed' ? null : 'renewed';
+
+            $expiration->update([
+                'status' => $newStatus,
+                'updated_by' => Auth::guard('admin')->id(),
+                'updated_at' => now()
+            ]);
+
+            $statusText = $newStatus === 'renewed' ? 'segnata come rinnovata' : 'rinnovo rimosso';
+
+            Log::info('VehicleExpirationTable: toggleRenewedStatus successo', [
+                'id' => $id,
+                'newStatus' => $newStatus
+            ]);
+
+            $this->dispatch('showSuccess', message: "Scadenza {$statusText} con successo!");
+            $this->resetPage();
+
+        } catch (\Exception $e) {
+            Log::error('VehicleExpirationTable: toggleRenewedStatus errore', ['error' => $e->getMessage()]);
+            $this->dispatch('showError', message: 'Errore durante il cambio di stato: ' . $e->getMessage());
+        }
     }
     
     public function sortBy($field)

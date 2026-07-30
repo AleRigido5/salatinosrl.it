@@ -111,6 +111,7 @@
                 <option value="active">Attive</option>
                 <option value="expiring">In scadenza</option>
                 <option value="expired">Scadute</option>
+                <option value="renewed">Rinnovate</option>
             </select>
         </div>
         
@@ -173,7 +174,7 @@
                                 @endif
                             </div>
                         </th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[8%]">Azioni</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[10%]">Azioni</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -220,8 +221,22 @@
                             {{ $expiration->data_inizio ? $expiration->data_inizio->format('d/m/Y') : '-' }}
                         </td>
                         
-                        <td class="px-4 py-4 align-top whitespace-nowrap text-sm text-gray-500">
-                            {{ $expiration->data_fine ? $expiration->data_fine->format('d/m/Y') : '-' }}
+                        <td class="px-4 py-4 align-top whitespace-nowrap text-sm">
+                            @if($expiration->data_fine)
+                                @if($expiration->status === 'renewed')
+                                    <span class="text-green-600 font-medium">
+                                        <i class="fas fa-check-circle mr-1"></i>{{ $expiration->data_fine->format('d/m/Y') }}
+                                    </span>
+                                @elseif($expiration->data_fine < now())
+                                    <span class="text-red-600">{{ $expiration->data_fine->format('d/m/Y') }}</span>
+                                @elseif($expiration->data_fine <= now()->addDays(30))
+                                    <span class="text-yellow-600">{{ $expiration->data_fine->format('d/m/Y') }}</span>
+                                @else
+                                    <span class="text-gray-500">{{ $expiration->data_fine->format('d/m/Y') }}</span>
+                                @endif
+                            @else
+                                <span class="text-gray-400">-</span>
+                            @endif
                         </td>
                         
                         <td class="px-4 py-4 align-top">
@@ -274,6 +289,13 @@
                                         class="text-yellow-600 hover:text-yellow-900 transition-colors"
                                         title="Modifica">
                                     <i class="fa-solid fa-pen-to-square text-yellow-600 hover:text-yellow-900 text-base"></i>
+                                </button>
+
+                                <button wire:click="toggleRenewedStatus({{ $expiration->id }})"
+                                        wire:key="renew-{{ $expiration->id }}"
+                                        class="transition-colors text-base {{ $expiration->status === 'renewed' ? 'text-lime-600 hover:text-lime-800' : 'text-gray-400 hover:text-gray-600' }}"
+                                        title="{{ $expiration->status === 'renewed' ? 'Rimuovi stato rinnovata' : 'Segna come rinnovata' }}">
+                                    <i class="{{ $expiration->status === 'renewed' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark text-red-400' }}"></i>
                                 </button>
                                 @endif
 

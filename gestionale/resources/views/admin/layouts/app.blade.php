@@ -506,7 +506,7 @@
                     @if($currentAdmin && $currentAdmin->hasPermission('view_purchases'))
                     <!-- Acquisti con Dropdown -->
                     <div x-data="{ 
-                        openAcquisti: false,
+                        openAcquisti: {{ (request()->routeIs('admin.invoices-received.*') || request()->routeIs('admin.invoice-payments.*')) ? 'true' : 'false' }},
                         init() {
                             // Ascolta l'evento sidebar-chiuso
                             window.addEventListener('sidebar-closed', () => {
@@ -539,7 +539,7 @@
                             class="ml-6 mt-1 space-y-1">
                             
                             <a href="{{ route('admin.invoices-received.index') }}" 
-                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.invoices-received.*') && !request()->routeIs('admin.invoice-payments.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.invoices-received.*') && !request()->routeIs('admin.invoice-payments.*') && !request()->routeIs('admin.invoices-received.statistics') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
                                 <i class="fas fa-file-invoice w-4 h-4 mr-2"></i>
                                 <span>Elenco fatture</span>
                             </a>
@@ -548,6 +548,12 @@
                             class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.invoice-payments.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
                                 <i class="fas fa-calendar-alt w-4 h-4 mr-2"></i>
                                 <span>Elenco scadenze</span>
+                            </a>
+
+                            <a href="{{ route('admin.invoices-received.statistics') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.invoices-received.statistics') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fas fa-chart-pie w-4 h-4 mr-2"></i>
+                                <span>Statistiche</span>
                             </a>
                         </div>
                     </div>
@@ -586,7 +592,7 @@
                             class="ml-6 mt-1 space-y-1">
                             
                             <a href="{{ route('admin.invoices-sent.index') }}" 
-                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.invoices-sent.*') && !request()->routeIs('admin.invoice-payments-sent.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.invoices-sent.*') && !request()->routeIs('admin.invoice-payments-sent.*') && !request()->routeIs('admin.invoices-sent.statistics') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
                                 <i class="fas fa-file-invoice-dollar w-4 h-4 mr-2"></i>
                                 <span>Elenco fatture</span>
                             </a>
@@ -596,6 +602,14 @@
                                 <i class="fas fa-calendar-alt w-4 h-4 mr-2"></i>
                                 <span>Elenco scadenze</span>
                             </a>
+
+                            @if(Route::has('admin.invoices-sent.statistics'))
+                            <a href="{{ route('admin.invoices-sent.statistics') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.invoices-sent.statistics') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fas fa-chart-pie w-4 h-4 mr-2"></i>
+                                <span>Statistiche</span>
+                            </a>
+                            @endif
                         </div>
                     </div>
                     @endif
@@ -865,8 +879,11 @@
                                             $breadcrumbs[] = ['name' => 'Fattura n. ' . ($invoice->n_invoice ?? ''), 'url' => null, 'clickable' => false];
                                         }
                                         $breadcrumbs[] = ['name' => 'Visualizza XML', 'url' => null, 'clickable' => false];
+                                    } elseif ($currentRoute === 'admin.invoices-received.statistics') {
+                                        $breadcrumbs[] = ['name' => 'Statistiche', 'url' => null, 'clickable' => false];
                                     }
                                 }
+
                                 // Scadenze Pagamento (Acquisti)
                                 elseif (str_starts_with($currentRoute, 'admin.invoice-payments.')) {
                                     $breadcrumbs[] = ['name' => 'Acquisti', 'url' => null, 'clickable' => false];

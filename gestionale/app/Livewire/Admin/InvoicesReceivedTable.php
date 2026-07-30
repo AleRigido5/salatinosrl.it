@@ -64,12 +64,6 @@ class InvoicesReceivedTable extends Component
     public string $trashSortDirection = 'desc';
     public int $trashCount = 0;
 
-    // Statistiche per Centro di Costo
-    public string $statPeriod = 'monthly';
-    public Collection $statistics;
-    public string $periodDisplay = '';
-    public bool $excludeCreditNotes = false;
-
     protected $listeners = [
         'dateRangeUpdated' => 'updateDateRange',
     ];
@@ -101,16 +95,12 @@ class InvoicesReceivedTable extends Component
             $this->sortField = $savedFilters['sort_field'] ?? 'data_invoice';
             $this->sortDirection = $savedFilters['sort_direction'] ?? 'desc';
             $this->perPage = $savedFilters['per_page'] ?? 100000;
-            $this->excludeCreditNotes = $savedFilters['exclude_credit_notes'] ?? false;
         } else {
             $this->dateFrom = date('Y-m-01');
             $this->dateTo = date('Y-m-d');
         }
 
         $this->updateTrashCount();
-        
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function updateDateRange(array $data): void
@@ -118,153 +108,6 @@ class InvoicesReceivedTable extends Component
         $this->dateFrom = $data['date_from'] ?? '';
         $this->dateTo = $data['date_to'] ?? '';
         $this->resetPage();
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
-    }
-
-    // ==================== STATISTICHE PER CENTRO DI COSTO ====================
-
-    public function refreshStats(): void
-    {
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
-    }
-
-    public function updatedStatPeriod(): void
-    {
-        $this->dateFrom = '';
-        $this->dateTo = '';
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
-        $this->dispatch('resetDates');
-        $this->dispatch('resetDateRangeFilterWithoutApply');
-        $this->resetPage();
-    }
-
-    public function updatedExcludeCreditNotes(): void
-    {
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
-    }
-
-    protected function calculateStatistics(): Collection
-    {
-        $query = InvoiceReceived::query()
-            ->whereIn('status', ['approved', 'issued', 'viewed'])
-            ->with(['rows.costCenter'])
-            ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
-            ->when($this->selectedSupplierId, fn($q) => $q->where('id_entities', $this->selectedSupplierId))
-            ->when($this->selectedCostCenterId, function($q) {
-                $q->whereHas('rows', fn($q2) => $q2->where('id_cost_center', $this->selectedCostCenterId));
-            })
-            ->when($this->excludeCreditNotes, function($q) {
-                $q->where('type_invoice', '!=', 'TD04');
-            });
-
-        $this->applyDateFilter($query);
-        
-        $invoices = $query->get();
-        
-        $stats = collect();
-        
-        foreach ($invoices as $invoice) {
-            // TD04 = Nota di Credito → segno negativo
-            $isCreditNote = $invoice->type_invoice === 'TD04';
-            $sign = $isCreditNote ? -1 : 1;
-            
-            foreach ($invoice->rows as $row) {
-                $costCenterName = 'Non assegnato';
-                
-                if ($row->costCenter) {
-                    $costCenterName = $row->costCenter->Nome ?? 'Non assegnato';
-                }
-                
-                $existing = $stats->firstWhere('cost_center', $costCenterName);
-                
-                $rowTotal = $row->total * $sign;
-                
-                if ($existing) {
-                    $existing->total += $rowTotal;
-                    $existing->count += 1;
-                    if ($isCreditNote) {
-                        $existing->credit_count += 1;
-                    } else {
-                        $existing->debit_count += 1;
-                    }
-                } else {
-                    $stats->push((object) [
-                        'cost_center' => $costCenterName,
-                        'total' => $rowTotal,
-                        'count' => 1,
-                        'credit_count' => $isCreditNote ? 1 : 0,
-                        'debit_count' => $isCreditNote ? 0 : 1,
-                    ]);
-                }
-            }
-        }
-        
-        return $stats->sortByDesc('total')->values();
-    }
-
-    protected function applyDateFilter($query): void
-    {
-        if ($this->dateFrom) {
-            $query->whereDate('data_invoice', '>=', $this->dateFrom);
-        }
-        if ($this->dateTo) {
-            $query->whereDate('data_invoice', '<=', $this->dateTo);
-        }
-        
-        if (empty($this->dateFrom) && empty($this->dateTo)) {
-            $now = now();
-            switch ($this->statPeriod) {
-                case 'monthly':
-                    $startDate = $now->copy()->startOfMonth();
-                    break;
-                case 'quarterly':
-                    $startDate = $now->copy()->subMonths(3)->startOfMonth();
-                    break;
-                case 'semestral':
-                    $startDate = $now->copy()->subMonths(6)->startOfMonth();
-                    break;
-                case 'yearly':
-                    $startDate = $now->copy()->subYear()->startOfMonth();
-                    break;
-                default:
-                    $startDate = $now->copy()->startOfMonth();
-            }
-            $query->whereDate('data_invoice', '>=', $startDate->format('Y-m-d'));
-            $query->whereDate('data_invoice', '<=', $now->format('Y-m-d'));
-        }
-    }
-
-    protected function getPeriodDisplay(): string
-    {
-        $now = now();
-        
-        if (empty($this->dateFrom) && empty($this->dateTo)) {
-            switch ($this->statPeriod) {
-                case 'monthly':
-                    return "Mese corrente: " . $now->format('F Y');
-                case 'quarterly':
-                    return "Ultimi 3 mesi: da " . $now->copy()->subMonths(3)->format('d/m/Y') . " al " . $now->format('d/m/Y');
-                case 'semestral':
-                    return "Ultimi 6 mesi: da " . $now->copy()->subMonths(6)->format('d/m/Y') . " al " . $now->format('d/m/Y');
-                case 'yearly':
-                    return "Ultimo anno: da " . $now->copy()->subYear()->format('d/m/Y') . " al " . $now->format('d/m/Y');
-                default:
-                    return "Periodo selezionato";
-            }
-        }
-        
-        $from = $this->dateFrom ? date('d/m/Y', strtotime($this->dateFrom)) : '';
-        $to = $this->dateTo ? date('d/m/Y', strtotime($this->dateTo)) : '';
-        
-        if ($from && $to) {
-            return "Dal {$from} al {$to} (personalizzato)";
-        }
-        
-        return "Periodo selezionato";
     }
 
     // ==================== AUTOCOMPLETE PROPRIETÀ ====================
@@ -276,8 +119,6 @@ class InvoicesReceivedTable extends Component
             $this->ownershipResults = new Collection();
             $this->showOwnershipDropdown = false;
             $this->resetPage();
-            $this->statistics = $this->calculateStatistics();
-            $this->periodDisplay = $this->getPeriodDisplay();
             return;
         }
 
@@ -316,8 +157,6 @@ class InvoicesReceivedTable extends Component
         $this->ownershipSearch = $name;
         $this->showOwnershipDropdown = false;
         $this->resetPage();
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearOwnership(): void
@@ -327,8 +166,6 @@ class InvoicesReceivedTable extends Component
         $this->ownershipSearch = '';
         $this->resetPage();
         $this->dispatch('clearOwnershipInput');
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     // ==================== AUTOCOMPLETE FORNITORE ====================
@@ -340,8 +177,6 @@ class InvoicesReceivedTable extends Component
             $this->supplierResults = new Collection();
             $this->showSupplierDropdown = false;
             $this->resetPage();
-            $this->statistics = $this->calculateStatistics();
-            $this->periodDisplay = $this->getPeriodDisplay();
             return;
         }
 
@@ -383,8 +218,6 @@ class InvoicesReceivedTable extends Component
         $this->supplierSearch = $name;
         $this->showSupplierDropdown = false;
         $this->resetPage();
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearSupplier(): void
@@ -394,8 +227,6 @@ class InvoicesReceivedTable extends Component
         $this->supplierSearch = '';
         $this->resetPage();
         $this->dispatch('clearSupplierInput');
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     // ==================== AUTOCOMPLETE CENTRO DI COSTO ====================
@@ -407,8 +238,6 @@ class InvoicesReceivedTable extends Component
             $this->costCenterResults = new Collection();
             $this->showCostCenterDropdown = false;
             $this->resetPage();
-            $this->statistics = $this->calculateStatistics();
-            $this->periodDisplay = $this->getPeriodDisplay();
             return;
         }
 
@@ -443,8 +272,6 @@ class InvoicesReceivedTable extends Component
         $this->costCenterSearch = $name;
         $this->showCostCenterDropdown = false;
         $this->resetPage();
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearCostCenter(): void
@@ -454,8 +281,6 @@ class InvoicesReceivedTable extends Component
         $this->costCenterSearch = '';
         $this->resetPage();
         $this->dispatch('clearCostCenterInput');
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     // ==================== AGGIORNAMENTO STATO FATTURA ====================
@@ -494,9 +319,6 @@ class InvoicesReceivedTable extends Component
             $statusLabel = $newStatus === 'issued' ? 'Emessa' : 'Visionata';
             $this->dispatch('showSuccess', message: "Stato fattura aggiornato a '{$statusLabel}' e pagamenti sincronizzati");
             
-            $this->statistics = $this->calculateStatistics();
-            $this->periodDisplay = $this->getPeriodDisplay();
-            
         } catch (\Exception $e) {
             DB::rollBack();
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
@@ -526,7 +348,6 @@ class InvoicesReceivedTable extends Component
         $this->clearOwnership();
         $this->clearSupplier();
         $this->clearCostCenter();
-        $this->excludeCreditNotes = false;
         
         $this->dateFrom = date('Y-m-01');
         $this->dateTo = date('Y-m-d');
@@ -535,25 +356,18 @@ class InvoicesReceivedTable extends Component
         $this->dispatch('resetDates');
         $this->dispatch('resetDateRangeFilterWithoutApply');
         $this->dispatch('resetAllFilters');
-        
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearStatus(): void
     {
         $this->status = '';
         $this->resetPage();
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearTypeInvoice(): void
     {
         $this->type_invoice = '';
         $this->resetPage();
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
     public function clearSearch(): void
@@ -568,14 +382,15 @@ class InvoicesReceivedTable extends Component
         $this->dateTo = date('Y-m-d');
         $this->resetPage();
         $this->dispatch('resetDateRangeFilterWithoutApply');
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
     }
 
-    public function getInvoicesProperty()
+    /**
+     * Query base con tutti i filtri correnti applicati, SENZA paginazione.
+     * Riutilizzata sia per la tabella (con paginate) che per i totali di riepilogo.
+     */
+    protected function baseFilteredQuery()
     {
-        $query = InvoiceReceived::query()
-            ->with(['ownership', 'entity', 'rows.costCenter'])
+        return InvoiceReceived::query()
             ->when($this->search, fn($q) => $q->where('n_invoice', 'like', '%' . $this->search . '%'))
             ->when($this->status, fn($q) => $q->where('status', $this->status))
             ->when($this->type_invoice, fn($q) => $q->where('type_invoice', $this->type_invoice))
@@ -585,7 +400,13 @@ class InvoicesReceivedTable extends Component
                 $q->whereHas('rows', fn($q2) => $q2->where('id_cost_center', $this->selectedCostCenterId));
             })
             ->when($this->dateFrom, fn($q) => $q->whereDate('data_invoice', '>=', $this->dateFrom))
-            ->when($this->dateTo, fn($q) => $q->whereDate('data_invoice', '<=', $this->dateTo))
+            ->when($this->dateTo, fn($q) => $q->whereDate('data_invoice', '<=', $this->dateTo));
+    }
+
+    public function getInvoicesProperty()
+    {
+        $query = $this->baseFilteredQuery()
+            ->with(['ownership', 'entity', 'rows.costCenter'])
             ->orderBy($this->sortField, $this->sortDirection);
 
         if ($this->perPage == 10000) {
@@ -602,6 +423,37 @@ class InvoicesReceivedTable extends Component
         }
         
         return $query->paginate($this->perPage);
+    }
+
+    /**
+     * Totali di riepilogo (5 card in fondo pagina), calcolati sull'intero set
+     * di fatture che rispettano i filtri correnti (non solo la pagina visibile).
+     */
+    public function getFooterTotalsProperty(): array
+    {
+        $invoices = $this->baseFilteredQuery()
+            ->with(['vatSummaries', 'payments'])
+            ->get();
+
+        $totaleImponibile = 0;
+        $totaleIva = 0;
+        $totaleFatturato = 0;
+        $totalePagato = 0;
+
+        foreach ($invoices as $invoice) {
+            $totaleImponibile += $invoice->vatSummaries->sum('taxable_amount');
+            $totaleIva += $invoice->vatSummaries->sum('tax_amount');
+            $totaleFatturato += $invoice->importo_totale;
+            $totalePagato += $invoice->payments->where('status', 'paid')->sum('amount');
+        }
+
+        return [
+            'imponibile' => round($totaleImponibile, 2),
+            'iva' => round($totaleIva, 2),
+            'fatturato' => round($totaleFatturato, 2),
+            'pagato' => round($totalePagato, 2),
+            'da_pagare' => round($totaleFatturato - $totalePagato, 2),
+        ];
     }
 
     // ==================== NAVIGAZIONE CON FILTRI ====================
@@ -625,7 +477,6 @@ class InvoicesReceivedTable extends Component
             'sort_field' => $this->sortField,
             'sort_direction' => $this->sortDirection,
             'per_page' => $this->perPage,
-            'exclude_credit_notes' => $this->excludeCreditNotes,
         ]]);
 
         return redirect()->route('admin.invoices-received.edit', $id);
@@ -672,7 +523,6 @@ class InvoicesReceivedTable extends Component
         if ($this->status) $params['status'] = $this->status;
         if ($this->type_invoice) $params['type_invoice'] = $this->type_invoice;
         if ($this->search) $params['search'] = $this->search;
-        if ($this->excludeCreditNotes) $params['exclude_credit_notes'] = 1;
         
         return route('admin.invoices-received.export-pdf', $params);
     }
@@ -689,7 +539,6 @@ class InvoicesReceivedTable extends Component
         if ($this->status) $params['status'] = $this->status;
         if ($this->type_invoice) $params['type_invoice'] = $this->type_invoice;
         if ($this->search) $params['search'] = $this->search;
-        if ($this->excludeCreditNotes) $params['exclude_credit_notes'] = 1;
         
         return route('admin.invoices-received.export-excel', $params);
     }
@@ -861,6 +710,7 @@ class InvoicesReceivedTable extends Component
             'typeDocuments' => $this->typeDocuments,
             'trashedInvoices' => $this->trashedInvoices,
             'trashCount' => $this->trashCount,
+            'footerTotals' => $this->footerTotals,
         ]);
     }
 }

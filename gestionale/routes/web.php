@@ -265,6 +265,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             // ⚠️ IMPORTANTE: /xml-import DEVE essere PRIMA di /{invoice} ⚠️
             Route::get('/xml-import', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'xmlImport'])->name('xml-import');
             
+            Route::get('/statistics', [App\Http\Controllers\Admin\InvoiceReceivedController::class, 'statistics'])->name('statistics');
+
             // Visualizzazione XML fattura (DEVE essere PRIMA di /{invoice})
             Route::get('/{id}/xml-view', [App\Http\Controllers\Admin\InvoiceXmlController::class, 'showAsHtml'])->name('xml-view');
 
@@ -335,6 +337,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             
             // Altre route
             Route::get('/', [App\Http\Controllers\Admin\InvoiceSentController::class, 'index'])->name('index');
+            // Statistiche (route statica, DEVE essere PRIMA di /{id})
+            Route::get('/statistics', [App\Http\Controllers\Admin\InvoiceSentController::class, 'statistics'])->name('statistics');
             Route::get('/{id}', [App\Http\Controllers\Admin\InvoiceSentController::class, 'show'])->name('show');
             Route::get('/{id}/preview', [App\Http\Controllers\Admin\InvoiceSentController::class, 'previewPdf'])->name('preview');
         });

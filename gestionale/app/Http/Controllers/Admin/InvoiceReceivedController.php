@@ -107,6 +107,11 @@ class InvoiceReceivedController extends Controller
         return view('admin.invoices-received.xml-import');
     }
 
+    public function statistics()
+    {
+        return view('admin.invoices-received.statistics');
+    }
+
     private function buildOwnershipData($ownershipId)
     {
         if (!$ownershipId) return null;

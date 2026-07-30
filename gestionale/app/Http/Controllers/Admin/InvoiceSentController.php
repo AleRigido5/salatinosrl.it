@@ -52,6 +52,14 @@ class InvoiceSentController extends Controller
         return view('admin.invoice-sent.show', ['id' => $id]);
     }
 
+    public function statistics()
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('view_invoices_sent')) {
+            abort(403, 'Non hai i permessi necessari per visualizzare le statistiche.');
+        }
+        return view('admin.invoice-sent.statistics');
+    }
+
     /**
      * Genera il PDF di una singola fattura
      */

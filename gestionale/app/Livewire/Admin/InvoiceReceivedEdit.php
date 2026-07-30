@@ -261,8 +261,12 @@ class InvoiceReceivedEdit extends Component
         
         // Carica le righe
         foreach ($invoice->rows as $index => $row) {
-            $quantity = abs(floatval($row->quantity ?? 1));
-            $unitPrice = abs(floatval($row->unit_price ?? 0));
+            // FIX: non usare abs() qui, altrimenti si perde il segno delle righe
+            // di sconto inserite come importo negativo (quantity e/o unit_price
+            // negativi nel DB). Il segno del prodotto quantity*unit_price deve
+            // restare quello reale per sottrarre correttamente dall'imponibile.
+            $quantity = floatval($row->quantity ?? 1);
+            $unitPrice = floatval($row->unit_price ?? 0);
             $discountPercentage = floatval($row->discount_percentage ?? 0);
             
             $grossAmount = $quantity * $unitPrice;
@@ -1157,8 +1161,10 @@ class InvoiceReceivedEdit extends Component
             $invoice = InvoiceReceived::findOrFail($this->invoiceId);
 
             foreach ($this->rows as $index => &$row) {
-                $row['quantity']            = abs(floatval($row['quantity'] ?? 1));
-                $row['unit_price']          = abs(floatval($row['unit_price'] ?? 0));
+                // FIX: niente abs() su quantity/unit_price, per non invertire il
+                // segno delle righe di sconto (quantity o unit_price negativi nel DB)
+                $row['quantity']            = floatval($row['quantity'] ?? 1);
+                $row['unit_price']          = floatval($row['unit_price'] ?? 0);
                 $row['discount_percentage'] = max(0, floatval($row['discount_percentage'] ?? 0));
                 $grossAmount                = $row['quantity'] * $row['unit_price'];
                 $discountAmount             = $grossAmount * ($row['discount_percentage'] / 100);
@@ -1231,8 +1237,11 @@ class InvoiceReceivedEdit extends Component
                 $existingRowIds = [];
 
                 foreach ($this->rows as $row) {
-                    $quantity           = abs(floatval($row['quantity'] ?? 1));
-                    $unitPrice          = abs(floatval($row['unit_price'] ?? 0));
+                    // FIX: stesso motivo dei punti sopra, niente abs() su
+                    // quantity/unit_price altrimenti la riga di sconto (importo
+                    // negativo) viene salvata come se fosse un addebito positivo
+                    $quantity           = floatval($row['quantity'] ?? 1);
+                    $unitPrice          = floatval($row['unit_price'] ?? 0);
                     $discountPercentage = max(0, floatval($row['discount_percentage'] ?? 0));
                     $grossAmount        = $quantity * $unitPrice;
                     $discountAmount     = $grossAmount * ($discountPercentage / 100);

@@ -22,7 +22,9 @@
                             }
                             
                             // Sottotitolo: TIPOLOGIA - ANNO IMMATRICOLAZIONE
+                            // Sottotitolo: TIPOLOGIA - TARGA - ANNO IMMATRICOLAZIONE
                             $tipologia = $vehicle->tipologia ?? '';
+                            $targa = $vehicle->targa ?? '';
                             $anno = '';
                             if($vehicle->immatricolazione && $vehicle->immatricolazione != '0000-00-00') {
                                 try {
@@ -35,13 +37,17 @@
                                 }
                             }
                             
-                            if($tipologia && $anno) {
-                                $vehicleSubtitle = $tipologia . ' - ' . 'Immatricolazione ' . $anno;
-                            } elseif($tipologia) {
-                                $vehicleSubtitle = $tipologia;
-                            } elseif($anno) {
-                                $vehicleSubtitle = 'Immatricolazione ' . $anno;
+                            $subtitleParts = [];
+                            if ($tipologia) {
+                                $subtitleParts[] = $tipologia;
                             }
+                            if ($targa) {
+                                $subtitleParts[] = 'Targa ' . $targa;
+                            }
+                            if ($anno) {
+                                $subtitleParts[] = 'Immatricolazione ' . $anno;
+                            }
+                            $vehicleSubtitle = implode(' - ', $subtitleParts);
                         }
                     }
                 @endphp

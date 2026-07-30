@@ -294,6 +294,59 @@ class InvoicePaymentsTable extends Component
             ->paginate($this->perPage);
     }
 
+    /**
+     * Calcola il residuo "vero" di una scadenza: 0 se pagata (o saldata con NC),
+     * altrimenti residual_amount se valorizzato, altrimenti amount - paid_amount.
+     */
+    private function computeResidual($payment, bool $isClosedByNC = false): float
+    {
+        if ($isClosedByNC || in_array($payment->status, ['paid', 'closed_credit_note'])) {
+            return 0.0;
+        }
+
+        if ($payment->residual_amount > 0) {
+            return (float) $payment->residual_amount;
+        }
+
+        return max(0.0, (float) $payment->amount - (float) $payment->paid_amount);
+    }
+
+    /**
+     * Totali (Importo / Residuo) calcolati sull'INTERO set di scadenze che
+     * rispettano i filtri correnti, non solo sulla pagina visibile.
+     */
+    public function getPaymentTotalsProperty(): array
+    {
+        $payments = $this->baseQuery()->get();
+
+        $totaleImporto = 0;
+        $totaleResiduo = 0;
+
+        foreach ($payments as $payment) {
+            $invoice = $payment->payable;
+            if (!$invoice) {
+                continue;
+            }
+
+            $isCreditNote = method_exists($invoice, 'isCreditNote') && $invoice->isCreditNote();
+            $isClosedByNC = $payment->status === 'closed_credit_note' ||
+                ($payment->status === 'paid' && method_exists($invoice, 'isClosedByCreditNote') && $invoice->isClosedByCreditNote());
+
+            $residual = $this->computeResidual($payment, $isClosedByNC);
+
+            $displayAmount = $isCreditNote ? -$payment->amount : $payment->amount;
+            $displayResidual = $isCreditNote ? -$residual : $residual;
+
+            $totaleImporto += $displayAmount;
+            $totaleResiduo += $displayResidual;
+        }
+
+        return [
+            'importo' => round($totaleImporto, 2),
+            'residuo' => round($totaleResiduo, 2),
+        ];
+    }
+
     // ==================== MODAL DETTAGLI ====================
 
     public function showDetails(int $id): void
@@ -638,6 +691,7 @@ class InvoicePaymentsTable extends Component
         return view('livewire.admin.invoice-payments-table', [
             'payments' => $this->payments,
             'statuses' => $this->statuses,
+            'paymentTotals' => $this->paymentTotals,
         ]);
     }
 }

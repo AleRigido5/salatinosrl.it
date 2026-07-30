@@ -189,12 +189,16 @@
                         $isCreditNote = $invoice && method_exists($invoice, 'isCreditNote') && $invoice->isCreditNote();
                         $isOverdue = $payment->due_date && $payment->due_date->isPast() && $payment->status !== 'paid' && $payment->status !== 'closed_credit_note';
                         $rowClass = $isOverdue ? 'bg-red-50' : ($isCreditNote ? 'bg-purple-50' : '');
-                        $residual = $payment->residual_amount > 0 ? $payment->residual_amount : $payment->amount;
-                        $displayAmount = $isCreditNote ? -$payment->amount : $payment->amount;
-                        $displayResidual = $isCreditNote ? -$residual : $residual;
                         $isClosedByNC = $payment->status === 'closed_credit_note' || 
                                        ($payment->status === 'paid' && $invoice && 
                                         method_exists($invoice, 'isClosedByCreditNote') && $invoice->isClosedByCreditNote());
+                        // Fattura pagata (o saldata con NC) -> residuo sempre a zero, indipendentemente
+                        // da eventuali valori sporchi/non aggiornati in residual_amount
+                        $residual = ($isClosedByNC || in_array($payment->status, ['paid', 'closed_credit_note']))
+                            ? 0
+                            : ($payment->residual_amount > 0 ? $payment->residual_amount : max(0, $payment->amount - $payment->paid_amount));
+                        $displayAmount = $isCreditNote ? -$payment->amount : $payment->amount;
+                        $displayResidual = $isCreditNote ? -$residual : $residual;
                     @endphp
                     <tr class="hover:bg-gray-50 {{ $rowClass }}" wire:key="payment-{{ $payment->id }}">
                         <td class="px-4 py-3 text-sm">{{ $invoice->ownership->RagAbbrev ?? $invoice->ownership_name ?? '-' }}</td>
@@ -249,6 +253,20 @@
                     </tr>
                     @endforelse
                 </tbody>
+                @if($payments->count() > 0)
+                <tfoot class="bg-gray-50">
+                    <tr>
+                        <td colspan="4" class="px-4 py-3 text-right text-sm font-bold text-gray-700">TOTALE:</td>
+                        <td class="px-4 py-3 text-right text-sm font-bold {{ $paymentTotals['importo'] < 0 ? 'text-purple-700' : 'text-gray-900' }}">
+                            {{ number_format($paymentTotals['importo'], 2, ',', '.') }} €
+                        </td>
+                        <td class="px-4 py-3 text-right text-sm font-bold {{ $paymentTotals['residuo'] < 0 ? 'text-purple-700' : 'text-orange-600' }}">
+                            {{ number_format($paymentTotals['residuo'], 2, ',', '.') }} €
+                        </td>
+                        <td colspan="3"></td>
+                    </tr>
+                </tfoot>
+                @endif
             </table>
         </div>
     </div>
@@ -482,7 +500,13 @@
     @php
         $invoiceModal = $selectedPayment->payable;
         $isCreditNoteModal = $invoiceModal && method_exists($invoiceModal, 'isCreditNote') && $invoiceModal->isCreditNote();
-        $residualModal = $selectedPayment->residual_amount > 0 ? $selectedPayment->residual_amount : $selectedPayment->amount;
+        $isClosedByNCModal = $selectedPayment->status === 'closed_credit_note' ||
+            ($selectedPayment->status === 'paid' && $invoiceModal &&
+             method_exists($invoiceModal, 'isClosedByCreditNote') && $invoiceModal->isClosedByCreditNote());
+        // Stesso fix del residuo di riga: 0 se pagata/saldata con NC
+        $residualModal = ($isClosedByNCModal || in_array($selectedPayment->status, ['paid', 'closed_credit_note']))
+            ? 0
+            : ($selectedPayment->residual_amount > 0 ? $selectedPayment->residual_amount : max(0, $selectedPayment->amount - $selectedPayment->paid_amount));
 
         $paymentHistory = [];
         if ($invoiceModal) {

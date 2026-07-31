@@ -12,45 +12,45 @@
         .col-cost-center { width: 160px; min-width: 160px; }
         .col-vehicle { width: 160px; min-width: 160px; }
         .col-actions { width: 50px; min-width: 50px; }
-        
+
         @media (min-width: 1920px) {
             .col-description { width: 300px; min-width: 300px; }
             .col-cost-center { width: 200px; min-width: 200px; }
             .col-vehicle { width: 200px; min-width: 200px; }
             .col-vat { width: 220px; min-width: 220px; }
         }
-        
+
         @media (max-width: 1400px) {
             .col-description { width: 200px; min-width: 200px; }
             .col-cost-center { width: 150px; min-width: 150px; }
             .col-vehicle { width: 150px; min-width: 150px; }
             .col-vat { width: 160px; min-width: 160px; }
         }
-        
+
         .invoice-table {
             white-space: nowrap;
         }
-        
+
         .invoice-table input,
         .invoice-table select {
             width: 100%;
             white-space: normal;
         }
-        
+
         .required-field {
             border-color: #ef4444 !important;
             background-color: #fef2f2 !important;
         }
-        
+
         .field-error {
             border-color: #ef4444 !important;
             background-color: #fef2f2 !important;
         }
-        
+
         [x-cloak] {
             display: none !important;
         }
-        
+
         /* Card totali dettagliata */
         .totals-card {
             background: white;
@@ -99,7 +99,7 @@
             max-height: 500px;
             overflow-y: auto;
         }
-        
+
         /* Stili autocomplete uniformati con XML import */
         .autocomplete-dropdown {
             position: absolute;
@@ -113,34 +113,48 @@
             width: 100%;
             margin-top: 2px;
         }
-        
+
         .autocomplete-item {
             padding: 0.5rem 0.75rem;
             cursor: pointer;
             transition: background 0.15s;
             font-size: 0.875rem;
         }
-        
+
         .autocomplete-item:hover {
             background-color: #f3f4f6;
         }
-        
+
         .relative {
             position: relative;
         }
     </style>
-    
+
     <div class="mb-6 flex justify-between items-center">
         <h1 class="text-2xl font-bold text-gray-800">
             <i class="fas fa-plus-circle text-lime-500 mr-2"></i> Nuova Fattura di Acquisto
         </h1>
         <div class="relative group">
-            <a href="{{ route('admin.invoices-received.index') }}" 
+            <a href="{{ route('admin.invoices-received.index') }}"
                class="bg-gray-600 hover:bg-gray-900 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
                 <i class="fas fa-arrow-left"></i>
             </a>
         </div>
     </div>
+
+    {{-- Banner errori generico: se la validazione fallisce per un campo senza
+         @error dedicato (o per motivi non legati a un campo specifico), qui
+         compare comunque un riepilogo visibile invece di un salvataggio muto --}}
+    @if ($errors->any())
+        <div class="mb-4 bg-red-50 border border-red-300 text-red-700 rounded-lg px-4 py-3">
+            <p class="font-semibold mb-1"><i class="fas fa-exclamation-triangle mr-1"></i> Controlla i seguenti campi:</p>
+            <ul class="list-disc list-inside text-sm">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     <form wire:submit="save" class="bg-white rounded-lg shadow p-6">
         <!-- Layout a 2 colonne -->
@@ -150,7 +164,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Proprietà <span class="text-red-500">*</span></label>
-                        <select wire:model="id_ownership" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500">
+                        <select wire:model="id_ownership" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500 @error('id_ownership') field-error @enderror">
                             <option value="">Seleziona proprietà</option>
                             @foreach($ownerships as $o)
                                 <option value="{{ $o->id_proprieta }}">{{ $o->RagAbbrev }}</option>
@@ -158,10 +172,10 @@
                         </select>
                         @error('id_ownership') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
-                    
+
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Tipo Documento <span class="text-red-500">*</span></label>
-                        <select wire:model="type_invoice" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500">
+                        <select wire:model="type_invoice" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500 @error('type_invoice') field-error @enderror">
                             <option value="">Seleziona tipo</option>
                             @foreach($typeDocuments as $code => $label)
                                 @if(in_array($code, ['pro-forma', 'avviso di parcella']))
@@ -173,14 +187,14 @@
                         </select>
                         @error('type_invoice') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
-                    
+
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">N. Fattura <span class="text-red-500">*</span></label>
-                        <input type="text" wire:model="n_invoice" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500">
+                        <input type="text" wire:model="n_invoice" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500 @error('n_invoice') field-error @enderror">
                         @error('n_invoice') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
                 </div>
-                
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Fornitore <span class="text-red-500">*</span></label>
@@ -194,7 +208,7 @@
                                         x-on:focus="open = true"
                                         x-on:input="open = true; @this.set('supplierSearch', $event.target.value)"
                                         placeholder="Cerca fornitore..."
-                                        class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                                        class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 @error('selectedSupplierId') field-error @enderror"
                                         autocomplete="off">
                                     @if($selectedSupplierId)
                                         <button type="button"
@@ -231,7 +245,7 @@
                                     @endif
                                 </div>
                             </div>
-                            
+
                             <button type="button" wire:click="openSupplierModal" class="px-3 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors" title="Nuovo Fornitore">
                                 <i class="fas fa-plus"></i>
                             </button>
@@ -243,20 +257,20 @@
                         @endif
                         @error('selectedSupplierId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
-                    
+
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Data Fattura <span class="text-red-500">*</span></label>
-                        <input type="date" wire:model="data_invoice" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500">
+                        <input type="date" wire:model="data_invoice" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500 @error('data_invoice') field-error @enderror">
                         @error('data_invoice') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
                 </div>
-                
+
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Causale / Note</label>
                     <textarea wire:model="causale" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500" placeholder="Note aggiuntive..."></textarea>
                 </div>
             </div>
-            
+
             <!-- Colonna DESTRA: Card Totali Dettagliata -->
             <div class="lg:col-span-1">
                 <div class="totals-card">
@@ -271,10 +285,10 @@
                             <div class="total-value text-red-500">- € {{ number_format($total_discount, 2, ',', '.') }}</div>
                         </div>
                     </div>
-                    
+
                     <!-- Separatore sottile -->
                     <div class="border-b border-gray-200 mb-3"></div>
-                    
+
                     <!-- DETTAGLIO IVA PER ALIQUOTA -->
                     @if(count($vatSummary) > 0)
                         <div class="mb-3">
@@ -300,10 +314,10 @@
                             @endforeach
                         </div>
                     @endif
-                    
+
                     <!-- Separatore sottile -->
                     <div class="border-b border-gray-200 mb-3"></div>
-                    
+
                     <!-- RIGA 2: TOTALE IVA + TOTALE FATTURA affiancati -->
                     <div class="grid grid-cols-2 gap-4">
                         <div class="total-item border-b-0 pb-0">
@@ -318,7 +332,7 @@
                 </div>
             </div>
         </div>
-        
+
         <!-- RIGHE FATTURA -->
         <div class="mt-6">
             <div class="flex justify-between items-center mb-3">
@@ -357,19 +371,22 @@
                                 <input type="text" wire:model.live="rows.{{ $index }}.description"
                                     class="w-full px-1 py-1 text-sm border rounded-md @error('rows.' . $index . '.description') field-error @enderror"
                                     required>
+                                @error('rows.' . $index . '.description') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </td>
                             <td class="col-quantity px-2 py-1">
                                 <input type="number" step="0.001" wire:model.live="rows.{{ $index }}.quantity"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right @error('rows.' . $index . '.quantity') field-error @enderror"
                                     required>
+                                @error('rows.' . $index . '.quantity') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </td>
                             <td class="col-price px-2 py-1">
                                 <input type="number" step="0.0001" wire:model.live="rows.{{ $index }}.unit_price"
                                     class="w-full px-1 py-1 text-sm border rounded-md text-right @error('rows.' . $index . '.unit_price') field-error @enderror"
                                     required>
+                                @error('rows.' . $index . '.unit_price') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </td>
                             <td class="col-um px-2 py-1">
-                                <select wire:model.live="rows.{{ $index }}.unit_measure" 
+                                <select wire:model.live="rows.{{ $index }}.unit_measure"
                                         class="w-full px-1 py-1 text-sm border rounded-md text-center">
                                     @foreach($unitMeasureList as $um)
                                         <option value="{{ $um['codice'] }}">
@@ -382,8 +399,11 @@
                                 <input type="number" step="0.01" wire:model.live="rows.{{ $index }}.discount_percentage" class="w-full px-1 py-1 text-sm border rounded-md text-right" placeholder="0">
                             </td>
                             <td class="col-vat px-2 py-1">
+                                {{-- IMPORTANTE: per le aliquote esenti/non imponibili il value è
+                                     "rate|id" (es. "0|5") per distinguere le diverse nature SDI
+                                     (N1, N2, N3...). Il backend sa già gestire questo formato. --}}
                                 <select wire:model.live="rows.{{ $index }}.vat_rate"
-                                    class="w-full px-1 py-1 text-sm border rounded-md">
+                                    class="w-full px-1 py-1 text-sm border rounded-md @error('rows.' . $index . '.vat_rate') field-error @enderror">
                                     <option value="0">Seleziona IVA</option>
                                     @foreach($vatRatesList as $vat)
                                         <option value="{{ $vat['rate'] > 0 ? $vat['rate'] : $vat['rate'] . '|' . $vat['id'] }}">
@@ -394,6 +414,7 @@
                                         </option>
                                     @endforeach
                                 </select>
+                                @error('rows.' . $index . '.vat_rate') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </td>
 
                             <td class="col-taxable px-2 py-1">
@@ -570,42 +591,42 @@
                             @foreach($payments as $index => $payment)
                             <tr class="border-b hover:bg-gray-50" wire:key="payment-{{ $index }}">
                                 <td class="px-3 py-2">
-                                    <input type="date" 
-                                        wire:model.live="payments.{{ $index }}.due_date" 
+                                    <input type="date"
+                                        wire:model.live="payments.{{ $index }}.due_date"
                                         class="w-full px-2 py-1 text-sm border rounded-md @error('payments.' . $index . '.due_date') field-error @enderror">
-                                    @error('payments.' . $index . '.due_date') 
-                                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p> 
+                                    @error('payments.' . $index . '.due_date')
+                                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                                     @enderror
                                 </td>
                                 <td class="px-3 py-2">
-                                    <input type="number" step="0.01" 
-                                        wire:model.live="payments.{{ $index }}.amount" 
+                                    <input type="number" step="0.01"
+                                        wire:model.live="payments.{{ $index }}.amount"
                                         class="w-full px-2 py-1 text-sm border rounded-md text-right @error('payments.' . $index . '.amount') field-error @enderror">
-                                    @error('payments.' . $index . '.amount') 
-                                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p> 
+                                    @error('payments.' . $index . '.amount')
+                                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                                     @enderror
                                 </td>
                                 <td class="px-3 py-2">
-                                    <select wire:model.live="payments.{{ $index }}.payment_method" 
-                                        class="w-full px-2 py-1 text-sm border rounded-md">
+                                    <select wire:model.live="payments.{{ $index }}.payment_method"
+                                        class="w-full px-2 py-1 text-sm border rounded-md @error('payments.' . $index . '.payment_method') field-error @enderror">
                                         <option value="">Seleziona modalità di pagamento</option>
                                         @foreach($paymentMethods as $code => $label)
                                             <option value="{{ $code }}">{{ $code }} - {{ $label }}</option>
                                         @endforeach
                                     </select>
-                                    @error('payments.' . $index . '.payment_method') 
-                                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p> 
+                                    @error('payments.' . $index . '.payment_method')
+                                        <p class="text-xs text-red-500 mt-1">{{ $message }}</p>
                                     @enderror
                                 </td>
                                 <td class="px-3 py-2">
-                                    <input type="text" 
-                                        wire:model.live="payments.{{ $index }}.iban" 
+                                    <input type="text"
+                                        wire:model.live="payments.{{ $index }}.iban"
                                         placeholder="IT00 XXXX XXXX XXXX XXXX XXXX XXX"
                                         class="w-full px-2 py-1 text-sm border rounded-md">
                                 </td>
                                 <td class="px-3 py-2 text-center">
-                                    <button type="button" 
-                                        wire:click="removePayment({{ $index }})" 
+                                    <button type="button"
+                                        wire:click="removePayment({{ $index }})"
                                         class="text-red-500 hover:text-red-700 transition-colors"
                                         title="Rimuovi scadenza">
                                         <i class="fas fa-trash-alt"></i>
@@ -643,7 +664,7 @@
                 </div>
             @endif
         </div>
-        
+
         <!-- Bottoni -->
         <div class="mt-6 flex justify-end gap-3">
             <a href="{{ route('admin.invoices-received.index') }}" class="px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-gray-200 text-gray-700 hover:bg-gray-300">
@@ -654,14 +675,14 @@
             </button>
         </div>
     </form>
-    
+
     <!-- MODALE CREAZIONE NUOVO FORNITORE -->
     @if($showSupplierModal)
     <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ open: true }" x-show="open" x-on:keydown.escape.window="open = false; $wire.closeSupplierModal()">
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" x-on:click="open = false; $wire.closeSupplierModal()"></div>
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
-            
+
             <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
                 <div class="bg-white px-6 pt-5 pb-4 border-b">
                     <div class="flex justify-between items-center">
@@ -671,12 +692,12 @@
                         </button>
                     </div>
                 </div>
-                
+
                 <div class="px-6 py-4">
                     <div class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Ragione Sociale / Nome <span class="text-red-500">*</span></label>
-                            <input type="text" wire:model="newSupplierName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            <input type="text" wire:model="newSupplierName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 @error('newSupplierName') field-error @enderror">
                             @error('newSupplierName') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div class="grid grid-cols-2 gap-4">
@@ -719,7 +740,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="bg-gray-50 px-6 py-3 flex justify-end gap-3">
                     <button type="button" wire:click="closeSupplierModal" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors">
                         Annulla

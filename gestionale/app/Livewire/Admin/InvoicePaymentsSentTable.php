@@ -411,6 +411,55 @@ class InvoicePaymentsSentTable extends Component
         
         return $query->paginate($this->perPage);
     }
+
+    /**
+     * Genera l'URL per l'esportazione PDF con tutti i filtri attivi.
+     */
+    public function getExportPdfUrl()
+    {
+        return route('admin.invoice-payments-sent.export-pdf', $this->exportParams());
+    }
+
+    /**
+     * Genera l'URL per l'esportazione Excel con tutti i filtri attivi.
+     */
+    public function getExportExcelUrl()
+    {
+        return route('admin.invoice-payments-sent.export-excel', $this->exportParams());
+    }
+
+    /**
+     * Costruisce l'array di query string con i filtri attualmente attivi
+     * nella tabella, da passare alle route di export.
+     */
+    protected function exportParams(): array
+    {
+        $params = [];
+
+        if ($this->selectedOwnershipId) {
+            $params['ownership_id'] = $this->selectedOwnershipId;
+        }
+        if ($this->selectedClientId) {
+            $params['client_id'] = $this->selectedClientId;
+        }
+        if ($this->statusFilter) {
+            $params['status'] = $this->statusFilter;
+        }
+        if ($this->dateFrom) {
+            $params['date_from'] = $this->dateFrom;
+        }
+        if ($this->dateTo) {
+            $params['date_to'] = $this->dateTo;
+        }
+        if ($this->invoiceNumberFilter) {
+            $params['invoice_number'] = $this->invoiceNumberFilter;
+        }
+        if ($this->search) {
+            $params['search'] = $this->search;
+        }
+
+        return $params;
+    }
     
     public function render()
     {

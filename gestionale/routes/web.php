@@ -299,6 +299,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         // =============================================
         Route::prefix('invoice-payments-sent')->name('invoice-payments-sent.')->group(function () {
             Route::get('/', [App\Http\Controllers\Admin\InvoicePaymentSentController::class, 'index'])->name('index');
+
+            Route::get('/export-pdf', [App\Http\Controllers\Admin\InvoicePaymentSentController::class, 'exportPdf'])->name('export-pdf');
+            Route::get('/export-excel', [App\Http\Controllers\Admin\InvoicePaymentSentController::class, 'exportExcel'])->name('export-excel');
         });
 
         // =============================================

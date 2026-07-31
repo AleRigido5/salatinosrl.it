@@ -10,8 +10,10 @@ use App\Models\InstallmentTransaction;
             Scadenze Vendite
         </h1>
 
-        <!-- Componente per il nuovo pagamento -->
-        @livewire('admin.register-payment', ['invoiceType' => 'vendita'])
+        <div class="flex items-center gap-3">
+            <!-- Componente per il nuovo pagamento -->
+            @livewire('admin.register-payment', ['invoiceType' => 'vendita'])
+        </div>
     </div>
 
     <!-- Card filtri -->
@@ -307,6 +309,20 @@ use App\Models\InstallmentTransaction;
                 </tbody>
             </table>
         </div>
+    </div>
+
+    <!-- Esportazioni -->
+    <div class="flex justify-end gap-3 mt-4">
+        <a href="{{ $this->getExportPdfUrl() }}"
+            class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium transition-colors">
+            <i class="fas fa-file-pdf text-xl"></i>
+            <span>Esporta PDF</span>
+        </a>
+        <a href="{{ $this->getExportExcelUrl() }}"
+            class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium transition-colors">
+            <i class="fas fa-file-excel text-xl"></i>
+            <span>Esporta Excel</span>
+        </a>
     </div>
 
     <!-- Paginazione -->

@@ -1,7 +1,7 @@
 <div>
     <!-- Filtri e Ricerca -->
-    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200" wire:key="filters-{{ $activeSearch }}-{{ $activeTypeFilter }}-{{ $activeStatusFilter }}">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200" wire:key="filters-{{ $activeSearch }}-{{ $activeTypeFilter }}-{{ $activeStatusFilter }}-{{ $activeRatingFilter }}">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div class="relative md:col-span-2">
                 <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
                 <input type="text" 
@@ -15,6 +15,16 @@
                 @foreach($entityTypes as $key => $label)
                     <option value="{{ $key }}">{{ $label }}</option>
                 @endforeach
+            </select>
+
+            <select wire:model="tempRatingFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                <option value="">Tutte le valutazioni</option>
+                <option value="0">0 stelle - Bannato</option>
+                <option value="1">1 stella</option>
+                <option value="2">2 stelle</option>
+                <option value="3">3 stelle</option>
+                <option value="4">4 stelle</option>
+                <option value="5">5 stelle - Eccellente</option>
             </select>
             
             <div class="flex gap-2">
@@ -33,7 +43,7 @@
         </div>
         
         <div class="flex justify-between items-center mt-4">
-            @if($activeSearch || $activeTypeFilter || $activeStatusFilter)
+            @if($activeSearch || $activeTypeFilter || $activeStatusFilter || $activeRatingFilter !== '')
             <button wire:click="resetFilters" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
                 <i class="fas fa-sync-alt mr-1"></i>
                 Resetta filtri
@@ -41,7 +51,7 @@
             @endif
         </div>
         
-        @if($activeSearch || $activeTypeFilter || $activeStatusFilter)
+        @if($activeSearch || $activeTypeFilter || $activeStatusFilter || $activeRatingFilter !== '')
         <div class="mt-3 flex flex-wrap items-center gap-2">
             <span class="text-sm text-gray-500">Filtri attivi:</span>
             @if($activeSearch)
@@ -64,6 +74,14 @@
             <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
                 Stato: {{ $activeStatusFilter === 'active' ? 'Attivi' : 'Disattivi' }}
                 <button wire:click="removeFilter('status')" class="ml-1 hover:text-lime-900">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            </span>
+            @endif
+            @if($activeRatingFilter !== '')
+            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
+                Valutazione: {{ $activeRatingFilter }} {{ $activeRatingFilter == 1 ? 'stella' : 'stelle' }}{{ $activeRatingFilter == '0' ? ' (Bannati)' : '' }}
+                <button wire:click="removeFilter('rating')" class="ml-1 hover:text-lime-900">
                     <i class="fas fa-times text-xs"></i>
                 </button>
             </span>
@@ -156,8 +174,15 @@
                         }
                         
                         $emailValue = $email ? $email->valore : ($entity->email ?? null);
+
+                        // Riga "bannata": valutazione a 0 stelle
+                        $isBanned = (int) ($entity->rating ?? 3) === 0;
+                        $rowTextClass = $isBanned ? 'text-white' : 'text-gray-900';
+                        $rowMutedTextClass = $isBanned ? 'text-red-100' : 'text-gray-500';
+                        $rowIconMutedClass = $isBanned ? 'text-red-200' : 'text-gray-400';
+                        $actionIconClass = $isBanned ? 'text-white hover:text-red-100' : null;
                     @endphp
-                    <tr wire:key="entity-{{ $entity->id_cliente }}" class="hover:bg-gray-50 transition-colors duration-150">
+                    <tr wire:key="entity-{{ $entity->id_cliente }}" class="transition-colors duration-150 {{ $isBanned ? 'bg-red-600 hover:bg-red-700' : 'hover:bg-gray-50' }}">
                         <td class="px-6 py-4">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center
@@ -175,12 +200,12 @@
                                     @endif
                                 </div>
                                 <div class="ml-4">
-                                    <div class="text-sm font-medium text-gray-900">
+                                    <div class="text-sm font-medium {{ $rowTextClass }}">
                                         {{ $entity->full_name }}
                                     </div>
                                     @if($entity->persona_riferimento)
-                                    <div class="text-xs text-gray-500">
-                                        <i class="fas fa-user-tag mr-1 text-gray-400"></i>
+                                    <div class="text-xs {{ $rowMutedTextClass }}">
+                                        <i class="fas fa-user-tag mr-1 {{ $rowIconMutedClass }}"></i>
                                         {{ $entity->persona_riferimento }}
                                     </div>
                                     @endif
@@ -197,36 +222,36 @@
                             </span>
                         </td>
                         
-                        <td class="px-6 py-4 text-sm text-gray-500">
+                        <td class="px-6 py-4 text-sm {{ $rowMutedTextClass }}">
                             <div class="flex flex-col space-y-1">
                                 @if($phone)
                                     <div class="flex items-center">
-                                        <i class="fas fa-phone text-gray-400 mr-2"></i>
+                                        <i class="fas fa-phone {{ $rowIconMutedClass }} mr-2"></i>
                                         <span class="truncate">{{ $phone->valore }}</span>
                                     </div>
                                 @endif
                                 
                                 @if($mobile)
                                     <div class="flex items-center">
-                                        <i class="fas fa-mobile-alt text-gray-400 mr-2"></i>
+                                        <i class="fas fa-mobile-alt {{ $rowIconMutedClass }} mr-2"></i>
                                         <span class="truncate">{{ $mobile->valore }}</span>
                                     </div>
                                 @endif
                                 
                                 @if($emailValue)
                                     <div class="flex items-center">
-                                        <i class="fas fa-envelope text-gray-400 mr-2"></i>
+                                        <i class="fas fa-envelope {{ $rowIconMutedClass }} mr-2"></i>
                                         <span class="truncate">{{ Str::limit($emailValue, 30) }}</span>
                                     </div>
                                 @endif
                                 
                                 @if(!$phone && !$mobile && !$emailValue)
-                                    <span class="text-gray-400 italic text-xs">Nessun contatto</span>
+                                    <span class="{{ $isBanned ? 'text-red-100' : 'text-gray-400' }} italic text-xs">Nessun contatto</span>
                                 @endif
                             </div>
                         </td>
                         
-                        <td class="px-6 py-4 text-sm text-gray-500">
+                        <td class="px-6 py-4 text-sm {{ $rowMutedTextClass }}">
                             <div class="flex flex-col space-y-1">
                                 @if($entity->partita_iva)
                                     <div class="flex items-center">
@@ -239,7 +264,7 @@
                                     </div>
                                 @endif
                                 @if(!$entity->partita_iva && !$entity->codice_fiscale)
-                                    <span class="text-gray-400 italic text-xs">-</span>
+                                    <span class="{{ $isBanned ? 'text-red-100' : 'text-gray-400' }} italic text-xs">-</span>
                                 @endif
                             </div>
                         </td>
@@ -264,14 +289,18 @@
                                 @php
                                     $entityRating = $entity->rating ?? 3;
                                     $ratingColorClass = $entityRating == 0 ? 'text-red-500' : ($entityRating == 5 ? 'text-green-500' : 'text-yellow-400');
+                                    $emptyStarClass = $isBanned ? 'text-white/50' : 'text-gray-300';
                                 @endphp
                                 @for ($i = 1; $i <= 5; $i++)
-                                    <i class="fas fa-star text-sm {{ $i <= $entityRating ? $ratingColorClass : 'text-gray-300' }}"></i>
+                                    <i class="fas fa-star text-sm {{ $i <= $entityRating ? $ratingColorClass : $emptyStarClass }}"></i>
                                 @endfor
+                                @if($isBanned)
+                                    <span class="ml-2 text-xs font-semibold text-white uppercase">Bannato</span>
+                                @endif
                             </div>
                         </td>
                         
-                        <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                        <td class="px-6 py-4 text-sm {{ $rowMutedTextClass }} whitespace-nowrap">
                             {{ $entity->created_at ? $entity->created_at->format('d/m/Y') : ($entity->data_inserimento ? date('d/m/Y', strtotime($entity->data_inserimento)) : '-') }}
                         </td>
                         
@@ -279,13 +308,13 @@
                             <div class="flex space-x-3">
                                 {{-- Icona Comunicazioni --}}
                                 <a href="{{ route('admin.entities.communications.index', $entity->id_cliente) }}" 
-                                class="text-indigo-600 hover:text-indigo-900 transition-colors"
+                                class="{{ $actionIconClass ?? 'text-indigo-600 hover:text-indigo-900' }} transition-colors"
                                 title="Gestione Comunicazioni">
                                     <i class="fa-solid fa-envelope text-lg"></i>
                                 </a>
 
                                 <a href="{{ route('admin.entities.account-statement', $entity->id_cliente) }}" 
-                                class="text-lime-600 hover:text-lime-900 transition-colors"
+                                class="{{ $actionIconClass ?? 'text-lime-600 hover:text-lime-900' }} transition-colors"
                                 title="Estratto Conto">
                                     <i class="fa-solid fa-file-invoice-dollar text-lg"></i>
                                 </a>
@@ -294,38 +323,38 @@
                                     @if(auth()->guard('admin')->user()->hasPermission('view_entities'))
                                     <button wire:click="viewEntity({{ $entity->id_cliente }})" 
                                             wire:key="view-{{ $entity->id_cliente }}"
-                                            class="text-blue-600 hover:text-blue-900 transition-colors"
+                                            class="{{ $actionIconClass ?? 'text-blue-600 hover:text-blue-900' }} transition-colors"
                                             title="Visualizza">
-                                        <i class="fa-regular fa-eye text-blue-600 hover:text-blue-900"></i>
+                                        <i class="fa-regular fa-eye"></i>
                                     </button>
                                     @endif
                                     
                                     @if(auth()->guard('admin')->user()->hasPermission('edit_entities'))
                                     <button wire:click="openEditPage({{ $entity->id_cliente }})" 
                                             wire:key="edit-{{ $entity->id_cliente }}"
-                                            class="text-yellow-600 hover:text-yellow-900 transition-colors"
+                                            class="{{ $actionIconClass ?? 'text-yellow-600 hover:text-yellow-900' }} transition-colors"
                                             title="Modifica">
-                                        <i class="fa-solid fa-pen-to-square text-yellow-600 hover:text-yellow-900"></i>
+                                        <i class="fa-solid fa-pen-to-square"></i>
                                     </button>
                                     @endif
                                     
                                     @if(auth()->guard('admin')->user()->hasPermission('delete_entities'))
                                     <button wire:click="confirmDelete({{ $entity->id_cliente }})" 
                                             wire:key="delete-{{ $entity->id_cliente }}"
-                                            class="text-red-600 hover:text-red-900 transition-colors"
+                                            class="{{ $actionIconClass ?? 'text-red-600 hover:text-red-900' }} transition-colors"
                                             title="Elimina">
-                                        <i class="fa-solid fa-trash-can text-red-600 hover:text-red-900"></i>
+                                        <i class="fa-solid fa-trash-can"></i>
                                     </button>
                                     @endif
                                 @else
                                     <button wire:click="restoreFromTrash({{ $entity->id_cliente }})" 
-                                            class="text-green-600 hover:text-green-900 transition-colors"
+                                            class="{{ $actionIconClass ?? 'text-green-600 hover:text-green-900' }} transition-colors"
                                             title="Ripristina">
                                         <i class="fas fa-trash-restore"></i>
                                     </button>
                                     <button wire:click="forceDeleteFromTrash({{ $entity->id_cliente }})" 
                                             onclick="return confirm('Eliminazione definitiva? Questa operazione non può essere annullata.')"
-                                            class="text-red-600 hover:text-red-900 transition-colors"
+                                            class="{{ $actionIconClass ?? 'text-red-600 hover:text-red-900' }} transition-colors"
                                             title="Elimina definitivamente">
                                         <i class="fas fa-skull-crosswalk"></i>
                                     </button>
@@ -339,7 +368,7 @@
                             <div class="text-gray-500">
                                 <i class="fas fa-building text-gray-400 text-5xl"></i>
                                 <p class="mt-2 text-sm">Nessun cliente/fornitore trovato</p>
-                                @if($activeSearch || $activeTypeFilter || $activeStatusFilter)
+                                @if($activeSearch || $activeTypeFilter || $activeStatusFilter || $activeRatingFilter !== '')
                                 <button wire:click="resetFilters" class="mt-2 text-sm text-blue-600 hover:text-blue-800">
                                     Resetta filtri
                                 </button>
@@ -552,6 +581,9 @@
                             @for ($i = 1; $i <= 5; $i++)
                                 <i class="fas fa-star text-sm {{ $i <= $viewRating ? $viewRatingColor : 'text-gray-300' }}"></i>
                             @endfor
+                            @if($viewRating == 0)
+                                <span class="ml-2 text-xs font-semibold text-red-600 uppercase">Bannato</span>
+                            @endif
                         </div>
                     </div>
                 </div>

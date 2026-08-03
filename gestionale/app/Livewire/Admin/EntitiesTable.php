@@ -20,11 +20,13 @@ class EntitiesTable extends Component
     public $activeSearch = '';
     public $activeTypeFilter = '';
     public $activeStatusFilter = '';
+    public $activeRatingFilter = '';
     
     // Filtri temporanei (quelli nel form)
     public $tempSearch = '';
     public $tempTypeFilter = '';
     public $tempStatusFilter = '';
+    public $tempRatingFilter = '';
     
     public $perPage = 15;
     public $sortField = 'ragione_sociale';
@@ -60,7 +62,7 @@ class EntitiesTable extends Component
     // Contatore cestino
     public $trashCount = 0;
     
-    protected $queryString = ['activeSearch', 'activeTypeFilter', 'activeStatusFilter'];
+    protected $queryString = ['activeSearch', 'activeTypeFilter', 'activeStatusFilter', 'activeRatingFilter'];
     
     protected $listeners = [
         'refreshTable' => 'refreshTable',
@@ -84,6 +86,7 @@ class EntitiesTable extends Component
         $this->tempSearch = $this->activeSearch;
         $this->tempTypeFilter = $this->activeTypeFilter;
         $this->tempStatusFilter = $this->activeStatusFilter;
+        $this->tempRatingFilter = $this->activeRatingFilter;
     }
     
     public function refreshTable()
@@ -203,6 +206,11 @@ class EntitiesTable extends Component
             $query->where('valid', $this->activeStatusFilter === 'active');
         }
         
+        // Filtro per valutazione (stelle) - usa activeRatingFilter
+        if ($this->activeRatingFilter !== '') {
+            $query->where('rating', (int) $this->activeRatingFilter);
+        }
+        
         // Ordina
         $query->orderBy($this->sortField, $this->sortDirection);
         
@@ -224,6 +232,7 @@ class EntitiesTable extends Component
         $this->activeSearch = $this->tempSearch;
         $this->activeTypeFilter = $this->tempTypeFilter;
         $this->activeStatusFilter = $this->tempStatusFilter;
+        $this->activeRatingFilter = $this->tempRatingFilter;
         $this->resetPage();
         $this->dispatch('filters-applied');
     }
@@ -243,6 +252,10 @@ class EntitiesTable extends Component
                 $this->activeStatusFilter = '';
                 $this->tempStatusFilter = '';
                 break;
+            case 'rating':
+                $this->activeRatingFilter = '';
+                $this->tempRatingFilter = '';
+                break;
         }
         $this->resetPage();
         $this->dispatch('filter-removed');
@@ -253,9 +266,11 @@ class EntitiesTable extends Component
         $this->activeSearch = '';
         $this->activeTypeFilter = '';
         $this->activeStatusFilter = '';
+        $this->activeRatingFilter = '';
         $this->tempSearch = '';
         $this->tempTypeFilter = '';
         $this->tempStatusFilter = '';
+        $this->tempRatingFilter = '';
         $this->resetPage();
         $this->dispatch('filters-reset');
     }

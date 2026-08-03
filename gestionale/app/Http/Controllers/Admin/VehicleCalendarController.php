@@ -150,8 +150,12 @@ class VehicleCalendarController extends Controller
         // Popola i dati
         $row = 2;
         $typeLabels = Setting::whereIn('id', $expirations->pluck('id_settings')->unique())->pluck('valore', 'id');
-        $ownershipLabels = Ownership::whereIn('id_proprieta', Vehicles::whereIn('id', $expirations->pluck('id_references')->unique())->pluck('id_ownership')->unique())->pluck('RagAbbrev', 'id_proprieta');
-
+        $vehicleIds = $expirations->pluck('id_references')->unique();
+        $ownershipLabels = Ownership::whereIn(
+            'id_proprieta',
+            Vehicles::whereKey($vehicleIds)->pluck('id_ownership')->unique()
+        )->pluck('RagAbbrev', 'id_proprieta');
+        
         foreach ($expirations as $exp) {
             $vehicle = $exp->vehicles->first();
             $carbonDate = Carbon::parse($exp->data_fine);

@@ -171,6 +171,10 @@ class VehicleCalendar extends Component
         }
 
         // Cerca nei veicoli (inclusi quelli disattivati)
+        // NB: non selezioniamo colonne esplicite come 'id' perché la chiave
+        // primaria della tabella potrebbe non chiamarsi 'id' (come per gli altri
+        // modelli del gestionale, es. Ownership usa 'id_proprieta'). Usiamo
+        // getKey() per leggere sempre la chiave primaria reale del modello.
         $this->vehicleResults = Vehicles::where(function($q) {
                 $q->where('targa', 'like', '%' . $this->vehicleSearch . '%')
                   ->orWhere('marca', 'like', '%' . $this->vehicleSearch . '%')
@@ -179,10 +183,10 @@ class VehicleCalendar extends Component
                   ->orWhereRaw("CONCAT(targa, ' - ', marca, ' ', modello) LIKE ?", ['%' . $this->vehicleSearch . '%']);
             })
             ->limit(10)
-            ->get(['id', 'targa', 'marca', 'modello'])
+            ->get()
             ->map(function($item) {
                 return (object)[
-                    'id' => $item->id,
+                    'id' => $item->getKey(),
                     'name' => $item->targa . ' - ' . $item->marca . ' ' . $item->modello
                 ];
             });
@@ -461,9 +465,11 @@ class VehicleCalendar extends Component
     
     public function getVehicleListProperty()
     {
+        // Non limitiamo esplicitamente le colonne per non rischiare di
+        // escludere la vera chiave primaria del modello se diversa da 'id'.
         return Vehicles::where('valid', 1)
             ->orderBy('targa')
-            ->get(['id', 'targa', 'marca', 'modello']);
+            ->get();
     }
     
     public function getOwnershipsProperty()

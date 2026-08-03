@@ -45,7 +45,7 @@ class ExpirationVehicleController extends Controller
 
         $ownerships = Ownership::orderBy('RagSocialePr')->get();
         $entities = Entity::orderBy('ragione_sociale')->get();
-        $tipologie = Setting::where('tabella_riferimento', 'expiration')
+        $tipologie = Setting::where('tabella_riferimento', 'vehicles_expiration')
             ->where('valid', 1)
             ->orderBy('ordinamento')
             ->get();
@@ -109,7 +109,7 @@ class ExpirationVehicleController extends Controller
         
         $ownerships = Ownership::orderBy('RagSocialePr')->get();
         $entities = Entity::orderBy('ragione_sociale')->get();
-        $tipologie = Setting::where('tabella_riferimento', 'expiration')
+        $tipologie = Setting::where('tabella_riferimento', 'vehicles_expiration')
             ->where('valid', 1)
             ->orderBy('ordinamento')
             ->get();

@@ -1,88 +1,147 @@
 <div>
     <!-- Filtri e Ricerca -->
-    <div class="bg-white rounded-lg shadow mb-6 p-4 border border-gray-200" wire:key="filters-{{ $activeSearch }}-{{ $activeTypeFilter }}-{{ $activeStatusFilter }}-{{ $activeRatingFilter }}">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div class="relative md:col-span-2">
-                <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
+    <div class="bg-white rounded-2xl shadow-sm mb-6 p-5 border border-gray-100" wire:key="filters-{{ $activeSearch }}-{{ $activeTypeFilter }}-{{ $activeStatusFilter }}-{{ $activeRatingFilter }}">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div class="relative md:col-span-2" x-data="{ open: false }" x-on:click.away="open = false">
+                <i class="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
                 <input type="text" 
-                    wire:model="tempSearch" 
+                    id="entities_search_input"
+                    wire:model.live.debounce.300ms="tempSearch" 
+                    x-on:focus="open = true"
+                    x-on:keydown="open = true"
                     placeholder="Cerca per: P.IVA, Ragione Sociale, Nome, Cognome, Persona Riferimento, Città, Telefono, Email..." 
-                    class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
+                    autocomplete="off"
+                    class="w-full pl-10 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 placeholder-gray-400 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-lime-500/40 focus:border-lime-400 focus:bg-white transition-all duration-150">
+
+                @if($tempSearch)
+                <button type="button"
+                    wire:click="clearSearch"
+                    x-on:click="document.getElementById('entities_search_input').value = ''"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500">
+                    <i class="fas fa-times-circle text-sm"></i>
+                </button>
+                @endif
+
+                <div x-show="open && @entangle('showSearchDropdown')"
+                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-72 overflow-y-auto">
+                    @if($searchResults && $searchResults->count() > 0)
+                        @foreach($searchResults as $result)
+                        <div wire:key="search-result-{{ $result->id_cliente }}"
+                            x-on:click="open = false; @this.call('selectSearchResult', {{ $result->id_cliente }}, '{{ addslashes($result->full_name) }}')"
+                            class="px-4 py-2.5 hover:bg-lime-50 cursor-pointer border-b border-gray-100 last:border-0 flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="font-medium text-gray-800 text-sm truncate">{{ $result->full_name }}</div>
+                                @if($result->partita_iva)
+                                <div class="text-xs text-gray-500">P.IVA: {{ $result->partita_iva }}</div>
+                                @endif
+                            </div>
+                            <span class="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold
+                                @if($result->entity_type == 'cliente') bg-lime-100 text-lime-800
+                                @elseif($result->entity_type == 'fornitore') bg-blue-100 text-blue-800
+                                @else bg-purple-100 text-purple-800
+                                @endif">
+                                {{ $entityTypes[$result->entity_type] ?? $result->entity_type }}
+                            </span>
+                        </div>
+                        @endforeach
+                    @elseif(strlen($tempSearch) >= 2)
+                        <div class="px-4 py-3 text-sm text-gray-500 text-center">Nessun risultato trovato</div>
+                    @endif
+                </div>
             </div>
             
-            <select wire:model="tempTypeFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
-                <option value="">Tutti i tipi</option>
-                @foreach($entityTypes as $key => $label)
-                    <option value="{{ $key }}">{{ $label }}</option>
-                @endforeach
-            </select>
+            <div class="relative">
+                <i class="fas fa-tags absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                <select wire:model="tempTypeFilter" 
+                    class="w-full appearance-none pl-10 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 cursor-pointer hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-lime-500/40 focus:border-lime-400 focus:bg-white transition-all duration-150">
+                    <option value="">Tutti i tipi</option>
+                    @foreach($entityTypes as $key => $label)
+                        <option value="{{ $key }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+                <i class="fas fa-chevron-down absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+            </div>
 
-            <select wire:model="tempRatingFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
-                <option value="">Tutte le valutazioni</option>
-                <option value="0">0 stelle - Bannato</option>
-                <option value="1">1 stella</option>
-                <option value="2">2 stelle</option>
-                <option value="3">3 stelle</option>
-                <option value="4">4 stelle</option>
-                <option value="5">5 stelle - Eccellente</option>
-            </select>
+            <div class="relative">
+                <i class="fas fa-star absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-400 text-sm pointer-events-none"></i>
+                <select wire:model="tempRatingFilter" 
+                    class="w-full appearance-none pl-10 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 cursor-pointer hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-lime-500/40 focus:border-lime-400 focus:bg-white transition-all duration-150">
+                    <option value="">Tutte le valutazioni</option>
+                    <option value="0">0 stelle · Bannato</option>
+                    <option value="1">1 stella</option>
+                    <option value="2">2 stelle</option>
+                    <option value="3">3 stelle</option>
+                    <option value="4">4 stelle</option>
+                    <option value="5">5 stelle · Eccellente</option>
+                </select>
+                <i class="fas fa-chevron-down absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+            </div>
             
             <div class="flex gap-2">
-                <select wire:model="tempStatusFilter" class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
-                    <option value="">Tutti gli stati</option>
-                    <option value="active">Attivi</option>
-                    <option value="inactive">Disattivi</option>
-                </select>
+                <div class="relative flex-1">
+                    <i class="fas fa-circle-check absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                    <select wire:model="tempStatusFilter" 
+                        class="w-full appearance-none pl-10 pr-9 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 cursor-pointer hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-lime-500/40 focus:border-lime-400 focus:bg-white transition-all duration-150">
+                        <option value="">Tutti gli stati</option>
+                        <option value="active">Attivi</option>
+                        <option value="inactive">Disattivi</option>
+                    </select>
+                    <i class="fas fa-chevron-down absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                </div>
                 
                 <button wire:click="applyFilters" 
-                        class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
-                    <i class="fas fa-search"></i>
-                    <span>Applica</span>
+                        class="flex items-center gap-2 bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:from-lime-600 hover:to-lime-700 active:scale-[0.98] transition-all duration-150 whitespace-nowrap">
+                    <i class="fas fa-search text-sm"></i>
+                    <span class="text-sm font-medium">Applica</span>
                 </button>
             </div>
         </div>
         
-        <div class="flex justify-between items-center mt-4">
+        <div class="flex justify-between items-center mt-3">
             @if($activeSearch || $activeTypeFilter || $activeStatusFilter || $activeRatingFilter !== '')
-            <button wire:click="resetFilters" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                <i class="fas fa-sync-alt mr-1"></i>
+            <button wire:click="resetFilters" class="text-sm text-gray-500 hover:text-gray-800 transition-colors flex items-center gap-1.5">
+                <i class="fas fa-rotate-left text-xs"></i>
                 Resetta filtri
             </button>
             @endif
         </div>
         
         @if($activeSearch || $activeTypeFilter || $activeStatusFilter || $activeRatingFilter !== '')
-        <div class="mt-3 flex flex-wrap items-center gap-2">
-            <span class="text-sm text-gray-500">Filtri attivi:</span>
+        <div class="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
+            <span class="text-xs font-medium text-gray-400 uppercase tracking-wide">Filtri attivi</span>
             @if($activeSearch)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
-                Ricerca: "{{ $activeSearch }}"
-                <button wire:click="removeFilter('search')" class="ml-1 hover:text-lime-900">
-                    <i class="fas fa-times text-xs"></i>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-lime-50 text-lime-700 border border-lime-200">
+                <i class="fas fa-search text-[10px]"></i>
+                "{{ $activeSearch }}"
+                <button wire:click="removeFilter('search')" class="hover:text-lime-900">
+                    <i class="fas fa-times text-[10px]"></i>
                 </button>
             </span>
             @endif
             @if($activeTypeFilter)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
-                Tipo: {{ $entityTypes[$activeTypeFilter] ?? $activeTypeFilter }}
-                <button wire:click="removeFilter('type')" class="ml-1 hover:text-lime-900">
-                    <i class="fas fa-times text-xs"></i>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-lime-50 text-lime-700 border border-lime-200">
+                <i class="fas fa-tags text-[10px]"></i>
+                {{ $entityTypes[$activeTypeFilter] ?? $activeTypeFilter }}
+                <button wire:click="removeFilter('type')" class="hover:text-lime-900">
+                    <i class="fas fa-times text-[10px]"></i>
                 </button>
             </span>
             @endif
             @if($activeStatusFilter)
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
-                Stato: {{ $activeStatusFilter === 'active' ? 'Attivi' : 'Disattivi' }}
-                <button wire:click="removeFilter('status')" class="ml-1 hover:text-lime-900">
-                    <i class="fas fa-times text-xs"></i>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-lime-50 text-lime-700 border border-lime-200">
+                <i class="fas fa-circle-check text-[10px]"></i>
+                {{ $activeStatusFilter === 'active' ? 'Attivi' : 'Disattivi' }}
+                <button wire:click="removeFilter('status')" class="hover:text-lime-900">
+                    <i class="fas fa-times text-[10px]"></i>
                 </button>
             </span>
             @endif
             @if($activeRatingFilter !== '')
-            <span class="inline-flex items-center px-2 py-1 rounded-md text-xs bg-lime-100 text-lime-800">
-                Valutazione: {{ $activeRatingFilter }} {{ $activeRatingFilter == 1 ? 'stella' : 'stelle' }}{{ $activeRatingFilter == '0' ? ' (Bannati)' : '' }}
-                <button wire:click="removeFilter('rating')" class="ml-1 hover:text-lime-900">
-                    <i class="fas fa-times text-xs"></i>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium {{ $activeRatingFilter === '0' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-lime-50 text-lime-700 border border-lime-200' }}">
+                <i class="fas fa-star text-[10px]"></i>
+                {{ $activeRatingFilter }} {{ $activeRatingFilter == 1 ? 'stella' : 'stelle' }}{{ $activeRatingFilter == '0' ? ' · Bannati' : '' }}
+                <button wire:click="removeFilter('rating')" class="hover:text-lime-900">
+                    <i class="fas fa-times text-[10px]"></i>
                 </button>
             </span>
             @endif

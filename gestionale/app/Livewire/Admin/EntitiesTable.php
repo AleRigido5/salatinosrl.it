@@ -11,6 +11,7 @@ use App\Models\Address;
 use App\Models\Contact;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 
 class EntitiesTable extends Component
 {
@@ -27,6 +28,10 @@ class EntitiesTable extends Component
     public $tempTypeFilter = '';
     public $tempStatusFilter = '';
     public $tempRatingFilter = '';
+
+    // Autocomplete ricerca
+    public Collection $searchResults;
+    public $showSearchDropdown = false;
     
     public $perPage = 15;
     public $sortField = 'ragione_sociale';
@@ -77,6 +82,7 @@ class EntitiesTable extends Component
     
     public function mount()
     {
+        $this->searchResults = new Collection();
         $this->updateTrashCount();
         $this->syncTempFilters();
     }
@@ -157,6 +163,48 @@ class EntitiesTable extends Component
         
         return $query->first();
     }
+
+    // ==================== AUTOCOMPLETE RICERCA ====================
+
+    public function updatedTempSearch()
+    {
+        if (strlen(trim($this->tempSearch)) < 2) {
+            $this->searchResults = new Collection();
+            $this->showSearchDropdown = false;
+            return;
+        }
+
+        $searchTerm = '%' . $this->tempSearch . '%';
+
+        $this->searchResults = Entity::where(function($q) use ($searchTerm) {
+                $q->where('ragione_sociale', 'like', $searchTerm)
+                  ->orWhere('nome', 'like', $searchTerm)
+                  ->orWhere('cognome', 'like', $searchTerm)
+                  ->orWhere('email', 'like', $searchTerm)
+                  ->orWhere('partita_iva', 'like', $searchTerm)
+                  ->orWhere('codice_fiscale', 'like', $searchTerm)
+                  ->orWhere('persona_riferimento', 'like', $searchTerm);
+            })
+            ->orderBy('ragione_sociale')
+            ->limit(8)
+            ->get(['id_cliente', 'ragione_sociale', 'nome', 'cognome', 'partita_iva', 'entity_type']);
+
+        $this->showSearchDropdown = $this->searchResults->isNotEmpty();
+    }
+
+    public function selectSearchResult($id, $name)
+    {
+        $this->tempSearch = $name;
+        $this->showSearchDropdown = false;
+        $this->applyFilters();
+    }
+
+    public function clearSearch()
+    {
+        $this->tempSearch = '';
+        $this->searchResults = new Collection();
+        $this->showSearchDropdown = false;
+    }
     
     public function getEntitiesProperty()
     {
@@ -233,6 +281,7 @@ class EntitiesTable extends Component
         $this->activeTypeFilter = $this->tempTypeFilter;
         $this->activeStatusFilter = $this->tempStatusFilter;
         $this->activeRatingFilter = $this->tempRatingFilter;
+        $this->showSearchDropdown = false;
         $this->resetPage();
         $this->dispatch('filters-applied');
     }
@@ -271,6 +320,8 @@ class EntitiesTable extends Component
         $this->tempTypeFilter = '';
         $this->tempStatusFilter = '';
         $this->tempRatingFilter = '';
+        $this->searchResults = new Collection();
+        $this->showSearchDropdown = false;
         $this->resetPage();
         $this->dispatch('filters-reset');
     }

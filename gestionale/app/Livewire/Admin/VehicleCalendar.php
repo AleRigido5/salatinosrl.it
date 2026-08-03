@@ -62,7 +62,6 @@ class VehicleCalendar extends Component
             ->orderBy('ordinamento')
             ->get();
         
-            
         if ($types->isNotEmpty()) {
             $this->expirationTypes = $types->map(function($item) {
                 return (object)[

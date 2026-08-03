@@ -70,6 +70,7 @@ class EntityController extends Controller
             'pec' => 'nullable|email|max:255',
             'partita_iva' => 'nullable|string|max:20',
             'codice_fiscale' => 'nullable|string|max:20',
+            'rating' => 'nullable|integer|min:0|max:5',
         ]);
 
         // Controllo duplicati partita IVA
@@ -100,6 +101,7 @@ class EntityController extends Controller
             'pec' => $request->pec,
             'partita_iva' => $request->partita_iva,
             'codice_fiscale' => $request->codice_fiscale,
+            'rating' => $request->rating ?? 3,
             'id_gruppo' => $request->id_gruppo ?? 0,
             'valid' => $request->boolean('valid'),
             'data_inserimento' => now(),
@@ -178,6 +180,7 @@ class EntityController extends Controller
             'partita_iva' => 'nullable|string|max:20',
             'codice_fiscale' => 'nullable|string|max:20',
             'codice_sdi' => 'nullable|string|max:7',
+            'rating' => 'nullable|integer|min:0|max:5',
             'valid' => 'boolean',
         ]);
 
@@ -208,6 +211,7 @@ class EntityController extends Controller
             'partita_iva' => $request->partita_iva,
             'codice_fiscale' => $request->codice_fiscale,
             'codice_sdi' => $request->codice_sdi,
+            'rating' => $request->rating ?? $entity->rating,
             'id_gruppo' => $request->id_gruppo ?? 0,
             'valid' => $request->boolean('valid'),
             'updated_by' => Auth::guard('admin')->id(),

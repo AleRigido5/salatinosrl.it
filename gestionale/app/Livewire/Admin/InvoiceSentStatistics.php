@@ -8,6 +8,7 @@ use App\Models\Ownership;
 use App\Models\Entity;
 use App\Models\CostCenter;
 use Illuminate\Support\Collection;
+use Carbon\Carbon;
 
 class InvoiceSentStatistics extends Component
 {
@@ -41,6 +42,9 @@ class InvoiceSentStatistics extends Component
     public Collection $statistics;
     public string $periodDisplay = '';
 
+    // Statistiche mensili (nuove)
+    public Collection $monthlyStatistics;
+
     protected $listeners = [
         'dateRangeUpdated' => 'updateDateRange',
     ];
@@ -53,6 +57,7 @@ class InvoiceSentStatistics extends Component
 
         $this->statistics = $this->calculateStatistics();
         $this->periodDisplay = $this->getPeriodDisplay();
+        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
     }
 
     public function updateDateRange(array $data): void
@@ -61,6 +66,7 @@ class InvoiceSentStatistics extends Component
         $this->dateTo = $data['date_to'] ?? '';
         $this->statistics = $this->calculateStatistics();
         $this->periodDisplay = $this->getPeriodDisplay();
+        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
     }
 
     // ==================== STATISTICHE ====================
@@ -68,6 +74,7 @@ class InvoiceSentStatistics extends Component
     {
         $this->statistics = $this->calculateStatistics();
         $this->periodDisplay = $this->getPeriodDisplay();
+        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
     }
 
     public function updatedStatPeriod(): void
@@ -76,6 +83,7 @@ class InvoiceSentStatistics extends Component
         $this->dateTo = '';
         $this->statistics = $this->calculateStatistics();
         $this->periodDisplay = $this->getPeriodDisplay();
+        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
         $this->dispatch('resetDates');
     }
 
@@ -120,6 +128,67 @@ class InvoiceSentStatistics extends Component
         }
 
         return $stats->sortByDesc('total')->values();
+    }
+
+    /**
+     * Calcola il fatturato suddiviso per mese.
+     * Rispetta i filtri di Proprietà / Cliente / Centro di Costo.
+     * Se sono impostate date personalizzate (dateFrom/dateTo) usa quel range,
+     * altrimenti mostra sempre gli ultimi 12 mesi (indipendentemente dal
+     * selettore Mensile/Trimestrale/Semestrale/Annuale).
+     */
+    protected function calculateMonthlyStatistics(): Collection
+    {
+        $rangeStart = $this->dateFrom
+            ? Carbon::parse($this->dateFrom)->startOfMonth()
+            : now()->subMonths(11)->startOfMonth();
+
+        $rangeEnd = $this->dateTo
+            ? Carbon::parse($this->dateTo)->endOfMonth()
+            : now()->endOfMonth();
+
+        // Protezione: se il range personalizzato è invertito o troppo ampio, normalizza
+        if ($rangeStart->gt($rangeEnd)) {
+            $rangeStart = $rangeEnd->copy()->startOfMonth();
+        }
+
+        $query = InvoiceSent::query()
+            ->whereIn('status', ['approved', 'issued'])
+            ->with('rows')
+            ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
+            ->when($this->selectedCustomerId, fn($q) => $q->where('id_entities', $this->selectedCustomerId))
+            ->when($this->selectedCostCenterId, function($q) {
+                $q->whereHas('rows', fn($q2) => $q2->where('id_cost_center', $this->selectedCostCenterId));
+            })
+            ->whereDate('data_invoice', '>=', $rangeStart->format('Y-m-d'))
+            ->whereDate('data_invoice', '<=', $rangeEnd->format('Y-m-d'));
+
+        $invoices = $query->get();
+
+        // Prepara tutti i mesi del range, inizializzati a zero (così il grafico è continuo)
+        $months = collect();
+        $cursor = $rangeStart->copy();
+        while ($cursor->lte($rangeEnd)) {
+            $months->put($cursor->format('Y-m'), (object) [
+                'month_key' => $cursor->format('Y-m'),
+                'month_label' => ucfirst($cursor->translatedFormat('F Y')),
+                'total' => 0.0,
+                'count' => 0,
+            ]);
+            $cursor->addMonth();
+        }
+
+        foreach ($invoices as $invoice) {
+            $monthKey = Carbon::parse($invoice->data_invoice)->format('Y-m');
+            $invoiceTotal = $invoice->rows->sum('total');
+
+            if ($months->has($monthKey)) {
+                $months[$monthKey]->total += $invoiceTotal;
+                $months[$monthKey]->count += 1;
+            }
+        }
+
+        return $months->values();
     }
 
     protected function applyDateFilter($query): void
@@ -193,6 +262,7 @@ class InvoiceSentStatistics extends Component
             $this->showOwnershipDropdown = false;
             $this->statistics = $this->calculateStatistics();
             $this->periodDisplay = $this->getPeriodDisplay();
+            $this->monthlyStatistics = $this->calculateMonthlyStatistics();
             return;
         }
 
@@ -231,6 +301,7 @@ class InvoiceSentStatistics extends Component
         $this->showOwnershipDropdown = false;
         $this->statistics = $this->calculateStatistics();
         $this->periodDisplay = $this->getPeriodDisplay();
+        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
     }
 
     public function clearOwnership(): void
@@ -242,6 +313,7 @@ class InvoiceSentStatistics extends Component
         $this->dispatch('clearOwnershipInput');
         $this->statistics = $this->calculateStatistics();
         $this->periodDisplay = $this->getPeriodDisplay();
+        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
     }
 
     // ==================== AUTOCOMPLETE CLIENTE ====================
@@ -259,6 +331,7 @@ class InvoiceSentStatistics extends Component
             $this->showCustomerDropdown = false;
             $this->statistics = $this->calculateStatistics();
             $this->periodDisplay = $this->getPeriodDisplay();
+            $this->monthlyStatistics = $this->calculateMonthlyStatistics();
             return;
         }
 
@@ -295,6 +368,7 @@ class InvoiceSentStatistics extends Component
         $this->showCustomerDropdown = false;
         $this->statistics = $this->calculateStatistics();
         $this->periodDisplay = $this->getPeriodDisplay();
+        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
     }
 
     public function clearCustomer(): void
@@ -305,6 +379,7 @@ class InvoiceSentStatistics extends Component
         $this->dispatch('clearCustomerInput');
         $this->statistics = $this->calculateStatistics();
         $this->periodDisplay = $this->getPeriodDisplay();
+        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
     }
 
     // ==================== AUTOCOMPLETE CENTRO DI COSTO ====================
@@ -322,6 +397,7 @@ class InvoiceSentStatistics extends Component
             $this->showCostCenterDropdown = false;
             $this->statistics = $this->calculateStatistics();
             $this->periodDisplay = $this->getPeriodDisplay();
+            $this->monthlyStatistics = $this->calculateMonthlyStatistics();
             return;
         }
 
@@ -351,6 +427,7 @@ class InvoiceSentStatistics extends Component
         $this->showCostCenterDropdown = false;
         $this->statistics = $this->calculateStatistics();
         $this->periodDisplay = $this->getPeriodDisplay();
+        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
     }
 
     public function clearCostCenter(): void
@@ -361,6 +438,7 @@ class InvoiceSentStatistics extends Component
         $this->dispatch('clearCostCenterInput');
         $this->statistics = $this->calculateStatistics();
         $this->periodDisplay = $this->getPeriodDisplay();
+        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
     }
 
     public function render()

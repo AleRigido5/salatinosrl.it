@@ -20,7 +20,7 @@
         padding: 6px 12px;
         border-radius: 6px;
         position: absolute;
-        z-index: 9999;  /* <-- CAMBIATO: da 1000 a 9999 per stare sopra tutto */
+        z-index: 9999;
         bottom: 125%;
         left: 0;
         transform: translateX(0%);
@@ -31,7 +31,7 @@
         opacity: 0;
         transition: opacity 0.2s;
         pointer-events: none;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Aggiunto shadow per visibilità */
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
     
     .email-tooltip .tooltip-text::after {
@@ -50,10 +50,17 @@
         opacity: 1;
     }
     
-    /* Assicura che la card abbia uno z-index inferiore */
     .bg-white.rounded-xl {
         position: relative;
-        z-index: 1;  /* <-- AGGIUNTO: imposta z-index basso per la card */
+        z-index: 1;
+    }
+
+    /* Stelle rating */
+    .star-icon {
+        transition: color 0.15s ease-in-out, transform 0.1s ease-in-out;
+    }
+    .star-icon:hover {
+        transform: scale(1.15);
     }
 </style>
 
@@ -67,7 +74,8 @@
         </div>
         <div class="relative group">
             <a href="{{ route('admin.entities.index') }}" 
-            class="bg-gray-600 hover:bg-gray-900 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+               onclick="event.preventDefault(); window.history.length > 1 ? window.history.back() : window.location.href = '{{ route('admin.entities.index') }}';"
+               class="bg-gray-600 hover:bg-gray-900 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
                 <i class="fas fa-arrow-left"></i>
             </a>
             <div class="absolute bottom-full transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
@@ -125,6 +133,24 @@
                                 <span class="ml-2 text-sm text-gray-700">Account attivo</span>
                             </label>
                         </div>
+                    </div>
+                </div>
+
+                <!-- RIGA Valutazione -->
+                <div class="grid grid-cols-12 gap-4 mb-6">
+                    <div class="col-span-12 md:col-span-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Valutazione</label>
+                        <input type="hidden" name="rating" id="rating" value="{{ old('rating', $entity->rating ?? 3) }}">
+                        <div class="flex items-center space-x-1 text-2xl">
+                            @for ($i = 1; $i <= 5; $i++)
+                                <i class="star-icon fas fa-star cursor-pointer text-gray-300" data-value="{{ $i }}" onclick="setRating({{ $i }})"></i>
+                            @endfor
+                            <span id="ratingValueLabel" class="ml-3 text-sm text-gray-500 align-middle"></span>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Clicca sulla prima stella già selezionata per azzerare la valutazione
+                        </p>
                     </div>
                 </div>
 
@@ -279,6 +305,7 @@ const originalValues = {
     email: document.getElementById('email')?.value || '',
     pec: document.getElementById('pec')?.value || '',
     codice_sdi: document.getElementById('codice_sdi')?.value || '',
+    rating: document.getElementById('rating')?.value || '3',
     valid: document.getElementById('valid')?.checked || false
 };
 
@@ -296,10 +323,43 @@ function enableUpdateButton() {
         document.getElementById('email')?.value !== originalValues.email ||
         document.getElementById('pec')?.value !== originalValues.pec ||
         document.getElementById('codice_sdi')?.value !== originalValues.codice_sdi ||
+        document.getElementById('rating')?.value !== originalValues.rating ||
         document.getElementById('valid')?.checked !== originalValues.valid;
     
     updateButton.disabled = !isChanged;
 }
+
+// ==================== GESTIONE STELLE RATING ====================
+function paintStars(value) {
+    value = parseInt(value);
+    document.querySelectorAll('.star-icon').forEach(function (star) {
+        const starValue = parseInt(star.dataset.value);
+        star.classList.remove('text-gray-300', 'text-yellow-400', 'text-red-500', 'text-green-500');
+        if (starValue <= value) {
+            star.classList.add(value === 0 ? 'text-red-500' : (value === 5 ? 'text-green-500' : 'text-yellow-400'));
+        } else {
+            star.classList.add('text-gray-300');
+        }
+    });
+    const label = document.getElementById('ratingValueLabel');
+    if (label) {
+        label.textContent = value + '/5';
+    }
+}
+
+function setRating(value) {
+    const ratingInput = document.getElementById('rating');
+    const current = parseInt(ratingInput.value);
+    if (current === value && value === 1) {
+        value = 0; // clic sulla prima stella già attiva -> azzera
+    }
+    ratingInput.value = value;
+    paintStars(value);
+    enableUpdateButton();
+}
+
+// Colora le stelle al caricamento della pagina
+paintStars(document.getElementById('rating')?.value || 3);
 
 document.getElementById('entityForm')?.addEventListener('submit', function() {
     const updateButton = document.getElementById('updateButton');

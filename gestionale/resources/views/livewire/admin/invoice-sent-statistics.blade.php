@@ -319,6 +319,105 @@
         </div>
     </div>
 
+    <!-- ==================== FATTURATO MENSILE ==================== -->
+    <div class="bg-white rounded-lg shadow p-4 mb-4 border border-gray-200">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="text-lg font-semibold text-gray-700">
+                <i class="fas fa-calendar-alt mr-2 text-lime-600"></i>
+                Fatturato Mensile
+            </h3>
+            <span class="text-xs text-gray-400">
+                @if($dateFrom || $dateTo)
+                    Periodo personalizzato
+                @else
+                    Ultimi 12 mesi
+                @endif
+            </span>
+        </div>
+
+        <!-- Loading -->
+        <div wire:loading wire:target="refreshStats, statPeriod" class="flex justify-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-lime-600"></div>
+        </div>
+
+        <div wire:loading.remove>
+            @if($monthlyStatistics && $monthlyStatistics->count() > 0)
+                @php
+                    $maxMonthlyTotal = $monthlyStatistics->max('total') ?: 1;
+                @endphp
+
+                <!-- Grafico a barre verticali -->
+                <div class="flex items-end gap-2 h-48 mb-4 border-b border-gray-200 pb-2 overflow-x-auto">
+                    @foreach($monthlyStatistics as $month)
+                        @php
+                            $heightPercent = $maxMonthlyTotal > 0 ? max(($month->total / $maxMonthlyTotal) * 100, 2) : 2;
+                        @endphp
+                        <div class="flex flex-col items-center flex-shrink-0 justify-end h-full" style="min-width: 55px;">
+                            <span class="text-[10px] text-gray-500 mb-1 whitespace-nowrap">
+                                {{ $month->total > 0 ? number_format($month->total, 0, ',', '.') . ' €' : '' }}
+                            </span>
+                            <div class="w-8 bg-gradient-to-t from-lime-500 to-lime-300 rounded-t-md transition-all"
+                                 style="height: {{ $heightPercent }}%"
+                                 title="{{ $month->month_label }}: {{ number_format($month->total, 2, ',', '.') }} € ({{ $month->count }} fatture)">
+                            </div>
+                            <span class="text-[10px] text-gray-500 mt-1 whitespace-nowrap">{{ Str::limit($month->month_label, 8, '') }}</span>
+                        </div>
+                    @endforeach
+                </div>
+
+                <!-- Tabella dettaglio mensile -->
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mese</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Fatturato</th>
+                                <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">N. Fatture</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Media/Fattura</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            @foreach($monthlyStatistics as $month)
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                                        <i class="fas fa-calendar-day text-lime-500 mr-2"></i>
+                                        {{ $month->month_label }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+                                        {{ number_format($month->total, 2, ',', '.') }} €
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-center">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            {{ $month->count }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-right text-gray-600">
+                                        {{ $month->count > 0 ? number_format($month->total / $month->count, 2, ',', '.') : '-' }} €
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot class="bg-gray-50">
+                            <tr>
+                                <td class="px-4 py-3 text-sm font-bold text-gray-900">TOTALE PERIODO</td>
+                                <td class="px-4 py-3 text-sm text-right font-bold text-green-600">{{ number_format($monthlyStatistics->sum('total'), 2, ',', '.') }} €</td>
+                                <td class="px-4 py-3 text-sm text-center font-bold text-gray-900">{{ $monthlyStatistics->sum('count') }}</td>
+                                <td class="px-4 py-3 text-sm text-right font-bold text-gray-900">
+                                    {{ $monthlyStatistics->sum('count') > 0 ? number_format($monthlyStatistics->sum('total') / $monthlyStatistics->sum('count'), 2, ',', '.') : 0 }} €
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            @else
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-calendar-alt text-4xl text-gray-300 mb-2"></i>
+                    <p>Nessun dato disponibile per il periodo selezionato</p>
+                </div>
+            @endif
+        </div>
+    </div>
+
     <script>
         document.addEventListener('livewire:initialized', () => {
             Livewire.on('clearOwnershipInput', () => {

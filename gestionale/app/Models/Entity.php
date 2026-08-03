@@ -33,6 +33,7 @@ class Entity extends Model
         'codice_sdi',
         'id_gruppo',
         'valid',
+        'rating',
         'data_inserimento',
         'created_by',
         'updated_by'
@@ -40,6 +41,7 @@ class Entity extends Model
 
     protected $casts = [
         'valid' => 'boolean',
+        'rating' => 'integer',
         'data_inserimento' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
@@ -192,6 +194,17 @@ class Entity extends Model
         }
         
         return $this->email;
+    }
+
+    /**
+     * Colore Tailwind delle stelle in base al rating (0 = rosso, 5 = verde, 1-4 = giallo)
+     */
+    public function getRatingColorClassAttribute()
+    {
+        $rating = $this->rating ?? 3;
+        if ($rating == 0) return 'text-red-500';
+        if ($rating == 5) return 'text-green-500';
+        return 'text-yellow-400';
     }
 
     // ==================== METODI DI UTILITÀ ====================

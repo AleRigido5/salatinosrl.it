@@ -119,6 +119,16 @@
                                 @endif
                             </div>
                         </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('rating')">
+                            <div class="flex items-center space-x-1">
+                                <span>Valutazione</span>
+                                @if($sortField === 'rating')
+                                    <i class="fas fa-arrow-{{ $sortDirection === 'asc' ? 'up' : 'down' }} text-gray-600"></i>
+                                @else
+                                    <i class="fas fa-sort text-gray-400"></i>
+                                @endif
+                            </div>
+                        </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition" wire:click="sortBy('created_at')">
                             <div class="flex items-center space-x-1">
                                 <span>Data inserimento</span>
@@ -248,6 +258,18 @@
                             </span>
                             @endif
                         </td>
+
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                @php
+                                    $entityRating = $entity->rating ?? 3;
+                                    $ratingColorClass = $entityRating == 0 ? 'text-red-500' : ($entityRating == 5 ? 'text-green-500' : 'text-yellow-400');
+                                @endphp
+                                @for ($i = 1; $i <= 5; $i++)
+                                    <i class="fas fa-star text-sm {{ $i <= $entityRating ? $ratingColorClass : 'text-gray-300' }}"></i>
+                                @endfor
+                            </div>
+                        </td>
                         
                         <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                             {{ $entity->created_at ? $entity->created_at->format('d/m/Y') : ($entity->data_inserimento ? date('d/m/Y', strtotime($entity->data_inserimento)) : '-') }}
@@ -313,7 +335,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-12 text-center">
+                        <td colspan="8" class="px-6 py-12 text-center">
                             <div class="text-gray-500">
                                 <i class="fas fa-building text-gray-400 text-5xl"></i>
                                 <p class="mt-2 text-sm">Nessun cliente/fornitore trovato</p>
@@ -522,6 +544,15 @@
                             @endif">
                             {{ $entityTypes[$viewingEntity->entity_type] ?? $viewingEntity->entity_type }}
                         </span>
+                        <div class="flex items-center mt-1">
+                            @php
+                                $viewRating = $viewingEntity->rating ?? 3;
+                                $viewRatingColor = $viewRating == 0 ? 'text-red-500' : ($viewRating == 5 ? 'text-green-500' : 'text-yellow-400');
+                            @endphp
+                            @for ($i = 1; $i <= 5; $i++)
+                                <i class="fas fa-star text-sm {{ $i <= $viewRating ? $viewRatingColor : 'text-gray-300' }}"></i>
+                            @endfor
+                        </div>
                     </div>
                 </div>
                 <div class="flex items-center space-x-3">

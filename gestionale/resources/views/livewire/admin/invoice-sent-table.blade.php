@@ -421,6 +421,12 @@
                                     <i class="fa-regular fa-file-pdf text-lg"></i>
                                 </a>
 
+                                <button wire:click="openSendEmailModal({{ $invoice->id }})"
+                                        class="text-indigo-600 hover:text-indigo-900 transition-colors"
+                                        title="Invia fattura via email">
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                </button>
+
                                 <button wire:click="editInvoice({{ $invoice->id }})" 
                                         class="text-yellow-600 hover:text-yellow-900" 
                                         title="Modifica">
@@ -693,6 +699,92 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- ==================== MODAL INVIO FATTURA VIA EMAIL ==================== -->
+    @if($showSendEmailModal && $sendingInvoice)
+    <div wire:ignore.self class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" x-data="{ show: true }" x-show="show" x-transition.opacity.duration.200ms>
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6" x-on:click.away="show = false; $wire.closeSendEmailModal()" x-transition.scale.origin.top>
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h3 class="text-lg font-semibold text-gray-800">
+                    <i class="fas fa-paper-plane mr-2 text-indigo-600"></i>
+                    Invia Fattura via Email
+                </h3>
+                <button wire:click="closeSendEmailModal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <div class="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
+                <i class="fas fa-file-invoice mr-1"></i>
+                Fattura n. <strong>{{ $sendingInvoice->n_invoice }}</strong> del {{ $sendingInvoice->data_invoice->format('d/m/Y') }}
+                — {{ $sendingInvoice->customer_name }}
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Email destinatario <span class="text-red-500">*</span>
+                    </label>
+                    <input type="email"
+                        wire:model="sendEmailTo"
+                        placeholder="destinatario@esempio.it"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                    @error('sendEmailTo') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                    @if(!$sendingInvoice->entity?->email)
+                    <p class="text-xs text-amber-600 mt-1">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        Questo cliente non ha un'email salvata in anagrafica: inseriscila manualmente.
+                    </p>
+                    @endif
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Oggetto <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text"
+                        wire:model="sendEmailSubject"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                    @error('sendEmailSubject') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Testo email <span class="text-red-500">*</span>
+                    </label>
+                    <textarea wire:model="sendEmailBody"
+                        rows="8"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"></textarea>
+                    @error('sendEmailBody') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                </div>
+
+                <div class="text-xs text-gray-400">
+                    <i class="fas fa-paperclip mr-1"></i>
+                    Il PDF della fattura verrà allegato automaticamente all'email.
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <button wire:click="closeSendEmailModal"
+                        class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors"
+                        {{ $sendingEmailInProgress ? 'disabled' : '' }}>
+                    Annulla
+                </button>
+                <button wire:click="sendInvoiceEmail"
+                        wire:loading.attr="disabled"
+                        wire:target="sendInvoiceEmail"
+                        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors disabled:opacity-50">
+                    <span wire:loading.remove wire:target="sendInvoiceEmail">
+                        <i class="fas fa-paper-plane mr-2"></i> Invia Email
+                    </span>
+                    <span wire:loading wire:target="sendInvoiceEmail">
+                        <i class="fas fa-spinner fa-spin mr-2"></i> Invio in corso...
+                    </span>
+                </button>
             </div>
         </div>
     </div>

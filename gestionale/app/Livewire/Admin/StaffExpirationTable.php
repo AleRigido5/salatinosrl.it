@@ -20,9 +20,11 @@ class StaffExpirationTable extends Component
     public $search = '';
     public $tipologiaFilter = '';
     public $statusFilter = '';
+    public $ownershipFilter = '';
+    public $staffCategoryFilter = '';
     public $staffId = null;
     public $staffName = null;
-    public $perPage = 15;
+    public $perPage = 100;
     public $sortField = 'data_fine';
     public $sortDirection = 'desc';
     
@@ -83,7 +85,7 @@ class StaffExpirationTable extends Component
     public $successMessage = '';
     
     protected $paginationTheme = 'tailwind';
-    protected $queryString = ['search', 'tipologiaFilter', 'statusFilter', 'staffId', 'dateFrom', 'dateTo'];
+    protected $queryString = ['search', 'tipologiaFilter', 'statusFilter', 'ownershipFilter', 'staffCategoryFilter', 'staffId', 'dateFrom', 'dateTo'];
     
     protected $listeners = [
         'dateRangeUpdated' => 'updateDateRange',
@@ -143,6 +145,21 @@ class StaffExpirationTable extends Component
         $this->dateTo = '';
         $this->resetPage();
         $this->dispatch('resetDates');
+    }
+
+    public function updatedOwnershipFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStaffCategoryFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPerPage()
+    {
+        $this->resetPage();
     }
     
     // ==================== AUTOCOMPLETE STAFF - CREAZIONE ====================
@@ -554,6 +571,19 @@ class StaffExpirationTable extends Component
     {
         return Ownership::orderBy('RagSocialePr')->get();
     }
+
+    /**
+     * Categorie di personale (Agricoltura, Ristorazione, ecc.), dalla
+     * categoria Impostazioni "Gruppi Operai" (tabella_riferimento = staff),
+     * collegata allo staff tramite Staff.id_gruppo -> Setting.id
+     */
+    public function getStaffCategoriesProperty()
+    {
+        return Setting::where('tabella_riferimento', 'staff')
+            ->where('valid', 1)
+            ->orderBy('ordinamento')
+            ->get();
+    }
     
     public function getExpirationsProperty()
     {
@@ -587,6 +617,18 @@ class StaffExpirationTable extends Component
             $query->where('id_settings', $this->tipologiaFilter);
         }
 
+        // Filtro per Proprietà (id_ownership sulla scadenza)
+        if ($this->ownershipFilter) {
+            $query->where('id_ownership', $this->ownershipFilter);
+        }
+
+        // Filtro per Categoria di personale, tramite il dipendente collegato
+        if ($this->staffCategoryFilter) {
+            $query->whereHas('staff', function($q) {
+                $q->where('id_gruppo', $this->staffCategoryFilter);
+            });
+        }
+
         if ($this->statusFilter !== '') {
             if ($this->statusFilter === 'active') {
                 $query->whereNull('deleted_at')
@@ -605,13 +647,21 @@ class StaffExpirationTable extends Component
 
         $query->orderBy($this->sortField, $this->sortDirection);
 
-        return $query->with([
+        $query->with([
             'setting',
             'entityLegacy',
             'ownershipLegacy',
+            'staff',
             'createdBy',
             'updatedBy'
-        ])->paginate($this->perPage);
+        ]);
+
+        if ((int) $this->perPage >= 10000) {
+            // "Tutti": evitiamo una vera paginazione con un numero enorme di risultati per pagina
+            return $query->paginate($query->count() ?: 1);
+        }
+
+        return $query->paginate($this->perPage);
     }
     
     public function viewExpiration($id)
@@ -621,6 +671,7 @@ class StaffExpirationTable extends Component
                 'setting', 
                 'entityLegacy', 
                 'ownershipLegacy',
+                'staff',
                 'createdBy', 
                 'updatedBy'
             ])->find($id);            
@@ -659,6 +710,8 @@ class StaffExpirationTable extends Component
         $this->search = '';
         $this->tipologiaFilter = '';
         $this->statusFilter = '';
+        $this->ownershipFilter = '';
+        $this->staffCategoryFilter = '';
         $this->dateFrom = Carbon::now()->startOfMonth()->format('Y-m-d');
         $this->dateTo = Carbon::now()->endOfMonth()->format('Y-m-d');
         $this->sortField = 'data_fine';
@@ -678,6 +731,7 @@ class StaffExpirationTable extends Component
             'expirations' => $this->expirations,
             'tipologie' => $this->tipologie,
             'ownerships' => $this->ownerships,
+            'staffCategories' => $this->staffCategories,
             'staffName' => $this->staffName,
             'staffId' => $this->staffId,
             'dateFrom' => $this->dateFrom,

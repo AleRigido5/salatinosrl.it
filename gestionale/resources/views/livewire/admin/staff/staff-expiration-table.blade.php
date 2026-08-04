@@ -68,32 +68,52 @@
         <!-- Linea di separazione -->
         <div class="border-t border-gray-200 my-4"></div>
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div class="relative md:col-span-2">
-                <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+            <div class="relative sm:col-span-2 lg:col-span-2">
+                <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
                 <input type="text" 
                        wire:model.live.debounce.300ms="search" 
                        placeholder="Cerca per titolo, qualifica o note..." 
-                       class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
+                       class="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent">
             </div>
             
-            <select wire:model.live="tipologiaFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+            <select wire:model.live="tipologiaFilter" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 <option value="">Tutte le tipologie</option>
                 @foreach($tipologie as $tipologia)
                     <option value="{{ $tipologia->id }}">{{ $tipologia->valore }}</option>
                 @endforeach
             </select>
             
-            <select wire:model.live="statusFilter" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+            <select wire:model.live="statusFilter" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 <option value="">Tutti gli stati</option>
                 <option value="active">Attive</option>
                 <option value="expiring">In scadenza</option>
                 <option value="expired">Scadute</option>
             </select>
+
+            <select wire:model.live="ownershipFilter" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                <option value="">Tutte le proprietà</option>
+                @foreach($ownerships as $ownership)
+                    <option value="{{ $ownership->id_proprieta }}">{{ $ownership->RagAbbrev ?? $ownership->RagSocialePr }}</option>
+                @endforeach
+            </select>
+
+            <select wire:model.live="staffCategoryFilter" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                <option value="">Tutte le categorie</option>
+                @foreach($staffCategories as $category)
+                    <option value="{{ $category->id }}">{{ $category->valore }}</option>
+                @endforeach
+            </select>
+
+            <select wire:model.live="perPage" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                <option value="100">100 per pagina</option>
+                <option value="200">200 per pagina</option>
+                <option value="10000">Tutti</option>
+            </select>
         </div>
         
         <div class="flex justify-between items-center mt-4">
-            @if($search || $tipologiaFilter || $statusFilter)
+            @if($search || $tipologiaFilter || $statusFilter || $ownershipFilter || $staffCategoryFilter)
             <button wire:click="resetFilters" class="text-sm text-gray-600 hover:text-gray-900 transition-colors">
                 <i class="fas fa-sync-alt mr-1"></i>
                 Resetta filtri

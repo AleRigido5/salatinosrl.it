@@ -170,11 +170,6 @@ class VehicleCalendar extends Component
             return;
         }
 
-        // Cerca nei veicoli (inclusi quelli disattivati)
-        // NB: non selezioniamo colonne esplicite come 'id' perché la chiave
-        // primaria della tabella potrebbe non chiamarsi 'id' (come per gli altri
-        // modelli del gestionale, es. Ownership usa 'id_proprieta'). Usiamo
-        // getKey() per leggere sempre la chiave primaria reale del modello.
         $this->vehicleResults = Vehicles::where(function($q) {
                 $q->where('targa', 'like', '%' . $this->vehicleSearch . '%')
                   ->orWhere('marca', 'like', '%' . $this->vehicleSearch . '%')
@@ -316,7 +311,7 @@ class VehicleCalendar extends Component
     {
         $query = Expiration::query()
             ->with(['vehicles.ownership', 'setting'])
-            ->where('table_references', 'vehicles')
+            ->where('table_references', Expiration::TABLE_VEHICLE)
             ->whereNotNull('data_fine');
         
         // Filtro per stato scadenza
@@ -336,9 +331,13 @@ class VehicleCalendar extends Component
             $query->where('id_settings', $this->selectedType);
         }
         
-        // Filtro per veicolo specifico (id_references)
+        // Filtro per veicolo specifico: il collegamento reale è la relazione
+        // many-to-many "vehicles" (tabella pivot vehicles_expiry_lnk),
+        // NON il campo id_references (mai valorizzato per i veicoli).
         if (!empty($this->selectedVehicleId)) {
-            $query->where('id_references', $this->selectedVehicleId);
+            $query->whereHas('vehicles', function($q) {
+                $q->where('vehicles.id', $this->selectedVehicleId);
+            });
         }
         
         // Filtro per proprietà usando la relazione vehicles
@@ -369,7 +368,7 @@ class VehicleCalendar extends Component
     {
         $query = Expiration::query()
             ->with(['vehicles.ownership', 'setting'])
-            ->where('table_references', 'vehicles')
+            ->where('table_references', Expiration::TABLE_VEHICLE)
             ->whereNotNull('data_fine');
         
         // Filtro per stato scadenza
@@ -389,9 +388,11 @@ class VehicleCalendar extends Component
             $query->where('id_settings', $this->selectedType);
         }
         
-        // Filtro per veicolo specifico (id_references)
+        // Filtro per veicolo specifico: vedi nota sopra in getExpirationsProperty()
         if (!empty($this->selectedVehicleId)) {
-            $query->where('id_references', $this->selectedVehicleId);
+            $query->whereHas('vehicles', function($q) {
+                $q->where('vehicles.id', $this->selectedVehicleId);
+            });
         }
         
         // Filtro per proprietà usando la relazione vehicles
@@ -465,8 +466,6 @@ class VehicleCalendar extends Component
     
     public function getVehicleListProperty()
     {
-        // Non limitiamo esplicitamente le colonne per non rischiare di
-        // escludere la vera chiave primaria del modello se diversa da 'id'.
         return Vehicles::where('valid', 1)
             ->orderBy('targa')
             ->get();

@@ -8,9 +8,14 @@ use App\Models\InvoiceSent;
 use App\Models\Ownership;
 use App\Models\Entity;
 use App\Models\CostCenter;
+use App\Models\Communication;
+use App\Mail\InvoiceSentMail;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class InvoiceSentTable extends Component
 {
@@ -62,6 +67,14 @@ class InvoiceSentTable extends Component
     public string $trashSortField = 'deleted_at';
     public string $trashSortDirection = 'desc';
     public int $trashCount = 0;
+
+    // Modal invio email fattura
+    public bool $showSendEmailModal = false;
+    public $sendingInvoice = null;
+    public string $sendEmailTo = '';
+    public string $sendEmailSubject = '';
+    public string $sendEmailBody = '';
+    public bool $sendingEmailInProgress = false;
 
     protected $listeners = [
         'dateRangeUpdated' => 'updateDateRange',
@@ -309,6 +322,126 @@ class InvoiceSentTable extends Component
         } catch (\Exception $e) {
             DB::rollBack();
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+
+    // ==================== INVIO FATTURA VIA EMAIL ====================
+
+    public function openSendEmailModal(int $id): void
+    {
+        $invoice = InvoiceSent::with(['entity', 'ownership'])->find($id);
+
+        if (!$invoice) {
+            $this->dispatch('showError', message: 'Fattura non trovata');
+            return;
+        }
+
+        $this->sendingInvoice = $invoice;
+        $this->sendEmailTo = $invoice->entity?->email ?? '';
+        $this->sendEmailSubject = 'Fattura n. ' . $invoice->n_invoice . ' del ' . $invoice->data_invoice->format('d/m/Y');
+
+        $ownershipName = $invoice->ownership_name;
+        $customerName = $invoice->customer_name;
+
+        $this->sendEmailBody = "Gentile {$customerName},\n\n"
+            . "in allegato la fattura n. {$invoice->n_invoice} del {$invoice->data_invoice->format('d/m/Y')}, "
+            . "per un importo di € " . number_format($invoice->importo_totale, 2, ',', '.') . ".\n\n"
+            . "Cordiali saluti,\n{$ownershipName}";
+
+        $this->showSendEmailModal = true;
+    }
+
+    public function closeSendEmailModal(): void
+    {
+        $this->showSendEmailModal = false;
+        $this->sendingInvoice = null;
+        $this->sendEmailTo = '';
+        $this->sendEmailSubject = '';
+        $this->sendEmailBody = '';
+        $this->sendingEmailInProgress = false;
+    }
+
+    /**
+     * Genera il contenuto binario del PDF della fattura, riutilizzando
+     * esattamente la stessa vista e gli stessi dati usati da
+     * InvoiceSentController@previewPdf.
+     */
+    protected function getInvoicePdfContent(InvoiceSent $invoice): string
+    {
+        $invoice->loadMissing([
+            'ownership',
+            'entity.addresses',
+            'rows.costCenter',
+            'rows.vehicle',
+            'payments',
+        ]);
+
+        $data = [
+            'invoice' => $invoice,
+            'typeDocuments' => config('gestionale.tipo_documento', []),
+            'statuses' => config('gestionale.invoice_status', []),
+        ];
+
+        $pdf = Pdf::loadView('admin.invoice-sent.invoice-sent-pdf', $data);
+        $pdf->setPaper('a4', 'portrait');
+
+        return $pdf->output();
+    }
+
+    public function sendInvoiceEmail(): void
+    {
+        $this->validate([
+            'sendEmailTo' => 'required|email',
+            'sendEmailSubject' => 'required|string|max:255',
+            'sendEmailBody' => 'required|string',
+        ], [
+            'sendEmailTo.required' => 'Inserisci un indirizzo email destinatario',
+            'sendEmailTo.email' => 'L\'indirizzo email non è valido',
+            'sendEmailSubject.required' => 'L\'oggetto è obbligatorio',
+            'sendEmailBody.required' => 'Il testo dell\'email è obbligatorio',
+        ]);
+
+        if (!$this->sendingInvoice) {
+            $this->dispatch('showError', message: 'Fattura non trovata');
+            return;
+        }
+
+        $this->sendingEmailInProgress = true;
+
+        try {
+            $invoice = $this->sendingInvoice;
+
+            $pdfContent = $this->getInvoicePdfContent($invoice);
+            $pdfFilename = 'Fattura_' . str_replace(['/', '\\', ' '], '_', $invoice->n_invoice) . '.pdf';
+
+            Mail::to($this->sendEmailTo)->send(
+                new InvoiceSentMail($invoice, $this->sendEmailSubject, $this->sendEmailBody, $pdfContent, $pdfFilename)
+            );
+
+            $adminId = Auth::guard('admin')->id();
+
+            Communication::create([
+                'data' => now()->toDateString(),
+                'testo' => "Inviata via email dalla piattaforma la fattura n. {$invoice->n_invoice} del {$invoice->data_invoice->format('d/m/Y')} "
+                    . "(€ " . number_format($invoice->importo_totale, 2, ',', '.') . ") a {$this->sendEmailTo}.\n\n"
+                    . "Oggetto: {$this->sendEmailSubject}\n\n{$this->sendEmailBody}",
+                'contatto' => $this->sendEmailTo,
+                'id_entities' => $invoice->id_entities,
+                'mittente' => 'Sistema - Invio automatico fattura',
+                'created_by' => $adminId,
+                'updated_by' => $adminId,
+            ]);
+
+            $this->dispatch('showSuccess', message: "Fattura inviata con successo a {$this->sendEmailTo}");
+            $this->closeSendEmailModal();
+
+        } catch (\Exception $e) {
+            Log::error('Errore invio email fattura', [
+                'invoice_id' => $this->sendingInvoice->id ?? null,
+                'error' => $e->getMessage()
+            ]);
+            $this->sendingEmailInProgress = false;
+            $this->dispatch('showError', message: 'Errore durante l\'invio: ' . $e->getMessage());
         }
     }
 

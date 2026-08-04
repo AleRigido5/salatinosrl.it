@@ -33,7 +33,7 @@ class VehicleCalendarController extends Controller
         // Costruisci la query con i filtri
         $query = Expiration::query()
             ->with(['vehicles', 'setting'])
-            ->where('table_references', 'vehicles')
+            ->where('table_references', Expiration::TABLE_VEHICLE)
             ->whereNotNull('data_fine');
 
         // Applica filtri dalla request
@@ -44,7 +44,9 @@ class VehicleCalendarController extends Controller
             $query->whereDate('data_fine', '<=', $request->date_to);
         }
         if ($request->vehicle_id) {
-            $query->where('id_references', $request->vehicle_id);
+            $query->whereHas('vehicles', function($q) use ($request) {
+                $q->where('vehicles.id', $request->vehicle_id);
+            });
         }
         if ($request->status) {
             $now = Carbon::now();

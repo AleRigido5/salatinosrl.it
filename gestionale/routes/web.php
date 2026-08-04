@@ -128,6 +128,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         // =============================================
+        // COMUNICAZIONI (vista globale su tutte le entità)
+        // =============================================
+        Route::prefix('communications')->name('communications.')->group(function () {
+            Route::get('/', function () {
+                return view('admin.communications.index');
+            })->name('index');
+        });
+
+        // =============================================
         // GESTIONE ATTIVITÀ (ACTIVITIES)
         // =============================================
         Route::prefix('activities')->name('activities.')->group(function () {

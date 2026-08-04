@@ -377,13 +377,54 @@
                     </a>
                     @endif
 
-                    <!-- Clienti / Fornitori -->
+                    <!-- Clienti / Fornitori con Dropdown -->
                     @if($currentAdmin && $currentAdmin->hasPermission('view_entities'))
-                    <a href="{{ route('admin.entities.index') }}" 
-                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.entities.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
-                        <i class="fas fa-building w-5 h-5 {{ request()->routeIs('admin.entities.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
-                        <span class="sidebar-link-text text-sm font-medium ml-3">Clienti / Fornitori</span>
-                    </a>
+                    <div x-data="{ 
+                        openEntities: false,
+                        init() {
+                            window.addEventListener('sidebar-closed', () => {
+                                this.openEntities = false;
+                            });
+                        }
+                    }">
+                        <a href="#" 
+                        @click.prevent="$store.sidebar.isExpanded ? openEntities = !openEntities : null"
+                        class="sidebar-link flex items-center justify-between px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.entities.*') || request()->routeIs('admin.communications.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                            <div class="flex items-center">
+                                <i class="fas fa-building w-5 h-5 {{ request()->routeIs('admin.entities.*') || request()->routeIs('admin.communications.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                                <span class="sidebar-link-text text-sm font-medium ml-3">Clienti / Fornitori</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-xs transition-transform duration-200 ml-4 mr-1" 
+                            :class="{ 'rotate-180': openEntities }" 
+                            x-show="$store.sidebar.isExpanded"
+                            style="min-width: 12px;"></i>
+                        </a>
+                        
+                        <!-- Submenu Dropdown -->
+                        <div x-show="openEntities && $store.sidebar.isExpanded" 
+                            x-transition:enter="transition ease-out duration-200" 
+                            x-transition:enter-start="opacity-0 transform -translate-y-2" 
+                            x-transition:enter-end="opacity-100 transform translate-y-0"
+                            x-transition:leave="transition ease-in duration-100" 
+                            x-transition:leave-start="opacity-100 transform translate-y-0" 
+                            x-transition:leave-end="opacity-0 transform -translate-y-2"
+                            class="ml-6 mt-1 space-y-1">
+                            
+                            <!-- Elenco -->
+                            <a href="{{ route('admin.entities.index') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.entities.*') && !request()->routeIs('admin.communications.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fas fa-list-ul w-4 h-4 mr-2"></i>
+                                <span>Elenco</span>
+                            </a>
+
+                            <!-- Comunicazioni (globali) -->
+                            <a href="{{ route('admin.communications.index') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.communications.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fas fa-envelope w-4 h-4 mr-2"></i>
+                                <span>Comunicazioni</span>
+                            </a>
+                        </div>
+                    </div>
                     @endif
                     
                     <!-- Personale con Dropdown -->
@@ -723,6 +764,11 @@
                                             }
                                         }
                                     }
+                                }
+                                // Comunicazioni (globali)
+                                elseif (str_starts_with($currentRoute, 'admin.communications.')) {
+                                    $breadcrumbs[] = ['name' => 'Clienti / Fornitori', 'url' => route('admin.entities.index'), 'clickable' => true];
+                                    $breadcrumbs[] = ['name' => 'Comunicazioni', 'url' => null, 'clickable' => false];
                                 }
                                 // Mezzi (Vehicles)
                                 elseif (str_starts_with($currentRoute, 'admin.vehicles.')) {

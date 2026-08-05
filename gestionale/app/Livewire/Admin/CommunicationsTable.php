@@ -38,11 +38,9 @@ class CommunicationsTable extends Component
     {
         $this->entityResults = new Collection();
 
-        // Di default: tutte le comunicazioni del mese corrente
-        if (empty($this->dateFrom) && empty($this->dateTo)) {
-            $this->dateFrom = now()->startOfMonth()->format('Y-m-d');
-            $this->dateTo = now()->endOfMonth()->format('Y-m-d');
-        }
+        // Nessun filtro data di default: mostriamo semplicemente gli ultimi
+        // $perPage record in ordine di data decrescente, indipendentemente
+        // da quando sono stati inseriti.
     }
 
     public function updateDateRange(array $data): void
@@ -133,8 +131,9 @@ class CommunicationsTable extends Component
 
     public function clearDates(): void
     {
-        $this->dateFrom = now()->startOfMonth()->format('Y-m-d');
-        $this->dateTo = now()->endOfMonth()->format('Y-m-d');
+        // Nessun filtro data: torna al default (ultimi $perPage record, senza vincolo di data)
+        $this->dateFrom = '';
+        $this->dateTo = '';
         $this->resetPage();
         $this->dispatch('resetDates');
     }
@@ -143,8 +142,8 @@ class CommunicationsTable extends Component
     {
         $this->search = '';
         $this->clearEntity();
-        $this->dateFrom = now()->startOfMonth()->format('Y-m-d');
-        $this->dateTo = now()->endOfMonth()->format('Y-m-d');
+        $this->dateFrom = '';
+        $this->dateTo = '';
         $this->resetPage();
         $this->dispatch('resetDates');
     }
@@ -183,6 +182,7 @@ class CommunicationsTable extends Component
             $query->where('id_entities', $this->selectedEntityId);
         }
 
+        // Filtro data SOLO se l'utente lo ha esplicitamente impostato
         if ($this->dateFrom) {
             $query->whereDate('data', '>=', $this->dateFrom);
         }

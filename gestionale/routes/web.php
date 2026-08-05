@@ -236,6 +236,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::get('/export-excel', [App\Http\Controllers\Admin\VehicleCalendarController::class, 'exportExcel'])->name('export-excel');
             });
 
+            // ✅ Fatture di Acquisto collegate al mezzo (route con parametro specifico, PRIMA di /{vehicle})
+            Route::get('/{vehicle}/invoices-received', function (\App\Models\Vehicles $vehicle) {
+                return view('admin.vehicles.invoices-received', compact('vehicle'));
+            })->name('invoices-received');
+            
             // ✅ Route con parametro {vehicle} — SEMPRE IN FONDO
             Route::get('/{vehicle}', [VehiclesController::class, 'show'])->name('show');
             Route::get('/{vehicle}/edit', [VehiclesController::class, 'edit'])->name('edit');

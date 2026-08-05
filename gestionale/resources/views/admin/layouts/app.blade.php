@@ -787,6 +787,13 @@
                                         }
                                     } elseif ($currentRoute === 'admin.vehicles.create') {
                                         $breadcrumbs[] = ['name' => 'Nuovo Mezzo', 'url' => null, 'clickable' => false];
+                                    } elseif ($currentRoute === 'admin.vehicles.invoices-received') {
+                                        $vehicle = $currentParams['vehicle'] ?? null;
+                                        if ($vehicle) {
+                                            $vehicleName = $vehicle->full_name ?? $vehicle->targa ?? 'Mezzo';
+                                            $breadcrumbs[] = ['name' => $vehicleName, 'url' => null, 'clickable' => false];
+                                        }
+                                        $breadcrumbs[] = ['name' => 'Fatture di Acquisto', 'url' => null, 'clickable' => false];
                                     }
                                 }
                                 // Scadenze Personale

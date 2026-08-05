@@ -321,6 +321,15 @@
                                 </button>
                                 @endif
 
+                                @if(auth()->guard('admin')->user()->hasPermission('view_purchases'))
+                                <button wire:click="goToInvoicesReceived({{ $vehicle->id }})" 
+                                        wire:key="invoices-{{ $vehicle->id }}"
+                                        class="text-orange-600 hover:text-orange-900 transition-colors text-base"
+                                        title="Fatture di Acquisto collegate">
+                                    <i class="fa-solid fa-dolly text-orange-600 hover:text-orange-900"></i>
+                                </button>
+                                @endif
+
                                 @if(auth()->guard('admin')->user()->hasPermission('edit_vehicles'))
                                 <button wire:click="toggleStatus({{ $vehicle->id }})" 
                                         wire:key="status-{{ $vehicle->id }}"
@@ -465,7 +474,9 @@
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                                 @error('createImmatricolazione') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                             </div>
-                            
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Marca</label>
                                 <input type="text" 
@@ -481,8 +492,10 @@
                                     placeholder="es. Panda, T4050, 5075E"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                             </div>
-                            
-                            <div>
+                        </div>
+
+                        <div class="grid grid-cols-12 gap-4">
+                            <div class="col-span-12 md:col-span-6">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     Tipologia <span class="text-red-500">*</span>
                                 </label>
@@ -495,7 +508,7 @@
                                 @error('createTipologia') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                             </div>
                             
-                            <div>
+                            <div class="col-span-12 md:col-span-3">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     Proprietà <span class="text-red-500">*</span>
                                 </label>
@@ -508,7 +521,7 @@
                                 @error('createIdOwnership') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                             </div>
                             
-                            <div>
+                            <div class="col-span-12 md:col-span-3">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     Stato <span class="text-red-500">*</span>
                                 </label>
@@ -572,9 +585,7 @@
                     <div class="space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Targa <span class="text-red-500">*</span>
-                                </label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Targa</label>
                                 <input type="text" wire:model="editTarga" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                                 @error('editTarga') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                             </div>
@@ -583,7 +594,9 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Anno Immatricolazione</label>
                                 <input type="date" wire:model="editImmatricolazione" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                             </div>
-                            
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Marca</label>
                                 <input type="text" wire:model="editMarca" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
@@ -593,8 +606,10 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Modello</label>
                                 <input type="text" wire:model="editModello" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                             </div>
-                            
-                            <div>
+                        </div>
+
+                        <div class="grid grid-cols-12 gap-4">
+                            <div class="col-span-12 md:col-span-6">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Tipologia</label>
                                 <select wire:model="editTipologia" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                                     @foreach($tipiList as $value => $label)
@@ -603,7 +618,7 @@
                                 </select>
                             </div>
                             
-                            <div>
+                            <div class="col-span-12 md:col-span-3">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Proprietà</label>
                                 <select wire:model="editIdOwnership" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                                     <option value="">Seleziona proprietà...</option>
@@ -613,12 +628,22 @@
                                 </select>
                             </div>
                             
-                            <div>
+                            <div class="col-span-12 md:col-span-3">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Stato</label>
                                 <select wire:model="editValid" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                                     <option value="1">Attivo</option>
                                     <option value="0">Disattivo</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-12 gap-4">
+                            <div class="col-span-12">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Archivio</label>
+                                <input type="text" 
+                                    wire:model="editArchivio" 
+                                    placeholder="es. Faldone 12, Scaffale B, Cartella fisica..."
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                             </div>
                         </div>
                         
@@ -710,6 +735,13 @@
                                 </p>
                             </div>
                         </div>
+
+                        @if($viewingVehicle->archivio)
+                        <div>
+                            <label class="text-sm font-medium text-gray-500">Archivio</label>
+                            <p class="text-gray-700 mt-1">{{ $viewingVehicle->archivio }}</p>
+                        </div>
+                        @endif
                         
                         @if($viewingVehicle->note)
                         <div>

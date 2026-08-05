@@ -21,6 +21,7 @@ class Vehicles extends Model
         'valid',
         'id_ownership',
         'note',
+        'archivio',
         'created_by',
         'updated_by'
     ];

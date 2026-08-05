@@ -48,6 +48,7 @@ class VehiclesTable extends Component
     public $editImmatricolazione = '';
     public $editValid = 1;
     public $editIdOwnership = '';
+    public $editArchivio = '';
     public $editNote = '';
 
     // Modal eliminazione
@@ -361,9 +362,25 @@ class VehiclesTable extends Component
             $this->editMarca = $vehicle->marca;
             $this->editModello = $vehicle->modello;
             $this->editTipologia = $vehicle->tipologia;
-            $this->editImmatricolazione = $vehicle->immatricolazione ? date('Y-m-d', strtotime($vehicle->immatricolazione)) : '';
+
+            // Gestione difensiva della data: alcuni record hanno date non valide
+            // (es. '0000-00-00') che possono generare eccezioni o valori inattesi
+            // nel cast "date" del model, causando poi problemi in salvataggio.
+            $this->editImmatricolazione = '';
+            try {
+                if ($vehicle->immatricolazione) {
+                    $formatted = $vehicle->immatricolazione->format('Y-m-d');
+                    if ($formatted !== '0000-00-00' && (int) substr($formatted, 0, 4) > 1900) {
+                        $this->editImmatricolazione = $formatted;
+                    }
+                }
+            } catch (\Exception $e) {
+                $this->editImmatricolazione = '';
+            }
+
             $this->editValid = $vehicle->valid;
             $this->editIdOwnership = $vehicle->id_ownership;
+            $this->editArchivio = $vehicle->archivio;
             $this->editNote = $vehicle->note;
 
             $this->showEditModal = true;
@@ -390,6 +407,7 @@ class VehiclesTable extends Component
         $this->editImmatricolazione = '';
         $this->editValid = 1;
         $this->editIdOwnership = '';
+        $this->editArchivio = '';
         $this->editNote = '';
     }
 
@@ -404,7 +422,8 @@ class VehiclesTable extends Component
                 'editImmatricolazione' => $this->editImmatricolazione,
                 'editIdOwnership' => $this->editIdOwnership,
             ], [
-                'editTarga' => 'required|string|max:20|unique:vehicles,targa,' . $this->editId,
+                // Targa non più obbligatoria in modifica
+                'editTarga' => 'nullable|string|max:20|unique:vehicles,targa,' . $this->editId,
                 'editMarca' => 'nullable|string|max:255',
                 'editModello' => 'nullable|string|max:255',
                 'editTipologia' => 'required|string|max:50',
@@ -431,13 +450,14 @@ class VehiclesTable extends Component
             }
 
             $vehicle->update([
-                'targa' => strtoupper($this->editTarga),
+                'targa' => $this->editTarga ? strtoupper($this->editTarga) : null,
                 'marca' => $this->editMarca,
                 'modello' => $this->editModello,
                 'tipologia' => $this->editTipologia,
                 'immatricolazione' => $this->editImmatricolazione ?: null,
                 'valid' => $this->editValid,
                 'id_ownership' => $this->editIdOwnership,
+                'archivio' => $this->editArchivio,
                 'note' => $this->editNote,
                 'updated_by' => Auth::guard('admin')->id(),
                 'updated_at' => now()
@@ -446,7 +466,7 @@ class VehiclesTable extends Component
             $updatedVehicle = Vehicles::find($this->editId);
 
             $this->closeEditModal();
-            $this->dispatch('showSuccess', message: "Mezzo '{$updatedVehicle->targa}' aggiornato con successo!");
+            $this->dispatch('showSuccess', message: "Mezzo '{$updatedVehicle->full_name}' aggiornato con successo!");
             $this->resetPage();
             $this->dispatch('table-refreshed');
 
@@ -544,6 +564,13 @@ class VehiclesTable extends Component
     public function goToExpiration($vehicleId)
     {
         return redirect()->route('admin.expiration-vehicle.index', ['vehicleId' => $vehicleId]);
+    }
+
+    // ==================== FATTURE DI ACQUISTO COLLEGATE ====================
+
+    public function goToInvoicesReceived($vehicleId)
+    {
+        return redirect()->route('admin.vehicles.invoices-received', ['vehicle' => $vehicleId]);
     }
 
     // ==================== EXPORT (senza classi/viste esterne) ====================

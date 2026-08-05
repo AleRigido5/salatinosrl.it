@@ -545,7 +545,7 @@ function editCommunication(commId) {
             if (data.success) {
                 const c = data.communication;
                 document.getElementById('editCommunicationId').value = c.id;
-                document.getElementById('editData').value = c.data;
+                document.getElementById('editData').value = c.data ? c.data.substring(0, 10) : '';
                 document.getElementById('editTesto').value = c.testo;
                 document.getElementById('editContatto').value = c.contatto || '';
                 document.getElementById('editMittente').value = c.mittente || '';

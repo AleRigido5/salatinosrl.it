@@ -107,6 +107,15 @@ class Activity extends Model
         return $this->hasMany(ActivityStaffLink::class, 'id_activities', 'id');
     }
 
+    /**
+     * Relazione con le sotto-attività / blocchi lat-long (activities_coordinates)
+     */
+    public function coordinates()
+    {
+        return $this->hasMany(ActivityCoordinate::class, 'Attivita_id_attivita', 'id')
+            ->orderBy('id_att_LatLong');
+    }
+
     // ==================== ACCESSOR ====================
 
     /**

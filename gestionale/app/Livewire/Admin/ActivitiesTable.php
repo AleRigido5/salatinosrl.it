@@ -5,6 +5,7 @@ namespace App\Livewire\Admin;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\Activity;
+use App\Models\ActivityCoordinate;
 use App\Models\CostCenter;
 use App\Models\Service;
 use App\Models\Entity;
@@ -40,9 +41,14 @@ class ActivitiesTable extends Component
     public $showEntityDropdown = false;
     public $positionFilter = '';
     
-    // Modal
+    // Modal - Visualizzazione attività
     public $showViewModal = false;
     public $viewingActivity = null;
+
+    // Modal - Sotto-attività (coordinate lat/long)
+    public $showCoordinatesModal = false;
+    public $viewingCoordinatesActivity = null;
+    public $activityCoordinates = [];
     
     // Totali
     public $totalHa = 0;
@@ -183,6 +189,9 @@ class ActivitiesTable extends Component
         
         // Calcola i totali PRIMA di applicare limit/pagination
         $this->calculateTotalsFromQuery(clone $query);
+        
+        // Conta le sotto-attività (blocchi lat/long) per ciascuna attività
+        $query->withCount('coordinates');
         
         // Ordinamento
         $query->orderBy($this->sortField, $this->sortDirection);
@@ -571,6 +580,70 @@ class ActivitiesTable extends Component
     {
         $this->showViewModal = false;
         $this->viewingActivity = null;
+    }
+
+    // ==================== SOTTO-ATTIVITÀ (COORDINATE) ====================
+
+    /**
+     * Apre il modal con le sotto-attività (blocchi lat/long) di un'attività
+     */
+    public function viewCoordinates($id)
+    {
+        try {
+            $this->viewingCoordinatesActivity = Activity::find($id);
+
+            if (!$this->viewingCoordinatesActivity) {
+                $this->dispatch('showError', message: 'Attività non trovata');
+                return;
+            }
+
+            $this->activityCoordinates = ActivityCoordinate::where('Attivita_id_attivita', $id)
+                ->orderBy('id_att_LatLong')
+                ->get();
+
+            $this->showCoordinatesModal = true;
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore nel caricamento delle sotto-attività: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Chiude il modal delle sotto-attività
+     */
+    public function closeCoordinatesModal()
+    {
+        $this->showCoordinatesModal = false;
+        $this->viewingCoordinatesActivity = null;
+        $this->activityCoordinates = [];
+    }
+
+    /**
+     * Aggiorna lo stato "verificato" (Y/N) di un blocco lat/long
+     */
+    public function updateCoordinateVerificato($coordId, $value)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            $this->dispatch('showError', message: 'Permessi insufficienti');
+            return;
+        }
+
+        try {
+            $value = in_array($value, ['Y', 'N']) ? $value : 'N';
+
+            ActivityCoordinate::where('id_att_LatLong', $coordId)->update(['verificato' => $value]);
+
+            // Aggiorna la collezione in memoria senza ricaricare tutto il modal
+            $this->activityCoordinates = collect($this->activityCoordinates)->map(function ($coord) use ($coordId, $value) {
+                if ($coord->id_att_LatLong == $coordId) {
+                    $coord->verificato = $value;
+                }
+                return $coord;
+            });
+
+            $this->dispatch('showSuccess', message: 'Stato verificato aggiornato!');
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
     }
 
     public function editActivity($id)

@@ -446,7 +446,7 @@
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Note</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">ha</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Rif. Fattura</th>
-                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Azioni</th>
+                        <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Azioni</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -989,6 +989,17 @@
                                     <i class="fa-solid fa-pen-to-square"></i>
                                 </button>
                                 @endif
+                                <!-- Pulsante Sotto-attività (Lat/Long) -->
+                                @if(($activity->coordinates_count ?? 0) > 0)
+                                <button wire:click="viewCoordinates({{ $activity->id }})" 
+                                        class="text-purple-500 hover:text-purple-700 transition-colors p-1 relative" 
+                                        title="Sotto-attività (Lat/Long)">
+                                    <i class="fa-solid fa-map-location-dot"></i>
+                                    <span class="absolute -top-1 -right-1 bg-purple-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                                        {{ $activity->coordinates_count }}
+                                    </span>
+                                </button>
+                                @endif
                                  <!-- Pulsante Immagini -->
                                 <a href="{{ route('admin.activities.images.index', $activity->id) }}" 
                                 class="text-indigo-600 hover:text-indigo-900 transition-colors relative" 
@@ -1288,6 +1299,94 @@
                                 <i class="fas fa-edit mr-2"></i> Modifica
                             </a>
                             @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- MODAL SOTTO-ATTIVITÀ (LAT/LONG) -->
+    @if($showCoordinatesModal && $viewingCoordinatesActivity)
+    <div wire:ignore.self class="fixed inset-0 z-50 overflow-y-auto" x-data="{ show: true }" x-show="show" x-transition.opacity.duration.200ms>
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" x-on:click="show = false; $wire.closeCoordinatesModal()" aria-hidden="true"></div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <div class="inline-block align-bottom bg-white rounded-lg shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+                <div class="bg-white rounded-lg max-h-[90vh] flex flex-col">
+                    <!-- Header fisso -->
+                    <div class="px-6 pt-4 pb-3 border-b sticky top-0 bg-white rounded-t-lg z-10">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-lg font-bold text-gray-800">
+                                <i class="fa-solid fa-map-location-dot text-purple-500 mr-2"></i>
+                                Sotto-attività (Lat/Long) — {{ $this->formatDate($viewingCoordinatesActivity->data_activities) }}
+                            </h2>
+                            <button wire:click="closeCoordinatesModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">
+                            {{ optional($viewingCoordinatesActivity->costCenter)->Nome ?? '-' }}
+                            @if($viewingCoordinatesActivity->entity)
+                                — {{ $viewingCoordinatesActivity->entity->ragione_sociale ?: ($viewingCoordinatesActivity->entity->nome . ' ' . $viewingCoordinatesActivity->entity->cognome) }}
+                            @endif
+                        </p>
+                    </div>
+
+                    <!-- Contenuto scrollabile -->
+                    <div class="flex-1 overflow-y-auto p-6">
+                        @if(count($activityCoordinates) > 0)
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Lat/Long Inizio</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Lat/Long Fine</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Note</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ha</th>
+                                        <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Verificato</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    @foreach($activityCoordinates as $index => $coord)
+                                    <tr wire:key="coord-{{ $coord->id_att_LatLong }}" class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 text-sm text-gray-500 whitespace-nowrap">{{ $index + 1 }} blocco</td>
+                                        <td class="px-3 py-2 text-sm font-mono text-gray-700">{{ $coord->Lat_inizio ?: '-' }}</td>
+                                        <td class="px-3 py-2 text-sm font-mono text-gray-700">{{ $coord->Lat_fine ?: '-' }}</td>
+                                        <td class="px-3 py-2 text-sm text-gray-600 max-w-[220px] break-words">{{ $coord->NoteAtt ?: '-' }}</td>
+                                        <td class="px-3 py-2 text-sm font-medium text-gray-800">{{ $coord->ha ?: '-' }}</td>
+                                        <td class="px-3 py-2 text-sm text-center">
+                                            <select
+                                                wire:change="updateCoordinateVerificato({{ $coord->id_att_LatLong }}, $event.target.value)"
+                                                class="text-xs px-2 py-1 rounded border font-medium {{ $coord->verificato === 'Y' ? 'bg-green-50 border-green-300 text-green-700' : 'bg-orange-50 border-orange-300 text-orange-700' }}">
+                                                <option value="N" @selected($coord->verificato === 'N')>N</option>
+                                                <option value="Y" @selected($coord->verificato === 'Y')>Y</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        @else
+                        <div class="text-center text-gray-500 py-8">
+                            <i class="fas fa-map-marker-alt text-4xl mb-2 text-gray-300"></i>
+                            <p>Nessuna sotto-attività trovata</p>
+                        </div>
+                        @endif
+                    </div>
+
+                    <!-- Footer fisso -->
+                    <div class="px-6 py-3 border-t bg-gray-50 rounded-b-lg sticky bottom-0">
+                        <div class="flex justify-end">
+                            <button wire:click="closeCoordinatesModal" 
+                                    class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-gray-700 transition-colors">
+                                <i class="fas fa-times mr-2"></i> Chiudi
+                            </button>
                         </div>
                     </div>
                 </div>

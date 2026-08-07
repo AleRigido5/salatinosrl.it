@@ -704,6 +704,8 @@
                                         }
                                     } elseif ($currentRoute === 'admin.activities.create') {
                                         $breadcrumbs[] = ['name' => 'Nuova Attività', 'url' => null, 'clickable' => false];
+                                    } elseif ($currentRoute === 'admin.activities.sub-activities') {
+                                        $breadcrumbs[] = ['name' => 'Sotto-attività per Cliente', 'url' => null, 'clickable' => false];
                                     }
                                 }
                                 // Clienti / Fornitori

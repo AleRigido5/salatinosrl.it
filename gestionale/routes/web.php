@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\Auth\LoginController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AdministratorController;
 use App\Http\Controllers\Admin\ActivityController;
+use App\Http\Controllers\Admin\SubActivitiesController;   
 use App\Http\Controllers\Admin\AccountStatementController;
 use App\Http\Controllers\Admin\TrashController;
 use App\Http\Controllers\Admin\UserController;
@@ -143,6 +144,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/', [ActivityController::class, 'index'])->name('index');
             Route::get('/create', [ActivityController::class, 'create'])->name('create');
             Route::post('/', [ActivityController::class, 'store'])->name('store');
+            // 🆕 Sotto-attività (Lat/Long) per Cliente — DEVE stare PRIMA di /{activity}
+            Route::get('/sotto-attivita', [SubActivitiesController::class, 'index'])->name('sub-activities');
             Route::get('/{activity}', [ActivityController::class, 'show'])->name('show');
             Route::get('/{activity}/edit', [ActivityController::class, 'edit'])->name('edit');
             Route::put('/{activity}', [ActivityController::class, 'update'])->name('update');

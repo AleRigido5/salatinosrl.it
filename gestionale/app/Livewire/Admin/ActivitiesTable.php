@@ -50,12 +50,8 @@ class ActivitiesTable extends Component
     public $viewingCoordinatesActivity = null;
     public $activityCoordinates = [];
 
-    // Form - Inserisci nuova sotto-attività (Posizione)
-    public $showAddCoordinateForm = false;
-    public $newCoordLatInizio = '';
-    public $newCoordLatFine = '';
-    public $newCoordHa = '';
-    public $newCoordNote = '';
+    // Modal - Conferma eliminazione sotto-attività
+    public $confirmingDeleteCoordinateId = null;
     
     // Totali
     public $totalHa = 0;
@@ -622,8 +618,7 @@ class ActivitiesTable extends Component
         $this->showCoordinatesModal = false;
         $this->viewingCoordinatesActivity = null;
         $this->activityCoordinates = [];
-        $this->showAddCoordinateForm = false;
-        $this->resetCoordinateForm();
+        $this->confirmingDeleteCoordinateId = null;
     }
 
     /**
@@ -656,64 +651,58 @@ class ActivitiesTable extends Component
     }
 
     /**
-     * Apre direttamente il modal sotto-attività con il form "Inserisci Posizione" già visibile
-     * (equivalente al pulsante "+" del gestionale precedente)
+     * Inverte lo stato "verificato" (Y/N) di un blocco lat/long — usato dal toggle on/off
      */
-    public function openAddCoordinateForm($activityId)
+    public function toggleCoordinateVerificato($coordId)
+    {
+        $current = collect($this->activityCoordinates)->firstWhere('id_att_LatLong', $coordId);
+        $newValue = ($current && $current->verificato === 'Y') ? 'N' : 'Y';
+
+        $this->updateCoordinateVerificato($coordId, $newValue);
+    }
+
+    /**
+     * Aggiorna un singolo campo di una sotto-attività (editing inline, come le righe delle fatture)
+     */
+    public function updateCoordinateField($coordId, $field, $value)
     {
         if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
             $this->dispatch('showError', message: 'Permessi insufficienti');
             return;
         }
 
-        try {
-            $this->viewingCoordinatesActivity = Activity::find($activityId);
+        $allowedFields = ['Lat_inizio', 'Lat_fine', 'NoteAtt', 'ha'];
+        if (!in_array($field, $allowedFields)) {
+            return;
+        }
 
-            if (!$this->viewingCoordinatesActivity) {
-                $this->dispatch('showError', message: 'Attività non trovata');
-                return;
+        try {
+            if ($field === 'ha') {
+                $value = ($value !== null && $value !== '') ? str_replace(',', '.', $value) : null;
+            } else {
+                $value = $value !== '' ? $value : null;
             }
 
-            $this->activityCoordinates = ActivityCoordinate::where('Attivita_id_attivita', $activityId)
-                ->orderBy('id_att_LatLong')
-                ->get();
+            ActivityCoordinate::where('id_att_LatLong', $coordId)->update([$field => $value]);
 
-            $this->resetCoordinateForm();
-            $this->showAddCoordinateForm = true;
-            $this->showCoordinatesModal = true;
+            // Aggiorna la collezione in memoria senza ricaricare tutto il modal
+            $this->activityCoordinates = collect($this->activityCoordinates)->map(function ($coord) use ($coordId, $field, $value) {
+                if ($coord->id_att_LatLong == $coordId) {
+                    $coord->{$field} = $value;
+                }
+                return $coord;
+            });
+
+            $this->dispatch('showSuccess', message: 'Campo aggiornato!');
         } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore nel caricamento: ' . $e->getMessage());
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
 
     /**
-     * Mostra/nasconde il form "Inserisci Posizione" dentro il modal già aperto
+     * Aggiunge una nuova riga vuota (sotto-attività) subito editabile direttamente in tabella
      */
-    public function toggleAddCoordinateForm()
-    {
-        $this->showAddCoordinateForm = !$this->showAddCoordinateForm;
-
-        if ($this->showAddCoordinateForm) {
-            $this->resetCoordinateForm();
-        }
-    }
-
-    /**
-     * Svuota i campi del form "Inserisci Posizione"
-     */
-    private function resetCoordinateForm()
-    {
-        $this->newCoordLatInizio = '';
-        $this->newCoordLatFine = '';
-        $this->newCoordHa = '';
-        $this->newCoordNote = '';
-        $this->resetErrorBag(['newCoordLatInizio', 'newCoordLatFine', 'newCoordHa']);
-    }
-
-    /**
-     * Salva una nuova sotto-attività (blocco lat/long) collegata all'attività aperta nel modal
-     */
-    public function addCoordinate()
+    public function addEmptyCoordinateRow()
     {
         if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
             $this->dispatch('showError', message: 'Permessi insufficienti');
@@ -725,27 +714,13 @@ class ActivitiesTable extends Component
             return;
         }
 
-        $this->validate([
-            'newCoordLatInizio' => 'nullable|string|max:255',
-            'newCoordLatFine' => 'nullable|string|max:255',
-            'newCoordHa' => 'nullable|string|max:255',
-            'newCoordNote' => 'nullable|string',
-        ]);
-
-        if (empty($this->newCoordLatInizio) && empty($this->newCoordLatFine)) {
-            $this->dispatch('showError', message: 'Inserisci almeno la posizione iniziale o quella finale');
-            return;
-        }
-
         try {
-            $ha = $this->newCoordHa !== '' ? str_replace(',', '.', $this->newCoordHa) : null;
-
             ActivityCoordinate::create([
                 'Attivita_id_attivita' => $this->viewingCoordinatesActivity->id,
-                'Lat_inizio' => $this->newCoordLatInizio ?: null,
-                'Lat_fine' => $this->newCoordLatFine ?: null,
-                'ha' => $ha,
-                'NoteAtt' => $this->newCoordNote ?: null,
+                'Lat_inizio' => null,
+                'Lat_fine' => null,
+                'ha' => null,
+                'NoteAtt' => null,
                 'verificato' => 'N',
             ]);
 
@@ -754,16 +729,31 @@ class ActivitiesTable extends Component
                 ->orderBy('id_att_LatLong')
                 ->get();
 
-            $this->resetCoordinateForm();
-            $this->showAddCoordinateForm = false;
-
-            // Aggiorna il badge con il conteggio nella tabella principale
-            $this->dispatch('$refresh');
-
-            $this->dispatch('showSuccess', message: 'Sotto-attività aggiunta con successo!');
+            $this->dispatch('showSuccess', message: 'Sotto-attività aggiunta, compila i campi.');
         } catch (\Exception $e) {
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Apre il modal di conferma eliminazione per una sotto-attività
+     */
+    public function confirmDeleteCoordinate($coordId)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            $this->dispatch('showError', message: 'Permessi insufficienti');
+            return;
+        }
+
+        $this->confirmingDeleteCoordinateId = $coordId;
+    }
+
+    /**
+     * Annulla l'eliminazione e chiude il modal di conferma
+     */
+    public function cancelDeleteCoordinate()
+    {
+        $this->confirmingDeleteCoordinateId = null;
     }
 
     /**
@@ -783,11 +773,11 @@ class ActivitiesTable extends Component
                 ->reject(fn($coord) => $coord->id_att_LatLong == $coordId)
                 ->values();
 
-            // Aggiorna il badge con il conteggio nella tabella principale
-            $this->dispatch('$refresh');
+            $this->confirmingDeleteCoordinateId = null;
 
             $this->dispatch('showSuccess', message: 'Sotto-attività eliminata!');
         } catch (\Exception $e) {
+            $this->confirmingDeleteCoordinateId = null;
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }

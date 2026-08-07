@@ -990,24 +990,11 @@
                                 </button>
                                 @endif
                                 <!-- Pulsante Sotto-attività (Lat/Long) -->
-                                @if(($activity->coordinates_count ?? 0) > 0)
                                 <button wire:click="viewCoordinates({{ $activity->id }})" 
-                                        class="text-purple-500 hover:text-purple-700 transition-colors p-1 relative" 
+                                        class="text-purple-500 hover:text-purple-700 transition-colors p-1" 
                                         title="Sotto-attività (Lat/Long)">
                                     <i class="fa-solid fa-map-location-dot"></i>
-                                    <span class="absolute -top-1 -right-1 bg-purple-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
-                                        {{ $activity->coordinates_count }}
-                                    </span>
                                 </button>
-                                @endif
-                                @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
-                                <!-- Pulsante rapido: Aggiungi sotto-attività -->
-                                <button wire:click="openAddCoordinateForm({{ $activity->id }})" 
-                                        class="text-green-500 hover:text-green-700 transition-colors p-1" 
-                                        title="Aggiungi sotto-attività">
-                                    <i class="fa-solid fa-circle-plus"></i>
-                                </button>
-                                @endif
                                  <!-- Pulsante Immagini -->
                                 <a href="{{ route('admin.activities.images.index', $activity->id) }}" 
                                 class="text-indigo-600 hover:text-indigo-900 transition-colors relative" 
@@ -1323,7 +1310,7 @@
 
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-            <div class="inline-block align-bottom bg-white rounded-lg shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+            <div class="inline-block align-bottom bg-white rounded-lg shadow-xl transform transition-all sm:my-8 sm:align-middle w-[95%] sm:w-[90vw] sm:max-w-[90vw]">
                 <div class="bg-white rounded-lg max-h-[90vh] flex flex-col">
                     <!-- Header fisso -->
                     <div class="px-6 pt-4 pb-3 border-b sticky top-0 bg-white rounded-t-lg z-10">
@@ -1348,69 +1335,20 @@
                     <div class="flex-1 overflow-y-auto p-6">
 
                         @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
-                        <!-- Toolbar: pulsante Aggiungi sotto-attività -->
+                        <!-- Toolbar -->
                         <div class="mb-4 flex items-center justify-between">
                             <div class="text-sm text-gray-500">
                                 {{ count($activityCoordinates) }} {{ count($activityCoordinates) == 1 ? 'sotto-attività registrata' : 'sotto-attività registrate' }}
                             </div>
                             <button type="button"
-                                    wire:click="toggleAddCoordinateForm"
-                                    class="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors {{ $showAddCoordinateForm ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-lime-500 text-white hover:bg-lime-600' }}">
-                                <i class="fa-solid {{ $showAddCoordinateForm ? 'fa-xmark' : 'fa-circle-plus' }}"></i>
-                                {{ $showAddCoordinateForm ? 'Annulla inserimento' : 'Aggiungi sotto-attività' }}
+                                    wire:click="addEmptyCoordinateRow"
+                                    wire:loading.attr="disabled" wire:target="addEmptyCoordinateRow"
+                                    class="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-md bg-lime-500 hover:bg-lime-600 text-white transition-colors disabled:opacity-50">
+                                <i class="fa-solid fa-circle-plus" wire:loading.remove wire:target="addEmptyCoordinateRow"></i>
+                                <i class="fa-solid fa-spinner fa-spin" wire:loading wire:target="addEmptyCoordinateRow"></i>
+                                Aggiungi sotto-attività
                             </button>
                         </div>
-
-                        <!-- Form "Inserisci Posizione" -->
-                        @if($showAddCoordinateForm)
-                        <div class="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-                            <h3 class="text-sm font-semibold text-gray-700 mb-3">
-                                <i class="fa-solid fa-location-dot text-lime-500 mr-1"></i> Inserisci Posizione
-                            </h3>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Posizione iniziale</label>
-                                    <input type="text" wire:model.defer="newCoordLatInizio"
-                                        placeholder="es. 45.123456,12.123456"
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500">
-                                    @error('newCoordLatInizio') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Posizione finale</label>
-                                    <input type="text" wire:model.defer="newCoordLatFine"
-                                        placeholder="es. 45.123456,12.123456"
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500">
-                                    @error('newCoordLatFine') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Ettari (ha)</label>
-                                    <input type="text" wire:model.defer="newCoordHa"
-                                        placeholder="ettari"
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500">
-                                    @error('newCoordHa') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Note</label>
-                                <textarea wire:model.defer="newCoordNote" rows="3"
-                                    placeholder="Note sulla sotto-attività..."
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"></textarea>
-                            </div>
-                            <div class="flex justify-end gap-2">
-                                <button type="button" wire:click="toggleAddCoordinateForm"
-                                        class="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 rounded-md text-gray-700 transition-colors">
-                                    Annulla
-                                </button>
-                                <button type="button" wire:click="addCoordinate"
-                                        wire:loading.attr="disabled" wire:target="addCoordinate"
-                                        class="px-4 py-2 text-sm bg-lime-500 hover:bg-lime-600 rounded-md text-white transition-colors inline-flex items-center gap-2 disabled:opacity-50">
-                                    <i class="fa-solid fa-check" wire:loading.remove wire:target="addCoordinate"></i>
-                                    <i class="fa-solid fa-spinner fa-spin" wire:loading wire:target="addCoordinate"></i>
-                                    Salva
-                                </button>
-                            </div>
-                        </div>
-                        @endif
                         @endif
 
                         @if(count($activityCoordinates) > 0)
@@ -1418,44 +1356,114 @@
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-14">#</th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Lat/Long Inizio</th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Lat/Long Fine</th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Note</th>
-                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ha</th>
-                                        <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Verificato</th>
-                                        @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
-                                        <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Elimina</th>
-                                        @endif
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-28">Ha</th>
+                                        <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase w-32">Verificato</th>
+                                        <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase w-16">Elimina</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
                                     @foreach($activityCoordinates as $index => $coord)
                                     <tr wire:key="coord-{{ $coord->id_att_LatLong }}" class="hover:bg-gray-50">
                                         <td class="px-3 py-2 text-sm text-gray-500 whitespace-nowrap">{{ $index + 1 }} blocco</td>
-                                        <td class="px-3 py-2 text-sm font-mono text-gray-700">{{ $coord->Lat_inizio ?: '-' }}</td>
-                                        <td class="px-3 py-2 text-sm font-mono text-gray-700">{{ $coord->Lat_fine ?: '-' }}</td>
-                                        <td class="px-3 py-2 text-sm text-gray-600 max-w-[220px] break-words">{{ $coord->NoteAtt ?: '-' }}</td>
-                                        <td class="px-3 py-2 text-sm font-medium text-gray-800">{{ $coord->ha ?: '-' }}</td>
-                                        <td class="px-3 py-2 text-sm text-center">
-                                            <select
-                                                wire:change="updateCoordinateVerificato({{ $coord->id_att_LatLong }}, $event.target.value)"
-                                                class="text-xs px-2 py-1 rounded border font-medium {{ $coord->verificato === 'Y' ? 'bg-green-50 border-green-300 text-green-700' : 'bg-orange-50 border-orange-300 text-orange-700' }}">
-                                                <option value="N" @selected($coord->verificato === 'N')>N</option>
-                                                <option value="Y" @selected($coord->verificato === 'Y')>Y</option>
-                                            </select>
+
+                                        <!-- Lat/Long Inizio (editabile) -->
+                                        <td class="px-2 py-1.5">
+                                            @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
+                                            <input type="text"
+                                                value="{{ $coord->Lat_inizio }}"
+                                                wire:change="updateCoordinateField({{ $coord->id_att_LatLong }}, 'Lat_inizio', $event.target.value)"
+                                                placeholder="es. 45.123456,12.123456"
+                                                class="w-full min-w-[160px] px-2 py-1.5 text-sm font-mono border border-transparent rounded-md hover:border-gray-300 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 focus:outline-none transition-colors">
+                                            @else
+                                            <span class="text-sm font-mono text-gray-700">{{ $coord->Lat_inizio ?: '-' }}</span>
+                                            @endif
                                         </td>
-                                        @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
+
+                                        <!-- Lat/Long Fine (editabile) -->
+                                        <td class="px-2 py-1.5">
+                                            @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
+                                            <input type="text"
+                                                value="{{ $coord->Lat_fine }}"
+                                                wire:change="updateCoordinateField({{ $coord->id_att_LatLong }}, 'Lat_fine', $event.target.value)"
+                                                placeholder="es. 45.123456,12.123456"
+                                                class="w-full min-w-[160px] px-2 py-1.5 text-sm font-mono border border-transparent rounded-md hover:border-gray-300 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 focus:outline-none transition-colors">
+                                            @else
+                                            <span class="text-sm font-mono text-gray-700">{{ $coord->Lat_fine ?: '-' }}</span>
+                                            @endif
+                                        </td>
+
+                                        <!-- Note (editabile) -->
+                                        <td class="px-2 py-1.5">
+                                            @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
+                                            <input type="text"
+                                                value="{{ $coord->NoteAtt }}"
+                                                wire:change="updateCoordinateField({{ $coord->id_att_LatLong }}, 'NoteAtt', $event.target.value)"
+                                                placeholder="Note..."
+                                                class="w-full min-w-[180px] px-2 py-1.5 text-sm border border-transparent rounded-md hover:border-gray-300 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 focus:outline-none transition-colors">
+                                            @else
+                                            <span class="text-sm text-gray-600">{{ $coord->NoteAtt ?: '-' }}</span>
+                                            @endif
+                                        </td>
+
+                                        <!-- Ha (editabile) -->
+                                        <td class="px-2 py-1.5">
+                                            @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
+                                            <input type="text"
+                                                value="{{ $coord->ha }}"
+                                                wire:change="updateCoordinateField({{ $coord->id_att_LatLong }}, 'ha', $event.target.value)"
+                                                placeholder="0.00"
+                                                class="w-full min-w-[80px] px-2 py-1.5 text-sm font-medium border border-transparent rounded-md hover:border-gray-300 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 focus:outline-none transition-colors">
+                                            @else
+                                            <span class="text-sm font-medium text-gray-800">{{ $coord->ha ?: '-' }}</span>
+                                            @endif
+                                        </td>
+
+                                        <!-- Verificato: toggle on/off + select Y/N -->
                                         <td class="px-3 py-2 text-sm text-center">
+                                            <div class="flex items-center justify-center gap-2">
+                                                <!-- Toggle Verificato: X rossa / spunta verde -->
+                                                @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
+                                                <button type="button"
+                                                    wire:click="toggleCoordinateVerificato({{ $coord->id_att_LatLong }})"
+                                                    wire:loading.attr="disabled" wire:target="toggleCoordinateVerificato({{ $coord->id_att_LatLong }})"
+                                                    title="{{ $coord->verificato === 'Y' ? 'Verificato — clicca per annullare' : 'Non verificato — clicca per confermare' }}"
+                                                    class="inline-flex items-center justify-center w-7 h-7 rounded-full text-white transition-colors disabled:opacity-50 {{ $coord->verificato === 'Y' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600' }}">
+                                                    <i class="fa-solid {{ $coord->verificato === 'Y' ? 'fa-check' : 'fa-xmark' }} text-xs"></i>
+                                                </button>
+                                                @else
+                                                <span title="{{ $coord->verificato === 'Y' ? 'Verificato' : 'Non verificato' }}"
+                                                    class="inline-flex items-center justify-center w-7 h-7 rounded-full text-white {{ $coord->verificato === 'Y' ? 'bg-green-500' : 'bg-red-500' }}">
+                                                    <i class="fa-solid {{ $coord->verificato === 'Y' ? 'fa-check' : 'fa-xmark' }} text-xs"></i>
+                                                </span>
+                                                @endif
+
+                                                <!-- Select Y/N (in aggiunta al toggle) -->
+                                                @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
+                                                <select
+                                                    wire:change="updateCoordinateVerificato({{ $coord->id_att_LatLong }}, $event.target.value)"
+                                                    class="text-xs px-2 py-1 rounded border font-medium {{ $coord->verificato === 'Y' ? 'bg-green-50 border-green-300 text-green-700' : 'bg-orange-50 border-orange-300 text-orange-700' }}">
+                                                    <option value="N" @selected($coord->verificato === 'N')>N</option>
+                                                    <option value="Y" @selected($coord->verificato === 'Y')>Y</option>
+                                                </select>
+                                                @endif
+                                            </div>
+                                        </td>
+
+                                        <!-- Elimina -->
+                                        <td class="px-3 py-2 text-sm text-center">
+                                            @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
                                             <button type="button"
-                                                    wire:click="deleteCoordinate({{ $coord->id_att_LatLong }})"
-                                                    wire:confirm="Eliminare questo blocco lat/long? L'operazione non è reversibile."
+                                                    wire:click="confirmDeleteCoordinate({{ $coord->id_att_LatLong }})"
                                                     class="text-red-500 hover:text-red-700 transition-colors p-1"
                                                     title="Elimina">
                                                 <i class="fa-solid fa-trash"></i>
                                             </button>
+                                            @endif
                                         </td>
-                                        @endif
                                     </tr>
                                     @endforeach
                                 </tbody>
@@ -1465,6 +1473,13 @@
                         <div class="text-center text-gray-500 py-8">
                             <i class="fas fa-map-marker-alt text-4xl mb-2 text-gray-300"></i>
                             <p>Nessuna sotto-attività trovata</p>
+                            @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
+                            <button type="button"
+                                    wire:click="addEmptyCoordinateRow"
+                                    class="mt-3 inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-md bg-lime-500 hover:bg-lime-600 text-white transition-colors">
+                                <i class="fa-solid fa-circle-plus"></i> Aggiungi la prima sotto-attività
+                            </button>
+                            @endif
                         </div>
                         @endif
                     </div>
@@ -1478,6 +1493,46 @@
                             </button>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- MODAL CONFERMA ELIMINAZIONE SOTTO-ATTIVITÀ -->
+    @if($confirmingDeleteCoordinateId)
+    <div wire:ignore.self class="fixed inset-0 z-[60] overflow-y-auto" x-data="{ show: true }" x-show="show" x-transition.opacity.duration.150ms>
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" x-on:click="show = false; $wire.cancelDeleteCoordinate()" aria-hidden="true"></div>
+
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <div class="inline-block align-bottom bg-white rounded-lg shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full text-left">
+                <div class="p-6">
+                    <div class="flex items-start gap-4">
+                        <div class="flex-shrink-0 flex items-center justify-center w-11 h-11 rounded-full bg-red-100">
+                            <i class="fa-solid fa-triangle-exclamation text-red-600"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">Eliminare questa sotto-attività?</h3>
+                            <p class="mt-1 text-sm text-gray-500">
+                                Il blocco lat/long verrà eliminato definitivamente. L'operazione non è reversibile.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-6 py-3 bg-gray-50 rounded-b-lg flex justify-end gap-2">
+                    <button type="button" wire:click="cancelDeleteCoordinate"
+                            class="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 rounded-md text-gray-700 transition-colors">
+                        Annulla
+                    </button>
+                    <button type="button" wire:click="deleteCoordinate({{ $confirmingDeleteCoordinateId }})"
+                            wire:loading.attr="disabled" wire:target="deleteCoordinate({{ $confirmingDeleteCoordinateId }})"
+                            class="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 rounded-md text-white transition-colors inline-flex items-center gap-2 disabled:opacity-50">
+                        <i class="fa-solid fa-trash" wire:loading.remove wire:target="deleteCoordinate({{ $confirmingDeleteCoordinateId }})"></i>
+                        <i class="fa-solid fa-spinner fa-spin" wire:loading wire:target="deleteCoordinate({{ $confirmingDeleteCoordinateId }})"></i>
+                        Elimina
+                    </button>
                 </div>
             </div>
         </div>

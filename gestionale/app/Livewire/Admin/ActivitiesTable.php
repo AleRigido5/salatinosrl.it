@@ -49,6 +49,13 @@ class ActivitiesTable extends Component
     public $showCoordinatesModal = false;
     public $viewingCoordinatesActivity = null;
     public $activityCoordinates = [];
+
+    // Form - Inserisci nuova sotto-attività (Posizione)
+    public $showAddCoordinateForm = false;
+    public $newCoordLatInizio = '';
+    public $newCoordLatFine = '';
+    public $newCoordHa = '';
+    public $newCoordNote = '';
     
     // Totali
     public $totalHa = 0;
@@ -615,6 +622,8 @@ class ActivitiesTable extends Component
         $this->showCoordinatesModal = false;
         $this->viewingCoordinatesActivity = null;
         $this->activityCoordinates = [];
+        $this->showAddCoordinateForm = false;
+        $this->resetCoordinateForm();
     }
 
     /**
@@ -641,6 +650,143 @@ class ActivitiesTable extends Component
             });
 
             $this->dispatch('showSuccess', message: 'Stato verificato aggiornato!');
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Apre direttamente il modal sotto-attività con il form "Inserisci Posizione" già visibile
+     * (equivalente al pulsante "+" del gestionale precedente)
+     */
+    public function openAddCoordinateForm($activityId)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            $this->dispatch('showError', message: 'Permessi insufficienti');
+            return;
+        }
+
+        try {
+            $this->viewingCoordinatesActivity = Activity::find($activityId);
+
+            if (!$this->viewingCoordinatesActivity) {
+                $this->dispatch('showError', message: 'Attività non trovata');
+                return;
+            }
+
+            $this->activityCoordinates = ActivityCoordinate::where('Attivita_id_attivita', $activityId)
+                ->orderBy('id_att_LatLong')
+                ->get();
+
+            $this->resetCoordinateForm();
+            $this->showAddCoordinateForm = true;
+            $this->showCoordinatesModal = true;
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore nel caricamento: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Mostra/nasconde il form "Inserisci Posizione" dentro il modal già aperto
+     */
+    public function toggleAddCoordinateForm()
+    {
+        $this->showAddCoordinateForm = !$this->showAddCoordinateForm;
+
+        if ($this->showAddCoordinateForm) {
+            $this->resetCoordinateForm();
+        }
+    }
+
+    /**
+     * Svuota i campi del form "Inserisci Posizione"
+     */
+    private function resetCoordinateForm()
+    {
+        $this->newCoordLatInizio = '';
+        $this->newCoordLatFine = '';
+        $this->newCoordHa = '';
+        $this->newCoordNote = '';
+        $this->resetErrorBag(['newCoordLatInizio', 'newCoordLatFine', 'newCoordHa']);
+    }
+
+    /**
+     * Salva una nuova sotto-attività (blocco lat/long) collegata all'attività aperta nel modal
+     */
+    public function addCoordinate()
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            $this->dispatch('showError', message: 'Permessi insufficienti');
+            return;
+        }
+
+        if (!$this->viewingCoordinatesActivity) {
+            $this->dispatch('showError', message: 'Nessuna attività selezionata');
+            return;
+        }
+
+        $this->validate([
+            'newCoordLatInizio' => 'nullable|string|max:255',
+            'newCoordLatFine' => 'nullable|string|max:255',
+            'newCoordHa' => 'nullable|string|max:255',
+            'newCoordNote' => 'nullable|string',
+        ]);
+
+        if (empty($this->newCoordLatInizio) && empty($this->newCoordLatFine)) {
+            $this->dispatch('showError', message: 'Inserisci almeno la posizione iniziale o quella finale');
+            return;
+        }
+
+        try {
+            $ha = $this->newCoordHa !== '' ? str_replace(',', '.', $this->newCoordHa) : null;
+
+            ActivityCoordinate::create([
+                'Attivita_id_attivita' => $this->viewingCoordinatesActivity->id,
+                'Lat_inizio' => $this->newCoordLatInizio ?: null,
+                'Lat_fine' => $this->newCoordLatFine ?: null,
+                'ha' => $ha,
+                'NoteAtt' => $this->newCoordNote ?: null,
+                'verificato' => 'N',
+            ]);
+
+            // Ricarica la lista aggiornata delle sotto-attività nel modal
+            $this->activityCoordinates = ActivityCoordinate::where('Attivita_id_attivita', $this->viewingCoordinatesActivity->id)
+                ->orderBy('id_att_LatLong')
+                ->get();
+
+            $this->resetCoordinateForm();
+            $this->showAddCoordinateForm = false;
+
+            // Aggiorna il badge con il conteggio nella tabella principale
+            $this->dispatch('$refresh');
+
+            $this->dispatch('showSuccess', message: 'Sotto-attività aggiunta con successo!');
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Elimina una sotto-attività (blocco lat/long)
+     */
+    public function deleteCoordinate($coordId)
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('edit_activities')) {
+            $this->dispatch('showError', message: 'Permessi insufficienti');
+            return;
+        }
+
+        try {
+            ActivityCoordinate::where('id_att_LatLong', $coordId)->delete();
+
+            $this->activityCoordinates = collect($this->activityCoordinates)
+                ->reject(fn($coord) => $coord->id_att_LatLong == $coordId)
+                ->values();
+
+            // Aggiorna il badge con il conteggio nella tabella principale
+            $this->dispatch('$refresh');
+
+            $this->dispatch('showSuccess', message: 'Sotto-attività eliminata!');
         } catch (\Exception $e) {
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }

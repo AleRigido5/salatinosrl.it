@@ -1315,20 +1315,18 @@
                     <!-- Header fisso -->
                     <div class="px-6 pt-4 pb-3 border-b sticky top-0 bg-white rounded-t-lg z-10">
                         <div class="flex justify-between items-center">
-                            <h2 class="text-lg font-bold text-gray-800">
-                                <i class="fa-solid fa-map-location-dot text-purple-500 mr-2"></i>
-                                Sotto-attività (Lat/Long) — {{ $this->formatDate($viewingCoordinatesActivity->data_activities) }}
+                            <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <i class="fa-solid fa-map-location-dot text-purple-500"></i>
+                                <span>{{ $this->formatDate($viewingCoordinatesActivity->data_activities) }}</span>
+                                <span>
+                                    {{ optional($viewingCoordinatesActivity->entity)->ragione_sociale ?: trim(optional($viewingCoordinatesActivity->entity)->nome . ' ' . optional($viewingCoordinatesActivity->entity)->cognome) ?: '-' }}
+                                    - {{ optional($viewingCoordinatesActivity->service)->Titolo ?? '-' }}
+                                </span>
                             </h2>
                             <button wire:click="closeCoordinatesModal" class="text-gray-400 hover:text-gray-600 transition-colors">
                                 <i class="fas fa-times text-xl"></i>
                             </button>
                         </div>
-                        <p class="text-xs text-gray-500 mt-1">
-                            {{ optional($viewingCoordinatesActivity->costCenter)->Nome ?? '-' }}
-                            @if($viewingCoordinatesActivity->entity)
-                                — {{ $viewingCoordinatesActivity->entity->ragione_sociale ?: ($viewingCoordinatesActivity->entity->nome . ' ' . $viewingCoordinatesActivity->entity->cognome) }}
-                            @endif
-                        </p>
                     </div>
 
                     <!-- Contenuto scrollabile -->
@@ -1352,11 +1350,15 @@
                         @endif
 
                         @if(count($activityCoordinates) > 0)
+                        @php
+                            $coordinatesTotalHa = collect($activityCoordinates)->sum(function ($c) {
+                                return $c->ha ? floatval(str_replace(',', '.', $c->ha)) : 0;
+                            });
+                        @endphp
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
                                     <tr>
-                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase w-14">#</th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Lat/Long Inizio</th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Lat/Long Fine</th>
                                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Note</th>
@@ -1366,9 +1368,8 @@
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
-                                    @foreach($activityCoordinates as $index => $coord)
+                                    @foreach($activityCoordinates as $coord)
                                     <tr wire:key="coord-{{ $coord->id_att_LatLong }}" class="hover:bg-gray-50">
-                                        <td class="px-3 py-2 text-sm text-gray-500 whitespace-nowrap">{{ $index + 1 }} blocco</td>
 
                                         <!-- Lat/Long Inizio (editabile) -->
                                         <td class="px-2 py-1.5">
@@ -1422,35 +1423,22 @@
                                             @endif
                                         </td>
 
-                                        <!-- Verificato: toggle on/off + select Y/N -->
+                                        <!-- Verificato: solo toggle on/off cliccabile -->
                                         <td class="px-3 py-2 text-sm text-center">
-                                            <div class="flex items-center justify-center gap-2">
-                                                <!-- Toggle Verificato: X rossa / spunta verde -->
-                                                @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
-                                                <button type="button"
-                                                    wire:click="toggleCoordinateVerificato({{ $coord->id_att_LatLong }})"
-                                                    wire:loading.attr="disabled" wire:target="toggleCoordinateVerificato({{ $coord->id_att_LatLong }})"
-                                                    title="{{ $coord->verificato === 'Y' ? 'Verificato — clicca per annullare' : 'Non verificato — clicca per confermare' }}"
-                                                    class="inline-flex items-center justify-center w-7 h-7 rounded-full text-white transition-colors disabled:opacity-50 {{ $coord->verificato === 'Y' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600' }}">
-                                                    <i class="fa-solid {{ $coord->verificato === 'Y' ? 'fa-check' : 'fa-xmark' }} text-xs"></i>
-                                                </button>
-                                                @else
-                                                <span title="{{ $coord->verificato === 'Y' ? 'Verificato' : 'Non verificato' }}"
-                                                    class="inline-flex items-center justify-center w-7 h-7 rounded-full text-white {{ $coord->verificato === 'Y' ? 'bg-green-500' : 'bg-red-500' }}">
-                                                    <i class="fa-solid {{ $coord->verificato === 'Y' ? 'fa-check' : 'fa-xmark' }} text-xs"></i>
-                                                </span>
-                                                @endif
-
-                                                <!-- Select Y/N (in aggiunta al toggle) -->
-                                                @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
-                                                <select
-                                                    wire:change="updateCoordinateVerificato({{ $coord->id_att_LatLong }}, $event.target.value)"
-                                                    class="text-xs px-2 py-1 rounded border font-medium {{ $coord->verificato === 'Y' ? 'bg-green-50 border-green-300 text-green-700' : 'bg-orange-50 border-orange-300 text-orange-700' }}">
-                                                    <option value="N" @selected($coord->verificato === 'N')>N</option>
-                                                    <option value="Y" @selected($coord->verificato === 'Y')>Y</option>
-                                                </select>
-                                                @endif
-                                            </div>
+                                            @if(auth()->guard('admin')->user()->hasPermission('edit_activities'))
+                                            <button type="button"
+                                                wire:click="toggleCoordinateVerificato({{ $coord->id_att_LatLong }})"
+                                                wire:loading.attr="disabled" wire:target="toggleCoordinateVerificato({{ $coord->id_att_LatLong }})"
+                                                title="{{ $coord->verificato === 'Y' ? 'Verificato — clicca per annullare' : 'Non verificato — clicca per confermare' }}"
+                                                class="inline-flex items-center justify-center w-5 h-5 rounded-full text-white transition-colors disabled:opacity-50 {{ $coord->verificato === 'Y' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600' }}">
+                                                <i class="fa-solid {{ $coord->verificato === 'Y' ? 'fa-check' : 'fa-xmark' }} text-[10px]"></i>
+                                            </button>
+                                            @else
+                                            <span title="{{ $coord->verificato === 'Y' ? 'Verificato' : 'Non verificato' }}"
+                                                class="inline-flex items-center justify-center w-5 h-5 rounded-full text-white {{ $coord->verificato === 'Y' ? 'bg-green-500' : 'bg-red-500' }}">
+                                                <i class="fa-solid {{ $coord->verificato === 'Y' ? 'fa-check' : 'fa-xmark' }} text-[10px]"></i>
+                                            </span>
+                                            @endif
                                         </td>
 
                                         <!-- Elimina -->
@@ -1467,6 +1455,17 @@
                                     </tr>
                                     @endforeach
                                 </tbody>
+                                <tfoot class="bg-lime-50 border-t-2 border-lime-200">
+                                    <tr>
+                                        <td colspan="3" class="px-3 py-2 text-right font-bold text-gray-700 text-sm">
+                                            <i class="fas fa-calculator text-lime-600 mr-1"></i> TOTALE:
+                                        </td>
+                                        <td class="px-3 py-2 text-sm font-bold text-lime-700">
+                                            {{ number_format($coordinatesTotalHa, 2, ',', '.') }} ha
+                                        </td>
+                                        <td colspan="2"></td>
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                         @else

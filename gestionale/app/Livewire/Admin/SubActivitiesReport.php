@@ -372,6 +372,37 @@ class SubActivitiesReport extends Component
         return Carbon::parse($date)->format('d/m/Y');
     }
 
+    /**
+     * Costruisce l'URL di export PDF con tutti i filtri attualmente impostati.
+     */
+    public function getExportPdfUrl()
+    {
+        return route('admin.activities.sub-activities.export-pdf', $this->exportParams());
+    }
+
+    /**
+     * Costruisce l'URL di export Excel con tutti i filtri attualmente impostati.
+     */
+    public function getExportExcelUrl()
+    {
+        return route('admin.activities.sub-activities.export-excel', $this->exportParams());
+    }
+
+    private function exportParams(): array
+    {
+        $params = [];
+
+        if ($this->dateFrom) $params['date_from'] = $this->dateFrom;
+        if ($this->dateTo) $params['date_to'] = $this->dateTo;
+        if ($this->entityFilter) $params['entityFilter'] = $this->entityFilter;
+        if ($this->costCenterFilter) $params['costCenterFilter'] = $this->costCenterFilter;
+        if ($this->serviceFilter) $params['serviceFilter'] = $this->serviceFilter;
+        if ($this->positionFilter) $params['positionFilter'] = $this->positionFilter;
+        if ($this->search) $params['search'] = $this->search;
+
+        return $params;
+    }
+
     public function render()
     {
         // Nota: nessun ->layout() qui — il layout/menu è già fornito dalla view

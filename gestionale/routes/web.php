@@ -151,6 +151,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::put('/{activity}', [ActivityController::class, 'update'])->name('update');
             Route::delete('/{activity}', [ActivityController::class, 'destroy'])->name('destroy');
 
+            Route::get('/sotto-attivita/export-pdf', [SubActivitiesController::class, 'exportPdf'])
+                ->name('sub-activities.export-pdf');
+
+            Route::get('/sotto-attivita/export-excel', [SubActivitiesController::class, 'exportExcel'])
+                ->name('sub-activities.export-excel');
             Route::get('activities/export-pdf',   [ActivityController::class, 'exportPdf'])->name('export-pdf');
             Route::get('activities/export-excel', [ActivityController::class, 'exportExcel'])->name('export-excel');
 

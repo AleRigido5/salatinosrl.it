@@ -513,6 +513,19 @@
                 <span class="font-bold text-lg">{{ number_format($grandTotalHa, 2, ',', '.') }} ha</span>
             </div>
             @endif
+
+            <div class="flex gap-3 justify-end">
+                <a href="{{ $this->getExportPdfUrl() }}" target="_blank"
+                   class="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium transition-colors">
+                    <i class="fas fa-file-pdf text-xl"></i>
+                    <span>Esporta PDF</span>
+                </a>
+                <a href="{{ $this->getExportExcelUrl() }}"
+                   class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg shadow-md flex items-center gap-2 font-medium transition-colors">
+                    <i class="fas fa-file-excel text-xl"></i>
+                    <span>Esporta Excel</span>
+                </a>
+            </div>
         </div>
     @endif
 </div>

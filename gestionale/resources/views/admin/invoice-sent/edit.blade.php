@@ -761,15 +761,23 @@ document.addEventListener('DOMContentLoaded', function() {
         const quantity = parseNumber(row.querySelector('.row-quantity').value);
         const unitPrice = parseNumber(row.querySelector('.row-unit-price').value);
         const discount = parseNumber(row.querySelector('.row-discount').value);
-        
+
+        // 🆕 FIX: sincronizza il campo nascosto vat_rate con la select corrente
+        const vatSelect = row.querySelector('.row-vat');
+        const vatId = vatSelect ? vatSelect.value : '';
+        const vatInfo = vatRates.find(v => v.id == vatId);
+        const vatRateDecimal = vatInfo ? vatInfo.rate : 0;
+        const vatHidden = row.querySelector('input[name="rows[' + index + '][vat_rate]"]');
+        if (vatHidden) vatHidden.value = vatRateDecimal;
+
         const grossAmount = quantity * unitPrice;
         const discountAmount = grossAmount * (discount / 100);
         const taxable = grossAmount - discountAmount;
-        
+
         row.querySelector('.row-taxable').value = formatEuro(taxable);
-        const hidden = row.querySelector('input[name="rows['+index+'][taxable_amount]"]');
+        const hidden = row.querySelector('input[name="rows[' + index + '][taxable_amount]"]');
         if (hidden) hidden.value = taxable;
-        
+
         calculateAllTotals();
     }
 
@@ -875,6 +883,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 target.classList.contains('row-discount') || 
                 target.classList.contains('row-vat')) {
                 const row = target.closest('tr');
+                if (row) {
+                    const index = parseInt(row.dataset.index);
+                    calculateRowTotal(index);
+                }
+            }
+        });
+
+        rowsContainer.addEventListener('change', function(e) {
+            if (e.target.classList.contains('row-vat')) {
+                const row = e.target.closest('tr');
                 if (row) {
                     const index = parseInt(row.dataset.index);
                     calculateRowTotal(index);

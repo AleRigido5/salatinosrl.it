@@ -18,7 +18,7 @@
                 {{ $entity->full_name }}
             </p>
         </div>
-        <a href="{{ route('admin.entities.index') }}"
+        <a href="{{ route('admin.communications.index') }}"
            class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1.5 transition-colors">
             <i class="fas fa-arrow-left"></i>
         </a>

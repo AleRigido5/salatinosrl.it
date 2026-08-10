@@ -83,7 +83,10 @@ class InvoiceSentEditController extends Controller
             // Calcola l'aliquota IVA in percentuale
             $vatRate = $row->vat_rate / 100;
             
-            // Trova l'IVA corretta
+            // Trova l'IVA corretta: prima per vat_rate_id (FK diretto), poi
+            // in fallback per rate percentuale (utile per righe "vecchie" create
+            // prima del fix che salva vat_rate_id, dove il FK è rimasto nullo
+            // ma la percentuale vat_rate è comunque corretta).
             $vatInfo = null;
             if ($row->vat_rate_id) {
                 $vatInfo = collect($vatRates)->firstWhere('id', $row->vat_rate_id);
@@ -107,7 +110,11 @@ class InvoiceSentEditController extends Controller
                 'unit_price' => (float)$row->unit_price,
                 'id_unit_measure' => $row->id_unit_measure ?? 1,
                 'discount_percentage' => (float)$row->discount_percentage,
-                'vat_rate_id' => $row->vat_rate_id, // IMPORTANTE: ID IVA
+                // FIX: usa l'id risolto da $vatInfo (che include il fallback per
+                // rate) invece del solo $row->vat_rate_id, altrimenti la select
+                // in modifica resta vuota per le righe con FK nullo ma percentuale
+                // corretta, causando la perdita dell'IVA nel totale ricalcolato.
+                'vat_rate_id' => $vatInfo['id'] ?? $row->vat_rate_id,
                 'vat_rate' => $vatRate,
                 'vat_sdi_nature' => $vatInfo['sdi_nature'] ?? '',
                 'vat_description' => $vatInfo['description'] ?? '',

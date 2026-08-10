@@ -124,6 +124,7 @@ class InvoiceSentCreateController extends Controller
                 'rows.*.description' => 'required|string',
                 'rows.*.quantity' => 'required|numeric|min:0',
                 'rows.*.unit_price' => 'required|numeric|min:0',
+                'rows.*.vat_rate_id' => 'nullable|exists:vat_rates,id',
                 'payments' => 'array|nullable',
                 'payments.*.amount' => 'numeric|min:0',
             ]);
@@ -180,6 +181,9 @@ class InvoiceSentCreateController extends Controller
                     'unit_price' => round($unitPrice, 3),
                     'unit_measure' => $row['unit_measure'] ?? 'pz',
                     'discount_percentage' => $discount,
+                    // FIX: prima mancava del tutto, causava IVA a 0% nel PDF e
+                    // select IVA non pre-selezionata in modifica.
+                    'vat_rate_id' => $row['vat_rate_id'] ?? null,
                     'vat_rate' => $vatRate * 100,
                     'sdi_nature' => $sdiNature,
                     'total' => round($totalRow, 2),
@@ -436,6 +440,29 @@ class InvoiceSentCreateController extends Controller
         }
 
         return response()->json(null);
+    }
+
+    /**
+     * Restituisce il centro di costo "di default" collegato a un cliente
+     * (CostCenter con table_references = 'entities' e id_references = id cliente).
+     * Usato in fase di creazione fattura per pre-compilare il campo
+     * "Centro Costo" delle righe non appena si seleziona il cliente.
+     */
+    public function getDefaultCostCenter($customerId)
+    {
+        $costCenter = CostCenter::where('table_references', 'entities')
+            ->where('id_references', $customerId)
+            ->where('valid', 1)
+            ->first();
+
+        if (!$costCenter) {
+            return response()->json(null);
+        }
+
+        return response()->json([
+            'id' => $costCenter->id,
+            'name' => $costCenter->Nome,
+        ]);
     }
 
     public function storeCustomer(Request $request)

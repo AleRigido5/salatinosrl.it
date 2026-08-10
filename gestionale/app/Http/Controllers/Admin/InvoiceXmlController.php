@@ -246,25 +246,25 @@ class InvoiceXmlController extends Controller
         if (preg_match('/<CedentePrestatore>(.*?)<\/CedentePrestatore>/is', $xmlString, $cedenteMatch)) {
             $cedenteXml = $cedenteMatch[1];
             
-            if (preg_match('/<Denominazione>(.*?)<\/Denominazione>/i', $cedenteXml, $match)) {
+            if (preg_match('/<Denominazione>(.*?)<\/Denominazione>/is', $cedenteXml, $match)) {
                 $data['cedente']['denominazione'] = trim($match[1]);
             }
-            if (preg_match('/<IdPaese>(.*?)<\/IdPaese>/i', $cedenteXml, $match)) {
+            if (preg_match('/<IdPaese>(.*?)<\/IdPaese>/is', $cedenteXml, $match)) {
                 $data['cedente']['id_paese'] = trim($match[1]);
             }
-            if (preg_match('/<IdCodice>(.*?)<\/IdCodice>/i', $cedenteXml, $match)) {
+            if (preg_match('/<IdCodice>(.*?)<\/IdCodice>/is', $cedenteXml, $match)) {
                 $data['cedente']['id_codice'] = trim($match[1]);
             }
-            if (preg_match('/<Indirizzo>(.*?)<\/Indirizzo>/i', $cedenteXml, $match)) {
+            if (preg_match('/<Indirizzo>(.*?)<\/Indirizzo>/is', $cedenteXml, $match)) {
                 $data['cedente']['indirizzo'] = trim($match[1]);
             }
-            if (preg_match('/<CAP>(.*?)<\/CAP>/i', $cedenteXml, $match)) {
+            if (preg_match('/<CAP>(.*?)<\/CAP>/is', $cedenteXml, $match)) {
                 $data['cedente']['cap'] = trim($match[1]);
             }
-            if (preg_match('/<Comune>(.*?)<\/Comune>/i', $cedenteXml, $match)) {
+            if (preg_match('/<Comune>(.*?)<\/Comune>/is', $cedenteXml, $match)) {
                 $data['cedente']['comune'] = trim($match[1]);
             }
-            if (preg_match('/<Provincia>(.*?)<\/Provincia>/i', $cedenteXml, $match)) {
+            if (preg_match('/<Provincia>(.*?)<\/Provincia>/is', $cedenteXml, $match)) {
                 $data['cedente']['provincia'] = trim($match[1]);
             }
         }
@@ -273,19 +273,19 @@ class InvoiceXmlController extends Controller
         if (preg_match('/<CessionarioCommittente>(.*?)<\/CessionarioCommittente>/is', $xmlString, $cessionarioMatch)) {
             $cessionarioXml = $cessionarioMatch[1];
             
-            if (preg_match('/<Denominazione>(.*?)<\/Denominazione>/i', $cessionarioXml, $match)) {
+            if (preg_match('/<Denominazione>(.*?)<\/Denominazione>/is', $cessionarioXml, $match)) {
                 $data['cessionario']['denominazione'] = trim($match[1]);
             }
-            if (preg_match('/<Indirizzo>(.*?)<\/Indirizzo>/i', $cessionarioXml, $match)) {
+            if (preg_match('/<Indirizzo>(.*?)<\/Indirizzo>/is', $cessionarioXml, $match)) {
                 $data['cessionario']['indirizzo'] = trim($match[1]);
             }
-            if (preg_match('/<CAP>(.*?)<\/CAP>/i', $cessionarioXml, $match)) {
+            if (preg_match('/<CAP>(.*?)<\/CAP>/is', $cessionarioXml, $match)) {
                 $data['cessionario']['cap'] = trim($match[1]);
             }
-            if (preg_match('/<Comune>(.*?)<\/Comune>/i', $cessionarioXml, $match)) {
+            if (preg_match('/<Comune>(.*?)<\/Comune>/is', $cessionarioXml, $match)) {
                 $data['cessionario']['comune'] = trim($match[1]);
             }
-            if (preg_match('/<Provincia>(.*?)<\/Provincia>/i', $cessionarioXml, $match)) {
+            if (preg_match('/<Provincia>(.*?)<\/Provincia>/is', $cessionarioXml, $match)) {
                 $data['cessionario']['provincia'] = trim($match[1]);
             }
         }
@@ -294,20 +294,20 @@ class InvoiceXmlController extends Controller
         if (preg_match('/<DatiGeneraliDocumento>(.*?)<\/DatiGeneraliDocumento>/is', $xmlString, $datiGeneraliMatch)) {
             $datiGeneraliXml = $datiGeneraliMatch[1];
             
-            if (preg_match('/<TipoDocumento>(.*?)<\/TipoDocumento>/i', $datiGeneraliXml, $match)) {
+            if (preg_match('/<TipoDocumento>(.*?)<\/TipoDocumento>/is', $datiGeneraliXml, $match)) {
                 $data['documento']['tipo'] = trim($match[1]);
                 $data['documento']['tipo_label'] = config('gestionale.tipo_documento.' . $data['documento']['tipo'], $data['documento']['tipo']);
             }
-            if (preg_match('/<Numero>(.*?)<\/Numero>/i', $datiGeneraliXml, $match)) {
+            if (preg_match('/<Numero>(.*?)<\/Numero>/is', $datiGeneraliXml, $match)) {
                 $data['documento']['numero'] = trim($match[1]);
             }
-            if (preg_match('/<Data>(.*?)<\/Data>/i', $datiGeneraliXml, $match)) {
+            if (preg_match('/<Data>(.*?)<\/Data>/is', $datiGeneraliXml, $match)) {
                 $data['documento']['data'] = trim($match[1]);
             }
-            if (preg_match('/<Divisa>(.*?)<\/Divisa>/i', $datiGeneraliXml, $match)) {
+            if (preg_match('/<Divisa>(.*?)<\/Divisa>/is', $datiGeneraliXml, $match)) {
                 $data['documento']['divisa'] = trim($match[1]);
             }
-            if (preg_match('/<ImportoTotaleDocumento>(.*?)<\/ImportoTotaleDocumento>/i', $datiGeneraliXml, $match)) {
+            if (preg_match('/<ImportoTotaleDocumento>(.*?)<\/ImportoTotaleDocumento>/is', $datiGeneraliXml, $match)) {
                 $data['documento']['importo_totale'] = trim($match[1]);
             }
         }
@@ -317,19 +317,23 @@ class InvoiceXmlController extends Controller
             foreach ($lineeMatches[1] as $lineaXml) {
                 $riga = [];
                 
-                if (preg_match('/<Descrizione>(.*?)<\/Descrizione>/i', $lineaXml, $match)) {
-                    $riga['descrizione'] = trim($match[1]);
+                // FIX: aggiunto modificatore /s (DOTALL) perché la <Descrizione>
+                // può contenere un a capo (\r\n) prima/dopo il testo o al suo interno.
+                // Senza /s il punto "." non fa match del newline e preg_match falliva,
+                // lasciando la descrizione vuota.
+                if (preg_match('/<Descrizione>(.*?)<\/Descrizione>/is', $lineaXml, $match)) {
+                    $riga['descrizione'] = trim(preg_replace('/\s+/', ' ', $match[1]));
                 }
-                if (preg_match('/<Quantita>(.*?)<\/Quantita>/i', $lineaXml, $match)) {
+                if (preg_match('/<Quantita>(.*?)<\/Quantita>/is', $lineaXml, $match)) {
                     $riga['quantita'] = trim($match[1]);
                 }
-                if (preg_match('/<PrezzoUnitario>(.*?)<\/PrezzoUnitario>/i', $lineaXml, $match)) {
+                if (preg_match('/<PrezzoUnitario>(.*?)<\/PrezzoUnitario>/is', $lineaXml, $match)) {
                     $riga['prezzo_unitario'] = trim($match[1]);
                 }
-                if (preg_match('/<PrezzoTotale>(.*?)<\/PrezzoTotale>/i', $lineaXml, $match)) {
+                if (preg_match('/<PrezzoTotale>(.*?)<\/PrezzoTotale>/is', $lineaXml, $match)) {
                     $riga['prezzo_totale'] = trim($match[1]);
                 }
-                if (preg_match('/<AliquotaIVA>(.*?)<\/AliquotaIVA>/i', $lineaXml, $match)) {
+                if (preg_match('/<AliquotaIVA>(.*?)<\/AliquotaIVA>/is', $lineaXml, $match)) {
                     $riga['aliquota_iva'] = trim($match[1]);
                 }
                 
@@ -343,18 +347,18 @@ class InvoiceXmlController extends Controller
         if (preg_match('/<DatiPagamento>(.*?)<\/DatiPagamento>/is', $xmlString, $pagamentoMatch)) {
             $pagamentoXml = $pagamentoMatch[1];
             
-            if (preg_match('/<ModalitaPagamento>(.*?)<\/ModalitaPagamento>/i', $pagamentoXml, $match)) {
+            if (preg_match('/<ModalitaPagamento>(.*?)<\/ModalitaPagamento>/is', $pagamentoXml, $match)) {
                 $modalitaCode = trim($match[1]);
                 $data['pagamenti']['modalita'] = $modalitaCode;
                 $data['pagamenti']['modalita_label'] = config('gestionale.modalita_pagamento.' . $modalitaCode, $modalitaCode);
             }
-            if (preg_match('/<ImportoPagamento>(.*?)<\/ImportoPagamento>/i', $pagamentoXml, $match)) {
+            if (preg_match('/<ImportoPagamento>(.*?)<\/ImportoPagamento>/is', $pagamentoXml, $match)) {
                 $data['pagamenti']['importo'] = trim($match[1]);
             }
-            if (preg_match('/<DataScadenzaPagamento>(.*?)<\/DataScadenzaPagamento>/i', $pagamentoXml, $match)) {
+            if (preg_match('/<DataScadenzaPagamento>(.*?)<\/DataScadenzaPagamento>/is', $pagamentoXml, $match)) {
                 $data['pagamenti']['scadenza'] = trim($match[1]);
             }
-            if (preg_match('/<IBAN>(.*?)<\/IBAN>/i', $pagamentoXml, $match)) {
+            if (preg_match('/<IBAN>(.*?)<\/IBAN>/is', $pagamentoXml, $match)) {
                 $data['pagamenti']['iban'] = trim($match[1]);
             }
         }

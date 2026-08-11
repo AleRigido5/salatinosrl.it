@@ -56,13 +56,46 @@ class InvoicePayment extends Model
     {
         return $this->hasMany(InstallmentTransaction::class, 'id_invoice_payment', 'id');
     }
+
+    /**
+     * Calcola il residuo "grezzo" (amount - paid_amount) rispettando il segno.
+     *
+     * IMPORTANTE: a differenza di prima, NON usa più un semplice max(0, ...).
+     * Per le scadenze normali (amount >= 0) il residuo non può mai scendere
+     * sotto zero: max(0, ...). Per le fatture con importo NEGATIVO (fatture
+     * che sostituiscono una nota di credito senza avere type_invoice TD04/TD08,
+     * es. FIORINO GROUP fatt. 802/02 -27,08 €) il residuo deve poter restare
+     * negativo finché il credito non viene effettivamente applicato/consumato
+     * in un pagamento: usiamo min(0, ...), simmetrico al caso positivo.
+     *
+     * Con la vecchia logica max(0, amount - paid_amount), un amount negativo
+     * con paid_amount = 0 dava sempre residuo 0, facendo scattare lo stato
+     * 'paid' automaticamente all'importazione, anche se la fattura non era
+     * mai stata effettivamente pagata/applicata.
+     */
+    private function computeRawResidual(float $amount, float $paidAmount): float
+    {
+        $diff = $amount - $paidAmount;
+        return $amount < 0 ? min(0, $diff) : max(0, $diff);
+    }
+
+    /**
+     * Vero quando il residuo è "esaurito", cioè vicino a zero in valore
+     * assoluto. Per gli importi negativi, un residuo di -27.08 NON è esaurito:
+     * solo quando si avvicina a 0 (perché consumato da un pagamento/allocazione)
+     * la fattura può considerarsi saldata.
+     */
+    private function isResidualSettled(float $residual): bool
+    {
+        return abs($residual) <= 0.01;
+    }
     
     /**
      * Verifica se è completamente pagata
      */
     public function isFullyPaid(): bool
     {
-        return $this->status === 'paid' || $this->residual_amount <= 0;
+        return $this->status === 'paid' || $this->isResidualSettled((float) $this->residual_amount);
     }
     
     /**
@@ -115,15 +148,15 @@ class InvoicePayment extends Model
     
     /**
      * Accessor: Calcola il residuo dinamicamente
-     * IMPORTANTE: Il residuo è sempre amount - paid_amount
+     * IMPORTANTE: Il residuo è sempre amount - paid_amount, rispettando il
+     * segno di amount (vedi computeRawResidual per il motivo).
      */
     public function getResidualAmountAttribute($value)
     {
-        // Calcolo dinamico basato su amount e paid_amount
-        $calculatedResidual = max(0, $this->amount - $this->paid_amount);
+        $calculatedResidual = $this->computeRawResidual((float) $this->amount, (float) $this->paid_amount);
         
         // Log per debug (rimuovi in produzione)
-        if (abs($calculatedResidual - $value) > 0.01 && $value > 0) {
+        if (abs($calculatedResidual - $value) > 0.01 && abs($value) > 0) {
             \Illuminate\Support\Facades\Log::warning('Residual mismatch', [
                 'payment_id' => $this->id,
                 'stored' => $value,
@@ -137,12 +170,12 @@ class InvoicePayment extends Model
     }
     
     /**
-     * Mutator: Assicura che residual_amount sia sempre amount - paid_amount
+     * Mutator: Assicura che residual_amount sia sempre coerente con amount e paid_amount
      */
     public function setResidualAmountAttribute($value)
     {
         // Ignora il valore passato, calcola da amount e paid_amount
-        $this->attributes['residual_amount'] = max(0, $this->amount - $this->paid_amount);
+        $this->attributes['residual_amount'] = $this->computeRawResidual((float) $this->amount, (float) $this->paid_amount);
     }
     
     /**
@@ -152,7 +185,7 @@ class InvoicePayment extends Model
     {
         $this->attributes['amount'] = $value;
         if (isset($this->attributes['paid_amount'])) {
-            $this->attributes['residual_amount'] = max(0, $value - $this->attributes['paid_amount']);
+            $this->attributes['residual_amount'] = $this->computeRawResidual((float) $value, (float) $this->attributes['paid_amount']);
         }
     }
     
@@ -164,19 +197,20 @@ class InvoicePayment extends Model
         $this->attributes['paid_amount'] = $value;
         
         if (isset($this->attributes['amount'])) {
-            $newResidual = max(0, $this->attributes['amount'] - $value);
+            $amount = (float) $this->attributes['amount'];
+            $newResidual = $this->computeRawResidual($amount, (float) $value);
             $this->attributes['residual_amount'] = $newResidual;
             
             if ($this->skipAutoStatus) {
                 return; // lo stato viene gestito esplicitamente da chi chiama (es. chiusura con NC)
             }
             
-            if ($newResidual <= 0.01) {
+            if ($this->isResidualSettled($newResidual)) {
                 $this->attributes['status'] = 'paid';
                 if (empty($this->attributes['paid_at'])) {
                     $this->attributes['paid_at'] = now();
                 }
-            } elseif ($value > 0) {
+            } elseif ($value != 0) {
                 $this->attributes['status'] = 'partially_paid';
                 $this->attributes['paid_at'] = null;
             } else {
@@ -192,7 +226,7 @@ class InvoicePayment extends Model
     public function registerPayment(float $paidAmount): bool
     {
         $newPaidTotal = $this->paid_amount + $paidAmount;
-        $newResidual = $this->amount - $newPaidTotal;
+        $newResidual = $this->computeRawResidual((float) $this->amount, $newPaidTotal);
         
         DB::beginTransaction();
         
@@ -200,7 +234,7 @@ class InvoicePayment extends Model
             $this->paid_amount = $newPaidTotal;
             // Il residual_amount verrà calcolato automaticamente dal mutator
             
-            if ($newResidual <= 0) {
+            if ($this->isResidualSettled($newResidual)) {
                 $this->status = 'paid';
                 $this->paid_at = now();
             } else {
@@ -250,16 +284,28 @@ class InvoicePayment extends Model
     }
     
     /**
-     * Override save per garantire che residual_amount sia sempre corretto
+     * Override save per garantire che residual_amount sia sempre corretto.
+     *
+     * FIX: usa computeRawResidual/isResidualSettled invece del vecchio
+     * max(0, amount - paid_amount), che per amount negativo (fatture
+     * sostitutive di nota di credito) restituiva sempre 0 e quindi marcava
+     * la fattura come 'paid' non appena creata, anche a paid_amount = 0.
+     * Ora una fattura con importo negativo e paid_amount = 0 resta 'issued'
+     * (residuo negativo, non ancora consumato), esattamente come richiesto:
+     * deve poter comparire nel modal di registrazione pagamento e, se
+     * selezionata, decrementare il totale del pagamento.
      */
     public function save(array $options = [])
     {
-        $this->attributes['residual_amount'] = max(0, $this->amount - $this->paid_amount);
+        $amount = (float) $this->amount;
+        $paidAmount = (float) $this->paid_amount;
+        $residual = $this->computeRawResidual($amount, $paidAmount);
+        $this->attributes['residual_amount'] = $residual;
         
         if (!$this->skipAutoStatus) {
-            if ($this->attributes['residual_amount'] <= 0.01) {
+            if ($this->isResidualSettled($residual)) {
                 $this->attributes['status'] = 'paid';
-            } elseif ($this->paid_amount > 0) {
+            } elseif ($paidAmount != 0) {
                 $this->attributes['status'] = 'partially_paid';
             } else {
                 $this->attributes['status'] = 'issued';

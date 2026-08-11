@@ -237,8 +237,16 @@
                                     </thead>
                                     <tbody class="divide-y divide-gray-200">
                                         @forelse($availableInvoices as $index => $item)
-                                        <tr class="{{ $item['selected'] ? 'bg-lime-50' : '' }}">
-                                            <td class="px-3 py-2 text-sm">{{ $item['invoice_number'] }}</td>
+                                        @php
+                                            $isCredit = !empty($item['is_credit']);
+                                        @endphp
+                                        <tr class="{{ $item['selected'] ? 'bg-lime-50' : ($isCredit ? 'bg-purple-50' : '') }}">
+                                            <td class="px-3 py-2 text-sm">
+                                                {{ $item['invoice_number'] }}
+                                                @if($isCredit)
+                                                    <span class="ml-1 inline-flex px-1.5 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800">Credito</span>
+                                                @endif
+                                            </td>
                                             <td class="px-3 py-2 text-sm {{ 
                                                 !empty($item['due_date_raw']) && \Carbon\Carbon::parse($item['due_date_raw'])->isPast() && $item['residual_amount'] > 0 
                                                     ? 'text-red-600 font-bold' 
@@ -249,18 +257,26 @@
                                                     <i class="fas fa-exclamation-triangle text-red-500 ml-1" title="Scaduto!"></i>
                                                 @endif
                                             </td>
-                                            <td class="px-3 py-2 text-sm text-right">{{ number_format($item['total_amount'], 2, ',', '.') }} €</td>
-                                            <td class="px-3 py-2 text-sm text-right font-medium">{{ number_format($item['residual_amount'], 2, ',', '.') }} €</td>
+                                            <td class="px-3 py-2 text-sm text-right {{ $isCredit ? 'text-purple-700' : '' }}">{{ number_format($item['total_amount'], 2, ',', '.') }} €</td>
+                                            <td class="px-3 py-2 text-sm text-right font-medium {{ $isCredit ? 'text-purple-700' : '' }}">{{ number_format($item['residual_amount'], 2, ',', '.') }} €</td>
                                             <td class="px-3 py-2 text-center">
                                                 <div class="flex items-center justify-center gap-2">
                                                     <input type="checkbox" 
                                                         wire:click="toggleInvoice({{ $index }})"
                                                         {{ $item['selected'] ? 'checked' : '' }}
                                                         class="rounded border-gray-300">
+                                                    {{--
+                                                        FIX: prima il valore veniva mostrato solo se
+                                                        selected_amount > 0, quindi per una riga di
+                                                        credito selezionata (selected_amount negativo,
+                                                        es. -27,08) il campo appariva vuoto pur avendo
+                                                        un valore effettivo. Ora basta che sia diverso
+                                                        da zero.
+                                                    --}}
                                                     <input type="text" 
                                                         wire:change="updateSelectedAmount({{ $index }}, $event.target.value)"
-                                                        value="{{ $item['selected_amount'] > 0 ? number_format($item['selected_amount'], 2, ',', '') : '' }}"
-                                                        class="w-28 px-2 py-1 text-right text-sm border rounded-md"
+                                                        value="{{ $item['selected_amount'] != 0 ? number_format($item['selected_amount'], 2, ',', '') : '' }}"
+                                                        class="w-28 px-2 py-1 text-right text-sm border rounded-md {{ $isCredit ? 'text-purple-700' : '' }}"
                                                         placeholder="0,00"
                                                         {{ !$item['selected'] ? 'disabled' : '' }}>
                                                 </div>
@@ -286,7 +302,7 @@
                             </div>
                             <div class="col-span-4 bg-gray-100 p-3 rounded-md text-right">
                                 <p class="text-sm text-gray-600">Totale da pagare</p>
-                                <p class="text-xl font-bold text-lime-600">{{ number_format($totalAmount, 2, ',', '.') }} €</p>
+                                <p class="text-xl font-bold {{ $totalAmount < 0 ? 'text-purple-700' : 'text-lime-600' }}">{{ number_format($totalAmount, 2, ',', '.') }} €</p>
                             </div>
                         </div>
                     </div>
@@ -328,11 +344,23 @@
                                         </tr>
                                     </thead>
                                     <tbody>
+                                        {{--
+                                            FIX: prima si mostravano nel riepilogo solo le righe con
+                                            selected_amount > 0, quindi le righe di credito selezionate
+                                            (selected_amount negativo) sparivano dal riepilogo pur
+                                            concorrendo al totale mostrato sotto. Ora basta che siano
+                                            selezionate e diverse da zero.
+                                        --}}
                                         @foreach($availableInvoices as $invoice)
-                                            @if($invoice['selected'] && $invoice['selected_amount'] > 0)
+                                            @if($invoice['selected'] && $invoice['selected_amount'] != 0)
                                             <tr>
-                                                <td class="px-3 py-2 text-sm">{{ $invoice['invoice_number'] }}</td>
-                                                <td class="px-3 py-2 text-sm text-right">{{ number_format($invoice['selected_amount'], 2, ',', '.') }} €</td>
+                                                <td class="px-3 py-2 text-sm">
+                                                    {{ $invoice['invoice_number'] }}
+                                                    @if(!empty($invoice['is_credit']))
+                                                        <span class="ml-1 inline-flex px-1.5 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800">Credito</span>
+                                                    @endif
+                                                </td>
+                                                <td class="px-3 py-2 text-sm text-right {{ $invoice['selected_amount'] < 0 ? 'text-purple-700' : '' }}">{{ number_format($invoice['selected_amount'], 2, ',', '.') }} €</td>
                                             </tr>
                                             @endif
                                         @endforeach
@@ -340,7 +368,7 @@
                                     <tfoot class="bg-lime-50">
                                         <tr>
                                             <td class="px-3 py-2 font-bold">TOTALE</td>
-                                            <td class="px-3 py-2 text-right font-bold text-lime-600">{{ number_format($totalAmount, 2, ',', '.') }} €</td>
+                                            <td class="px-3 py-2 text-right font-bold {{ $totalAmount < 0 ? 'text-purple-700' : 'text-lime-600' }}">{{ number_format($totalAmount, 2, ',', '.') }} €</td>
                                         </tr>
                                     </tfoot>
                                 </table>

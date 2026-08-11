@@ -201,15 +201,25 @@ class AccountStatementTable extends Component
                 ->get();
 
             foreach ($sent as $inv) {
-                $isNC = in_array($inv->type_invoice, ['TD04', 'TD08']);
+                // FIX: una fattura va trattata come "nota di credito" (a storno) sia
+                // quando il tipo documento è esplicitamente TD04/TD08, sia quando
+                // l'importo_totale è semplicemente negativo (alcuni fornitori/clienti
+                // emettono storni come fatture normali con importo negativo, senza
+                // usare il tipo documento nota di credito). Usiamo sempre il valore
+                // assoluto in dare/avere: la view mostra un importo solo se > 0,
+                // quindi un valore negativo lasciato "com'era" spariva dalla tabella
+                // pur essendo conteggiato correttamente nei totali.
+                $isNC = in_array($inv->type_invoice, ['TD04', 'TD08']) || $inv->importo_totale < 0;
+                $importoAbs = abs($inv->importo_totale);
+
                 $transactions[] = [
                     'id'          => 'invoice_sent_' . $inv->id,
                     'proprieta'   => $inv->ownership->RagAbbrev ?? $inv->ownership->Rag_Soc_intest ?? '-',
                     'descrizione' => $isNC ? 'Nota di Credito emessa' : 'Fattura di Vendita',
                     'data'        => $inv->data_invoice,
                     'n_fattura'   => $inv->n_invoice,
-                    'dare'        => $isNC ? 0 : $inv->importo_totale,
-                    'avere'       => $isNC ? $inv->importo_totale : 0,
+                    'dare'        => $isNC ? 0 : $importoAbs,
+                    'avere'       => $isNC ? $importoAbs : 0,
                     'saldo'       => 0,
                     'type'        => 'invoice',
                 ];
@@ -229,15 +239,23 @@ class AccountStatementTable extends Component
                 ->get();
 
             foreach ($received as $inv) {
-                $isNC = in_array($inv->type_invoice, ['TD04', 'TD08']);
+                // FIX: stessa logica del ramo "cliente" sopra. Questo è il caso che
+                // riproduce esattamente il bug segnalato: fatture di acquisto con
+                // type_invoice = 'fattura' (non TD04/TD08) ma importo_totale negativo
+                // (es. -6,93 €, -12,00 €), che finivano in 'avere' come valore
+                // negativo e quindi non superavano il controllo "> 0" nella vista,
+                // sparendo dall'estratto conto pur essendo presenti nell'elenco fatture.
+                $isNC = in_array($inv->type_invoice, ['TD04', 'TD08']) || $inv->importo_totale < 0;
+                $importoAbs = abs($inv->importo_totale);
+
                 $transactions[] = [
                     'id'          => 'invoice_received_' . $inv->id,
                     'proprieta'   => $inv->ownership->RagAbbrev ?? $inv->ownership->Rag_Soc_intest ?? '-',
                     'descrizione' => $isNC ? 'Nota di Credito ricevuta' : 'Fattura di Acquisto',
                     'data'        => $inv->data_invoice,
                     'n_fattura'   => $inv->n_invoice,
-                    'dare'        => $isNC ? $inv->importo_totale : 0,
-                    'avere'       => $isNC ? 0 : $inv->importo_totale,
+                    'dare'        => $isNC ? $importoAbs : 0,
+                    'avere'       => $isNC ? 0 : $importoAbs,
                     'saldo'       => 0,
                     'type'        => 'invoice',
                 ];
@@ -345,14 +363,18 @@ class AccountStatementTable extends Component
 
         $descrizione = $label . ': ' . $methodLabel . ($bankLabel ? ' (' . $bankLabel . ')' : '');
 
+        // Anche qui normalizziamo con abs() per coerenza e sicurezza, nel caso
+        // in futuro venga registrato un importo negativo su una scrittura contabile.
+        $importoAbs = abs(floatval($entry->amount));
+
         return [
             'id'          => 'accounting_entry_' . $entry->id,
             'proprieta'   => $proprieta,
             'descrizione' => $descrizione,
             'data'        => $entry->entry_date,
             'n_fattura'   => '-',
-            'dare'        => $isUscita ? floatval($entry->amount) : 0,
-            'avere'       => $isUscita ? 0 : floatval($entry->amount),
+            'dare'        => $isUscita ? $importoAbs : 0,
+            'avere'       => $isUscita ? 0 : $importoAbs,
             'saldo'       => 0,
             'type'        => 'accounting_entry',
         ];

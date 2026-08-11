@@ -296,7 +296,18 @@ class InvoicePaymentsTable extends Component
 
     /**
      * Calcola il residuo "vero" di una scadenza: 0 se pagata (o saldata con NC),
-     * altrimenti residual_amount se valorizzato, altrimenti amount - paid_amount.
+     * altrimenti il residuo così come già calcolato dal modello InvoicePayment.
+     *
+     * FIX: prima, quando $payment->residual_amount non era > 0 (incluso il
+     * caso di un residuo NEGATIVO, tipico delle fatture-credito con importo
+     * negativo che sostituiscono una nota di credito), si ricadeva su
+     * max(0.0, amount - paid_amount), che azzera SEMPRE un risultato
+     * negativo. Questo troncava a zero il residuo delle fatture-credito
+     * ancora aperte, falsando sia la colonna "Residuo" in tabella sia il
+     * totale calcolato da getPaymentTotalsProperty() in fondo alla pagina.
+     * Il modello InvoicePayment calcola già il residuo in modo corretto
+     * (sign-aware, vedi InvoicePayment::computeRawResidual), quindi qui ci
+     * affidiamo direttamente a quel valore senza ricalcolarlo.
      */
     private function computeResidual($payment, bool $isClosedByNC = false): float
     {
@@ -304,11 +315,7 @@ class InvoicePaymentsTable extends Component
             return 0.0;
         }
 
-        if ($payment->residual_amount > 0) {
-            return (float) $payment->residual_amount;
-        }
-
-        return max(0.0, (float) $payment->amount - (float) $payment->paid_amount);
+        return (float) $payment->residual_amount;
     }
 
     /**

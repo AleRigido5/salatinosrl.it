@@ -277,8 +277,17 @@ class RegisterPayment extends Component
 
         foreach ($invoices as $invoice) {
             foreach ($invoice->payments as $payment) {
-                $residual = $payment->residual_amount;
-                if ($residual > 0.01) {
+                $residual = (float) $payment->residual_amount;
+
+                // FIX: prima si escludevano i residui negativi (`$residual > 0.01`),
+                // quindi le fatture-credito (importo negativo, es. FIORINO GROUP
+                // -27,08 €, ancora in stato 'issued' grazie al fix sul modello
+                // InvoicePayment) non comparivano MAI in questo elenco.
+                // Ora includiamo qualunque residuo diverso da zero in valore
+                // assoluto: un residuo positivo è "da pagare", uno negativo è
+                // "credito ancora da applicare" e va incluso allo stesso modo,
+                // selezionabile, per poter decrementare il totale del pagamento.
+                if (abs($residual) > 0.01) {
                     $this->availableInvoices[] = [
                         'id'             => $payment->id,
                         'invoice_id'     => $invoice->id,
@@ -287,6 +296,7 @@ class RegisterPayment extends Component
                         'due_date_raw'   => $payment->due_date,
                         'total_amount'   => $payment->amount,
                         'residual_amount'=> $residual,
+                        'is_credit'      => $residual < 0,
                         'selected'       => false,
                         'selected_amount'=> 0,
                     ];
@@ -304,6 +314,9 @@ class RegisterPayment extends Component
             $this->availableInvoices[$index]['selected_amount'] = 0;
         } else {
             $this->availableInvoices[$index]['selected'] = true;
+            // Per le fatture-credito residual_amount è negativo: selected_amount
+            // eredita lo stesso segno, così calculateTotal() lo sottrae
+            // automaticamente dal totale del pagamento.
             $this->availableInvoices[$index]['selected_amount'] = $this->availableInvoices[$index]['residual_amount'];
         }
         $this->calculateTotal();
@@ -314,17 +327,32 @@ class RegisterPayment extends Component
         if (!isset($this->availableInvoices[$index])) return;
         
         $amount = floatval(str_replace(',', '.', $amount));
-        $maxAmount = $this->availableInvoices[$index]['residual_amount'];
+        $maxAmount = (float) $this->availableInvoices[$index]['residual_amount'];
         
-        if ($amount > $maxAmount) {
-            $amount = $maxAmount;
-        }
-        if ($amount < 0) {
-            $amount = 0;
+        // FIX: il vecchio clamp forzava sempre l'importo in [0, maxAmount],
+        // il che rendeva impossibile inserire un importo negativo anche per
+        // una riga di credito (maxAmount negativo). Ora il range di validità
+        // dipende dal segno del residuo:
+        // - riga normale (maxAmount >= 0): importo ammesso in [0, maxAmount]
+        // - riga di credito (maxAmount < 0): importo ammesso in [maxAmount, 0]
+        if ($maxAmount >= 0) {
+            if ($amount > $maxAmount) {
+                $amount = $maxAmount;
+            }
+            if ($amount < 0) {
+                $amount = 0;
+            }
+        } else {
+            if ($amount < $maxAmount) {
+                $amount = $maxAmount;
+            }
+            if ($amount > 0) {
+                $amount = 0;
+            }
         }
         
         $this->availableInvoices[$index]['selected_amount'] = round($amount, 2);
-        $this->availableInvoices[$index]['selected'] = $amount > 0;
+        $this->availableInvoices[$index]['selected'] = abs($amount) > 0.001;
         $this->calculateTotal();
     }
     
@@ -333,11 +361,14 @@ class RegisterPayment extends Component
         $total = 0;
         foreach ($this->availableInvoices as $invoice) {
             if ($invoice['selected']) {
+                // Le righe di credito hanno selected_amount negativo, quindi
+                // questa somma decrementa automaticamente il totale quando
+                // vengono selezionate insieme a fatture normali.
                 $total += $invoice['selected_amount'];
             }
         }
-        $this->totalSelectedAmount = $total;
-        $this->totalAmount = $total;
+        $this->totalSelectedAmount = round($total, 2);
+        $this->totalAmount = $this->totalSelectedAmount;
     }
     
     public function register(): void
@@ -345,7 +376,7 @@ class RegisterPayment extends Component
         $this->validate();
         
         if ($this->totalSelectedAmount <= 0) {
-            $this->dispatch('showError', message: 'Selezionare almeno un importo da pagare');
+            $this->dispatch('showError', message: 'Selezionare almeno un importo da pagare (il totale deve essere maggiore di zero)');
             return;
         }
         
@@ -370,7 +401,7 @@ class RegisterPayment extends Component
             
             // === 2. REGISTRA I PAGAMENTI SULLE SINGOLE SCADENZE ===
             foreach ($this->availableInvoices as $invoiceData) {
-                if (!$invoiceData['selected'] || $invoiceData['selected_amount'] <= 0) {
+                if (!$invoiceData['selected'] || abs($invoiceData['selected_amount']) <= 0.001) {
                     continue;
                 }
                 
@@ -380,25 +411,23 @@ class RegisterPayment extends Component
                 
                 $paidAmount = $invoiceData['selected_amount'];
                 $oldPaidAmount = $payment->paid_amount;
-                $newPaidAmount = $oldPaidAmount + $paidAmount;
-                $newResidual = $payment->amount - $newPaidAmount;
                 
                 Log::info('Aggiornamento pagamento', [
                     'payment_id' => $payment->id,
                     'old_paid' => $oldPaidAmount,
-                    'new_paid' => $paidAmount,
-                    'total_paid' => $newPaidAmount,
+                    'delta_paid' => $paidAmount,
                     'amount' => $payment->amount,
-                    'new_residual' => $newResidual
                 ]);
                 
-                // Aggiorna il pagamento (scadenza)
-                $payment->update([
-                    'paid_amount' => $newPaidAmount,
-                    'residual_amount' => max(0, $newResidual),
-                    'status' => $newResidual <= 0.01 ? 'paid' : 'partially_paid',
-                    'paid_at' => $newResidual <= 0.01 ? now() : null,
-                ]);
+                // FIX: non ricalcoliamo più residuo/stato a mano con
+                // max(0, ...) — quel calcolo tronca a zero i residui negativi
+                // (crediti), marcando come 'paid' anche crediti applicati solo
+                // parzialmente. Impostiamo solo paid_amount e lasciamo che i
+                // mutator del modello InvoicePayment (già corretti, gestiscono
+                // il segno di amount/residuo) calcolino residual_amount e
+                // status in modo coerente con il resto del sistema.
+                $payment->paid_amount = $oldPaidAmount + $paidAmount;
+                $payment->save();
                 
                 // === 3. COLLEGA LA SCRITTURA CONTABILE AL PAGAMENTO ===
                 InstallmentTransaction::create([
@@ -407,14 +436,20 @@ class RegisterPayment extends Component
                     'allocated_amount' => $paidAmount,
                 ]);
                 
-                // Aggiorna lo stato della fattura in base a TUTTI i pagamenti
+                // Aggiorna lo stato della fattura in base a TUTTI i suoi pagamenti
                 $invoice = $payment->payable;
                 if ($invoice) {
-                    $totalResidual = $invoice->payments()->sum('residual_amount');
+                    $totalResidual = (float) $invoice->payments()->sum('residual_amount');
+                    $importoTotale = (float) $invoice->importo_totale;
 
-                    if ($totalResidual <= 0.01) {
+                    // FIX: stesso ragionamento sign-aware. Per una fattura con
+                    // importo negativo, sia totalResidual che importoTotale
+                    // sono negativi: confrontarli con `<= 0.01` "assoluto"
+                    // marcherebbe come 'paid' anche prima di qualunque
+                    // applicazione del credito. Usiamo abs() per entrambi.
+                    if (abs($totalResidual) <= 0.01) {
                         $newInvoiceStatus = 'paid';
-                    } elseif ($totalResidual < $invoice->importo_totale) {
+                    } elseif ($importoTotale != 0 && abs($totalResidual) < abs($importoTotale)) {
                         $newInvoiceStatus = 'partially_paid';
                     } else {
                         $newInvoiceStatus = 'issued';

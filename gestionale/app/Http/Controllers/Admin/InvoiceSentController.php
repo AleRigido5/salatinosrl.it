@@ -16,6 +16,7 @@ use App\Models\InvoiceSent;
 use App\Models\Ownership;
 use App\Models\Entity;
 use App\Models\CostCenter;
+use App\Models\VatRate;
 
 class InvoiceSentController extends Controller
 {
@@ -61,43 +62,6 @@ class InvoiceSentController extends Controller
     }
 
     /**
-     * Genera il PDF di una singola fattura
-     */
-    // public function generatePdf($id)
-    // {
-    //     $invoice = InvoiceSent::with([
-    //         'ownership',
-    //         'entity',
-    //         'rows.costCenter',
-    //         'rows.vehicle',
-    //         'payments'
-    //     ])->findOrFail($id);
-
-    //     $data = [
-    //         'invoice' => $invoice,
-    //         'company' => config('gestionale.company', [
-    //             'name' => 'LA TUA AZIENDA S.r.l.',
-    //             'address' => 'via Costantino, 2 - 70010 SAMMICHELE DI BARI (BA)',
-    //             'vat' => 'IT12345678901',
-    //             'capital' => '€ 20.000,00 i.v.',
-    //             'email' => 'info@azienda.it',
-    //             'website' => 'www.azienda.it',
-    //             'iban' => 'IT00 X000 0000 0000 0000 0000 000',
-    //             'bank' => 'Intestato a Azienda S.r.l.'
-    //         ]),
-    //         'typeDocuments' => config('gestionale.tipo_documento', []),
-    //         'statuses' => config('gestionale.invoice_status', []),
-    //     ];
-
-    //     $pdf = Pdf::loadView('admin.invoice-sent.invoice-sent-pdf', $data);
-    //     $pdf->setPaper('a4', 'portrait');
-
-    //     $nInvoiceSafe = str_replace(['/', '\\'], '-', $invoice->n_invoice);
-    //     return $pdf->download('fattura_' . $nInvoiceSafe . '_' . $invoice->data_invoice->format('Ymd') . '.pdf');
-    // }
-
-
-    /**
      * Anteprima PDF di una singola fattura nel browser
      */
     public function previewPdf($id)
@@ -114,6 +78,20 @@ class InvoiceSentController extends Controller
             'invoice' => $invoice,
             'typeDocuments' => config('gestionale.tipo_documento', []),
             'statuses' => config('gestionale.invoice_status', []),
+            // FIX: necessarie al template PDF per risolvere in modo affidabile
+            // l'aliquota IVA di ogni riga tramite vat_rate_id, invece di fidarsi
+            // del solo campo vat_rate salvato sulla riga (che può risultare
+            // 0% per righe con dati sporchi/inconsistenti).
+            'vatRates' => VatRate::all()->keyBy('id'),
+            // FIX: fallback per i riferimenti bancari — IBAN di default della
+            // proprietà dalla tabella bank_accounts, usato quando né il primo
+            // pagamento né l'anagrafica ownership (IbanPr, spesso vuota) hanno
+            // un IBAN salvato.
+            'bankAccount' => \Illuminate\Support\Facades\DB::table('bank_accounts')
+                ->where('id_ownership', $invoice->id_ownership)
+                ->where('default_invoice', 1)
+                ->where('valid', 1)
+                ->first(),
         ];
 
         $pdf = Pdf::loadView('admin.invoice-sent.invoice-sent-pdf', $data);

@@ -163,11 +163,61 @@ class InvoiceSentEditController extends Controller
             })->toArray();
         
         // Calcola riepilogo IVA
-        $vatSummary = $this->calculateVatSummary($rows);
-        $totalDiscount = array_sum(array_map(function($row) {
-            return ($row['quantity'] * $row['unit_price']) * ($row['discount_percentage'] / 100);
-        }, $rows));
-        $importoTotale = $totalTaxable + $totalVat;
+        if ($invoice->is_manual ?? false) {
+            // Fattura manuale: i totali mostrati sono quelli ricalcolati dalle
+            // righe, cioè lo stesso valore che l'utente vede aggiornarsi dal
+            // vivo mentre modifica quantità/prezzi/IVA in pagina.
+            $vatSummary = $this->calculateVatSummary($rows);
+            $totalDiscount = array_sum(array_map(function($row) {
+                return ($row['quantity'] * $row['unit_price']) * ($row['discount_percentage'] / 100);
+            }, $rows));
+            $importoTotale = $totalTaxable + $totalVat;
+        } else {
+            // FIX: fattura importata da XML (importi e IVA di sola lettura in
+            // questa pagina). Prima anche qui si ricalcolavano SEMPRE
+            // totalTaxable/totalVat/importoTotale sommando le righe
+            // (row->total, vat_rate), valore che può divergere da quello
+            // realmente registrato sulla fattura per arrotondamenti, spese
+            // accessorie o sconti applicati diversamente in fase di import.
+            // Questo causava un totale diverso tra la pagina di modifica e
+            // l'elenco Fatture di Vendita (che legge importo_totale
+            // direttamente) per la stessa identica fattura.
+            //
+            // Ora, quando i valori non sono comunque modificabili, mostriamo
+            // gli stessi identici dati "veri" usati dall'elenco: importo_totale
+            // della fattura e il riepilogo IVA da invoice_vat_summaries (la
+            // stessa tabella che alimenta i totali dell'elenco fatture).
+            $invoiceVatSummaries = $invoice->vatSummaries()->get();
+
+            if ($invoiceVatSummaries->isNotEmpty()) {
+                $vatSummary = $invoiceVatSummaries->map(function ($vat) {
+                    return [
+                        'rate' => $vat->tax_rate / 100,
+                        'rate_percent' => $vat->tax_rate,
+                        'taxable_amount' => (float) $vat->taxable_amount,
+                        'vat_amount' => (float) $vat->tax_amount,
+                        'description' => 'IVA ' . $vat->tax_rate . '%',
+                        'nature_code' => null,
+                    ];
+                })->values()->toArray();
+
+                $totalTaxable = (float) $invoiceVatSummaries->sum('taxable_amount');
+                $totalVat = (float) $invoiceVatSummaries->sum('tax_amount');
+            } else {
+                // Fallback: se per qualche motivo la fattura non ha righe di
+                // riepilogo IVA salvate, si ricade sul calcolo dalle righe
+                // (meglio un valore ricostruito che nessun valore).
+                $vatSummary = $this->calculateVatSummary($rows);
+            }
+
+            $totalDiscount = array_sum(array_map(function($row) {
+                return ($row['quantity'] * $row['unit_price']) * ($row['discount_percentage'] / 100);
+            }, $rows));
+
+            // Il totale fattura mostrato è SEMPRE quello realmente registrato,
+            // non una ricostruzione dalle righe.
+            $importoTotale = (float) $invoice->importo_totale;
+        }
         
         $data = [
             'invoice' => $invoice,
@@ -276,6 +326,29 @@ class InvoiceSentEditController extends Controller
                 $totalTaxable += $taxable;
                 $totalVat += $vatAmount;
 
+                // FIX: per le fatture importate (is_manual = false) la select
+                // dell'IVA in edit.blade.php è renderizzata con l'attributo
+                // "disabled" — e un <select disabled> NON viene mai inviato
+                // nel submit del form (comportamento standard HTML). Quindi
+                // $row['vat_rate_id'] risultava sempre assente dalla request
+                // per queste fatture, e la vecchia riga
+                //   'vat_rate_id' => $row['vat_rate_id'] ?? null,
+                // azzerava silenziosamente vat_rate_id su OGNI riga a ogni
+                // salvataggio (anche solo per cambiare un centro di costo),
+                // causando la perdita dell'aliquota IVA corretta nelle
+                // visualizzazioni successive (edit, PDF, riepiloghi). Ora, se
+                // vat_rate_id non è presente nella request, preserviamo il
+                // valore già salvato sulla riga invece di sovrascriverlo con
+                // null.
+                $existingVatRateId = null;
+                if (isset($row['id']) && $row['id']) {
+                    $existingVatRateId = InvoiceRow::where('id', $row['id'])->value('vat_rate_id');
+                }
+                $submittedVatRateId = array_key_exists('vat_rate_id', $row) && $row['vat_rate_id'] !== ''
+                    ? $row['vat_rate_id']
+                    : null;
+                $resolvedVatRateId = $submittedVatRateId ?? $existingVatRateId;
+
                 // Prepara i dati della riga
                 $rowData = [
                     'code' => $row['code'] ?? '',
@@ -286,7 +359,7 @@ class InvoiceSentEditController extends Controller
                     'discount_percentage' => $discount,
                     'id_cost_center' => !empty($row['id_cost_center']) ? $row['id_cost_center'] : null,
                     'id_service' => !empty($row['id_service']) ? $row['id_service'] : null,
-                    'vat_rate_id' => $row['vat_rate_id'] ?? null,
+                    'vat_rate_id' => $resolvedVatRateId,
                     'vat_rate' => $vatRate * 100, // salva come percentuale
                     'total' => $taxable,
                 ];

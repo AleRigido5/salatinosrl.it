@@ -64,7 +64,6 @@
             padding: 16px 22px;
         }
 
-        /* ══ WATERMARK S ══ */
         .watermark {
             position: fixed;
             top: 36%;
@@ -80,7 +79,6 @@
 
         .page { position: relative; z-index: 1; }
 
-        /* ══ HEADER ══ */
         .header-outer {
             border: 1pt solid #b0b8a8;
             margin-bottom: 0;
@@ -146,7 +144,6 @@
             text-align: center;
         }
 
-        /* ══ FATTURA / CLIENTE ══ */
         .doc-wrap {
             border-left: 1pt solid #b0b8a8;
             border-right: 1pt solid #b0b8a8;
@@ -202,7 +199,6 @@
         .cli-name   { font-size: 10pt; font-weight: 700; line-height: 1.35; margin-bottom: 2px; color: #111; }
         .cli-info   { font-size: 8.5pt; font-weight: 600; line-height: 1.55; color: #222; }
 
-        /* ══ TABELLA PRODOTTI ══ */
         .prod-table {
             width: 100%;
             border-collapse: collapse;
@@ -233,7 +229,6 @@
         .tr { text-align: right; padding-right: 6px !important; }
         .tc { text-align: center; }
 
-        /* ══ PRIVACY ══ */
         .privacy {
             font-size: 6.2pt;
             font-weight: 400;
@@ -251,7 +246,6 @@
             margin-bottom: 2px;
         }
 
-        /* ══ BOTTOM ══ */
         .bottom-outer {
             border: 1pt solid #a8b49e;
             overflow: hidden;
@@ -306,7 +300,6 @@
             font-weight: 700;
         }
 
-        /* Totali 3 colonne */
         .tot-table { width: 100%; border-collapse: collapse; }
 
         .tot-table tr td {
@@ -362,7 +355,6 @@
             padding: 7px 10px;
         }
 
-        /* ══ NOTE FINALI ══ */
         .final-nb {
             font-size: 6.2pt;
             font-weight: 400;
@@ -385,10 +377,8 @@
 <div class="watermark">S</div>
 
 @php
-    // Recupera i dati dell'ownership associata alla fattura (obbligatoria)
     $ownership = $invoice->ownership;
-    
-    // Determina i dati dell'azienda ESCLUSIVAMENTE dall'ownership
+
     $companyData = [
         'name' => $ownership->Rag_Soc_intest,
         'tagline' => $ownership->Rag_Soc_intest ?? '',
@@ -404,14 +394,52 @@
         'registration' => true,
         'province' => $ownership->ProvinciaPr ?? 'Bari',
     ];
-    
-    // Costruisce la stringa per la registrazione imprese
+
     $companyData['registration_text'] = 'P.IVA: ' . '<strong>' . $companyData['vat'] . '</strong>';
+
+    // ============================================================
+    // FIX: risoluzione affidabile dell'aliquota IVA per riga.
+    //
+    // Prima il template leggeva direttamente $row->vat_rate, un campo
+    // che a seconda del percorso con cui la riga è stata creata (import
+    // XML, creazione manuale, modifica) può essere salvato come
+    // percentuale (22), come decimale (0.22) o restare a 0/null. Questo
+    // causava il bug "22% mostrato come 0%".
+    //
+    // Ora si usa PRIMA vat_rate_id (FK verso la tabella vat_rates, fonte
+    // affidabile perché è la stessa usata dai form di creazione/modifica),
+    // e solo se assente si ricade sul campo vat_rate della riga,
+    // normalizzandone il formato.
+    // ============================================================
+    $vatRatesById = $vatRates ?? collect();
+
+    $resolveVatRatePercent = function ($row) use ($vatRatesById) {
+        if (!empty($row->vat_rate_id) && $vatRatesById->has($row->vat_rate_id)) {
+            return (float) $vatRatesById[$row->vat_rate_id]->rate * 100;
+        }
+
+        $raw = (float) ($row->vat_rate ?? 0);
+
+        if ($raw > 0 && $raw <= 1) {
+            return $raw * 100; // era salvato come decimale (es. 0.22)
+        }
+
+        if ($raw > 1) {
+            return $raw; // già in percentuale (es. 22)
+        }
+
+        return 0.0; // nessuna informazione affidabile: 0% esplicito, non un valore indovinato
+    };
+
+    // Formatta la percentuale senza decimali inutili (22, non 22,00) ma
+    // conservando eventuali decimali reali (es. aliquote particolari).
+    $formatVatPercent = function ($percent) {
+        return rtrim(rtrim(number_format($percent, 2, ',', '.'), '0'), ',');
+    };
 @endphp
 
 <div class="page">
 
-<!-- INTESTAZIONE -->
 <div class="header-outer">
     <table class="header-main">
         <tr>
@@ -431,7 +459,6 @@
     </table>
 </div>
 
-<!-- FATTURA / CLIENTE -->
 <div class="doc-wrap">
     <table class="doc-table">
         <tr>
@@ -469,7 +496,6 @@
     </table>
 </div>
 
-<!-- RIGHE FATTURA -->
 <table class="prod-table">
     <thead>
         <tr>
@@ -489,7 +515,7 @@
             <td class="tr">{{ number_format($row->quantity, 2, ',', '.') }}</td>
             <td class="tr">{{ number_format($row->unit_price, 3, ',', '.') }}</td>
             <td class="tr">{{ number_format($row->total, 2, ',', '.') }}</td>
-            <td class="tc">{{ $row->vat_rate ?? 22 }}%</td>
+            <td class="tc">{{ $formatVatPercent($resolveVatRatePercent($row)) }}%</td>
         </tr>
         @endforeach
         @php $fill = max(0, 14 - count($invoice->rows)); @endphp
@@ -499,7 +525,6 @@
     </tbody>
 </table>
 
-<!-- PRIVACY -->
 <div class="privacy">
     <div class="privacy-title">INFORMATIVA AI SENSI DELL'ART. 13 DLGS 196/2003</div>
     I dati personali sono raccolti direttamente presso gli interessati e sono trattati nell'ambito della normale attività amministrativa dell'azienda
@@ -513,15 +538,52 @@
     @endif
 </div>
 
-<!-- PAGAMENTO + TOTALI -->
 @php
     $firstPayment = $invoice->payments->first();
+
+    // FIX: usa la stessa risoluzione affidabile dell'aliquota anche per il
+    // riepilogo IVA in fondo alla pagina, invece di raggruppare per
+    // $row->vat_rate grezzo (stesso bug del 0% invece di 22%).
     $vatTotals = [];
     foreach($invoice->rows as $row) {
-        $rate = $row->vat_rate ?? 22;
+        $rate = $resolveVatRatePercent($row);
         $vatTotals[$rate] = ($vatTotals[$rate] ?? 0) + $row->total;
     }
     ksort($vatTotals);
+
+    // ============================================================
+    // FIX: risoluzione affidabile dei riferimenti bancari.
+    //
+    // Prima la catena si fermava a $ownership->IbanPr, che nella
+    // maggior parte dei casi è vuoto (l'IBAN vero è salvato nella
+    // tabella dedicata bank_accounts, non sui campi dell'anagrafica
+    // proprietà) — se anche il primo pagamento non aveva un IBAN
+    // proprio, la sezione restava vuota nel PDF.
+    //
+    // Ordine di risoluzione: IBAN del pagamento -> IBAN della
+    // proprietà (IbanPr) -> conto bancario di default della proprietà
+    // (tabella bank_accounts, $bankAccount passato dal controller) ->
+    // messaggio esplicito se nessuna delle tre fonti ha un IBAN.
+    // ============================================================
+    $resolvedBankAccount = $bankAccount ?? null;
+
+    if ($firstPayment && !empty($firstPayment->iban)) {
+        $bankIban = $firstPayment->iban;
+        $bankName = $firstPayment->bank_name ?? null;
+        $bankHolder = $firstPayment->bank_account_holder ?? null;
+    } elseif (!empty($companyData['iban'])) {
+        $bankIban = $companyData['iban'];
+        $bankName = $companyData['bank'] ?? null;
+        $bankHolder = $companyData['name'] ?? null;
+    } elseif (!empty($resolvedBankAccount->iban ?? null)) {
+        $bankIban = $resolvedBankAccount->iban;
+        $bankName = $resolvedBankAccount->name ?? null;
+        $bankHolder = $companyData['name'] ?? null;
+    } else {
+        $bankIban = null;
+        $bankName = null;
+        $bankHolder = null;
+    }
 @endphp
 
 <div class="bottom-outer">
@@ -532,14 +594,12 @@
                 <div class="pay-content">{{ $firstPayment->payment_method_label ?? 'Bonifico vista fattura' }}</div>
                 <div class="bank-header">NS RIF. BANCARI</div>
                 <div class="bank-content">
-                    @if($firstPayment && !empty($firstPayment->iban))
-                        @if(!empty($firstPayment->bank_name))<strong>{{ $firstPayment->bank_name }}</strong><br>@endif
-                        <span class="iban-mono">IBAN: {{ $firstPayment->iban }}</span><br>
-                        @if(!empty($firstPayment->bank_account_holder))intestato a {{ $firstPayment->bank_account_holder }}@endif
+                    @if($bankIban)
+                        @if($bankName)<strong>{{ $bankName }}</strong><br>@endif
+                        <span class="iban-mono">IBAN: {{ $bankIban }}</span><br>
+                        @if($bankHolder)intestato a {{ $bankHolder }}@endif
                     @else
-                        @if(!empty($companyData['bank_name']))<strong>{{ $companyData['bank_name'] }}</strong><br>@endif
-                        <span class="iban-mono">IBAN: {{ $companyData['iban'] }}</span><br>
-                        intestato a {{ $companyData['bank'] }}
+                        <span style="color:#999;">Riferimenti bancari non disponibili</span>
                     @endif
                 </div>
             </td>
@@ -547,14 +607,14 @@
                 <table class="tot-table">
                     @foreach($vatTotals as $rate => $imponibile)
                     <tr>
-                        <td class="tot-lbl">IMPONIBILE AL {{ $rate }}%</td>
+                        <td class="tot-lbl">IMPONIBILE AL {{ $formatVatPercent($rate) }}%</td>
                         <td class="tot-eur">€</td>
                         <td class="tot-val">{{ number_format($imponibile, 2, ',', '.') }}</td>
                     </tr>
                     @endforeach
                     @foreach($vatTotals as $rate => $imponibile)
                     <tr>
-                        <td class="tot-lbl">IVA AL {{ $rate }}%</td>
+                        <td class="tot-lbl">IVA AL {{ $formatVatPercent($rate) }}%</td>
                         <td class="tot-eur">€</td>
                         <td class="tot-val">{{ number_format($imponibile * $rate / 100, 2, ',', '.') }}</td>
                     </tr>
@@ -570,7 +630,6 @@
     </table>
 </div>
 
-<!-- NOTE FINALI -->
 <div class="final-nb">
     NB. {{ $companyData['name'] }} si riserva la proprietà di tutta la merce fornita e descritta con il presente documento sino al pagamento
     integrale del prezzo e degli interessi eventualmente maturati. Vogliate controllare l'esattezza dei dati anagrafici da Voi forniti e

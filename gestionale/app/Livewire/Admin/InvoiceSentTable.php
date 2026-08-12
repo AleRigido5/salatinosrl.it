@@ -9,6 +9,7 @@ use App\Models\Ownership;
 use App\Models\Entity;
 use App\Models\CostCenter;
 use App\Models\Communication;
+use App\Models\VatRate;
 use App\Mail\InvoiceSentMail;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -380,6 +381,17 @@ class InvoiceSentTable extends Component
             'invoice' => $invoice,
             'typeDocuments' => config('gestionale.tipo_documento', []),
             'statuses' => config('gestionale.invoice_status', []),
+            // FIX: stessa risoluzione affidabile dell'IVA usata da
+            // InvoiceSentController::previewPdf, necessaria perché questo
+            // metodo genera lo stesso template PDF per l'allegato email.
+            'vatRates' => VatRate::all()->keyBy('id'),
+            // FIX: stesso fallback per i riferimenti bancari usato in
+            // InvoiceSentController::previewPdf.
+            'bankAccount' => DB::table('bank_accounts')
+                ->where('id_ownership', $invoice->id_ownership)
+                ->where('default_invoice', 1)
+                ->where('valid', 1)
+                ->first(),
         ];
 
         $pdf = Pdf::loadView('admin.invoice-sent.invoice-sent-pdf', $data);
@@ -602,6 +614,13 @@ class InvoiceSentTable extends Component
     /**
      * Totali di riepilogo (5 card in fondo pagina), calcolati sull'intero set
      * di fatture che rispettano i filtri correnti (non solo la pagina visibile).
+     *
+     * FIX: le note di credito (TD04/TD08) hanno importo_totale salvato
+     * POSITIVO nel DB, ma vanno DETRATTE dal fatturato, non sommate — altrimenti
+     * il "Totale Fatturato" risulta gonfiato dell'importo della NC invece che
+     * ridotto. Applichiamo il segno corretto qui, un'unica volta, così sia
+     * questo footer sia la colonna "Totale" nella tabella (vedi blade) restano
+     * coerenti tra loro.
      */
     public function getFooterTotalsProperty(): array
     {
@@ -615,10 +634,13 @@ class InvoiceSentTable extends Component
         $totalePagato = 0;
 
         foreach ($invoices as $invoice) {
-            $totaleImponibile += $invoice->vatSummaries->sum('taxable_amount');
-            $totaleIva += $invoice->vatSummaries->sum('tax_amount');
-            $totaleFatturato += $invoice->importo_totale;
-            $totalePagato += $invoice->payments->where('status', 'paid')->sum('amount');
+            $isCreditNote = in_array($invoice->type_invoice, ['TD04', 'TD08']);
+            $sign = $isCreditNote ? -1 : 1;
+
+            $totaleImponibile += $sign * $invoice->vatSummaries->sum('taxable_amount');
+            $totaleIva += $sign * $invoice->vatSummaries->sum('tax_amount');
+            $totaleFatturato += $sign * (float) $invoice->importo_totale;
+            $totalePagato += $sign * $invoice->payments->where('status', 'paid')->sum('amount');
         }
 
         return [

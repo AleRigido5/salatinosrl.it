@@ -197,7 +197,11 @@
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
                     <div class="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-3">
                         <p class="text-xs text-blue-600 font-medium">Totale Fatturato</p>
-                        <p class="text-xl font-bold text-blue-800">{{ number_format($statistics->sum('total'), 2, ',', '.') }} €</p>
+                        {{-- FIX: usa $totalFatturato (somma diretta di importo_totale,
+                             stessa fonte dell'elenco Fatture di Vendita) invece di
+                             $statistics->sum('total') che è ricostruito dalle righe
+                             e può divergere. --}}
+                        <p class="text-xl font-bold text-blue-800">{{ number_format($totalFatturato, 2, ',', '.') }} €</p>
                     </div>
                     <div class="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-3">
                         <p class="text-xs text-green-600 font-medium">Numero Fatture</p>
@@ -224,12 +228,15 @@
                                 <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Fatturato</th>
                                 <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">% sul Totale</th>
                                 <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">N. Fatture</th>
-                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Media/Fattura</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             @php
-                                $grandTotal = $statistics->sum('total');
+                                // FIX: percentuali e totale di riepilogo calcolati sul
+                                // totale "vero" ($totalFatturato), non sulla somma delle
+                                // righe per categoria, così restano coerenti con la card
+                                // in alto e con l'elenco Fatture di Vendita.
+                                $grandTotal = $totalFatturato;
                                 $maxTotal = $statistics->max('total') ?: 1;
                             @endphp
                             @foreach($statistics as $stat)
@@ -255,9 +262,6 @@
                                             {{ $stat->count }}
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-right text-gray-600">
-                                        {{ $stat->count > 0 ? number_format($stat->total / $stat->count, 2, ',', '.') : 0 }} €
-                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -267,9 +271,6 @@
                                 <td class="px-4 py-3 text-sm text-right font-bold text-green-600">{{ number_format($grandTotal, 2, ',', '.') }} €</td>
                                 <td class="px-4 py-3 text-sm text-right font-bold text-gray-900">100%</td>
                                 <td class="px-4 py-3 text-sm text-center font-bold text-gray-900">{{ $statistics->sum('count') }}</td>
-                                <td class="px-4 py-3 text-sm text-right font-bold text-gray-900">
-                                    {{ $statistics->sum('count') > 0 ? number_format($grandTotal / $statistics->sum('count'), 2, ',', '.') : 0 }} €
-                                </td>
                             </tr>
                         </tfoot>
                     </table>
@@ -373,7 +374,6 @@
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mese</th>
                                 <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Fatturato</th>
                                 <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">N. Fatture</th>
-                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Media/Fattura</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
@@ -391,9 +391,6 @@
                                             {{ $month->count }}
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3 text-sm text-right text-gray-600">
-                                        {{ $month->count > 0 ? number_format($month->total / $month->count, 2, ',', '.') : '-' }} €
-                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -402,9 +399,6 @@
                                 <td class="px-4 py-3 text-sm font-bold text-gray-900">TOTALE PERIODO</td>
                                 <td class="px-4 py-3 text-sm text-right font-bold text-green-600">{{ number_format($monthlyStatistics->sum('total'), 2, ',', '.') }} €</td>
                                 <td class="px-4 py-3 text-sm text-center font-bold text-gray-900">{{ $monthlyStatistics->sum('count') }}</td>
-                                <td class="px-4 py-3 text-sm text-right font-bold text-gray-900">
-                                    {{ $monthlyStatistics->sum('count') > 0 ? number_format($monthlyStatistics->sum('total') / $monthlyStatistics->sum('count'), 2, ',', '.') : 0 }} €
-                                </td>
                             </tr>
                         </tfoot>
                     </table>

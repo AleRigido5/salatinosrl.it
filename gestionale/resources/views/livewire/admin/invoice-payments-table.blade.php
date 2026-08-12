@@ -1,4 +1,5 @@
-<d>
+{{-- resources/views/livewire/admin/invoice-payments-table.blade.php --}}
+<div>
     <!-- Header con titolo -->
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold">
@@ -192,11 +193,16 @@
                         $isClosedByNC = $payment->status === 'closed_credit_note' || 
                                        ($payment->status === 'paid' && $invoice && 
                                         method_exists($invoice, 'isClosedByCreditNote') && $invoice->isClosedByCreditNote());
-                        // Fattura pagata (o saldata con NC) -> residuo sempre a zero, indipendentemente
-                        // da eventuali valori sporchi/non aggiornati in residual_amount
+                        // FIX: fattura pagata (o saldata con NC) -> residuo sempre a zero.
+                        // Negli altri casi ci affidiamo DIRETTAMENTE a $payment->residual_amount,
+                        // già calcolato in modo corretto e "sign-aware" dal modello InvoicePayment
+                        // (negativo per le fatture-credito con importo negativo ancora aperte).
+                        // Il vecchio fallback "max(0, amount - paid_amount)" azzerava sempre un
+                        // residuo negativo, facendo sparire l'importo delle fatture-credito sia
+                        // qui che nel totale di piè pagina.
                         $residual = ($isClosedByNC || in_array($payment->status, ['paid', 'closed_credit_note']))
                             ? 0
-                            : ($payment->residual_amount > 0 ? $payment->residual_amount : max(0, $payment->amount - $payment->paid_amount));
+                            : (float) $payment->residual_amount;
                         $displayAmount = $isCreditNote ? -$payment->amount : $payment->amount;
                         $displayResidual = $isCreditNote ? -$residual : $residual;
                     @endphp
@@ -212,16 +218,19 @@
                             @if($isCreditNote)
                                 <span class="ml-1 inline-flex px-1.5 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800">NC</span>
                             @endif
+                            @if(!$isCreditNote && $displayAmount < 0)
+                                <span class="ml-1 inline-flex px-1.5 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800">Credito</span>
+                            @endif
                             @if($isClosedByNC && !$isCreditNote)
                                 <span class="ml-1 inline-flex px-1.5 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800">
                                     <i class="fas fa-link mr-0.5"></i> NC
                                 </span>
                             @endif
                         </td>
-                        <td class="px-4 py-3 text-sm text-right font-medium {{ $isCreditNote ? 'text-purple-700' : '' }}">
+                        <td class="px-4 py-3 text-sm text-right font-medium {{ $displayAmount < 0 ? 'text-purple-700' : '' }}">
                             {{ number_format($displayAmount, 2, ',', '.') }} €
                         </td>
-                        <td class="px-4 py-3 text-sm text-right font-medium {{ $isCreditNote ? 'text-purple-700' : ($isClosedByNC ? 'text-green-600' : 'text-orange-600') }}">
+                        <td class="px-4 py-3 text-sm text-right font-medium {{ $displayResidual < 0 ? 'text-purple-700' : ($isClosedByNC ? 'text-green-600' : 'text-orange-600') }}">
                             {{ number_format($displayResidual, 2, ',', '.') }} €
                         </td>
                         <td class="px-4 py-3 text-sm">{{ $payment->payment_method_label ?? $payment->payment_method ?? '-' }}</td>
@@ -503,10 +512,14 @@
         $isClosedByNCModal = $selectedPayment->status === 'closed_credit_note' ||
             ($selectedPayment->status === 'paid' && $invoiceModal &&
              method_exists($invoiceModal, 'isClosedByCreditNote') && $invoiceModal->isClosedByCreditNote());
-        // Stesso fix del residuo di riga: 0 se pagata/saldata con NC
+        // FIX: stesso ragionamento della riga di tabella sopra. 0 se
+        // pagata/saldata con NC, altrimenti il residuo già corretto e
+        // sign-aware calcolato dal modello InvoicePayment — niente più
+        // fallback max(0, amount - paid_amount) che azzerava i residui
+        // negativi delle fatture-credito.
         $residualModal = ($isClosedByNCModal || in_array($selectedPayment->status, ['paid', 'closed_credit_note']))
             ? 0
-            : ($selectedPayment->residual_amount > 0 ? $selectedPayment->residual_amount : max(0, $selectedPayment->amount - $selectedPayment->paid_amount));
+            : (float) $selectedPayment->residual_amount;
 
         $paymentHistory = [];
         if ($invoiceModal) {
@@ -562,11 +575,11 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div class="bg-gray-50 p-3 rounded-lg">
                             <label class="text-xs text-gray-500 uppercase font-semibold">IMPORTO</label>
-                            <p class="font-bold text-lg text-lime-600 mt-1">{{ number_format($selectedPayment->amount, 2, ',', '.') }} €</p>
+                            <p class="font-bold text-lg {{ $selectedPayment->amount < 0 ? 'text-purple-700' : 'text-lime-600' }} mt-1">{{ number_format($selectedPayment->amount, 2, ',', '.') }} €</p>
                         </div>
                         <div class="bg-gray-50 p-3 rounded-lg">
                             <label class="text-xs text-gray-500 uppercase font-semibold">RESIDUO</label>
-                            <p class="font-bold text-lg text-orange-600 mt-1">{{ number_format($residualModal, 2, ',', '.') }} €</p>
+                            <p class="font-bold text-lg {{ $residualModal < 0 ? 'text-purple-700' : 'text-orange-600' }} mt-1">{{ number_format($residualModal, 2, ',', '.') }} €</p>
                         </div>
                     </div>
 
@@ -661,7 +674,7 @@
                                         @endphp
                                         <tr>
                                             <td class="px-3 py-2 text-sm">{{ $accountingEntry ? $accountingEntry->entry_date->format('d/m/Y') : '-' }}</td>
-                                            <td class="px-3 py-2 text-sm text-right font-medium text-green-600">{{ number_format($transaction->allocated_amount, 2, ',', '.') }} €</td>
+                                            <td class="px-3 py-2 text-sm text-right font-medium {{ $transaction->allocated_amount < 0 ? 'text-purple-700' : 'text-green-600' }}">{{ number_format($transaction->allocated_amount, 2, ',', '.') }} €</td>
                                             <td class="px-3 py-2 text-sm">{{ $paymentTx->payment_method ?? '-' }}</td>
                                             <td class="px-3 py-2 text-sm">
                                                 @if($accountingEntry && $accountingEntry->created_by)
@@ -683,7 +696,7 @@
                                 </table>
                             </div>
                         </div>
-                    @elseif($selectedPayment->paid_amount > 0)
+                    @elseif($selectedPayment->paid_amount != 0)
                         <div class="bg-green-50 p-3 rounded-lg">
                             <label class="text-xs text-gray-500 uppercase font-semibold">PAGAMENTI EFFETTUATI</label>
                             <p class="font-medium text-green-600 mt-1">{{ number_format($selectedPayment->paid_amount, 2, ',', '.') }} €</p>

@@ -176,7 +176,7 @@
                 <div class="flex items-center gap-2">
                     <input type="checkbox" wire:model.live="excludeCreditNotes" 
                         class="rounded border-gray-300 text-lime-600 focus:ring-lime-500 h-4 w-4">
-                    <label class="text-sm text-gray-600 cursor-pointer">Escludi Note di Credito (TD04)</label>
+                    <label class="text-sm text-gray-600 cursor-pointer">Escludi Note di Credito</label>
                 </div>
                 <select wire:model.live="statPeriod" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                     <option value="monthly">Mensile</option>
@@ -199,7 +199,10 @@
         <div wire:loading.remove>
             @if($statistics && $statistics->count() > 0)
                 @php
-                    $grandTotal = $statistics->sum('total');
+                    // FIX: il totale di riferimento è $totalFatturato (somma
+                    // diretta di importo_totale, stessa fonte dell'elenco
+                    // Fatture di Acquisto), non $statistics->sum('total').
+                    $grandTotal = $totalFatturato;
                     $totalCredits = $statistics->sum('credit_count');
                     $totalDebits = $statistics->sum('debit_count');
                 @endphp
@@ -219,7 +222,7 @@
                         </p>
                     </div>
                     <div class="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-3">
-                        <p class="text-xs text-red-600 font-medium">Totale Crediti (TD04)</p>
+                        <p class="text-xs text-red-600 font-medium">Totale Crediti</p>
                         <p class="text-xl font-bold text-red-800">
                             {{ number_format(abs($statistics->filter(fn($s) => $s->total < 0)->sum('total')), 2, ',', '.') }} €
                         </p>
@@ -291,7 +294,7 @@
                                             {{ $stat->count }}
                                         </span>
                                         @if($stat->credit_count > 0)
-                                            <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" title="{{ $stat->credit_count }} righe di credito (TD04)">
+                                            <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" title="{{ $stat->credit_count }} righe di credito">
                                                 <i class="fas fa-minus-circle"></i> {{ $stat->credit_count }}
                                             </span>
                                         @endif
@@ -362,7 +365,7 @@
                         </div>
                         <div class="flex items-center gap-1.5">
                             <span class="inline-block w-3 h-3 rounded-full bg-red-500"></span>
-                            <span>Note di Credito (TD04) - in detrazione</span>
+                            <span>Note di Credito (TD04 o importo negativo) - in detrazione</span>
                         </div>
                         <div class="flex items-center gap-1.5">
                             <span class="inline-block w-3 h-3 rounded-full bg-yellow-500"></span>

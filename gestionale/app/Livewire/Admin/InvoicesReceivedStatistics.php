@@ -42,6 +42,11 @@ class InvoicesReceivedStatistics extends Component
     public string $periodDisplay = '';
     public bool $excludeCreditNotes = false;
 
+    // FIX: totale "vero", calcolato direttamente da importo_totale (stessa
+    // fonte usata dall'elenco Fatture di Acquisto), non ricostruito
+    // sommando le righe. Vedi calculateTotalFatturato().
+    public float $totalFatturato = 0;
+
     protected $listeners = [
         'dateRangeUpdated' => 'updateDateRange',
     ];
@@ -52,44 +57,92 @@ class InvoicesReceivedStatistics extends Component
         $this->supplierResults = new Collection();
         $this->costCenterResults = new Collection();
 
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
+        $this->refreshAllData();
     }
 
     public function updateDateRange(array $data): void
     {
         $this->dateFrom = $data['date_from'] ?? '';
         $this->dateTo = $data['date_to'] ?? '';
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
+        $this->refreshAllData();
     }
 
     public function refreshStats(): void
     {
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
+        $this->refreshAllData();
     }
 
     public function updatedStatPeriod(): void
     {
         $this->dateFrom = '';
         $this->dateTo = '';
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
+        $this->refreshAllData();
         $this->dispatch('resetDates');
         $this->dispatch('resetDateRangeFilterWithoutApply');
     }
 
     public function updatedExcludeCreditNotes(): void
     {
+        $this->refreshAllData();
+    }
+
+    /**
+     * Ricalcola tutto ciò che dipende dai filtri correnti in un unico punto.
+     */
+    protected function refreshAllData(): void
+    {
         $this->statistics = $this->calculateStatistics();
         $this->periodDisplay = $this->getPeriodDisplay();
+        $this->totalFatturato = $this->calculateTotalFatturato();
+    }
+
+    /**
+     * Query di base con i filtri Proprietà / Fornitore / Centro di Costo /
+     * data / esclusione note di credito, SENZA alcun filtro di stato: è la
+     * stessa combinazione di filtri usata da InvoicesReceivedTable per il
+     * "Totale Fatturato" dell'elenco fatture di acquisto (che non applica
+     * whereIn('status', ...) — il fatturato è indipendente dal fatto che
+     * la fattura sia già stata pagata).
+     *
+     * FIX: "escludi note di credito" ora esclude sia le NC esplicite
+     * (type_invoice = TD04) sia le fatture-credito "sostitutive" con
+     * importo_totale negativo ma senza TD04 (es. FIORINO GROUP), per
+     * coerenza con il resto del gestionale.
+     */
+    protected function baseFilteredInvoiceQuery()
+    {
+        $query = InvoiceReceived::query()
+            ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
+            ->when($this->selectedSupplierId, fn($q) => $q->where('id_entities', $this->selectedSupplierId))
+            ->when($this->selectedCostCenterId, function($q) {
+                $q->whereHas('rows', fn($q2) => $q2->where('id_cost_center', $this->selectedCostCenterId));
+            })
+            ->when($this->excludeCreditNotes, function($q) {
+                $q->where('type_invoice', '!=', 'TD04')
+                  ->where('importo_totale', '>=', 0);
+            });
+
+        $this->applyDateFilter($query);
+
+        return $query;
+    }
+
+    /**
+     * FIX (bug segnalato): il "Totale Fatturato" veniva ricostruito
+     * sommando le righe (con segno invertito per le NC), non da
+     * importo_totale. L'elenco Fatture di Acquisto invece somma
+     * direttamente importo_totale, senza filtro di stato. Per garantire
+     * che i due numeri combacino sempre, calcoliamo qui il totale nello
+     * stesso identico modo dell'elenco.
+     */
+    protected function calculateTotalFatturato(): float
+    {
+        return (float) $this->baseFilteredInvoiceQuery()->sum('importo_totale');
     }
 
     protected function calculateStatistics(): Collection
     {
         $query = InvoiceReceived::query()
-            ->whereIn('status', ['approved', 'issued', 'viewed'])
             ->with(['rows.costCenter'])
             ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
             ->when($this->selectedSupplierId, fn($q) => $q->where('id_entities', $this->selectedSupplierId))
@@ -97,7 +150,8 @@ class InvoicesReceivedStatistics extends Component
                 $q->whereHas('rows', fn($q2) => $q2->where('id_cost_center', $this->selectedCostCenterId));
             })
             ->when($this->excludeCreditNotes, function($q) {
-                $q->where('type_invoice', '!=', 'TD04');
+                $q->where('type_invoice', '!=', 'TD04')
+                  ->where('importo_totale', '>=', 0);
             });
 
         $this->applyDateFilter($query);
@@ -107,9 +161,28 @@ class InvoicesReceivedStatistics extends Component
         $stats = collect();
 
         foreach ($invoices as $invoice) {
-            // TD04 = Nota di Credito → segno negativo
-            $isCreditNote = $invoice->type_invoice === 'TD04';
-            $sign = $isCreditNote ? -1 : 1;
+            $importoTotale = (float) $invoice->importo_totale;
+
+            // Una fattura è "di credito" se è esplicitamente TD04, oppure se
+            // ha importo_totale negativo anche senza essere TD04 (fatture
+            // sostitutive di nota di credito, es. FIORINO GROUP).
+            $isCreditNote = $invoice->type_invoice === 'TD04' || $importoTotale < 0;
+
+            // Importo "vero" della fattura con il segno corretto per il
+            // riepilogo: le NC esplicite (TD04) vengono forzate negative
+            // anche se importo_totale fosse salvato positivo; le fatture
+            // già negative restano tali.
+            $signedInvoiceTotal = $isCreditNote ? -abs($importoTotale) : $importoTotale;
+
+            $rowSum = (float) $invoice->rows->sum('total');
+
+            // FIX: come per le Vendite, distribuiamo l'importo REALE e
+            // firmato della fattura tra le righe in proporzione al peso di
+            // ciascuna riga, invece di sommare row->total con un segno
+            // applicato "a mano". Così la somma per centro di costo
+            // coincide SEMPRE con il Totale Fatturato reale, anche quando
+            // la somma grezza delle righe non coincide con importo_totale.
+            $scaleFactor = ($rowSum != 0.0) ? ($signedInvoiceTotal / $rowSum) : 0.0;
 
             foreach ($invoice->rows as $row) {
                 $costCenterName = 'Non assegnato';
@@ -118,12 +191,14 @@ class InvoicesReceivedStatistics extends Component
                     $costCenterName = $row->costCenter->Nome ?? 'Non assegnato';
                 }
 
+                $contributedAmount = $rowSum != 0.0
+                    ? ((float) $row->total) * $scaleFactor
+                    : 0.0;
+
                 $existing = $stats->firstWhere('cost_center', $costCenterName);
 
-                $rowTotal = $row->total * $sign;
-
                 if ($existing) {
-                    $existing->total += $rowTotal;
+                    $existing->total += $contributedAmount;
                     $existing->count += 1;
                     if ($isCreditNote) {
                         $existing->credit_count += 1;
@@ -133,7 +208,7 @@ class InvoicesReceivedStatistics extends Component
                 } else {
                     $stats->push((object) [
                         'cost_center' => $costCenterName,
-                        'total' => $rowTotal,
+                        'total' => $contributedAmount,
                         'count' => 1,
                         'credit_count' => $isCreditNote ? 1 : 0,
                         'debit_count' => $isCreditNote ? 0 : 1,
@@ -214,8 +289,7 @@ class InvoicesReceivedStatistics extends Component
             $this->selectedOwnershipName = '';
             $this->ownershipResults = new Collection();
             $this->showOwnershipDropdown = false;
-            $this->statistics = $this->calculateStatistics();
-            $this->periodDisplay = $this->getPeriodDisplay();
+            $this->refreshAllData();
             return;
         }
 
@@ -252,8 +326,7 @@ class InvoicesReceivedStatistics extends Component
         $this->selectedOwnershipName = $name;
         $this->ownershipSearch = $name;
         $this->showOwnershipDropdown = false;
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
+        $this->refreshAllData();
     }
 
     public function clearOwnership(): void
@@ -262,8 +335,7 @@ class InvoicesReceivedStatistics extends Component
         $this->selectedOwnershipName = '';
         $this->ownershipSearch = '';
         $this->dispatch('clearOwnershipInput');
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
+        $this->refreshAllData();
     }
 
     // ==================== AUTOCOMPLETE FORNITORE ====================
@@ -274,8 +346,7 @@ class InvoicesReceivedStatistics extends Component
             $this->selectedSupplierName = '';
             $this->supplierResults = new Collection();
             $this->showSupplierDropdown = false;
-            $this->statistics = $this->calculateStatistics();
-            $this->periodDisplay = $this->getPeriodDisplay();
+            $this->refreshAllData();
             return;
         }
 
@@ -315,8 +386,7 @@ class InvoicesReceivedStatistics extends Component
         $this->selectedSupplierName = $name;
         $this->supplierSearch = $name;
         $this->showSupplierDropdown = false;
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
+        $this->refreshAllData();
     }
 
     public function clearSupplier(): void
@@ -325,8 +395,7 @@ class InvoicesReceivedStatistics extends Component
         $this->selectedSupplierName = '';
         $this->supplierSearch = '';
         $this->dispatch('clearSupplierInput');
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
+        $this->refreshAllData();
     }
 
     // ==================== AUTOCOMPLETE CENTRO DI COSTO ====================
@@ -337,8 +406,7 @@ class InvoicesReceivedStatistics extends Component
             $this->selectedCostCenterName = '';
             $this->costCenterResults = new Collection();
             $this->showCostCenterDropdown = false;
-            $this->statistics = $this->calculateStatistics();
-            $this->periodDisplay = $this->getPeriodDisplay();
+            $this->refreshAllData();
             return;
         }
 
@@ -371,8 +439,7 @@ class InvoicesReceivedStatistics extends Component
         $this->selectedCostCenterName = $name;
         $this->costCenterSearch = $name;
         $this->showCostCenterDropdown = false;
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
+        $this->refreshAllData();
     }
 
     public function clearCostCenter(): void
@@ -381,8 +448,7 @@ class InvoicesReceivedStatistics extends Component
         $this->selectedCostCenterName = '';
         $this->costCenterSearch = '';
         $this->dispatch('clearCostCenterInput');
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
+        $this->refreshAllData();
     }
 
     public function render()

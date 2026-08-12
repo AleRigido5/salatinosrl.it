@@ -528,11 +528,60 @@ class InvoiceSentTable extends Component
         return $query;
     }
 
+    /**
+     * Applica l'ordinamento alla query, gestendo in modo speciale i campi
+     * che con un semplice orderBy() non danno il risultato atteso:
+     *
+     * - id_entities (Cliente) / id_ownership (Proprietà): sono chiavi
+     *   esterne numeriche. Ordinare direttamente su di esse ordina per ID
+     *   del record anagrafico collegato (sostanzialmente per ordine di
+     *   creazione), NON alfabeticamente per nome. Serve un JOIN con la
+     *   tabella anagrafica (entities / ownership) e ordinare sul nome.
+     *
+     * - n_invoice (N. Fattura): è una colonna testuale. L'ORDER BY di MySQL
+     *   su stringhe confronta carattere per carattere ("10" viene prima di
+     *   "9" perché '1' < '9'), quindi non dà un ordine numerico corretto.
+     *   Ordinando prima per LENGTH() e poi per il valore stesso si ottiene
+     *   un ordinamento "naturale": a parità di lunghezza il confronto
+     *   testuale coincide con quello numerico, e le stringhe più corte
+     *   rappresentano sempre numeri più piccoli (funziona anche se il
+     *   fornitore include uno "/NN" finale, purché lo stesso formato sia
+     *   usato in modo coerente all'interno dello stesso range di lunghezza).
+     */
+    protected function applySorting($query): void
+    {
+        $direction = $this->sortDirection === 'desc' ? 'desc' : 'asc';
+        $table = $query->getModel()->getTable();
+
+        switch ($this->sortField) {
+            case 'id_entities':
+                $query->leftJoin('entities', "{$table}.id_entities", '=', 'entities.id_cliente')
+                    ->orderByRaw("COALESCE(NULLIF(entities.ragione_sociale, ''), CONCAT(entities.nome, ' ', entities.cognome)) {$direction}")
+                    ->select("{$table}.*");
+                break;
+
+            case 'id_ownership':
+                $query->leftJoin('ownership', "{$table}.id_ownership", '=', 'ownership.id_proprieta')
+                    ->orderByRaw("COALESCE(NULLIF(ownership.RagAbbrev, ''), ownership.Rag_Soc_intest) {$direction}")
+                    ->select("{$table}.*");
+                break;
+
+            case 'n_invoice':
+                $query->orderByRaw("LENGTH({$table}.n_invoice) {$direction}, {$table}.n_invoice {$direction}");
+                break;
+
+            default:
+                $query->orderBy("{$table}.{$this->sortField}", $direction);
+                break;
+        }
+    }
+
     public function getInvoicesProperty()
     {
         $query = $this->baseFilteredQuery()
-            ->with(['ownership', 'entity', 'rows.costCenter', 'rows.service'])
-            ->orderBy($this->sortField, $this->sortDirection);
+            ->with(['ownership', 'entity', 'rows.costCenter', 'rows.service']);
+
+        $this->applySorting($query);
 
         if ($this->perPage == 10000) {
             $results = $query->get();

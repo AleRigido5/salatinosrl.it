@@ -42,8 +42,13 @@ class InvoiceSentStatistics extends Component
     public Collection $statistics;
     public string $periodDisplay = '';
 
-    // Statistiche mensili (nuove)
+    // Statistiche mensili
     public Collection $monthlyStatistics;
+
+    // FIX: totale "vero", calcolato direttamente da importo_totale (stessa
+    // fonte usata dall'elenco Fatture di Vendita), non ricostruito
+    // sommando le righe. Vedi calculateTotalFatturato() per il motivo.
+    public float $totalFatturato = 0;
 
     protected $listeners = [
         'dateRangeUpdated' => 'updateDateRange',
@@ -55,42 +60,104 @@ class InvoiceSentStatistics extends Component
         $this->customerResults = new Collection();
         $this->costCenterResults = new Collection();
 
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
-        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
+        // ============================================
+        // DEFAULT: Proprietà "Agr Srl" preselezionata.
+        // FIX: la data NON viene più forzata a un range fisso (era
+        // 01/01/2026 - 31/12/2026): si lascia vuota così la logica di
+        // applyDateFilter() applica il suo default naturale, cioè il
+        // "mese corrente" (statPeriod = 'monthly').
+        // ============================================
+        $defaultOwnership = Ownership::where(function ($q) {
+                $q->whereRaw('LOWER(RagAbbrev) LIKE ?', ['agr%'])
+                  ->orWhereRaw('LOWER(Rag_Soc_intest) LIKE ?', ['agr%']);
+            })
+            ->first();
+
+        if ($defaultOwnership) {
+            $this->selectedOwnershipId = (string) $defaultOwnership->id_proprieta;
+            $this->selectedOwnershipName = $defaultOwnership->RagAbbrev ?? $defaultOwnership->Rag_Soc_intest;
+            $this->ownershipSearch = $this->selectedOwnershipName;
+        }
+
+        $this->refreshAllData();
     }
 
     public function updateDateRange(array $data): void
     {
         $this->dateFrom = $data['date_from'] ?? '';
         $this->dateTo = $data['date_to'] ?? '';
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
-        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
+        $this->refreshAllData();
     }
 
     // ==================== STATISTICHE ====================
     public function refreshStats(): void
     {
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
-        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
+        $this->refreshAllData();
     }
 
     public function updatedStatPeriod(): void
     {
         $this->dateFrom = '';
         $this->dateTo = '';
+        $this->refreshAllData();
+        $this->dispatch('resetDates');
+    }
+
+    /**
+     * Ricalcola tutto ciò che dipende dai filtri correnti in un unico punto,
+     * per evitare che una chiamata dimenticata in giro per il componente
+     * lasci la pagina con dati non allineati ai filtri (è già successo).
+     */
+    protected function refreshAllData(): void
+    {
         $this->statistics = $this->calculateStatistics();
         $this->periodDisplay = $this->getPeriodDisplay();
         $this->monthlyStatistics = $this->calculateMonthlyStatistics();
-        $this->dispatch('resetDates');
+        $this->totalFatturato = $this->calculateTotalFatturato();
+    }
+
+    /**
+     * Query di base con i filtri Proprietà / Cliente / Centro di Costo e la
+     * data, SENZA alcun filtro di stato: è la stessa identica combinazione
+     * di filtri usata da InvoiceSentTable::baseFilteredQuery() per il
+     * "Totale Fatturato" dell'elenco fatture. Riutilizzata sia per il
+     * totale "vero" sia per la statistica per categoria, così le due
+     * pagine partono sempre dallo stesso insieme di fatture.
+     */
+    protected function baseFilteredInvoiceQuery()
+    {
+        $query = InvoiceSent::query()
+            ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
+            ->when($this->selectedCustomerId, fn($q) => $q->where('id_entities', $this->selectedCustomerId))
+            ->when($this->selectedCostCenterId, function($q) {
+                $q->whereHas('rows', fn($q2) => $q2->where('id_cost_center', $this->selectedCostCenterId));
+            });
+
+        $this->applyDateFilter($query);
+
+        return $query;
+    }
+
+    /**
+     * FIX (bug principale segnalato): il "Totale Fatturato" mostrato in
+     * pagina veniva ricostruito sommando row->total per ogni riga di ogni
+     * fattura (vedi calculateStatistics). Quel valore può divergere da
+     * importo_totale per arrotondamenti, sconti applicati diversamente, o
+     * righe non perfettamente allineate al totale della fattura.
+     * L'elenco Fatture di Vendita invece somma direttamente importo_totale
+     * (nessuna ricostruzione dalle righe). Per garantire che i due numeri
+     * combacino SEMPRE, calcoliamo qui il totale nello stesso modo
+     * dell'elenco: somma diretta di importo_totale sulla stessa query
+     * filtrata, senza passare dalle righe.
+     */
+    protected function calculateTotalFatturato(): float
+    {
+        return (float) $this->baseFilteredInvoiceQuery()->sum('importo_totale');
     }
 
     protected function calculateStatistics(): Collection
     {
         $query = InvoiceSent::query()
-            ->whereIn('status', ['approved', 'issued'])
             ->with(['rows.service.category'])
             ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
             ->when($this->selectedCustomerId, fn($q) => $q->where('id_entities', $this->selectedCustomerId))
@@ -105,6 +172,23 @@ class InvoiceSentStatistics extends Component
         $stats = collect();
 
         foreach ($invoices as $invoice) {
+            $rowSum = (float) $invoice->rows->sum('total');
+            $invoiceTotal = (float) $invoice->importo_totale;
+
+            // FIX: invece di sommare row->total così com'è, distribuiamo
+            // l'importo REALE della fattura (importo_totale) tra le righe in
+            // proporzione al peso di ciascuna riga sul totale grezzo delle
+            // righe stesse. In condizioni normali (somma righe = importo
+            // fattura) questo dà lo stesso risultato di prima. Ma se per una
+            // fattura la somma delle righe NON coincide con importo_totale
+            // (nota di credito con convenzione di segno diversa a livello
+            // riga, sconto globale non ripartito sulle righe, modifica
+            // manuale, arrotondamenti) la somma per categoria continua a
+            // corrispondere ESATTAMENTE al Totale Fatturato reale, invece di
+            // sforare il 100% (come si vedeva: 85.123,00 € / 135.5% contro
+            // un totale vero di 62.805,86 €).
+            $scaleFactor = ($rowSum != 0.0) ? ($invoiceTotal / $rowSum) : 0.0;
+
             foreach ($invoice->rows as $row) {
                 $categoryName = 'Non categorizzato';
 
@@ -112,15 +196,19 @@ class InvoiceSentStatistics extends Component
                     $categoryName = $row->service->category->valore ?? 'Non categorizzato';
                 }
 
+                $contributedAmount = $rowSum != 0.0
+                    ? ((float) $row->total) * $scaleFactor
+                    : 0.0;
+
                 $existing = $stats->firstWhere('service_category', $categoryName);
 
                 if ($existing) {
-                    $existing->total += $row->total;
+                    $existing->total += $contributedAmount;
                     $existing->count += 1;
                 } else {
                     $stats->push((object) [
                         'service_category' => $categoryName,
-                        'total' => $row->total,
+                        'total' => $contributedAmount,
                         'count' => 1,
                     ]);
                 }
@@ -153,8 +241,6 @@ class InvoiceSentStatistics extends Component
         }
 
         $query = InvoiceSent::query()
-            ->whereIn('status', ['approved', 'issued'])
-            ->with('rows')
             ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
             ->when($this->selectedCustomerId, fn($q) => $q->where('id_entities', $this->selectedCustomerId))
             ->when($this->selectedCostCenterId, function($q) {
@@ -180,7 +266,10 @@ class InvoiceSentStatistics extends Component
 
         foreach ($invoices as $invoice) {
             $monthKey = Carbon::parse($invoice->data_invoice)->format('Y-m');
-            $invoiceTotal = $invoice->rows->sum('total');
+            // FIX: usa importo_totale della fattura (come l'elenco fatture)
+            // invece di ri-sommare le righe, per lo stesso motivo spiegato
+            // in calculateTotalFatturato().
+            $invoiceTotal = (float) $invoice->importo_totale;
 
             if ($months->has($monthKey)) {
                 $months[$monthKey]->total += $invoiceTotal;
@@ -260,9 +349,7 @@ class InvoiceSentStatistics extends Component
             $this->selectedOwnershipName = '';
             $this->ownershipResults = new Collection();
             $this->showOwnershipDropdown = false;
-            $this->statistics = $this->calculateStatistics();
-            $this->periodDisplay = $this->getPeriodDisplay();
-            $this->monthlyStatistics = $this->calculateMonthlyStatistics();
+            $this->refreshAllData();
             return;
         }
 
@@ -299,9 +386,7 @@ class InvoiceSentStatistics extends Component
         $this->selectedOwnershipName = $name;
         $this->ownershipSearch = $name;
         $this->showOwnershipDropdown = false;
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
-        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
+        $this->refreshAllData();
     }
 
     public function clearOwnership(): void
@@ -311,9 +396,7 @@ class InvoiceSentStatistics extends Component
         $this->ownershipSearch = '';
         $this->showOwnershipDropdown = false;
         $this->dispatch('clearOwnershipInput');
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
-        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
+        $this->refreshAllData();
     }
 
     // ==================== AUTOCOMPLETE CLIENTE ====================
@@ -329,9 +412,7 @@ class InvoiceSentStatistics extends Component
             $this->selectedCustomerName = '';
             $this->customerResults = new Collection();
             $this->showCustomerDropdown = false;
-            $this->statistics = $this->calculateStatistics();
-            $this->periodDisplay = $this->getPeriodDisplay();
-            $this->monthlyStatistics = $this->calculateMonthlyStatistics();
+            $this->refreshAllData();
             return;
         }
 
@@ -366,9 +447,7 @@ class InvoiceSentStatistics extends Component
         $this->selectedCustomerName = $name;
         $this->customerSearch = $name;
         $this->showCustomerDropdown = false;
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
-        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
+        $this->refreshAllData();
     }
 
     public function clearCustomer(): void
@@ -377,9 +456,7 @@ class InvoiceSentStatistics extends Component
         $this->selectedCustomerName = '';
         $this->customerSearch = '';
         $this->dispatch('clearCustomerInput');
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
-        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
+        $this->refreshAllData();
     }
 
     // ==================== AUTOCOMPLETE CENTRO DI COSTO ====================
@@ -395,9 +472,7 @@ class InvoiceSentStatistics extends Component
             $this->selectedCostCenterName = '';
             $this->costCenterResults = new Collection();
             $this->showCostCenterDropdown = false;
-            $this->statistics = $this->calculateStatistics();
-            $this->periodDisplay = $this->getPeriodDisplay();
-            $this->monthlyStatistics = $this->calculateMonthlyStatistics();
+            $this->refreshAllData();
             return;
         }
 
@@ -425,9 +500,7 @@ class InvoiceSentStatistics extends Component
         $this->selectedCostCenterName = $name;
         $this->costCenterSearch = $name;
         $this->showCostCenterDropdown = false;
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
-        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
+        $this->refreshAllData();
     }
 
     public function clearCostCenter(): void
@@ -436,9 +509,7 @@ class InvoiceSentStatistics extends Component
         $this->selectedCostCenterName = '';
         $this->costCenterSearch = '';
         $this->dispatch('clearCostCenterInput');
-        $this->statistics = $this->calculateStatistics();
-        $this->periodDisplay = $this->getPeriodDisplay();
-        $this->monthlyStatistics = $this->calculateMonthlyStatistics();
+        $this->refreshAllData();
     }
 
     public function render()

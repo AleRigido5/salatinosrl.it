@@ -54,6 +54,14 @@ class InvoicePaymentsSentTable extends Component
     public ?int $closingInvoiceId = null;
     public string $closeInvoiceSearch = '';
     public Collection $creditNoteResults;
+
+    // Tipi documento SDI trattati come nota di credito. FIX: prima veniva
+    // controllato solo 'TD04', quindi le note di credito salvate con tipo
+    // 'TD08' (o comunque diverso da TD04) non comparivano mai nella
+    // ricerca "Chiudi fattura con nota di credito", indipendentemente da
+    // quanti caratteri si digitavano. Stessa convenzione già usata in
+    // InvoiceSentTable / InvoiceSentStatistics / StatisticsGeneral.
+    protected const CREDIT_NOTE_TYPES = ['TD04', 'TD08'];
     
     // Eventi ascoltati
     protected $listeners = [
@@ -273,15 +281,30 @@ class InvoicePaymentsSentTable extends Component
         $this->creditNoteResults = new Collection();
     }
 
+    /**
+     * FIX: la ricerca controllava solo type_invoice = 'TD04', escludendo
+     * di fatto qualunque nota di credito salvata con un codice diverso
+     * (es. TD08), che quindi non compariva mai — indipendentemente dalla
+     * lunghezza del testo digitato. Ora usa whereIn su tutti i tipi
+     * documento trattati come nota di credito nel resto del gestionale.
+     *
+     * NOTA: se dopo questo fix una NC specifica continua a non comparire,
+     * le cause più probabili sono altre due, entrambe intenzionali nella
+     * query:
+     * 1) closes_invoice_id già valorizzato -> la NC risulta già collegata
+     *    a un'altra fattura e viene esclusa (whereNull).
+     * 2) il numero digitato non corrisponde esattamente al valore salvato
+     *    in n_invoice (es. sta in un campo diverso, come n_invoice_ext).
+     */
     public function updatedCloseInvoiceSearch(): void
     {
-        if (strlen($this->closeInvoiceSearch) < 2) {
+        if (strlen(trim($this->closeInvoiceSearch)) < 2) {
             $this->creditNoteResults = new Collection();
             return;
         }
 
         try {
-            $this->creditNoteResults = InvoiceSent::where('type_invoice', 'TD04')
+            $this->creditNoteResults = InvoiceSent::whereIn('type_invoice', self::CREDIT_NOTE_TYPES)
                 ->where('n_invoice', 'like', '%' . $this->closeInvoiceSearch . '%')
                 ->whereNull('closes_invoice_id')
                 ->limit(10)

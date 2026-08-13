@@ -369,6 +369,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
         });
 
         // =============================================
+        // STATISTICHE GENERALI (Vendite vs Acquisti)
+        // =============================================
+        Route::prefix('statistics')->name('statistics.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\StatisticsController::class, 'index'])->name('index');
+        });
+
+        // =============================================
         // GESTIONE SCADENZE (EXPIRATION)
         // =============================================
         // Scadenze Staff

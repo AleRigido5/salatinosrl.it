@@ -346,6 +346,12 @@
                     @forelse($invoices as $invoice)
                     @php
                         $costCenterNames = $invoice->rows->pluck('costCenter.Nome')->filter()->unique()->implode(', ');
+                        // FIX: le note di credito (TD04/TD08) hanno importo_totale salvato
+                        // POSITIVO nel DB, ma vanno mostrate in negativo in tabella così che
+                        // il totale della colonna sia coerente con footerTotals, che applica
+                        // lo stesso segno in fase di somma.
+                        $isCreditNote = in_array($invoice->type_invoice, ['TD04', 'TD08']);
+                        $displayTotal = $isCreditNote ? -$invoice->importo_totale : $invoice->importo_totale;
                     @endphp
                     <tr class="hover:bg-gray-50" wire:key="invoice-{{ $invoice->id }}">
                         <td class="px-4 py-3 text-sm">{{ $invoice->ownership->RagAbbrev ?? $invoice->ownership_name }}</td>
@@ -397,7 +403,9 @@
                             @endphp
                             <span class="px-2 py-1 rounded-full text-xs font-medium {{ $badgeClass }}">{{ $statusLabel }}</span>
                         </td>
-                        <td class="px-4 py-3 text-right font-medium">{{ number_format($invoice->importo_totale, 2, ',', '.') }} €</td>
+                        <td class="px-4 py-3 text-right font-medium {{ $isCreditNote ? 'text-red-600' : '' }}">
+                            {{ number_format($displayTotal, 2, ',', '.') }} €
+                        </td>
                         <td class="px-4 py-3 text-center">
                             <div class="flex items-center justify-center space-x-2">
                                 @if($invoice->has_attachments)

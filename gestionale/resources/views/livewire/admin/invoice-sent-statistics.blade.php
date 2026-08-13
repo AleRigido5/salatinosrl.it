@@ -372,7 +372,9 @@
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mese</th>
-                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Fatturato</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Imponibile</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">IVA</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Totale Fattura</th>
                                 <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">N. Fatture</th>
                             </tr>
                         </thead>
@@ -382,6 +384,12 @@
                                     <td class="px-4 py-3 text-sm font-medium text-gray-900">
                                         <i class="fas fa-calendar-day text-lime-500 mr-2"></i>
                                         {{ $month->month_label }}
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-right text-gray-700">
+                                        {{ number_format($month->imponibile, 2, ',', '.') }} €
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-right text-gray-700">
+                                        {{ number_format($month->iva, 2, ',', '.') }} €
                                     </td>
                                     <td class="px-4 py-3 text-sm text-right font-semibold text-gray-900">
                                         {{ number_format($month->total, 2, ',', '.') }} €
@@ -397,6 +405,8 @@
                         <tfoot class="bg-gray-50">
                             <tr>
                                 <td class="px-4 py-3 text-sm font-bold text-gray-900">TOTALE PERIODO</td>
+                                <td class="px-4 py-3 text-sm text-right font-bold text-gray-900">{{ number_format($monthlyStatistics->sum('imponibile'), 2, ',', '.') }} €</td>
+                                <td class="px-4 py-3 text-sm text-right font-bold text-gray-900">{{ number_format($monthlyStatistics->sum('iva'), 2, ',', '.') }} €</td>
                                 <td class="px-4 py-3 text-sm text-right font-bold text-green-600">{{ number_format($monthlyStatistics->sum('total'), 2, ',', '.') }} €</td>
                                 <td class="px-4 py-3 text-sm text-center font-bold text-gray-900">{{ $monthlyStatistics->sum('count') }}</td>
                             </tr>

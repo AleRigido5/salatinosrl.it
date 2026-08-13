@@ -50,6 +50,12 @@ class InvoiceSentStatistics extends Component
     // sommando le righe. Vedi calculateTotalFatturato() per il motivo.
     public float $totalFatturato = 0;
 
+    // Tipi documento SDI trattati come nota di credito: importo_totale (e i
+    // relativi vatSummaries) sono salvati POSITIVI nel DB ma vanno DETRATTI
+    // dai totali/statistiche, non sommati — stessa convenzione già usata
+    // in InvoiceSentTable (elenco fatture di vendita) per footerTotals.
+    protected const CREDIT_NOTE_TYPES = ['TD04', 'TD08'];
+
     protected $listeners = [
         'dateRangeUpdated' => 'updateDateRange',
     ];
@@ -61,11 +67,8 @@ class InvoiceSentStatistics extends Component
         $this->costCenterResults = new Collection();
 
         // ============================================
-        // DEFAULT: Proprietà "Agr Srl" preselezionata.
-        // FIX: la data NON viene più forzata a un range fisso (era
-        // 01/01/2026 - 31/12/2026): si lascia vuota così la logica di
-        // applyDateFilter() applica il suo default naturale, cioè il
-        // "mese corrente" (statPeriod = 'monthly').
+        // DEFAULT: Proprietà "Agr Srl" preselezionata e range data
+        // sull'anno 2026 (01/01/2026 - 31/12/2026).
         // ============================================
         $defaultOwnership = Ownership::where(function ($q) {
                 $q->whereRaw('LOWER(RagAbbrev) LIKE ?', ['agr%'])
@@ -78,6 +81,9 @@ class InvoiceSentStatistics extends Component
             $this->selectedOwnershipName = $defaultOwnership->RagAbbrev ?? $defaultOwnership->Rag_Soc_intest;
             $this->ownershipSearch = $this->selectedOwnershipName;
         }
+
+        $this->dateFrom = '2026-01-01';
+        $this->dateTo = '2026-12-31';
 
         $this->refreshAllData();
     }
@@ -219,11 +225,34 @@ class InvoiceSentStatistics extends Component
     }
 
     /**
-     * Calcola il fatturato suddiviso per mese.
-     * Rispetta i filtri di Proprietà / Cliente / Centro di Costo.
-     * Se sono impostate date personalizzate (dateFrom/dateTo) usa quel range,
-     * altrimenti mostra sempre gli ultimi 12 mesi (indipendentemente dal
-     * selettore Mensile/Trimestrale/Semestrale/Annuale).
+     * Restituisce "NomeMese Anno" in italiano, indipendentemente dalla
+     * locale configurata a livello di server/applicazione (non ci si
+     * affida a translatedFormat/setLocale, che richiedono i file di
+     * traduzione Carbon installati e correttamente attivi).
+     */
+    protected function italianMonthLabel(Carbon $date): string
+    {
+        static $months = [
+            1 => 'Gennaio', 2 => 'Febbraio', 3 => 'Marzo', 4 => 'Aprile',
+            5 => 'Maggio', 6 => 'Giugno', 7 => 'Luglio', 8 => 'Agosto',
+            9 => 'Settembre', 10 => 'Ottobre', 11 => 'Novembre', 12 => 'Dicembre',
+        ];
+
+        return $months[$date->month] . ' ' . $date->format('Y');
+    }
+
+    /**
+     * Calcola il fatturato suddiviso per mese: Imponibile, IVA, Totale
+     * Fattura e N. Fatture. Rispetta i filtri di Proprietà / Cliente /
+     * Centro di Costo. Se sono impostate date personalizzate
+     * (dateFrom/dateTo) usa quel range, altrimenti mostra sempre gli
+     * ultimi 12 mesi (indipendentemente dal selettore
+     * Mensile/Trimestrale/Semestrale/Annuale).
+     *
+     * Le note di credito (TD04/TD08) vengono sottratte (Imponibile, IVA e
+     * Totale Fattura), non sommate — stessa convenzione già applicata in
+     * InvoiceSentTable::getFooterTotalsProperty(), così i totali di questa
+     * pagina restano coerenti con quelli dell'elenco fatture.
      */
     protected function calculateMonthlyStatistics(): Collection
     {
@@ -241,6 +270,7 @@ class InvoiceSentStatistics extends Component
         }
 
         $query = InvoiceSent::query()
+            ->with(['vatSummaries'])
             ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
             ->when($this->selectedCustomerId, fn($q) => $q->where('id_entities', $this->selectedCustomerId))
             ->when($this->selectedCostCenterId, function($q) {
@@ -257,7 +287,9 @@ class InvoiceSentStatistics extends Component
         while ($cursor->lte($rangeEnd)) {
             $months->put($cursor->format('Y-m'), (object) [
                 'month_key' => $cursor->format('Y-m'),
-                'month_label' => ucfirst($cursor->translatedFormat('F Y')),
+                'month_label' => $this->italianMonthLabel($cursor),
+                'imponibile' => 0.0,
+                'iva' => 0.0,
                 'total' => 0.0,
                 'count' => 0,
             ]);
@@ -266,15 +298,21 @@ class InvoiceSentStatistics extends Component
 
         foreach ($invoices as $invoice) {
             $monthKey = Carbon::parse($invoice->data_invoice)->format('Y-m');
-            // FIX: usa importo_totale della fattura (come l'elenco fatture)
-            // invece di ri-sommare le righe, per lo stesso motivo spiegato
-            // in calculateTotalFatturato().
-            $invoiceTotal = (float) $invoice->importo_totale;
 
-            if ($months->has($monthKey)) {
-                $months[$monthKey]->total += $invoiceTotal;
-                $months[$monthKey]->count += 1;
+            if (!$months->has($monthKey)) {
+                continue;
             }
+
+            $isCreditNote = in_array($invoice->type_invoice, self::CREDIT_NOTE_TYPES);
+            $sign = $isCreditNote ? -1 : 1;
+
+            // FIX: usa importo_totale/vatSummaries della fattura (come
+            // l'elenco fatture) invece di ri-sommare le righe, per lo
+            // stesso motivo spiegato in calculateTotalFatturato().
+            $months[$monthKey]->imponibile += $sign * (float) $invoice->vatSummaries->sum('taxable_amount');
+            $months[$monthKey]->iva += $sign * (float) $invoice->vatSummaries->sum('tax_amount');
+            $months[$monthKey]->total += $sign * (float) $invoice->importo_totale;
+            $months[$monthKey]->count += 1;
         }
 
         return $months->values();

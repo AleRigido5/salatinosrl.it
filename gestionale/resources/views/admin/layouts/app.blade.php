@@ -663,6 +663,15 @@
                         <span class="sidebar-link-text text-sm font-medium ml-3">Prima Nota</span>
                     </a>
                     @endif
+
+                    <!-- Statistiche -->
+                    @if($currentAdmin && $currentAdmin->hasPermission('view_statistics'))
+                    <a href="{{ route('admin.statistics.index') }}" 
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.statistics.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                        <i class="fa-solid fa-chart-simple w-5 h-5 {{ request()->routeIs('admin.statistics.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                        <span class="sidebar-link-text text-sm font-medium ml-3">Statistiche</span>
+                    </a>
+                    @endif
                 </div>
                 @endif
             </nav>
@@ -984,6 +993,14 @@
                                             }
                                             $breadcrumbs[] = ['name' => 'Modifica', 'url' => null, 'clickable' => false];
                                         }
+                                    }
+                                }
+                                // Statistiche (Generali - Vendite vs Acquisti)
+                                elseif (str_starts_with($currentRoute, 'admin.statistics.')) {
+                                    $breadcrumbs[] = ['name' => 'Statistiche', 'url' => route('admin.statistics.index'), 'clickable' => true];
+
+                                    if ($currentRoute === 'admin.statistics.index') {
+                                        $breadcrumbs[] = ['name' => 'Generali', 'url' => null, 'clickable' => false];
                                     }
                                 }
                                 // Prima Nota (Accounting Entries)

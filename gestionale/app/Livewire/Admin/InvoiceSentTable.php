@@ -559,6 +559,14 @@ class InvoiceSentTable extends Component
      *   rappresentano sempre numeri più piccoli (funziona anche se il
      *   fornitore include uno "/NN" finale, purché lo stesso formato sia
      *   usato in modo coerente all'interno dello stesso range di lunghezza).
+     *
+     * - importo_totale (Totale): in DB è sempre salvato POSITIVO, anche per
+     *   le note di credito (TD04/TD08), che invece vengono mostrate/sommate
+     *   in negativo (vedi colonna Totale in tabella e footerTotals). Per
+     *   evitare che l'ordinamento "mescoli" i valori usando il segno grezzo
+     *   del DB invece di quello effettivamente mostrato, ordiniamo su
+     *   un'espressione che applica lo stesso segno: negativo per le note di
+     *   credito, positivo per tutto il resto.
      */
     protected function applySorting($query): void
     {
@@ -580,6 +588,12 @@ class InvoiceSentTable extends Component
 
             case 'n_invoice':
                 $query->orderByRaw("LENGTH({$table}.n_invoice) {$direction}, {$table}.n_invoice {$direction}");
+                break;
+
+            case 'importo_totale':
+                $query->orderByRaw(
+                    "CASE WHEN {$table}.type_invoice IN ('TD04', 'TD08') THEN -{$table}.importo_totale ELSE {$table}.importo_totale END {$direction}"
+                );
                 break;
 
             default:

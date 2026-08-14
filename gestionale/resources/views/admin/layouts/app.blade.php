@@ -364,6 +364,17 @@
                     </a>
                 </div>
                 @endif
+
+                <!-- In Evidenza (Task Amministrativi) -->
+                @if($currentAdmin && $currentAdmin->hasPermission('view_admin_tasks'))
+                <div>
+                    <a href="{{ route('admin.admin-tasks.index') }}" 
+                    class="sidebar-link flex items-center px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.admin-tasks.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                        <i class="fa-solid fa-bell w-5 h-5 {{ request()->routeIs('admin.admin-tasks.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                        <span class="sidebar-link-text text-sm font-medium ml-3">In Evidenza</span>
+                    </a>
+                </div>
+                @endif
                 
                 <!-- Anagrafica -->
                 @if($currentAdmin && ($currentAdmin->hasPermission('view_entities') || $currentAdmin->hasPermission('view_staff') || $currentAdmin->hasPermission('view_vehicles') || $currentAdmin->hasPermission('view_cost_centers') || $currentAdmin->hasPermission('view_activities')))
@@ -695,6 +706,10 @@
                                 if ($currentRoute === 'admin.dashboard') {
                                     $breadcrumbs[] = ['name' => 'Dashboard', 'url' => null, 'clickable' => false];
                                 }
+                                // In Evidenza (Task Amministrativi)
+                                elseif (str_starts_with($currentRoute, 'admin.admin-tasks.')) {
+                                    $breadcrumbs[] = ['name' => 'In Evidenza', 'url' => null, 'clickable' => false];
+                                }
                                 // Attività
                                 elseif (str_starts_with($currentRoute, 'admin.activities.')) {
                                     $breadcrumbs[] = ['name' => 'Attività', 'url' => route('admin.activities.index'), 'clickable' => true];
@@ -900,6 +915,10 @@
                                             $breadcrumbs[] = ['name' => $vehicle->full_name ?? $vehicle->targa, 'url' => route('admin.vehicles.show', $idRef), 'clickable' => true];
                                             $breadcrumbs[] = ['name' => 'Documenti', 'url' => null, 'clickable' => false];
                                         }
+                                    }
+                                    elseif ($tableRef === 'admin_tasks') {
+                                        $breadcrumbs[] = ['name' => 'In Evidenza', 'url' => route('admin.admin-tasks.index'), 'clickable' => true];
+                                        $breadcrumbs[] = ['name' => 'Allegati', 'url' => null, 'clickable' => false];
                                     }
                                 }
                                 // Centri di Costo
@@ -1214,7 +1233,8 @@
                                 </a>
                                 @endif
                                 
-                                <!-- Settings -->
+                                <!-- Settings (qui dentro, tra le categorie esistenti, trovi anche
+                                     "Task Amministrativi" con i valori Solleciti/Pratiche/Multe) -->
                                 @if($currentAdmin && $currentAdmin->hasPermission('access_settings'))
                                 <div class="dropdown-divider"></div>
                                 <a href="{{ route('admin.settings.categories.index') }}" class="dropdown-item">

@@ -52,6 +52,17 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
         // =============================================
+        // IN EVIDENZA - GESTIONE TASK AMMINISTRATIVI
+        // =============================================
+        Route::prefix('admin-tasks')->name('admin-tasks.')->group(function () {
+            Route::get('/', [App\Http\Controllers\Admin\AdminTaskController::class, 'index'])->name('index');
+            Route::get('/api/search-tags', [App\Http\Controllers\Admin\AdminTaskController::class, 'searchTags'])->name('api.search-tags');
+        });
+        // Le categorie dei task NON hanno rotte dedicate: sono righe
+        // della tabella "settings" (tabella_riferimento = 'admin_tasks'),
+        // gestite dalla UI di Impostazioni già esistente (admin.settings.*).
+
+        // =============================================
         // GESTIONE AMMINISTRATORI
         // =============================================
         Route::resource('administrators', AdministratorController::class);

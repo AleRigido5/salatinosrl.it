@@ -106,6 +106,8 @@ class InvoiceSentEditController extends Controller
                 'id' => $row->id,
                 'code' => $row->code ?? '',
                 'description' => $row->description,
+                // NOTA: (float) preserva correttamente il segno negativo delle
+                // righe "a detrarre" — qui non c'è nessuno azzeramento.
                 'quantity' => (float)$row->quantity,
                 'unit_price' => (float)$row->unit_price,
                 'id_unit_measure' => $row->id_unit_measure ?? 1,
@@ -243,12 +245,100 @@ class InvoiceSentEditController extends Controller
         return view('admin.invoice-sent.edit', $data);
     }
 
+    /**
+     * FIX (root cause dell'errore "The rows.X.unit_price field must be a
+     * number"): il form invia i numeri già formattati "all'italiana"
+     * (punto delle migliaia, virgola decimale — es. "-10.920,00"). PHP
+     * is_numeric('-10.920,00') restituisce FALSE (la virgola non è un
+     * separatore decimale valido), quindi la regola di validazione
+     * "numeric" falliva SEMPRE per questi valori, ancora prima di
+     * arrivare alla conversione floatval(str_replace(...)) che il metodo
+     * update() fa più sotto — quella conversione avviene infatti DOPO
+     * $request->validate(), quindi non serviva a nulla per superare il
+     * controllo.
+     *
+     * Qui normalizziamo i campi numerici (quantity, unit_price,
+     * discount_percentage, importo_totale, payments.*.amount) portandoli
+     * in formato "macchina" (punto decimale, senza separatore delle
+     * migliaia) PRIMA di validare, così sia i valori positivi che quelli
+     * negativi (righe "a detrarre" con unit_price negativo) passano
+     * correttamente la regola "numeric".
+     */
+    protected function normalizeNumericRequestFields(Request $request): void
+    {
+        $rows = $request->input('rows', []);
+        foreach ($rows as $index => $row) {
+            foreach (['quantity', 'unit_price', 'discount_percentage'] as $field) {
+                if (array_key_exists($field, $row)) {
+                    $rows[$index][$field] = $this->normalizeItalianNumber($row[$field]);
+                }
+            }
+        }
+        $request->merge(['rows' => $rows]);
+
+        if ($request->has('importo_totale')) {
+            $request->merge([
+                'importo_totale' => $this->normalizeItalianNumber($request->input('importo_totale')),
+            ]);
+        }
+
+        $payments = $request->input('payments', []);
+        if (!empty($payments)) {
+            foreach ($payments as $index => $payment) {
+                if (array_key_exists('amount', $payment)) {
+                    $payments[$index]['amount'] = $this->normalizeItalianNumber($payment['amount']);
+                }
+            }
+            $request->merge(['payments' => $payments]);
+        }
+    }
+
+    /**
+     * Converte un numero in formato italiano ("-10.920,00", "1.234,5",
+     * "20365") nel formato "macchina" con punto decimale ("-10920.00").
+     * Se il valore è già numerico (es. inviato come "-10920.00" o un
+     * int/float), viene restituito invariato: questo rende la funzione
+     * sicura anche se in futuro il frontend viene aggiornato per inviare
+     * già numeri "puliti".
+     */
+    protected function normalizeItalianNumber($value)
+    {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return $value;
+        }
+
+        $value = trim((string) $value);
+
+        // Già in formato macchina (es. "-10920.00", "1234", "0.5")
+        if (is_numeric($value)) {
+            return $value;
+        }
+
+        // Rimuove simboli di valuta ed eventuali spazi residui
+        $value = str_replace(['€', ' '], '', $value);
+
+        // Formato italiano: punto = migliaia, virgola = decimale
+        // Rimuove i punti (migliaia) e converte la virgola in punto decimale.
+        $value = str_replace('.', '', $value);
+        $value = str_replace(',', '.', $value);
+
+        return $value;
+    }
+
     public function update(Request $request, $id)
     {
         try {
             DB::beginTransaction();
 
             $invoice = InvoiceSent::findOrFail($id);
+
+            // FIX: normalizza i numeri in formato italiano PRIMA di validare
+            // (vedi normalizeNumericRequestFields per il dettaglio del bug).
+            $this->normalizeNumericRequestFields($request);
             
             // Validazione base
             $rules = [
@@ -265,10 +355,16 @@ class InvoiceSentEditController extends Controller
                     'data_invoice' => 'required|date',
                     'selected_customer_id' => 'required|exists:entities,id_cliente',
                     'n_invoice_ext' => 'nullable|string|max:100',
-                    'importo_totale' => 'numeric|min:0',
+                    // FIX: importo_totale può essere negativo per le note di
+                    // credito (TD04/TD08) create manualmente — rimosso min:0.
+                    'importo_totale' => 'nullable|numeric',
                     'rows.*.code' => 'nullable|string',
                     'rows.*.quantity' => 'required|numeric|min:0.001',
-                    'rows.*.unit_price' => 'required|numeric|min:0',
+                    // FIX: rimosso "min:0". Le righe "a detrarre" (es. sconto
+                    // per acconto già fatturato) hanno legittimamente
+                    // unit_price negativo — vedi PDF fattura 90/A Ranieri
+                    // Guglielmo, righe con codice 17.
+                    'rows.*.unit_price' => 'required|numeric',
                     'rows.*.vat_rate_id' => 'nullable|exists:vat_rates,id',
                     'payments' => 'array|nullable',
                     'payments.*.amount' => 'numeric|min:0',
@@ -311,6 +407,12 @@ class InvoiceSentEditController extends Controller
                 }
 
                 // Calcola il totale imponibile
+                // NOTA: qui i valori sono già stati normalizzati in formato
+                // macchina da normalizeNumericRequestFields(), quindi
+                // floatval() + str_replace(',', '.', ...) restano innocui
+                // anche se ridondanti (li lascio per sicurezza, nel caso in
+                // cui qualche punto della request non passi dalla
+                // normalizzazione).
                 $quantity = floatval(str_replace(',', '.', $row['quantity'] ?? 1));
                 $unitPrice = floatval(str_replace(',', '.', $row['unit_price'] ?? 0));
                 $discount = floatval(str_replace(',', '.', $row['discount_percentage'] ?? 0));

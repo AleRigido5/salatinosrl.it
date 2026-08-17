@@ -3,7 +3,7 @@
     <!-- Pulsante per aprire il modale -->
     <button type="button" wire:click="openModal" 
         class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
-        <i class="fas fa-euro-sign mr-2"></i> Nuovo Pagamento
+        <i class="fas fa-euro-sign mr-2"></i> Nuovo Pagamento [ALT + N]
     </button>
 
     <!-- MODALE -->

@@ -24,7 +24,7 @@
                         id="ownership_input"
                         wire:model.live.debounce.300ms="ownershipSearch"
                         x-on:focus="open = true"
-                        x-on:input="open = true; @this.set('ownershipSearch', $event.target.value)"
+                        x-on:input="open = true"
                         placeholder="Cerca proprietà..."
                         class="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                         autocomplete="off">
@@ -167,12 +167,13 @@
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Proprietà</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Fornitore</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500" style="max-width:160px;">Fornitore</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">N. Fattura</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Data Fattura</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('due_date')">
                             Data Scadenza
                             @if($sortField === 'due_date')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
                         </th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">N. Fattura</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 cursor-pointer hover:bg-gray-100" wire:click="sortBy('amount')">
                             Importo
                             @if($sortField === 'amount')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
@@ -208,10 +209,8 @@
                     @endphp
                     <tr class="hover:bg-gray-50 {{ $rowClass }}" wire:key="payment-{{ $payment->id }}">
                         <td class="px-4 py-3 text-sm">{{ $invoice->ownership->RagAbbrev ?? $invoice->ownership_name ?? '-' }}</td>
-                        <td class="px-4 py-3 text-sm">{{ $invoice->entity->ragione_sociale ?? $invoice->supplier_name ?? '-' }}</td>
-                        <td class="px-4 py-3 text-sm whitespace-nowrap {{ $isOverdue ? 'text-red-600 font-bold' : '' }}">
-                            {{ $payment->due_date ? $payment->due_date->format('d/m/Y') : '-' }}
-                            @if($isOverdue) <i class="fas fa-exclamation-triangle text-red-500 ml-1" title="Scaduto!"></i> @endif
+                        <td class="px-4 py-3 text-sm max-w-[160px] truncate" title="{{ $invoice->entity->ragione_sociale ?? $invoice->supplier_name ?? '-' }}">
+                            {{ $invoice->entity->ragione_sociale ?? $invoice->supplier_name ?? '-' }}
                         </td>
                         <td class="px-4 py-3 text-sm">
                             {{ $invoice->n_invoice ?? '-' }}
@@ -226,6 +225,13 @@
                                     <i class="fas fa-link mr-0.5"></i> NC
                                 </span>
                             @endif
+                        </td>
+                        <td class="px-4 py-3 text-sm whitespace-nowrap">
+                            {{ $invoice->data_invoice ? \Carbon\Carbon::parse($invoice->data_invoice)->format('d/m/Y') : '-' }}
+                        </td>
+                        <td class="px-4 py-3 text-sm whitespace-nowrap {{ $isOverdue ? 'text-red-600 font-bold' : '' }}">
+                            {{ $payment->due_date ? $payment->due_date->format('d/m/Y') : '-' }}
+                            @if($isOverdue) <i class="fas fa-exclamation-triangle text-red-500 ml-1" title="Scaduto!"></i> @endif
                         </td>
                         <td class="px-4 py-3 text-sm text-right font-medium {{ $displayAmount < 0 ? 'text-purple-700' : '' }}">
                             {{ number_format($displayAmount, 2, ',', '.') }} €
@@ -258,14 +264,14 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="9" class="text-center py-8 text-gray-500">Nessuna scadenza trovata</td>
+                        <td colspan="10" class="text-center py-8 text-gray-500">Nessuna scadenza trovata</td>
                     </tr>
                     @endforelse
                 </tbody>
                 @if($payments->count() > 0)
                 <tfoot class="bg-gray-50">
                     <tr>
-                        <td colspan="4" class="px-4 py-3 text-right text-sm font-bold text-gray-700">TOTALE:</td>
+                        <td colspan="5" class="px-4 py-3 text-right text-sm font-bold text-gray-700">TOTALE:</td>
                         <td class="px-4 py-3 text-right text-sm font-bold {{ $paymentTotals['importo'] < 0 ? 'text-purple-700' : 'text-gray-900' }}">
                             {{ number_format($paymentTotals['importo'], 2, ',', '.') }} €
                         </td>
@@ -716,4 +722,18 @@
         </div>
     </div>
     @endif
+
+    <script>
+        if (!window.__altNShortcutBound) {
+            window.__altNShortcutBound = true;
+            document.addEventListener('keydown', function (e) {
+                if (e.altKey && e.key.toLowerCase() === 'n') {
+                    e.preventDefault();
+                    const btn = Array.from(document.querySelectorAll('button, a'))
+                        .find(el => el.textContent.trim().includes('Nuovo Pagamento'));
+                    if (btn) btn.click();
+                }
+            });
+        }
+    </script>
 </div>

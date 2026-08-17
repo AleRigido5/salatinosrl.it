@@ -635,11 +635,25 @@ class InvoiceSentTable extends Component
      * ridotto. Applichiamo il segno corretto qui, un'unica volta, così sia
      * questo footer sia la colonna "Totale" nella tabella (vedi blade) restano
      * coerenti tra loro.
+     *
+     * FIX imponibile/IVA: per alcune fatture importate da XML (es. fatture con
+     * righe "a detrarre" per acconti già fatturati, importo negativo) il
+     * riepilogo salvato in invoice_vat_summaries risulta INCOMPLETO — le righe
+     * negative non vengono proprio scritte in quella tabella, quindi la sum()
+     * su invoice_vat_summaries.taxable_amount restituisce solo la parte
+     * positiva (es. fattura 90/A: risultava 36.423 € invece dei 7.303 € netti,
+     * gonfiando il Totale Imponibile della pagina fino a superare persino il
+     * Totale Fatturato). Le righe in invoice_rows sono invece sempre corrette
+     * e complete (verificato direttamente sul DB per la fattura 278), quindi
+     * calcoliamo imponibile e IVA direttamente da lì, raggruppando per
+     * aliquota esattamente come fa
+     * InvoiceSentEditController::calculateVatSummaryFromRows, invece di
+     * fidarci del riepilogo salvato che può essere disallineato.
      */
     public function getFooterTotalsProperty(): array
     {
         $invoices = $this->baseFilteredQuery()
-            ->with(['vatSummaries', 'payments'])
+            ->with(['rows', 'payments'])
             ->get();
 
         $totaleImponibile = 0;
@@ -651,8 +665,13 @@ class InvoiceSentTable extends Component
             $isCreditNote = in_array($invoice->type_invoice, ['TD04', 'TD08']);
             $sign = $isCreditNote ? -1 : 1;
 
-            $totaleImponibile += $sign * $invoice->vatSummaries->sum('taxable_amount');
-            $totaleIva += $sign * $invoice->vatSummaries->sum('tax_amount');
+            $imponibileFattura = (float) $invoice->rows->sum('total');
+            $ivaFattura = (float) $invoice->rows->sum(function ($row) {
+                return (float) $row->total * ((float) $row->vat_rate / 100);
+            });
+
+            $totaleImponibile += $sign * $imponibileFattura;
+            $totaleIva += $sign * $ivaFattura;
             $totaleFatturato += $sign * (float) $invoice->importo_totale;
             $totalePagato += $sign * $invoice->payments->where('status', 'paid')->sum('amount');
         }

@@ -609,4 +609,18 @@ use App\Models\InstallmentTransaction;
         </div>
     </div>
     @endif
+
+    <script>
+        if (!window.__altNShortcutBound) {
+            window.__altNShortcutBound = true;
+            document.addEventListener('keydown', function (e) {
+                if (e.altKey && e.key.toLowerCase() === 'n') {
+                    e.preventDefault();
+                    const btn = Array.from(document.querySelectorAll('button, a'))
+                        .find(el => el.textContent.trim().includes('Nuovo Pagamento'));
+                    if (btn) btn.click();
+                }
+            });
+        }
+    </script>
 </div>

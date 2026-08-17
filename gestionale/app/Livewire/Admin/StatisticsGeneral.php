@@ -152,6 +152,24 @@ class StatisticsGeneral extends Component
      * Le note di credito (TD04/TD08), sia lato vendite che lato acquisti,
      * vengono sottratte anziché sommate — importo_totale è sempre salvato
      * positivo in DB.
+     *
+     * FIX lato VENDITE: alcune fatture importate da XML con righe "a
+     * detrarre" (acconti già fatturati, importo negativo) hanno il
+     * riepilogo invoice_vat_summaries INCOMPLETO — le righe negative non
+     * vengono scritte in quella tabella, quindi imponibile/IVA calcolati
+     * da vatSummaries risultano gonfiati (es. fattura 90/A: 36.423 €
+     * invece dei 7.303 € netti). Le righe in invoice_rows sono invece
+     * sempre corrette e complete, quindi per le vendite calcoliamo
+     * imponibile e IVA direttamente da lì, raggruppando per aliquota come
+     * fa InvoiceSentEditController::calculateVatSummaryFromRows.
+     *
+     * NOTA lato ACQUISTI: il blocco InvoiceReceived qui sotto usa ancora
+     * vatSummaries invariato — non è stato ancora verificato se
+     * InvoiceReceived abbia una relazione "rows" analoga a InvoiceSent con
+     * lo stesso schema (document_id/document_type/total/vat_rate). Prima
+     * di applicare la stessa fix anche qui serve il modello
+     * InvoiceReceived.php per confermarlo, altrimenti si rischia di
+     * rompere il calcolo lato acquisti.
      */
     protected function calculateMonthlyStatistics(): Collection
     {
@@ -159,7 +177,7 @@ class StatisticsGeneral extends Component
         $months = $this->emptyMonthsSkeleton($rangeStart, $rangeEnd);
 
         $sentInvoices = InvoiceSent::query()
-            ->with(['vatSummaries'])
+            ->with(['rows'])
             ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
             ->whereDate('data_invoice', '>=', $rangeStart->format('Y-m-d'))
             ->whereDate('data_invoice', '<=', $rangeEnd->format('Y-m-d'))
@@ -173,8 +191,13 @@ class StatisticsGeneral extends Component
 
             $sign = in_array($invoice->type_invoice, self::CREDIT_NOTE_TYPES) ? -1 : 1;
 
-            $months[$monthKey]->vendite_imponibile += $sign * (float) $invoice->vatSummaries->sum('taxable_amount');
-            $months[$monthKey]->vendite_iva += $sign * (float) $invoice->vatSummaries->sum('tax_amount');
+            $imponibileFattura = (float) $invoice->rows->sum('total');
+            $ivaFattura = (float) $invoice->rows->sum(function ($row) {
+                return (float) $row->total * ((float) $row->vat_rate / 100);
+            });
+
+            $months[$monthKey]->vendite_imponibile += $sign * $imponibileFattura;
+            $months[$monthKey]->vendite_iva += $sign * $ivaFattura;
             $months[$monthKey]->vendite_totale += $sign * (float) $invoice->importo_totale;
         }
 

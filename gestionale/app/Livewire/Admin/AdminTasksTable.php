@@ -118,7 +118,7 @@ class AdminTasksTable extends Component
     public function getTasksProperty()
     {
         $query = AdminTask::with(['category', 'entity', 'ownership', 'tags', 'creator'])
-            ->withCount('comments');
+            ->withCount(['comments', 'documents']);
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -430,12 +430,12 @@ class AdminTasksTable extends Component
         $this->deletingId = null;
     }
 
-    // ==================== DETTAGLIO / COMMENTI ====================
+    // ==================== DETTAGLIO ====================
     public function openDetailModal(int $id): void
     {
-        $this->viewingTask = AdminTask::with(['category', 'entity', 'ownership', 'tags', 'creator', 'updater', 'comments.author'])
+        $this->viewingTask = AdminTask::with(['category', 'entity', 'ownership', 'tags', 'creator', 'updater'])
+            ->withCount(['comments', 'documents'])
             ->findOrFail($id);
-        $this->newComment = '';
         $this->showDetailModal = true;
     }
 
@@ -443,24 +443,76 @@ class AdminTasksTable extends Component
     {
         $this->showDetailModal = false;
         $this->viewingTask = null;
+    }
+
+    // ==================== MODAL COMMENTI (dedicato, come per le Comunicazioni) ====================
+    public bool $showCommentsModal = false;
+    public ?int $commentsTaskId = null;
+    public string $commentsTaskTitle = '';
+    public $taskComments = null; // Collection<AdminTaskComment>
+
+    public function openCommentsModal(int $id): void
+    {
+        $task = AdminTask::with('comments.author')->findOrFail($id);
+        $this->commentsTaskId = $task->id;
+        $this->commentsTaskTitle = $task->title;
+        $this->taskComments = $task->comments;
+        $this->newComment = '';
+        $this->showCommentsModal = true;
+    }
+
+    public function closeCommentsModal(): void
+    {
+        $this->showCommentsModal = false;
+        $this->commentsTaskId = null;
+        $this->commentsTaskTitle = '';
+        $this->taskComments = null;
         $this->newComment = '';
     }
 
     public function addComment(): void
     {
-        if (!$this->viewingTask || trim($this->newComment) === '') {
+        if (!$this->commentsTaskId || trim($this->newComment) === '') {
             return;
         }
 
         AdminTaskComment::create([
-            'admin_task_id' => $this->viewingTask->id,
+            'admin_task_id' => $this->commentsTaskId,
             'comment' => trim($this->newComment),
             'created_by' => Auth::guard('admin')->id(),
         ]);
 
         $this->newComment = '';
-        $this->viewingTask->refresh();
-        $this->viewingTask->load('comments.author');
+        $this->refreshTaskComments();
+    }
+
+    public function deleteComment(int $commentId): void
+    {
+        $comment = AdminTaskComment::find($commentId);
+
+        if (!$comment || $comment->admin_task_id !== $this->commentsTaskId) {
+            return;
+        }
+
+        // Ognuno elimina solo i propri commenti (come nelle Comunicazioni)
+        if ($comment->created_by !== Auth::guard('admin')->id()) {
+            $this->dispatch('showError', message: 'Puoi eliminare solo i tuoi commenti.');
+            return;
+        }
+
+        $comment->delete();
+        $this->refreshTaskComments();
+    }
+
+    protected function refreshTaskComments(): void
+    {
+        if (!$this->commentsTaskId) {
+            return;
+        }
+        $this->taskComments = AdminTaskComment::where('admin_task_id', $this->commentsTaskId)
+            ->with('author')
+            ->orderBy('created_at')
+            ->get();
     }
 
     public function quickChangeStatus(int $id, string $newStatus): void

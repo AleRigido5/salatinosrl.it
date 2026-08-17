@@ -270,7 +270,7 @@ class InvoiceSentStatistics extends Component
         }
 
         $query = InvoiceSent::query()
-            ->with(['vatSummaries'])
+            ->with(['rows'])
             ->when($this->selectedOwnershipId, fn($q) => $q->where('id_ownership', $this->selectedOwnershipId))
             ->when($this->selectedCustomerId, fn($q) => $q->where('id_entities', $this->selectedCustomerId))
             ->when($this->selectedCostCenterId, function($q) {
@@ -306,11 +306,23 @@ class InvoiceSentStatistics extends Component
             $isCreditNote = in_array($invoice->type_invoice, self::CREDIT_NOTE_TYPES);
             $sign = $isCreditNote ? -1 : 1;
 
-            // FIX: usa importo_totale/vatSummaries della fattura (come
-            // l'elenco fatture) invece di ri-sommare le righe, per lo
-            // stesso motivo spiegato in calculateTotalFatturato().
-            $months[$monthKey]->imponibile += $sign * (float) $invoice->vatSummaries->sum('taxable_amount');
-            $months[$monthKey]->iva += $sign * (float) $invoice->vatSummaries->sum('tax_amount');
+            // FIX: alcune fatture importate da XML con righe "a detrarre"
+            // (acconti già fatturati, importo negativo) hanno il riepilogo
+            // invoice_vat_summaries INCOMPLETO — le righe negative non
+            // vengono scritte in quella tabella, quindi imponibile/IVA
+            // calcolati da vatSummaries risultano gonfiati (es. fattura
+            // 90/A: 36.423 € invece dei 7.303 € netti). Le righe in
+            // invoice_rows sono invece sempre corrette e complete, quindi
+            // calcoliamo imponibile e IVA direttamente da lì, raggruppando
+            // per aliquota come fa InvoiceSentEditController::calculateVatSummaryFromRows,
+            // invece di fidarci del riepilogo salvato che può essere disallineato.
+            $imponibileFattura = (float) $invoice->rows->sum('total');
+            $ivaFattura = (float) $invoice->rows->sum(function ($row) {
+                return (float) $row->total * ((float) $row->vat_rate / 100);
+            });
+
+            $months[$monthKey]->imponibile += $sign * $imponibileFattura;
+            $months[$monthKey]->iva += $sign * $ivaFattura;
             $months[$monthKey]->total += $sign * (float) $invoice->importo_totale;
             $months[$monthKey]->count += 1;
         }

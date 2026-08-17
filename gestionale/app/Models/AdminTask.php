@@ -103,6 +103,18 @@ class AdminTask extends Model
         return $this->hasMany(AdminTaskComment::class, 'admin_task_id')->orderByDesc('created_at');
     }
 
+    /**
+     * Allegati: righe della tabella generica "documents" (stesso sistema
+     * polimorfico già usato per staff/mezzi/scadenze), filtrate su
+     * table_ref = 'admin_tasks' e id_ref = id del task.
+     */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(\App\Models\Document::class, 'id_ref')
+            ->where('table_ref', 'admin_tasks')
+            ->whereNull('deleted_at');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(Administrator::class, 'created_by');

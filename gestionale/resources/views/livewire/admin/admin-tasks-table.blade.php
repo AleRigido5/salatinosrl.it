@@ -131,13 +131,16 @@
                             </span>
                         </td>
                         <td class="px-3 py-3 text-center">
-                            <button wire:click="openDetailModal({{ $task->id }})" class="text-blue-600 hover:text-blue-900">
-                                <i class="fas fa-paperclip"></i>
-                            </button>
+                            <a href="{{ route('admin.documents.index', ['tableRef' => 'admin_tasks', 'idRef' => $task->id]) }}" class="text-blue-600 hover:text-blue-900" title="Allegati">
+                                <i class="fas fa-paperclip"></i> {{ $task->documents_count }}
+                            </a>
                         </td>
                         <td class="px-3 py-3 text-center">
-                            <button wire:click="openDetailModal({{ $task->id }})" class="text-blue-600 hover:text-blue-900">
-                                <i class="fas fa-comment"></i> {{ $task->comments_count }}
+                            <button wire:click="openCommentsModal({{ $task->id }})" class="relative inline-flex items-center justify-center text-blue-500 hover:text-blue-700" title="Commenti">
+                                <i class="fa-solid fa-comment text-lg"></i>
+                                @if($task->comments_count > 0)
+                                <span class="absolute -top-2 -right-2 flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-red-500 rounded-full">{{ $task->comments_count }}</span>
+                                @endif
                             </button>
                         </td>
                         <td class="px-3 py-3 text-center whitespace-nowrap">
@@ -436,60 +439,78 @@
                     <!-- ALLEGATI -->
                     <div class="border-t pt-4">
                         <label class="text-xs text-gray-500 uppercase font-semibold block mb-2">
-                            <i class="fas fa-paperclip mr-1"></i> Allegati
+                            <i class="fas fa-paperclip mr-1"></i> Allegati ({{ $viewingTask->documents_count ?? $viewingTask->documents->count() }})
                         </label>
-                        <div wire:ignore
-                            x-data="taskAttachments({{ $viewingTask->id }})"
-                            x-init="loadFiles()">
-                            <div class="flex items-center gap-2 mb-2">
-                                <input type="file" x-ref="fileInput" x-on:change="uploadFile" class="text-sm">
-                                <span x-show="uploading" class="text-xs text-gray-500"><i class="fas fa-spinner fa-spin"></i> Caricamento...</span>
-                            </div>
-                            <div class="space-y-1">
-                                <template x-for="file in files" :key="file.id">
-                                    <div class="flex items-center justify-between bg-gray-50 rounded px-3 py-1.5 text-sm">
-                                        <a :href="file.download_url || file.url" target="_blank" class="text-blue-600 hover:underline truncate">
-                                            <i class="fas fa-file mr-1"></i> <span x-text="file.name"></span>
-                                        </a>
-                                        <button x-on:click="removeFile(file.id)" class="text-red-500 hover:text-red-700"><i class="fas fa-trash-alt"></i></button>
-                                    </div>
-                                </template>
-                                <p x-show="files.length === 0 && !loading" class="text-xs text-gray-400">Nessun allegato</p>
-                            </div>
-                        </div>
+                        <a href="{{ route('admin.documents.index', ['tableRef' => 'admin_tasks', 'idRef' => $viewingTask->id]) }}"
+                            class="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-sm transition-colors">
+                            <i class="fas fa-folder-open"></i> Gestisci allegati (carica, scarica, elimina)
+                        </a>
+                        <p class="text-xs text-gray-400 mt-1">Si apre la pagina documenti — gli allegati vengono salvati su Amazon S3, come per Personale e Mezzi.</p>
                     </div>
 
                     <!-- COMMENTI -->
                     <div class="border-t pt-4">
-                        <label class="text-xs text-gray-500 uppercase font-semibold block mb-2">
-                            <i class="fas fa-comments mr-1"></i> Commenti ({{ $viewingTask->comments->count() }})
-                        </label>
-                        <div class="flex gap-2 mb-3">
-                            <input type="text" wire:model="newComment" wire:keydown.enter="addComment" placeholder="Scrivi un commento..."
-                                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                            <button wire:click="addComment" class="px-3 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-md text-sm">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
-                        </div>
-                        <div class="space-y-2 max-h-56 overflow-y-auto">
-                            @forelse($viewingTask->comments as $comment)
-                                <div class="bg-gray-50 rounded-lg p-2">
-                                    <div class="flex justify-between items-center mb-0.5">
-                                        <span class="text-xs font-semibold text-gray-700">{{ $comment->author->name ?? 'Utente' }}</span>
-                                        <span class="text-xs text-gray-400">{{ $comment->created_at->format('d/m/Y H:i') }}</span>
-                                    </div>
-                                    <p class="text-sm text-gray-700">{{ $comment->comment }}</p>
-                                </div>
-                            @empty
-                                <p class="text-xs text-gray-400">Nessun commento</p>
-                            @endforelse
-                        </div>
+                        <button wire:click="openCommentsModal({{ $viewingTask->id }})"
+                            class="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-sm transition-colors">
+                            <i class="fa-solid fa-comments"></i> Commenti ({{ $viewingTask->comments_count ?? 0 }})
+                        </button>
                     </div>
                 </div>
 
                 <div class="flex justify-end px-6 py-4 border-t bg-gray-50 rounded-b-lg">
                     <button wire:click="closeDetailModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Chiudi</button>
                 </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- ==================== MODAL COMMENTI (dedicato) ==================== -->
+    @if($showCommentsModal)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-900">
+                    <i class="fa-solid fa-comments text-blue-500 mr-2"></i>
+                    Commenti
+                </h3>
+                <button wire:click="closeCommentsModal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            @if($commentsTaskTitle)
+            <p class="text-xs text-gray-400 mb-3 -mt-2 truncate">{{ $commentsTaskTitle }}</p>
+            @endif
+
+            <div class="max-h-96 overflow-y-auto mb-4 space-y-3">
+                @forelse($taskComments ?? [] as $comment)
+                    <div class="bg-gray-50 rounded-lg p-3" wire:key="comment-{{ $comment->id }}">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm font-medium text-gray-800">{{ $comment->author->name ?? 'Utente' }}</p>
+                                <p class="text-xs text-gray-400">{{ $comment->created_at->format('d/m/Y, H:i:s') }}</p>
+                            </div>
+                            @if($comment->created_by === Auth::guard('admin')->id())
+                            <button wire:click="deleteComment({{ $comment->id }})" class="text-red-400 hover:text-red-600 text-sm">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            @endif
+                        </div>
+                        <p class="text-sm text-gray-700 mt-1">{{ $comment->comment }}</p>
+                    </div>
+                @empty
+                    <p class="text-center text-gray-400 text-sm py-4">Nessun commento</p>
+                @endforelse
+            </div>
+
+            <div class="flex gap-2">
+                <input type="text" wire:model="newComment" wire:keydown.enter="addComment"
+                    placeholder="Scrivi un commento..."
+                    class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-lime-500">
+                <button wire:click="addComment" class="px-4 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-lg text-sm font-medium transition-colors">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
             </div>
         </div>
     </div>
@@ -535,56 +556,5 @@
 
             Livewire.on('clearOwnershipInput', () => {});
         });
-
-        // ============================================
-        // GESTIONE ALLEGATI (riusa il sistema documenti generico
-        // già usato per staff/mezzi: /admin/documents/{tableRef}/{idRef})
-        // ============================================
-        function taskAttachments(taskId) {
-            return {
-                taskId: taskId,
-                files: [],
-                loading: false,
-                uploading: false,
-                loadFiles() {
-                    this.loading = true;
-                    fetch(`/admin/documents/admin_tasks/${this.taskId}`)
-                        .then(r => r.json())
-                        .then(data => {
-                            this.files = Array.isArray(data) ? data : (data.documents || data.data || []);
-                        })
-                        .catch(() => { this.files = []; })
-                        .finally(() => { this.loading = false; });
-                },
-                uploadFile(e) {
-                    const file = e.target.files[0];
-                    if (!file) return;
-                    this.uploading = true;
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    fetch(`/admin/documents/admin_tasks/${this.taskId}`, {
-                        method: 'POST',
-                        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
-                        body: formData
-                    })
-                        .then(r => r.json())
-                        .then(() => {
-                            this.$refs.fileInput.value = '';
-                            this.loadFiles();
-                        })
-                        .catch(() => alert('Errore durante il caricamento del file'))
-                        .finally(() => { this.uploading = false; });
-                },
-                removeFile(documentId) {
-                    if (!confirm('Eliminare questo allegato?')) return;
-                    fetch(`/admin/documents/admin_tasks/${this.taskId}/${documentId}`, {
-                        method: 'DELETE',
-                        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
-                    })
-                        .then(() => this.loadFiles())
-                        .catch(() => alert('Errore durante l\'eliminazione'));
-                }
-            };
-        }
     </script>
 </div>

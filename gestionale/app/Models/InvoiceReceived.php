@@ -1,4 +1,5 @@
 <?php
+// app/Models/InvoiceReceived.php
 
 namespace App\Models;
 
@@ -26,6 +27,7 @@ class InvoiceReceived extends Model
         'n_invoice',
         'data_invoice',
         'importo_totale',
+        'allocated_amount', // Aggiunto per tracciare l'allocazione delle NC
         'causale',
         'divisa',
         'status',
@@ -45,13 +47,15 @@ class InvoiceReceived extends Model
     protected $casts = [
         'data_invoice' => 'date',
         'importo_totale' => 'decimal:2',
+        'allocated_amount' => 'decimal:2', // Cast per il campo allocato
         'imported_at' => 'datetime',
         'deleted_at' => 'datetime'
     ];
 
     protected $attributes = [
         'divisa' => 'EUR',
-        'status' => 'bozza'
+        'status' => 'bozza',
+        'allocated_amount' => 0.00 // Valore predefinito
     ];
 
     const STATUS_BOZZA = 'bozza';
@@ -132,14 +136,66 @@ class InvoiceReceived extends Model
         return $this->hasOne(InvoiceReceived::class, 'closes_invoice_id');
     }
 
-    // ==================== METODI UTILI PER LE NC ====================
+    // ==================== METODI PER LA GESTIONE DELLE NC ====================
 
     /**
-     * Ottiene tutte le fatture chiuse da questa NC con i dettagli
+     * Aggiorna il totale allocato della fattura
+     * Questo metodo somma tutte le allocazioni dalla tabella ponte
      */
-    public function getClosedInvoicesListAttribute()
+    public function updateAllocatedAmount(): void
     {
-        return $this->closedInvoices()->with('invoice')->get();
+        $total = CreditNoteInvoiceRelation::where('invoice_id', $this->id)->sum('allocated_amount');
+        $this->allocated_amount = round($total, 2);
+        $this->save();
+    }
+
+    /**
+     * Ottiene il totale già allocato di questa NC (per le NC)
+     */
+    public function getAllocatedAmountAttribute($value): float
+    {
+        // Se è una nota di credito, calcola dinamicamente l'allocazione
+        if ($this->isCreditNote()) {
+            return (float) $this->closedInvoices()->sum('allocated_amount');
+        }
+        
+        // Per le fatture normali, usa il campo memorizzato
+        return (float) $value;
+    }
+
+    /**
+     * Ottiene il residuo disponibile (per NC) o il residuo da pagare (per fatture)
+     */
+    public function getRemainingAmountAttribute(): float
+    {
+        if ($this->isCreditNote()) {
+            // Per le NC: importo residuo disponibile per chiudere altre fatture
+            return max(0, (float) $this->importo_totale - $this->allocated_amount);
+        } else {
+            // Per le fatture: importo residuo da pagare (considerando cash + NC)
+            $totalAllocated = CreditNoteInvoiceRelation::where('invoice_id', $this->id)->sum('allocated_amount');
+            $cashPaid = $this->payments()->sum('paid_amount');
+            return round(max(0, (float) $this->importo_totale - $cashPaid - $totalAllocated), 2);
+        }
+    }
+
+    /**
+     * Verifica se la NC è completamente utilizzata
+     */
+    public function isFullyUsed(): bool
+    {
+        if (!$this->isCreditNote()) {
+            return false;
+        }
+        return $this->remaining_amount <= 0.01;
+    }
+
+    /**
+     * Verifica se questa fattura è completamente pagata (cash + NC)
+     */
+    public function isFullyPaid(): bool
+    {
+        return $this->remaining_amount <= 0.01;
     }
 
     /**
@@ -176,35 +232,11 @@ class InvoiceReceived extends Model
     }
 
     /**
-     * Ottiene il totale già allocato di questa NC
+     * Ottiene tutte le NC che chiudono questa fattura
      */
-    public function getAllocatedAmountAttribute(): float
+    public function getClosingCreditNotesListAttribute()
     {
-        return (float) $this->closedInvoices()->sum('allocated_amount');
-    }
-
-    /**
-     * Ottiene il residuo disponibile di questa NC
-     */
-    public function getRemainingAmountAttribute(): float
-    {
-        return max(0, (float) $this->importo_totale - $this->allocated_amount);
-    }
-
-    /**
-     * Verifica se la NC è completamente utilizzata
-     */
-    public function isFullyUsed(): bool
-    {
-        return $this->remaining_amount <= 0.01;
-    }
-
-    /**
-     * Ottiene il numero di fatture chiuse da questa NC
-     */
-    public function getClosedInvoicesCountAttribute(): int
-    {
-        return $this->closedInvoices()->count();
+        return $this->closingCreditNotes()->with('creditNote')->get();
     }
 
     /**
@@ -220,6 +252,76 @@ class InvoiceReceived extends Model
             ->toArray();
             
         return implode(', ', $numbers);
+    }
+
+    /**
+     * Ottiene il totale delle fatture chiuse da questa NC
+     */
+    public function getClosedInvoicesTotalAttribute(): float
+    {
+        return (float) $this->closedInvoices()->sum('allocated_amount');
+    }
+
+    /**
+     * Ottiene il numero di fatture chiuse da questa NC
+     */
+    public function getClosedInvoicesCountAttribute(): int
+    {
+        return $this->closedInvoices()->count();
+    }
+
+    // ==================== METODI PER IL CALCOLO DEL RESIDUO ====================
+
+    /**
+     * Calcola il residuo effettivo della fattura considerando:
+     * - Pagamenti cash
+     * - Note di credito allocate
+     */
+    public function calculateEffectiveResidual(): float
+    {
+        // Somma dei pagamenti cash
+        $cashPaid = $this->payments()->sum('paid_amount');
+        
+        // Somma delle note di credito allocate
+        $creditAllocated = CreditNoteInvoiceRelation::where('invoice_id', $this->id)
+            ->sum('allocated_amount');
+        
+        // Residuo effettivo
+        $residual = (float) $this->importo_totale - $cashPaid - $creditAllocated;
+        
+        return round(max(0, $residual), 2);
+    }
+
+    /**
+     * Aggiorna tutte le scadenze della fattura con il residuo effettivo
+     */
+    public function updatePaymentsResidual(): void
+    {
+        $payments = $this->payments;
+        $totalAllocated = CreditNoteInvoiceRelation::where('invoice_id', $this->id)->sum('allocated_amount');
+        
+        foreach ($payments as $payment) {
+            $cashPaid = $payment->paid_amount;
+            $residual = (float) $this->importo_totale - $cashPaid - $totalAllocated;
+            $residual = round(max(0, $residual), 2);
+            
+            $payment->skipAutoStatus = true;
+            $payment->residual_amount = $residual;
+            
+            if ($residual <= 0.01) {
+                $payment->status = 'closed_credit_note';
+                $payment->paid_at = now();
+            } else {
+                if ($cashPaid > 0) {
+                    $payment->status = 'partially_paid';
+                } else {
+                    $payment->status = 'issued';
+                }
+                $payment->paid_at = null;
+            }
+            
+            $payment->save();
+        }
     }
 
     // ==================== METODI ESISTENTI (NON MODIFICATI) ====================

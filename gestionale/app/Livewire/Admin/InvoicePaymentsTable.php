@@ -225,6 +225,8 @@ class InvoicePaymentsTable extends Component
     private function baseQuery(): Builder
     {
         $query = InvoicePayment::query()
+            // 🔥 FILTRO FONDAMENTALE: Solo pagamenti legati a fatture di acquisto
+            ->where('payable_type', 'App\\Models\\InvoiceReceived')
             ->with(['payable' => function($q) {
                 $q->with(['ownership', 'entity']);
             }])
@@ -237,36 +239,36 @@ class InvoicePaymentsTable extends Component
                 if ($this->status === 'closed_credit_note') {
                     $q->where(function($sq) {
                         $sq->where('invoice_payments.status', 'closed_credit_note')
-                          ->orWhereRaw("
-                              invoice_payments.status = 'paid' 
-                              AND invoice_payments.payable_type = 'App\\Models\\InvoiceReceived' 
-                              AND EXISTS (
-                                  SELECT 1 FROM invoices_received ir 
-                                  WHERE ir.id = invoice_payments.payable_id 
-                                  AND ir.deleted_at IS NULL
-                                  AND (
-                                      EXISTS (
-                                          SELECT 1 FROM credit_note_invoice_relations r
-                                          INNER JOIN invoices_received nc ON nc.id = r.credit_note_id
-                                          WHERE r.invoice_id = ir.id 
-                                          AND nc.type_invoice = 'TD04'
-                                          AND nc.deleted_at IS NULL
-                                      )
-                                      OR 
-                                      EXISTS (
-                                          SELECT 1 FROM credit_note_invoice_relations r
-                                          WHERE r.credit_note_id = ir.id
-                                      )
-                                      OR
-                                      EXISTS (
-                                          SELECT 1 FROM invoices_received nc 
-                                          WHERE nc.closes_invoice_id = ir.id 
-                                          AND nc.type_invoice = 'TD04'
-                                          AND nc.deleted_at IS NULL
-                                      )
-                                  )
-                              )
-                          ");
+                        ->orWhereRaw("
+                            invoice_payments.status = 'paid' 
+                            AND invoice_payments.payable_type = 'App\\Models\\InvoiceReceived' 
+                            AND EXISTS (
+                                SELECT 1 FROM invoices_received ir 
+                                WHERE ir.id = invoice_payments.payable_id 
+                                AND ir.deleted_at IS NULL
+                                AND (
+                                    EXISTS (
+                                        SELECT 1 FROM credit_note_invoice_relations r
+                                        INNER JOIN invoices_received nc ON nc.id = r.credit_note_id
+                                        WHERE r.invoice_id = ir.id 
+                                        AND nc.type_invoice = 'TD04'
+                                        AND nc.deleted_at IS NULL
+                                    )
+                                    OR 
+                                    EXISTS (
+                                        SELECT 1 FROM credit_note_invoice_relations r
+                                        WHERE r.credit_note_id = ir.id
+                                    )
+                                    OR
+                                    EXISTS (
+                                        SELECT 1 FROM invoices_received nc 
+                                        WHERE nc.closes_invoice_id = ir.id 
+                                        AND nc.type_invoice = 'TD04'
+                                        AND nc.deleted_at IS NULL
+                                    )
+                                )
+                            )
+                        ");
                     });
                 } else {
                     $q->where('invoice_payments.status', $this->status);
@@ -295,32 +297,43 @@ class InvoicePaymentsTable extends Component
     }
 
     /**
-     * Calcola il residuo "vero" di una scadenza: 0 se pagata (o saldata con NC),
-     * altrimenti il residuo così come già calcolato dal modello InvoicePayment.
-     *
-     * FIX: prima, quando $payment->residual_amount non era > 0 (incluso il
-     * caso di un residuo NEGATIVO, tipico delle fatture-credito con importo
-     * negativo che sostituiscono una nota di credito), si ricadeva su
-     * max(0.0, amount - paid_amount), che azzera SEMPRE un risultato
-     * negativo. Questo troncava a zero il residuo delle fatture-credito
-     * ancora aperte, falsando sia la colonna "Residuo" in tabella sia il
-     * totale calcolato da getPaymentTotalsProperty() in fondo alla pagina.
-     * Il modello InvoicePayment calcola già il residuo in modo corretto
-     * (sign-aware, vedi InvoicePayment::computeRawResidual), quindi qui ci
-     * affidiamo direttamente a quel valore senza ricalcolarlo.
+     * Calcola il residuo "vero" di una scadenza
+     * Considera sia i pagamenti cash che le note di credito allocate
      */
-    private function computeResidual($payment, bool $isClosedByNC = false): float
+    private function computeResidual($payment): float
     {
-        if ($isClosedByNC || in_array($payment->status, ['paid', 'closed_credit_note'])) {
+        // Se la scadenza è già stata chiusa con NC, residuo 0
+        if ($payment->status === 'closed_credit_note') {
             return 0.0;
         }
 
-        return (float) $payment->residual_amount;
+        // Calcola il totale allocato da note di credito per questa fattura
+        $invoice = $payment->payable;
+        $totalAllocated = 0;
+        
+        if ($invoice && method_exists($invoice, 'allocated_amount')) {
+            $totalAllocated = $invoice->allocated_amount;
+        } elseif ($invoice) {
+            // Calcolo alternativo se non esiste il metodo allocated_amount
+            $totalAllocated = CreditNoteInvoiceRelation::where('invoice_id', $invoice->id)->sum('allocated_amount');
+        }
+
+        // Il residuo effettivo è: amount - paid_amount (cash) - totalAllocated (NC)
+        $residual = $payment->amount - $payment->paid_amount - $totalAllocated;
+        
+        // Arrotonda per evitare problemi di floating point
+        $residual = round($residual, 2);
+        
+        // Se il residuo è negativo per arrotondamento, portalo a 0
+        if ($residual < 0 && $residual > -0.01) {
+            $residual = 0;
+        }
+
+        return max(0, $residual); // Il residuo non può essere negativo
     }
 
     /**
-     * Totali (Importo / Residuo) calcolati sull'INTERO set di scadenze che
-     * rispettano i filtri correnti, non solo sulla pagina visibile.
+     * Totali (Importo / Residuo) calcolati sull'INTERO set di scadenze
      */
     public function getPaymentTotalsProperty(): array
     {
@@ -336,10 +349,9 @@ class InvoicePaymentsTable extends Component
             }
 
             $isCreditNote = method_exists($invoice, 'isCreditNote') && $invoice->isCreditNote();
-            $isClosedByNC = $payment->status === 'closed_credit_note' ||
-                ($payment->status === 'paid' && method_exists($invoice, 'isClosedByCreditNote') && $invoice->isClosedByCreditNote());
-
-            $residual = $this->computeResidual($payment, $isClosedByNC);
+            
+            // Calcola il residuo effettivo
+            $residual = $this->computeResidual($payment);
 
             $displayAmount = $isCreditNote ? -$payment->amount : $payment->amount;
             $displayResidual = $isCreditNote ? -$residual : $residual;
@@ -368,7 +380,7 @@ class InvoicePaymentsTable extends Component
         $this->selectedPayment = null;
     }
 
-    // ==================== CHIUSURA FATTURA CON NOTA DI CREDITO ====================
+    // ==================== CHIUSURA FATTURA CON NOTA DI CREDITO (CORRETTA) ====================
 
     public function openCloseModal(int $invoiceId): void
     {
@@ -378,6 +390,7 @@ class InvoicePaymentsTable extends Component
         $this->closeInvoiceError = '';
         $this->selectedCreditNotes = [];
         
+        // Pre-seleziona le NC già associate
         $existingRelations = CreditNoteInvoiceRelation::where('invoice_id', $invoiceId)->get();
         foreach ($existingRelations as $rel) {
             $this->selectedCreditNotes[] = $rel->credit_note_id;
@@ -448,6 +461,10 @@ class InvoicePaymentsTable extends Component
         }
     }
 
+    /**
+     * METODO CORRETTO: Chiude una fattura con una o più note di credito
+     * Aggiorna correttamente il residuo della scadenza
+     */
     public function closeInvoiceWithCreditNotes(): void
     {
         if (!$this->closingInvoiceId) {
@@ -463,70 +480,112 @@ class InvoicePaymentsTable extends Component
         DB::beginTransaction();
         try {
             $invoice = InvoiceReceived::findOrFail($this->closingInvoiceId);
-            $totalAllocated = 0;
+            
+            // Calcola quanto è già stato allocato da NC precedenti
+            $existingAllocated = CreditNoteInvoiceRelation::where('invoice_id', $invoice->id)->sum('allocated_amount');
+            $totalNewAllocated = 0;
             $creditNotesUsed = [];
+            $payment = $invoice->payments()->first(); // Assumiamo una sola scadenza per fattura
 
+            // --- 1. Crea le nuove relazioni e calcola il totale allocato ---
             foreach ($this->selectedCreditNotes as $creditNoteId) {
-                $creditNote = InvoiceReceived::findOrFail($creditNoteId);
-
+                // Verifica se la NC è già associata a questa fattura
                 $existingRelation = CreditNoteInvoiceRelation::where('credit_note_id', $creditNoteId)
                     ->where('invoice_id', $invoice->id)
                     ->first();
                     
                 if ($existingRelation) {
-                    continue;
+                    continue; // Salta se già associata
                 }
 
-                $remainingAmount = $creditNote->importo_totale - $creditNote->allocated_amount;
-                $amountToAllocate = min($invoice->importo_totale - $totalAllocated, $remainingAmount);
+                $creditNote = InvoiceReceived::findOrFail($creditNoteId);
+                
+                // Calcola quanto residua ancora disponibile su questa NC
+                $usedOnOtherInvoices = CreditNoteInvoiceRelation::where('credit_note_id', $creditNoteId)
+                    ->where('invoice_id', '!=', $invoice->id)
+                    ->sum('allocated_amount');
+                $remainingOnCreditNote = $creditNote->importo_totale - $usedOnOtherInvoices;
+                
+                // Calcola quanto manca ancora per chiudere la fattura (considerando già allocato)
+                $remainingOnInvoice = $invoice->importo_totale - $existingAllocated - $totalNewAllocated;
+                
+                // Quanto possiamo allocare da questa NC
+                $amountToAllocate = min($remainingOnCreditNote, $remainingOnInvoice);
 
                 if ($amountToAllocate <= 0) {
                     continue;
                 }
 
+                // Crea la relazione
                 CreditNoteInvoiceRelation::create([
                     'credit_note_id' => $creditNoteId,
                     'invoice_id' => $invoice->id,
                     'allocated_amount' => $amountToAllocate
                 ]);
 
-                $totalAllocated += $amountToAllocate;
-                $creditNotesUsed[] = $creditNote->n_invoice;
+                $totalNewAllocated += $amountToAllocate;
+                $creditNotesUsed[] = $creditNote->n_invoice . ' (€ ' . number_format($amountToAllocate, 2, ',', '.') . ')';
 
-                $newRemaining = $creditNote->remaining_amount;
-                if ($newRemaining <= 0.01) {
-                    $creditNote->payments()->get()->each(function ($payment) {
-                        $payment->skipAutoStatus = true;
-                        $payment->paid_amount = $payment->amount;
-                        $payment->residual_amount = 0;
-                        $payment->status = 'closed_credit_note';
-                        $payment->paid_at = now();
-                        $payment->save();
-                    });
+                // Se la NC è completamente utilizzata, chiudila
+                $newTotalUsed = $usedOnOtherInvoices + $amountToAllocate;
+                if ($newTotalUsed >= $creditNote->importo_totale - 0.01) {
+                    $this->closeCreditNotePayment($creditNote);
                 }
             }
 
-            $invoiceRemaining = $invoice->importo_totale - $totalAllocated;
-            if ($invoiceRemaining <= 0.01) {
-                $invoice->payments()->get()->each(function ($payment) {
-                    $payment->skipAutoStatus = true;
-                    $payment->paid_amount = $payment->amount;
-                    $payment->residual_amount = 0;
+            $totalAllocated = $existingAllocated + $totalNewAllocated;
+
+            // --- 2. AGGIORNA LA SCADENZA DELLA FATTURA ---
+            if ($payment) {
+                // Calcola il residuo effettivo: importo fattura - pagamenti cash - crediti allocati
+                $cashPaid = $payment->paid_amount; // Presuppone che paid_amount contenga solo pagamenti cash
+                $residualAmount = $invoice->importo_totale - $cashPaid - $totalAllocated;
+                $residualAmount = round(max(0, $residualAmount), 2); // Non negativo
+
+                // Aggiorna la scadenza
+                $payment->skipAutoStatus = true;
+                $payment->residual_amount = $residualAmount;
+                $payment->paid_amount = $cashPaid; // Mantieni invariato il cash pagato
+
+                // Aggiorna lo stato in base al nuovo residuo
+                if ($residualAmount <= 0.01) {
                     $payment->status = 'closed_credit_note';
                     $payment->paid_at = now();
+                } else {
+                    // Se c'è ancora residuo, mantieni lo stato appropriato
+                    if ($cashPaid > 0 && $cashPaid < $invoice->importo_totale) {
+                        $payment->status = 'partially_paid';
+                    } else {
+                        $payment->status = 'issued';
+                    }
+                    $payment->paid_at = null;
+                }
+                $payment->save();
+
+                // Se il residuo è zero, aggiorniamo anche l'eventuale scadenza per sicurezza
+                if ($residualAmount <= 0.01) {
+                    // Assicuriamoci che lo stato sia 'closed_credit_note'
+                    $payment->status = 'closed_credit_note';
+                    $payment->paid_at = now();
+                    $payment->residual_amount = 0;
                     $payment->save();
-                });
+                }
             }
+
+            // --- 3. Verifica se la fattura è completamente coperta ---
+            $invoiceRemaining = $invoice->importo_totale - ($payment ? $payment->paid_amount : 0) - $totalAllocated;
+            $invoiceRemaining = round(max(0, $invoiceRemaining), 2);
 
             DB::commit();
 
             $this->closeCloseModal();
             
-            $message = "Fattura {$invoice->n_invoice} chiusa con le note di credito: " . implode(', ', $creditNotesUsed);
+            // Messaggio di successo dettagliato
+            $message = "Fattura {$invoice->n_invoice} aggiornata con " . count($creditNotesUsed) . " nota(e) di credito: " . implode(', ', $creditNotesUsed);
             if ($invoiceRemaining > 0.01) {
-                $message .= ". Restano da allocare " . number_format($invoiceRemaining, 2, ',', '.') . " €";
+                $message .= ". Residuo da pagare: € " . number_format($invoiceRemaining, 2, ',', '.');
             } else {
-                $message .= ". Fattura completamente saldata.";
+                $message .= ". Fattura completamente saldata con le note di credito.";
             }
             
             $this->dispatch('showSuccess', message: $message);
@@ -534,8 +593,24 @@ class InvoicePaymentsTable extends Component
             
         } catch (\Throwable $e) {
             DB::rollBack();
-            \Illuminate\Support\Facades\Log::error('Errore chiusura fattura con NC: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Errore chiusura fattura con NC: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Chiude la scadenza di una nota di credito quando è completamente utilizzata
+     */
+    private function closeCreditNotePayment(InvoiceReceived $creditNote): void
+    {
+        $payment = $creditNote->payments()->first();
+        if ($payment) {
+            $payment->skipAutoStatus = true;
+            $payment->paid_amount = $payment->amount;
+            $payment->residual_amount = 0;
+            $payment->status = 'closed_credit_note';
+            $payment->paid_at = now();
+            $payment->save();
         }
     }
 
@@ -546,48 +621,44 @@ class InvoicePaymentsTable extends Component
         try {
             DB::beginTransaction();
             
-            $sql = "
-                UPDATE invoice_payments ip
-                SET ip.status = 'closed_credit_note',
-                    ip.residual_amount = 0,
-                    ip.paid_at = NOW()
-                WHERE ip.status = 'paid'
-                  AND ip.payable_type = 'App\\Models\\InvoiceReceived'
-                  AND ip.deleted_at IS NULL
-                  AND EXISTS (
-                      SELECT 1 FROM invoices_received ir 
-                      WHERE ir.id = ip.payable_id 
-                      AND ir.deleted_at IS NULL
-                      AND (
-                          EXISTS (
-                              SELECT 1 FROM credit_note_invoice_relations r
-                              INNER JOIN invoices_received nc ON nc.id = r.credit_note_id
-                              WHERE r.invoice_id = ir.id 
-                              AND nc.type_invoice = 'TD04'
-                              AND nc.deleted_at IS NULL
-                          )
-                          OR 
-                          EXISTS (
-                              SELECT 1 FROM credit_note_invoice_relations r
-                              WHERE r.credit_note_id = ir.id
-                          )
-                          OR
-                          EXISTS (
-                              SELECT 1 FROM invoices_received nc 
-                              WHERE nc.closes_invoice_id = ir.id 
-                              AND nc.type_invoice = 'TD04'
-                              AND nc.deleted_at IS NULL
-                          )
-                      )
-                  )
-            ";
+            // Trova tutte le fatture che hanno NC associate ma non sono aggiornate
+            $invoicesWithNC = DB::table('credit_note_invoice_relations')
+                ->select('invoice_id', DB::raw('SUM(allocated_amount) as total_allocated'))
+                ->groupBy('invoice_id')
+                ->get();
+
+            $updatedCount = 0;
             
-            $updatedCount = DB::update($sql);
+            foreach ($invoicesWithNC as $item) {
+                $invoice = InvoiceReceived::find($item->invoice_id);
+                if (!$invoice) continue;
+                
+                $payment = $invoice->payments()->first();
+                if (!$payment) continue;
+                
+                $cashPaid = $payment->paid_amount;
+                $residualAmount = $invoice->importo_totale - $cashPaid - $item->total_allocated;
+                $residualAmount = round(max(0, $residualAmount), 2);
+                
+                if ($residualAmount <= 0.01 && $payment->status !== 'closed_credit_note') {
+                    $payment->skipAutoStatus = true;
+                    $payment->residual_amount = 0;
+                    $payment->status = 'closed_credit_note';
+                    $payment->paid_at = now();
+                    $payment->save();
+                    $updatedCount++;
+                } elseif ($residualAmount > 0.01 && $payment->residual_amount != $residualAmount) {
+                    $payment->skipAutoStatus = true;
+                    $payment->residual_amount = $residualAmount;
+                    $payment->save();
+                    $updatedCount++;
+                }
+            }
             
             DB::commit();
             
             if ($updatedCount > 0) {
-                $this->dispatch('showSuccess', message: "Corretti {$updatedCount} pagamenti con stato 'Saldato con NC'");
+                $this->dispatch('showSuccess', message: "Corretti {$updatedCount} pagamenti con residuo aggiornato");
             } else {
                 $this->dispatch('showInfo', message: 'Nessun pagamento da correggere.');
             }
@@ -613,9 +684,6 @@ class InvoicePaymentsTable extends Component
 
     // ==================== METODI PER ESPORTAZIONE ====================
 
-    /**
-     * Genera l'URL per l'esportazione PDF con tutti i filtri attivi
-     */
     public function getExportPdfUrl()
     {
         $params = [];
@@ -645,7 +713,6 @@ class InvoicePaymentsTable extends Component
             $params['sort_direction'] = $this->sortDirection;
         }
         
-        // Passa il per_page per limitare i risultati come nella tabella
         if ($this->perPage != 100000) {
             $params['per_page'] = $this->perPage;
         }
@@ -653,9 +720,6 @@ class InvoicePaymentsTable extends Component
         return route('admin.invoice-payments.export-pdf', $params);
     }
 
-    /**
-     * Genera l'URL per l'esportazione Excel con tutti i filtri attivi
-     */
     public function getExportExcelUrl()
     {
         $params = [];
@@ -685,7 +749,6 @@ class InvoicePaymentsTable extends Component
             $params['sort_direction'] = $this->sortDirection;
         }
         
-        // Passa il per_page per limitare i risultati come nella tabella
         if ($this->perPage != 100000) {
             $params['per_page'] = $this->perPage;
         }

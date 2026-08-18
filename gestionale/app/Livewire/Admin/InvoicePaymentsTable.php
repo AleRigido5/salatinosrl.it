@@ -463,7 +463,7 @@ class InvoicePaymentsTable extends Component
 
     /**
      * METODO CORRETTO: Chiude una fattura con una o più note di credito
-     * Aggiorna correttamente il residuo della scadenza
+     * Aggiorna correttamente il residuo della scadenza considerando le NC
      */
     public function closeInvoiceWithCreditNotes(): void
     {
@@ -481,13 +481,18 @@ class InvoicePaymentsTable extends Component
         try {
             $invoice = InvoiceReceived::findOrFail($this->closingInvoiceId);
             
-            // Calcola quanto è già stato allocato da NC precedenti
+            // --- 1. Calcola quanto è già allocato ---
             $existingAllocated = CreditNoteInvoiceRelation::where('invoice_id', $invoice->id)->sum('allocated_amount');
             $totalNewAllocated = 0;
             $creditNotesUsed = [];
-            $payment = $invoice->payments()->first(); // Assumiamo una sola scadenza per fattura
+            
+            // Ottieni la scadenza principale della fattura
+            $payment = $invoice->payments()->first();
+            
+            // Calcola quanto è già stato pagato in contanti (cash)
+            $cashPaid = $payment ? $payment->paid_amount : 0;
 
-            // --- 1. Crea le nuove relazioni e calcola il totale allocato ---
+            // --- 2. Crea le nuove relazioni e calcola il totale allocato ---
             foreach ($this->selectedCreditNotes as $creditNoteId) {
                 // Verifica se la NC è già associata a questa fattura
                 $existingRelation = CreditNoteInvoiceRelation::where('credit_note_id', $creditNoteId)
@@ -506,13 +511,13 @@ class InvoicePaymentsTable extends Component
                     ->sum('allocated_amount');
                 $remainingOnCreditNote = $creditNote->importo_totale - $usedOnOtherInvoices;
                 
-                // Calcola quanto manca ancora per chiudere la fattura (considerando già allocato)
-                $remainingOnInvoice = $invoice->importo_totale - $existingAllocated - $totalNewAllocated;
+                // Calcola quanto manca ancora per chiudere la fattura (considerando già allocato e pagato)
+                $remainingOnInvoice = $invoice->importo_totale - $existingAllocated - $totalNewAllocated - $cashPaid;
                 
                 // Quanto possiamo allocare da questa NC
                 $amountToAllocate = min($remainingOnCreditNote, $remainingOnInvoice);
 
-                if ($amountToAllocate <= 0) {
+                if ($amountToAllocate <= 0.01) {
                     continue;
                 }
 
@@ -535,17 +540,17 @@ class InvoicePaymentsTable extends Component
 
             $totalAllocated = $existingAllocated + $totalNewAllocated;
 
-            // --- 2. AGGIORNA LA SCADENZA DELLA FATTURA ---
+            // --- 3. AGGIORNA LA SCADENZA DELLA FATTURA con i valori corretti ---
             if ($payment) {
                 // Calcola il residuo effettivo: importo fattura - pagamenti cash - crediti allocati
-                $cashPaid = $payment->paid_amount; // Presuppone che paid_amount contenga solo pagamenti cash
                 $residualAmount = $invoice->importo_totale - $cashPaid - $totalAllocated;
                 $residualAmount = round(max(0, $residualAmount), 2); // Non negativo
 
-                // Aggiorna la scadenza
+                // IMPORTANTE: paid_amount deve includere SOLO i pagamenti cash,
+                // NON le NC. Le NC sono tracciate separatamente.
                 $payment->skipAutoStatus = true;
-                $payment->residual_amount = $residualAmount;
                 $payment->paid_amount = $cashPaid; // Mantieni invariato il cash pagato
+                $payment->residual_amount = $residualAmount;
 
                 // Aggiorna lo stato in base al nuovo residuo
                 if ($residualAmount <= 0.01) {
@@ -562,9 +567,8 @@ class InvoicePaymentsTable extends Component
                 }
                 $payment->save();
 
-                // Se il residuo è zero, aggiorniamo anche l'eventuale scadenza per sicurezza
+                // Se il residuo è zero, aggiorniamo per sicurezza
                 if ($residualAmount <= 0.01) {
-                    // Assicuriamoci che lo stato sia 'closed_credit_note'
                     $payment->status = 'closed_credit_note';
                     $payment->paid_at = now();
                     $payment->residual_amount = 0;
@@ -572,15 +576,18 @@ class InvoicePaymentsTable extends Component
                 }
             }
 
-            // --- 3. Verifica se la fattura è completamente coperta ---
-            $invoiceRemaining = $invoice->importo_totale - ($payment ? $payment->paid_amount : 0) - $totalAllocated;
-            $invoiceRemaining = round(max(0, $invoiceRemaining), 2);
+            // --- 4. Aggiorna il campo allocated_amount nella fattura ---
+            $invoice->allocated_amount = $totalAllocated;
+            $invoice->save();
 
             DB::commit();
 
             $this->closeCloseModal();
             
             // Messaggio di successo dettagliato
+            $invoiceRemaining = $invoice->importo_totale - $cashPaid - $totalAllocated;
+            $invoiceRemaining = round(max(0, $invoiceRemaining), 2);
+            
             $message = "Fattura {$invoice->n_invoice} aggiornata con " . count($creditNotesUsed) . " nota(e) di credito: " . implode(', ', $creditNotesUsed);
             if ($invoiceRemaining > 0.01) {
                 $message .= ". Residuo da pagare: € " . number_format($invoiceRemaining, 2, ',', '.');

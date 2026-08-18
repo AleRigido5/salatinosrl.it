@@ -148,7 +148,7 @@ class InvoiceReceived extends Model
         $this->allocated_amount = round($total, 2);
         $this->save();
     }
-
+    
     /**
      * Ottiene il totale già allocato di questa NC (per le NC)
      */

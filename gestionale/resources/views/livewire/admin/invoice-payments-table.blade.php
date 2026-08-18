@@ -191,31 +191,19 @@
                         $isCreditNote = $invoice && method_exists($invoice, 'isCreditNote') && $invoice->isCreditNote();
                         $isOverdue = $payment->due_date && $payment->due_date->isPast() && $payment->status !== 'paid' && $payment->status !== 'closed_credit_note';
                         $rowClass = $isOverdue ? 'bg-red-50' : ($isCreditNote ? 'bg-purple-50' : '');
-                        
-                        // CALCOLO CORRETTO DEL RESIDUO
-                        // 1. Ottieni il totale delle note di credito allocate a questa fattura
-                        $totalCreditAllocated = 0;
-                        if ($invoice && method_exists($invoice, 'allocated_amount')) {
-                            $totalCreditAllocated = $invoice->allocated_amount;
-                        } elseif ($invoice) {
-                            $totalCreditAllocated = \App\Models\CreditNoteInvoiceRelation::where('invoice_id', $invoice->id)->sum('allocated_amount');
-                        }
-                        
-                        // 2. Calcola il residuo effettivo: importo - pagato cash - crediti allocati
-                        $cashPaid = $payment->paid_amount;
-                        $residual = $payment->amount - $cashPaid - $totalCreditAllocated;
-                        $residual = round(max(0, $residual), 2); // Non può essere negativo
-                        
-                        // 3. Se la scadenza è chiusa con NC, residuo a zero
                         $isClosedByNC = $payment->status === 'closed_credit_note' || 
-                                    ($payment->status === 'paid' && $invoice && 
+                                       ($payment->status === 'paid' && $invoice && 
                                         method_exists($invoice, 'isClosedByCreditNote') && $invoice->isClosedByCreditNote());
-                        
-                        if ($isClosedByNC) {
-                            $residual = 0;
-                        }
-                        
-                        // 4. Calcola il display amount (per le NC si mostra negativo)
+                        // FIX: fattura pagata (o saldata con NC) -> residuo sempre a zero.
+                        // Negli altri casi ci affidiamo DIRETTAMENTE a $payment->residual_amount,
+                        // già calcolato in modo corretto e "sign-aware" dal modello InvoicePayment
+                        // (negativo per le fatture-credito con importo negativo ancora aperte).
+                        // Il vecchio fallback "max(0, amount - paid_amount)" azzerava sempre un
+                        // residuo negativo, facendo sparire l'importo delle fatture-credito sia
+                        // qui che nel totale di piè pagina.
+                        $residual = ($isClosedByNC || in_array($payment->status, ['paid', 'closed_credit_note']))
+                            ? 0
+                            : (float) $payment->residual_amount;
                         $displayAmount = $isCreditNote ? -$payment->amount : $payment->amount;
                         $displayResidual = $isCreditNote ? -$residual : $residual;
                     @endphp

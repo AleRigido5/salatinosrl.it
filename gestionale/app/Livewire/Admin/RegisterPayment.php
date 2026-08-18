@@ -12,6 +12,7 @@ use App\Models\AccountingEntry;
 use App\Models\InstallmentTransaction;
 use App\Models\BankAccount;
 use App\Models\InvoicePayment;
+use App\Models\CreditNoteInvoiceRelation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -276,8 +277,33 @@ class RegisterPayment extends Component
         $this->availableInvoices = [];
 
         foreach ($invoices as $invoice) {
+            // FIX: importo delle note di credito già associate a QUESTA
+            // fattura (una sola query per fattura, riusata per tutte le sue
+            // scadenze/rate). Solo per le fatture di acquisto (InvoiceReceived)
+            // — le note di credito multiple via credit_note_invoice_relations
+            // esistono solo su quel lato (vedi InvoicePaymentsTable::openCloseModal,
+            // che accetta solo InvoiceReceived).
+            $creditAllocated = $this->invoiceType === 'vendita'
+                ? 0.0
+                : (float) CreditNoteInvoiceRelation::where('invoice_id', $invoice->id)->sum('allocated_amount');
+
             foreach ($invoice->payments as $payment) {
-                $residual = (float) $payment->residual_amount;
+                // FIX (bug segnalato): prima si leggeva $payment->residual_amount,
+                // un accessor che dovrebbe già nettare le NC internamente ma si
+                // affida a una relazione risolta "pigramente" (lazy) dentro un
+                // ciclo — nella pratica, con NC appena associate, il valore
+                // restituito risultava ancora LORDO (es. fattura SIAE: mostrava
+                // 75,64 € invece di 72,10 € netti, con una NC da 3,54 € già
+                // associata), portando a registrare un pagamento più alto del
+                // dovuto (90,94 € invece di 83,86 €). Calcoliamo qui il residuo
+                // in modo esplicito e diretto, usando amount/paid_amount
+                // (colonne grezze, senza passare da alcun accessor) e
+                // sottraendo le NC già note per questa fattura — niente più
+                // ambiguità su cosa stia effettivamente nettando l'accessor.
+                $amount = (float) $payment->amount;
+                $paidAmount = (float) $payment->paid_amount;
+                $rawResidual = $amount - $paidAmount - $creditAllocated;
+                $residual = $amount < 0 ? min(0, $rawResidual) : max(0, $rawResidual);
 
                 // FIX: prima si escludevano i residui negativi (`$residual > 0.01`),
                 // quindi le fatture-credito (importo negativo, es. FIORINO GROUP
@@ -296,6 +322,7 @@ class RegisterPayment extends Component
                         'due_date_raw'   => $payment->due_date,
                         'total_amount'   => $payment->amount,
                         'residual_amount'=> $residual,
+                        'credit_allocated' => $creditAllocated,
                         'is_credit'      => $residual < 0,
                         'selected'       => false,
                         'selected_amount'=> 0,
@@ -417,6 +444,7 @@ class RegisterPayment extends Component
                     'old_paid' => $oldPaidAmount,
                     'delta_paid' => $paidAmount,
                     'amount' => $payment->amount,
+                    'credit_allocated' => $invoiceData['credit_allocated'] ?? 0,
                 ]);
                 
                 // FIX: non ricalcoliamo più residuo/stato a mano con
@@ -424,8 +452,9 @@ class RegisterPayment extends Component
                 // (crediti), marcando come 'paid' anche crediti applicati solo
                 // parzialmente. Impostiamo solo paid_amount e lasciamo che i
                 // mutator del modello InvoicePayment (già corretti, gestiscono
-                // il segno di amount/residuo) calcolino residual_amount e
-                // status in modo coerente con il resto del sistema.
+                // il segno di amount/residuo e la detrazione delle NC) calcolino
+                // residual_amount e status in modo coerente con il resto del
+                // sistema.
                 $payment->paid_amount = $oldPaidAmount + $paidAmount;
                 $payment->save();
                 

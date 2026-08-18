@@ -597,6 +597,15 @@ class InvoicePaymentsTable extends Component
             
             $this->dispatch('showSuccess', message: $message);
             $this->dispatch('refreshPayments');
+
+            // FIX: se il componente "Registra Pagamento" (RegisterPayment) è
+            // già aperto con questa entità selezionata, il suo elenco
+            // $availableInvoices resta "congelato" a quando è stato caricato
+            // — non si accorge da solo che qui abbiamo appena associato una
+            // NC. Notifichiamolo esplicitamente così, se aperto, ricarica il
+            // residuo netto aggiornato invece di continuare a mostrare
+            // (ed eventualmente a far pagare) l'importo lordo.
+            $this->dispatch('refreshAvailableInvoices');
             
         } catch (\Throwable $e) {
             DB::rollBack();

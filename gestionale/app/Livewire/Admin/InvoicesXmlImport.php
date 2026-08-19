@@ -1061,6 +1061,7 @@ class InvoicesXmlImport extends Component
                     'quantity'                   => 1,
                     'unit_price'                 => 0,
                     'discount_percentage'        => 0,
+                    'discounts_detail'           => [],
                     'aliquota_iva'               => 0,
                     'id_cost_center'             => null,
                     'cost_center_name'           => '',
@@ -1097,10 +1098,62 @@ class InvoicesXmlImport extends Component
                     $row['aliquota_iva'] = floatval(str_replace(',', '.', trim($match[1])));
                 }
 
-                if (preg_match('/<ScontoMaggiorazione>(.*?)<\/ScontoMaggiorazione>/is', $lineaXml, $scontoMatch)) {
-                    if (preg_match('/<Percentuale>(.*?)<\/Percentuale>/is', $scontoMatch[1], $percMatch)) {
-                        $row['discount_percentage'] = floatval(str_replace(',', '.', trim($percMatch[1])));
+                // FIX (bug segnalato): il codice precedente usava preg_match
+                // (singola occorrenza) per leggere <ScontoMaggiorazione>,
+                // quindi una riga con PIÙ sconti/maggiorazioni in cascata
+                // (es. fattura 1953/F Ombrellificio Veneto: -40% e poi un
+                // ulteriore -10%) perdeva tutti i blocchi tranne il primo,
+                // risultando in un totale riga di 39,00 € invece dei 35,10 €
+                // corretti (65,00 × 0,60 × 0,90).
+                //
+                // La specifica FatturaPA prevede che più occorrenze di
+                // <ScontoMaggiorazione> sulla stessa riga si applichino IN
+                // CASCATA (ognuna sul risultato della precedente), non che
+                // le percentuali si sommino. Qui leggiamo TUTTI i blocchi
+                // con preg_match_all, li applichiamo in sequenza partendo
+                // da quantità × prezzo unitario (gestendo sia sconti "SC"
+                // che maggiorazioni "MG", sia percentuali che importi
+                // fissi), e ricaviamo un'unica percentuale di sconto
+                // EQUIVALENTE che, applicata con la stessa formula usata
+                // finora per calcolare il totale riga, dà lo stesso
+                // risultato netto corretto — senza dover toccare lo schema
+                // del database (colonna discount_percentage singola) né il
+                // resto del codice che la usa (qui e in modifica manuale).
+                if (preg_match_all('/<ScontoMaggiorazione>(.*?)<\/ScontoMaggiorazione>/is', $lineaXml, $scontoAllMatches)) {
+                    $baseAmount = ($row['quantity'] ?: 1) * ($row['unit_price'] ?: 0);
+                    $runningAmount = $baseAmount;
+                    $discountsFound = [];
+
+                    foreach ($scontoAllMatches[1] as $scontoBlockXml) {
+                        $tipo = 'SC';
+                        if (preg_match('/<Tipo>(.*?)<\/Tipo>/is', $scontoBlockXml, $tipoMatch)) {
+                            $tipo = strtoupper(trim($tipoMatch[1]));
+                        }
+
+                        if (preg_match('/<Percentuale>(.*?)<\/Percentuale>/is', $scontoBlockXml, $percMatch)) {
+                            $percentuale = floatval(str_replace(',', '.', trim($percMatch[1])));
+                            $factor = ($tipo === 'MG') ? (1 + $percentuale / 100) : (1 - $percentuale / 100);
+                            $runningAmount *= $factor;
+                            $discountsFound[] = ['tipo' => $tipo, 'percentuale' => $percentuale];
+                        } elseif (preg_match('/<Importo>(.*?)<\/Importo>/is', $scontoBlockXml, $importoMatch)) {
+                            $importoAdj = floatval(str_replace(',', '.', trim($importoMatch[1])));
+                            $runningAmount += ($tipo === 'MG') ? $importoAdj : -$importoAdj;
+                            $discountsFound[] = ['tipo' => $tipo, 'importo' => $importoAdj];
+                        }
                     }
+
+                    if ($baseAmount > 0) {
+                        $row['discount_percentage'] = round((1 - ($runningAmount / $baseAmount)) * 100, 4);
+                    }
+                    $row['discounts_detail'] = $discountsFound;
+
+                    Log::info('Sconti/maggiorazioni in cascata rilevati sulla riga', [
+                        'riga_index' => $index,
+                        'discounts' => $discountsFound,
+                        'base_amount' => $baseAmount,
+                        'running_amount' => $runningAmount,
+                        'equivalent_discount_percentage' => $row['discount_percentage'],
+                    ]);
                 }
 
                 if (preg_match('/<Natura>(.*?)<\/Natura>/is', $lineaXml, $match)) {

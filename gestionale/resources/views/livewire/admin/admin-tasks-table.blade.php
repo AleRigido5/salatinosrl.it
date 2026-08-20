@@ -11,6 +11,25 @@
 
     <!-- Card Filtri -->
     <div class="bg-white rounded-lg shadow p-4 mb-4 border border-gray-200">
+
+        <!-- Barra Data: un solo componente date-range-filter, il range si
+             applica a task_date o a due_date in base al radio selezionato -->
+        <div class="mb-4 pb-4 border-b border-gray-200">
+            <div class="flex items-center gap-6 mb-2">
+                <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                    <input type="radio" wire:model.live="dateFilterMode" value="task_date"
+                        class="text-lime-600 focus:ring-lime-500">
+                    Data Task Amministrativo
+                </label>
+                <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                    <input type="radio" wire:model.live="dateFilterMode" value="due_date"
+                        class="text-lime-600 focus:ring-lime-500">
+                    Scadenza Task Amministrativo
+                </label>
+            </div>
+            @livewire('components.date-range-filter', ['dateFrom' => $dateFrom, 'dateTo' => $dateTo], key('admin-tasks-date-filter-' . $dateFrom . $dateTo))
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1">Cerca</label>
@@ -54,7 +73,7 @@
             </div>
         </div>
         @if($search || $categoryFilter || $statusFilter || $priorityFilter || $tagFilter)
-        <div class="mt-3 pt-3 border-t border-gray-200">
+        <div class="mt-3 pt-3 border-t border-gray-200 flex flex-wrap items-center gap-2">
             <button wire:click="clearFilters" class="text-xs text-gray-400 hover:text-red-500">
                 <i class="fas fa-trash-alt mr-1"></i> Rimuovi filtri
             </button>

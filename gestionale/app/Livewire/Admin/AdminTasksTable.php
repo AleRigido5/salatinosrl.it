@@ -28,6 +28,13 @@ class AdminTasksTable extends Component
     public string $tagFilter = '';
     public int $perPage = 100;
 
+    // Filtro data unico: applicato a task_date o due_date a seconda di
+    // $dateFilterMode (radio button nella vista). Un solo componente
+    // date-range-filter, nessun rischio di doppie istanze/eventi.
+    public string $dateFrom = '';
+    public string $dateTo = '';
+    public string $dateFilterMode = 'task_date'; // 'task_date' | 'due_date'
+
     public array $categories = [];
 
     // ==================== FORM CREAZIONE/MODIFICA ====================
@@ -72,6 +79,7 @@ class AdminTasksTable extends Component
 
     protected $listeners = [
         'refreshTasks' => '$refresh',
+        'dateRangeUpdated' => 'updateDateRange',
     ];
 
     public function mount(): void
@@ -80,7 +88,33 @@ class AdminTasksTable extends Component
         $this->ownershipResults = new Collection();
         $this->tagSuggestions = new Collection();
         $this->task_date = now()->format('Y-m-d');
+
+        // Barra date: task_date di default sul mese corrente, come richiesto.
+        $this->dateFrom = now()->startOfMonth()->format('Y-m-d');
+        $this->dateTo = now()->endOfMonth()->format('Y-m-d');
+
         $this->loadCategories();
+    }
+
+    /**
+     * Riceve l'evento dispatchato da components.date-range-filter
+     * (pulsante "Applica") e aggiorna il filtro — su task_date o due_date
+     * a seconda di quale radio button è selezionato.
+     */
+    public function updateDateRange(array $data): void
+    {
+        $this->dateFrom = $data['date_from'] ?? '';
+        $this->dateTo = $data['date_to'] ?? '';
+        $this->resetPage();
+    }
+
+    /**
+     * Cambio radio "Data Task Amministrativo" / "Scadenza Task Amministrativo":
+     * riapplica lo stesso range già impostato, ma sul campo scelto.
+     */
+    public function updatedDateFilterMode(): void
+    {
+        $this->resetPage();
     }
 
     /**
@@ -111,7 +145,16 @@ class AdminTasksTable extends Component
         $this->statusFilter = '';
         $this->priorityFilter = '';
         $this->tagFilter = '';
+        $this->dateFilterMode = 'task_date';
+
+        // Come nelle altre pagine del gestionale: "Rimuovi filtri" azzera
+        // davvero il filtro (nessuna restrizione di data), mentre il
+        // widget mese/anno torna visivamente al mese corrente tramite
+        // l'evento resetDates ascoltato da components.date-range-filter.
+        $this->dateFrom = now()->startOfMonth()->format('Y-m-d');
+        $this->dateTo = now()->endOfMonth()->format('Y-m-d');
         $this->resetPage();
+        $this->dispatch('resetDates');
     }
 
     // ==================== ELENCO ====================
@@ -144,6 +187,16 @@ class AdminTasksTable extends Component
             $query->whereHas('tags', function ($q) {
                 $q->where('name', 'like', '%' . $this->tagFilter . '%');
             });
+        }
+
+        // Filtro data unico: task_date oppure due_date, in base al radio
+        // button selezionato ($dateFilterMode) nella vista.
+        $dateColumn = $this->dateFilterMode === 'due_date' ? 'due_date' : 'task_date';
+        if ($this->dateFrom) {
+            $query->whereDate($dateColumn, '>=', $this->dateFrom);
+        }
+        if ($this->dateTo) {
+            $query->whereDate($dateColumn, '<=', $this->dateTo);
         }
 
         $query->orderByRaw("CASE WHEN due_date IS NULL THEN 1 ELSE 0 END")

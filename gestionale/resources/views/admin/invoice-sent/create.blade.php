@@ -415,6 +415,41 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // =============================================
+    // POSIZIONAMENTO DROPDOWN (pattern "portal")
+    // =============================================
+    // FIX: il contenitore della tabella righe ha overflow-x-auto, che per
+    // specifica CSS forza anche overflow-y:auto sullo stesso elemento.
+    // Questo crea un contesto di clipping che rompe il posizionamento
+    // "position: absolute" dei dropdown dentro le celle, facendoli comparire
+    // in fondo alla pagina invece che sotto il campo di ricerca.
+    // Soluzione: spostiamo il dropdown dentro <body> (portal) e lo
+    // posizioniamo con position:fixed calcolando le coordinate reali
+    // dell'input tramite getBoundingClientRect(), così non dipende più da
+    // nessun antenato con overflow.
+    function positionDropdown(input, dropdown) {
+        const rect = input.getBoundingClientRect();
+        dropdown.style.position = 'fixed';
+        dropdown.style.top = (rect.bottom + 2) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.width = rect.width + 'px';
+        dropdown.style.margin = '0';
+    }
+
+    function showDropdownPortal(input, dropdown) {
+        if (dropdown.parentNode !== document.body) {
+            document.body.appendChild(dropdown);
+        }
+        positionDropdown(input, dropdown);
+        dropdown.classList.remove('hidden');
+        dropdown.style.display = 'block';
+    }
+
+    function hideDropdownPortal(dropdown) {
+        dropdown.classList.add('hidden');
+        dropdown.style.display = 'none';
+    }
+
+    // =============================================
     // GENERAZIONE HTML RIGHE
     // =============================================
     function generateRowHtml(index, data = null) {
@@ -538,6 +573,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function removeRow(index) {
         const row = rowsContainer.querySelector(`tr[data-index="${index}"]`);
         if (row) {
+            // Rimuove eventuali dropdown "portati" in body prima di eliminare la riga
+            const ccDropdown = row.querySelector('.cost-center-dropdown');
+            const svDropdown = row.querySelector('.service-dropdown');
+            if (ccDropdown && ccDropdown.parentNode === document.body) ccDropdown.remove();
+            if (svDropdown && svDropdown.parentNode === document.body) svDropdown.remove();
             row.remove();
             calculateAllTotals();
         }
@@ -868,7 +908,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const dropdown = row.querySelector('.cost-center-dropdown');
         const hiddenInput = row.querySelector('.cost-center-id');
         
-        if (!searchInput) return;
+        if (!searchInput || !dropdown) return;
         
         let timeout = null;
         
@@ -876,7 +916,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const query = this.value.trim();
             
             if (query.length < 2) {
-                dropdown.classList.add('hidden');
+                hideDropdownPortal(dropdown);
                 return;
             }
             
@@ -896,23 +936,36 @@ document.addEventListener('DOMContentLoaded', function() {
                                 div.addEventListener('click', function() {
                                     searchInput.value = item.name;
                                     hiddenInput.value = item.id;
-                                    dropdown.classList.add('hidden');
+                                    hideDropdownPortal(dropdown);
                                 });
                                 dropdown.appendChild(div);
                             });
                         }
-                        dropdown.classList.remove('hidden');
+                        showDropdownPortal(searchInput, dropdown);
                     });
             }, 300);
         });
         
         searchInput.addEventListener('blur', function() {
-            setTimeout(() => dropdown.classList.add('hidden'), 200);
+            setTimeout(() => hideDropdownPortal(dropdown), 200);
         });
         
         searchInput.addEventListener('focus', function() {
             if (this.value.trim().length >= 2) {
-                dropdown.classList.remove('hidden');
+                showDropdownPortal(searchInput, dropdown);
+            }
+        });
+
+        // Riposiziona il dropdown se l'utente scrolla la pagina/tabella
+        // (con overflow-x-auto) mentre il dropdown è aperto.
+        window.addEventListener('scroll', function() {
+            if (!dropdown.classList.contains('hidden')) {
+                positionDropdown(searchInput, dropdown);
+            }
+        }, true);
+        window.addEventListener('resize', function() {
+            if (!dropdown.classList.contains('hidden')) {
+                positionDropdown(searchInput, dropdown);
             }
         });
     }
@@ -931,7 +984,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const unitPriceInput = row.querySelector('.row-unit-price');
         const vatSelect = row.querySelector('.row-vat');
         
-        if (!searchInput) return;
+        if (!searchInput || !dropdown) return;
         
         let timeout = null;
         
@@ -939,7 +992,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const query = this.value.trim();
             
             if (query.length < 2) {
-                dropdown.classList.add('hidden');
+                hideDropdownPortal(dropdown);
                 return;
             }
             
@@ -949,7 +1002,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     .then(r => r.json())
                     .then(data => {
                         dropdown.innerHTML = '';
-                        if (data.length === 0) {
+                        if (!data || data.length === 0) {
                             dropdown.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun servizio trovato</div>';
                         } else {
                             data.forEach(item => {
@@ -958,7 +1011,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 div.innerHTML = `
                                     <div class="font-medium text-gray-800">${item.name}</div>
                                     ${item.descr_fattura ? `<div class="text-xs text-gray-500 truncate">${item.descr_fattura}</div>` : ''}
-                                    ${item.prezzo_un > 0 ? `<div class="text-xs text-lime-600 font-semibold">€ ${item.prezzo_un.toFixed(3)}</div>` : ''}
+                                    ${item.prezzo_un > 0 ? `<div class="text-xs text-lime-600 font-semibold">€ ${parseFloat(item.prezzo_un).toFixed(3)}</div>` : ''}
                                 `;
                                 div.addEventListener('click', function() {
                                     searchInput.value = item.name;
@@ -967,29 +1020,40 @@ document.addEventListener('DOMContentLoaded', function() {
                                         descTextarea.value = item.descr_fattura;
                                     }
                                     if (item.prezzo_un > 0 && (parseNumber(unitPriceInput.value) === 0)) {
-                                        unitPriceInput.value = item.prezzo_un.toFixed(3);
+                                        unitPriceInput.value = parseFloat(item.prezzo_un).toFixed(3);
                                     }
                                     if (item.vat_rate_id) {
                                         vatSelect.value = item.vat_rate_id;
                                     }
-                                    dropdown.classList.add('hidden');
+                                    hideDropdownPortal(dropdown);
                                     calculateAllTotals();
                                 });
                                 dropdown.appendChild(div);
                             });
                         }
-                        dropdown.classList.remove('hidden');
+                        showDropdownPortal(searchInput, dropdown);
                     });
             }, 300);
         });
         
         searchInput.addEventListener('blur', function() {
-            setTimeout(() => dropdown.classList.add('hidden'), 200);
+            setTimeout(() => hideDropdownPortal(dropdown), 200);
         });
         
         searchInput.addEventListener('focus', function() {
             if (this.value.trim().length >= 2) {
-                dropdown.classList.remove('hidden');
+                showDropdownPortal(searchInput, dropdown);
+            }
+        });
+
+        window.addEventListener('scroll', function() {
+            if (!dropdown.classList.contains('hidden')) {
+                positionDropdown(searchInput, dropdown);
+            }
+        }, true);
+        window.addEventListener('resize', function() {
+            if (!dropdown.classList.contains('hidden')) {
+                positionDropdown(searchInput, dropdown);
             }
         });
     }
@@ -1324,6 +1388,13 @@ document.addEventListener('DOMContentLoaded', function() {
         height: 100%;
         box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
         border: 1px solid #e5e7eb;
+    }
+
+    /* Nota: non più strettamente necessaria dopo il fix "portal" (i
+       dropdown vengono spostati in <body> con position:fixed), ma
+       innocua da mantenere. */
+    #invoiceRowsTable td {
+        position: relative;
     }
     
     .cost-center-dropdown, .service-dropdown {

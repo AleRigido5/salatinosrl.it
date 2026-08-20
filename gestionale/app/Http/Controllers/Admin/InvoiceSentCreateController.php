@@ -133,6 +133,22 @@ class InvoiceSentCreateController extends Controller
                 throw new ValidationException($validator);
             }
 
+            // FIX: usiamo $validator->validated() SOLO per i campi "piatti"
+            // della fattura (proprietà, cliente, sezionale, ecc.), NON per le
+            // righe. Validator::validated() su un array annidato tipo
+            // "rows.*" restituisce, per ogni riga, esclusivamente i sotto-campi
+            // che hanno una regola di validazione esplicita (description,
+            // quantity, unit_price, vat_rate_id). Tutti gli altri campi delle
+            // righe — inclusi id_cost_center e id_service — venivano quindi
+            // eliminati silenziosamente da $validated['rows'], anche se erano
+            // presenti in $processedRows passato in input al validator. Questo
+            // causava il salvataggio di id_cost_center/id_service sempre a
+            // NULL in fase di creazione (bug non presente in edit(), che legge
+            // le righe direttamente da $request->input('rows') senza passare
+            // dal validated()).
+            //
+            // Per le righe usiamo quindi $processedRows (già sanitizzato sopra
+            // con parseItalianNumber/trim), che contiene tutti i campi intatti.
             $validated = $validator->validated();
 
             // Crea fattura
@@ -162,7 +178,10 @@ class InvoiceSentCreateController extends Controller
             ]);
 
             // Crea righe
-            foreach ($validated['rows'] as $row) {
+            // FIX: iteriamo su $processedRows (dati grezzi sanitizzati) invece
+            // che su $validated['rows'] (dati filtrati dalla validazione, privi
+            // di id_cost_center e id_service — vedi nota sopra).
+            foreach ($processedRows as $row) {
                 $vatInfo = DB::table('vat_rates')->find($row['vat_rate_id'] ?? null);
                 $vatRate = $vatInfo ? (float)$vatInfo->rate : 0;
                 $sdiNature = $vatInfo->sdi_nature ?? null;
@@ -181,12 +200,12 @@ class InvoiceSentCreateController extends Controller
                     'unit_price' => round($unitPrice, 3),
                     'unit_measure' => $row['unit_measure'] ?? 'pz',
                     'discount_percentage' => $discount,
-                    // FIX: prima mancava del tutto, causava IVA a 0% nel PDF e
-                    // select IVA non pre-selezionata in modifica.
                     'vat_rate_id' => $row['vat_rate_id'] ?? null,
                     'vat_rate' => $vatRate * 100,
                     'sdi_nature' => $sdiNature,
                     'total' => round($totalRow, 2),
+                    // FIX: prima erano sempre null perché lette da
+                    // $validated['rows'] invece che da $processedRows.
                     'id_cost_center' => $row['id_cost_center'] ?? null,
                     'id_service' => $row['id_service'] ?? null,
                 ]);
@@ -214,6 +233,10 @@ class InvoiceSentCreateController extends Controller
             }
 
             // Scadenze pagamento
+            // NOTA: qui manteniamo $validated['payments'] perché per i
+            // payments il validated() è sufficiente (usiamo solo 'amount',
+            // che è l'unico campo validato esplicitamente, oltre a due campi
+            // presi direttamente da $payment via ?? fallback).
             foreach ($validated['payments'] as $payment) {
                 if (($payment['amount'] ?? 0) > 0) {
                     DB::table('invoice_payments')->insert([

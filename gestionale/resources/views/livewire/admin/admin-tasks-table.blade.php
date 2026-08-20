@@ -12,10 +12,9 @@
     <!-- Card Filtri -->
     <div class="bg-white rounded-lg shadow p-4 mb-4 border border-gray-200">
 
-        <!-- Barra Data: un solo componente date-range-filter, il range si
-             applica a task_date o a due_date in base al radio selezionato -->
+        <!-- Barra Data -->
         <div class="mb-4 pb-4 border-b border-gray-200">
-            <div class="flex items-center gap-6 mb-2">
+            <div class="flex justify-end gap-6 mb-2">
                 <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
                     <input type="radio" wire:model.live="dateFilterMode" value="task_date"
                         class="text-lime-600 focus:ring-lime-500">
@@ -89,11 +88,11 @@
                     <tr>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500">Data</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500">Titolo</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500">N. Pratica</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500">Proprietà</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500">Categoria</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500">TAG</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500">Scadenza</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500">Inserito da</th>
+                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500">Importo</th>
                         <th class="px-3 py-3 text-left text-xs font-medium text-gray-500">Canale</th>
                         <th class="px-3 py-3 text-center text-xs font-medium text-gray-500">Priorità</th>
                         <th class="px-3 py-3 text-center text-xs font-medium text-gray-500">Stato</th>
@@ -112,7 +111,7 @@
                                 {{ $task->title }}
                             </button>
                         </td>
-                        <td class="px-3 py-3 text-sm">{{ $task->practice_number ?: '-' }}</td>
+                        <td class="px-3 py-3 text-sm">{{ $task->ownership->RagAbbrev ?? $task->ownership->Rag_Soc_intest ?? '-' }}</td>
                         <td class="px-3 py-3 text-sm">
                             @if($task->category)
                                 <span class="inline-flex px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 font-medium">
@@ -135,8 +134,8 @@
                             {{ $task->due_date?->format('d/m/Y') ?? '-' }}
                             @if($overdue) <i class="fas fa-exclamation-triangle text-red-500 ml-1" title="Scaduto"></i> @endif
                         </td>
-                        <td class="px-3 py-3 text-sm whitespace-nowrap">
-                            {{ $task->creator->name ?? '-' }} il {{ $task->created_at?->format('d/m/y \o\r\e H:i') }}
+                        <td class="px-3 py-3 text-sm text-right whitespace-nowrap">
+                            {{ $task->amount !== null ? number_format((float) $task->amount, 2, ',', '.') . ' €' : '-' }}
                         </td>
                         <td class="px-3 py-3 text-sm">{{ $task->channel ?: '-' }}</td>
                         <td class="px-3 py-3 text-center whitespace-nowrap">
@@ -220,7 +219,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
                             <select wire:model="id_category" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -233,6 +232,12 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">N. Pratica</label>
                             <input type="text" wire:model="practice_number" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Importo €</label>
+                            <input type="text" inputmode="decimal" wire:model="amount" placeholder="0,00"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            @error('amount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Stato</label>
@@ -250,27 +255,13 @@
                         @error('title') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
 
-                    <!-- Descrizione WYSIWYG (barra base) -->
+                    <!-- DESCRIZIONE - TEXTAREA (NON SI PERDE MAI) -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
-                        <div class="border border-gray-300 rounded-md overflow-hidden">
-                            <div class="flex items-center gap-1 bg-gray-50 border-b border-gray-300 px-2 py-1" id="wysiwygToolbar">
-                                <button type="button" data-cmd="bold" class="wysiwyg-btn px-2 py-1 text-sm rounded hover:bg-gray-200 font-bold">B</button>
-                                <button type="button" data-cmd="italic" class="wysiwyg-btn px-2 py-1 text-sm rounded hover:bg-gray-200 italic">I</button>
-                                <button type="button" data-cmd="underline" class="wysiwyg-btn px-2 py-1 text-sm rounded hover:bg-gray-200 underline">U</button>
-                                <span class="w-px h-5 bg-gray-300 mx-1"></span>
-                                <button type="button" data-cmd="insertUnorderedList" class="wysiwyg-btn px-2 py-1 text-sm rounded hover:bg-gray-200"><i class="fas fa-list-ul"></i></button>
-                                <button type="button" data-cmd="insertOrderedList" class="wysiwyg-btn px-2 py-1 text-sm rounded hover:bg-gray-200"><i class="fas fa-list-ol"></i></button>
-                                <span class="w-px h-5 bg-gray-300 mx-1"></span>
-                                <button type="button" data-cmd="createLink" class="wysiwyg-btn px-2 py-1 text-sm rounded hover:bg-gray-200"><i class="fas fa-link"></i></button>
-                                <button type="button" data-cmd="removeFormat" class="wysiwyg-btn px-2 py-1 text-sm rounded hover:bg-gray-200"><i class="fas fa-eraser"></i></button>
-                            </div>
-                            <div id="wysiwygEditor" contenteditable="true"
-                                class="w-full px-3 py-2 min-h-[120px] focus:outline-none text-sm"
-                                x-data
-                                x-init="$el.innerHTML = @js($description)"
-                                x-on:input="$wire.set('description', $el.innerHTML, false)"></div>
-                        </div>
+                        <textarea wire:model="description" 
+                                  rows="6"
+                                  placeholder="Inserisci la descrizione..."
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 text-sm resize-y"></textarea>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -379,7 +370,7 @@
     </div>
     @endif
 
-    <!-- ==================== MODAL DETTAGLIO (COMMENTI + ALLEGATI) ==================== -->
+    <!-- ==================== MODAL DETTAGLIO ==================== -->
     @if($showDetailModal && $viewingTask)
     <div class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50">
         <div class="flex items-start justify-center min-h-screen p-4">
@@ -421,6 +412,10 @@
                             <label class="text-xs text-gray-500 uppercase font-semibold">Proprietà</label>
                             <p class="text-sm font-medium">{{ $viewingTask->ownership->RagAbbrev ?? '-' }}</p>
                         </div>
+                        <div class="bg-gray-50 p-2 rounded-lg">
+                            <label class="text-xs text-gray-500 uppercase font-semibold">Importo</label>
+                            <p class="text-sm font-medium">{{ $viewingTask->amount !== null ? number_format((float) $viewingTask->amount, 2, ',', '.') . ' €' : '-' }}</p>
+                        </div>
                         <div class="bg-gray-50 p-2 rounded-lg col-span-2">
                             <label class="text-xs text-gray-500 uppercase font-semibold">Stato</label>
                             <div class="mt-1">
@@ -444,7 +439,7 @@
                     @if($viewingTask->description)
                     <div>
                         <label class="text-xs text-gray-500 uppercase font-semibold block mb-1">Descrizione</label>
-                        <div class="prose prose-sm max-w-none text-gray-700 bg-gray-50 rounded-lg p-3">{!! $viewingTask->description !!}</div>
+                        <div class="prose prose-sm max-w-none text-gray-700 bg-gray-50 rounded-lg p-3">{{ nl2br(e($viewingTask->description)) }}</div>
                     </div>
                     @endif
 
@@ -462,9 +457,9 @@
                         </label>
                         <a href="{{ route('admin.documents.index', ['tableRef' => 'admin_tasks', 'idRef' => $viewingTask->id]) }}"
                             class="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-sm transition-colors">
-                            <i class="fas fa-folder-open"></i> Gestisci allegati (carica, scarica, elimina)
+                            <i class="fas fa-folder-open"></i> Gestisci allegati
                         </a>
-                        <p class="text-xs text-gray-400 mt-1">Si apre la pagina documenti — gli allegati vengono salvati su Amazon S3, come per Personale e Mezzi.</p>
+                        <p class="text-xs text-gray-400 mt-1">Si apre la pagina documenti — gli allegati vengono salvati su Amazon S3.</p>
                     </div>
 
                     <!-- COMMENTI -->
@@ -484,7 +479,7 @@
     </div>
     @endif
 
-    <!-- ==================== MODAL COMMENTI (dedicato) ==================== -->
+    <!-- ==================== MODAL COMMENTI ==================== -->
     @if($showCommentsModal)
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
@@ -550,11 +545,10 @@
     </div>
     @endif
 
+    @push('scripts')
     <script>
-        // ============================================
-        // BARRA WYSIWYG (basilare: bold/italic/underline/liste/link)
-        // ============================================
         document.addEventListener('livewire:initialized', () => {
+            // Gestione click sui pulsanti della toolbar WYSIWYG (se presenti)
             const toolbar = document.getElementById('wysiwygToolbar');
             if (toolbar) {
                 toolbar.addEventListener('click', function (e) {
@@ -570,10 +564,25 @@
                     } else {
                         document.execCommand(cmd, false, null);
                     }
+                    if (editor) {
+                        editor.dispatchEvent(new Event('input'));
+                    }
                 });
             }
 
-            Livewire.on('clearOwnershipInput', () => {});
+            // Gestione autocomplete dropdown
+            document.addEventListener('click', function(e) {
+                const dropdowns = document.querySelectorAll('[x-data]');
+                dropdowns.forEach(el => {
+                    if (el._x_dataStack && el._x_dataStack.length > 0) {
+                        const data = el._x_dataStack[0];
+                        if (data.open !== undefined && !el.contains(e.target)) {
+                            data.open = false;
+                        }
+                    }
+                });
+            });
         });
     </script>
+    @endpush
 </div>

@@ -26,6 +26,7 @@ class AdminTask extends Model
         'id_ownership',
         'priority',
         'status',
+        'amount',
         'created_by',
         'updated_by',
     ];
@@ -34,6 +35,7 @@ class AdminTask extends Model
         'task_date' => 'date',
         'due_date' => 'date',
         'priority' => 'integer',
+        'amount' => 'decimal:2',
         'deleted_at' => 'datetime',
     ];
 
@@ -145,5 +147,16 @@ class AdminTask extends Model
         return $this->due_date
             && $this->due_date->isPast()
             && !in_array($this->status, [self::STATUS_COMPLETED]);
+    }
+
+    /**
+     * Importo formattato "1.234,56 €", pronto per la vista, oppure '-' se
+     * non impostato.
+     */
+    public function getFormattedAmountAttribute(): string
+    {
+        return $this->amount !== null
+            ? number_format((float) $this->amount, 2, ',', '.') . ' €'
+            : '-';
     }
 }

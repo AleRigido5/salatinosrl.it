@@ -26,10 +26,6 @@ class AdminTaskTag extends Model
         });
     }
 
-    /**
-     * Trova un tag per nome (case-insensitive) o lo crea se non esiste.
-     * Usato quando l'utente digita parole chiave libere nel form del task.
-     */
     public static function findOrCreateByName(string $name): self
     {
         $name = trim($name);

@@ -13,6 +13,8 @@ use App\Models\Ownership;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class AdminTasksTable extends Component
 {
@@ -28,12 +30,10 @@ class AdminTasksTable extends Component
     public string $tagFilter = '';
     public int $perPage = 100;
 
-    // Filtro data unico: applicato a task_date o due_date a seconda di
-    // $dateFilterMode (radio button nella vista). Un solo componente
-    // date-range-filter, nessun rischio di doppie istanze/eventi.
+    // Filtro data
     public string $dateFrom = '';
     public string $dateTo = '';
-    public string $dateFilterMode = 'task_date'; // 'task_date' | 'due_date'
+    public string $dateFilterMode = 'task_date';
 
     public array $categories = [];
 
@@ -50,8 +50,9 @@ class AdminTasksTable extends Component
     public string $id_category = '';
     public int $priority = 3;
     public string $status = 'waiting';
+    public string $amount = '';
 
-    // Cliente/Proprietà (stesso pattern autocomplete delle altre pagine)
+    // Cliente/Proprietà
     public string $entitySearch = '';
     public Collection $entityResults;
     public string $selectedEntityId = '';
@@ -66,13 +67,18 @@ class AdminTasksTable extends Component
 
     // Tag
     public string $tagInput = '';
-    public array $selectedTags = []; // array di nomi (stringhe) selezionati per il task in editing
+    public array $selectedTags = [];
     public Collection $tagSuggestions;
 
-    // ==================== DETTAGLIO / COMMENTI / ALLEGATI ====================
+    // ==================== DETTAGLIO / COMMENTI ====================
     public bool $showDetailModal = false;
     public ?AdminTask $viewingTask = null;
     public string $newComment = '';
+
+    public bool $showCommentsModal = false;
+    public ?int $commentsTaskId = null;
+    public string $commentsTaskTitle = '';
+    public $taskComments = null;
 
     // Conferma eliminazione
     public ?int $deletingId = null;
@@ -89,18 +95,12 @@ class AdminTasksTable extends Component
         $this->tagSuggestions = new Collection();
         $this->task_date = now()->format('Y-m-d');
 
-        // Barra date: task_date di default sul mese corrente, come richiesto.
         $this->dateFrom = now()->startOfMonth()->format('Y-m-d');
         $this->dateTo = now()->endOfMonth()->format('Y-m-d');
 
         $this->loadCategories();
     }
 
-    /**
-     * Riceve l'evento dispatchato da components.date-range-filter
-     * (pulsante "Applica") e aggiorna il filtro — su task_date o due_date
-     * a seconda di quale radio button è selezionato.
-     */
     public function updateDateRange(array $data): void
     {
         $this->dateFrom = $data['date_from'] ?? '';
@@ -108,20 +108,11 @@ class AdminTasksTable extends Component
         $this->resetPage();
     }
 
-    /**
-     * Cambio radio "Data Task Amministrativo" / "Scadenza Task Amministrativo":
-     * riapplica lo stesso range già impostato, ma sul campo scelto.
-     */
     public function updatedDateFilterMode(): void
     {
         $this->resetPage();
     }
 
-    /**
-     * Le categorie sono righe della tabella generica "settings"
-     * (tabella_riferimento = 'admin_tasks'), gestite dalla UI di
-     * Impostazioni già esistente — nessuna tabella dedicata.
-     */
     protected function loadCategories(): void
     {
         $this->categories = Setting::where('tabella_riferimento', 'admin_tasks')
@@ -147,10 +138,6 @@ class AdminTasksTable extends Component
         $this->tagFilter = '';
         $this->dateFilterMode = 'task_date';
 
-        // Come nelle altre pagine del gestionale: "Rimuovi filtri" azzera
-        // davvero il filtro (nessuna restrizione di data), mentre il
-        // widget mese/anno torna visivamente al mese corrente tramite
-        // l'evento resetDates ascoltato da components.date-range-filter.
         $this->dateFrom = now()->startOfMonth()->format('Y-m-d');
         $this->dateTo = now()->endOfMonth()->format('Y-m-d');
         $this->resetPage();
@@ -189,8 +176,6 @@ class AdminTasksTable extends Component
             });
         }
 
-        // Filtro data unico: task_date oppure due_date, in base al radio
-        // button selezionato ($dateFilterMode) nella vista.
         $dateColumn = $this->dateFilterMode === 'due_date' ? 'due_date' : 'task_date';
         if ($this->dateFrom) {
             $query->whereDate($dateColumn, '>=', $this->dateFrom);
@@ -295,7 +280,7 @@ class AdminTasksTable extends Component
         $this->showOwnershipDropdown = false;
     }
 
-    // ==================== TAG (PAROLE CHIAVE) ====================
+    // ==================== TAG ====================
     public function updatedTagInput(): void
     {
         $query = trim($this->tagInput);
@@ -357,6 +342,7 @@ class AdminTasksTable extends Component
         $this->id_category = (string) ($task->id_category ?? '');
         $this->priority = $task->priority;
         $this->status = $task->status;
+        $this->amount = $task->amount !== null ? number_format((float) $task->amount, 2, '.', '') : '';
 
         $this->selectedEntityId = (string) ($task->id_entities ?? '');
         $this->selectedEntityName = $task->entity ? ($task->entity->ragione_sociale ?? trim($task->entity->nome . ' ' . $task->entity->cognome)) : '';
@@ -389,6 +375,7 @@ class AdminTasksTable extends Component
         $this->id_category = '';
         $this->priority = 3;
         $this->status = 'waiting';
+        $this->amount = '';
         $this->clearEntity();
         $this->clearOwnership();
         $this->selectedTags = [];
@@ -408,11 +395,17 @@ class AdminTasksTable extends Component
             'id_category' => 'nullable|exists:settings,id',
             'priority' => 'required|integer|min:1|max:5',
             'status' => 'required|in:waiting,associated,completed,expired',
+            'amount' => 'nullable|numeric|min:0|max:99999999.99',
         ];
     }
 
     public function save(): void
     {
+        // Commit automatico del tag se presente nel campo input
+        if (trim($this->tagInput) !== '') {
+            $this->addTag($this->tagInput);
+        }
+
         $this->validate();
 
         $adminId = Auth::guard('admin')->id();
@@ -429,6 +422,7 @@ class AdminTasksTable extends Component
             'id_ownership' => $this->selectedOwnershipId ?: null,
             'priority' => $this->priority,
             'status' => $this->status,
+            'amount' => $this->amount !== '' ? round((float) str_replace(',', '.', $this->amount), 2) : null,
             'updated_by' => $adminId,
         ];
 
@@ -442,18 +436,31 @@ class AdminTasksTable extends Component
                 $task = AdminTask::create($data);
             }
 
-            // Sincronizza i tag: crea quelli nuovi, collega tutti
-            $tagIds = collect($this->selectedTags)
-                ->map(fn ($name) => AdminTaskTag::findOrCreateByName($name)->id)
-                ->toArray();
+            // Sincronizza i tag
+            $tagIds = [];
+            foreach ($this->selectedTags as $tagName) {
+                $tagName = trim($tagName);
+                if ($tagName !== '') {
+                    $tag = AdminTaskTag::firstOrCreate(
+                        ['slug' => Str::slug($tagName)],
+                        ['name' => $tagName]
+                    );
+                    $tagIds[] = $tag->id;
+                }
+            }
+            
             $task->tags()->sync($tagIds);
 
             DB::commit();
 
-            $this->dispatch('showSuccess', message: "Task '{$task->title}' " . ($this->editingId ? 'aggiornato' : 'creato') . ' con successo.');
+            $this->dispatch('showSuccess', message: "Task '{$task->title}' " . ($this->editingId ? 'aggiornato' : 'creato') . " con successo.");
             $this->closeFormModal();
         } catch (\Throwable $e) {
             DB::rollBack();
+            Log::error('Errore salvataggio task', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
@@ -498,12 +505,7 @@ class AdminTasksTable extends Component
         $this->viewingTask = null;
     }
 
-    // ==================== MODAL COMMENTI (dedicato, come per le Comunicazioni) ====================
-    public bool $showCommentsModal = false;
-    public ?int $commentsTaskId = null;
-    public string $commentsTaskTitle = '';
-    public $taskComments = null; // Collection<AdminTaskComment>
-
+    // ==================== MODAL COMMENTI ====================
     public function openCommentsModal(int $id): void
     {
         $task = AdminTask::with('comments.author')->findOrFail($id);
@@ -547,7 +549,6 @@ class AdminTasksTable extends Component
             return;
         }
 
-        // Ognuno elimina solo i propri commenti (come nelle Comunicazioni)
         if ($comment->created_by !== Auth::guard('admin')->id()) {
             $this->dispatch('showError', message: 'Puoi eliminare solo i tuoi commenti.');
             return;

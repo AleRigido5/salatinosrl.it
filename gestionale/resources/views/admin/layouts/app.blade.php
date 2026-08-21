@@ -666,6 +666,53 @@
                     </div>
                     @endif
 
+                    <!-- Magazzino -->
+                    @if($currentAdmin && $currentAdmin->hasPermission('view_warehouse'))
+                    <div x-data="{ 
+                        openMagazzino: {{ (request()->routeIs('admin.warehouse.*')) ? 'true' : 'false' }},
+                        init() {
+                            window.addEventListener('sidebar-closed', () => {
+                                this.openMagazzino = false;
+                            });
+                        }
+                    }">
+                        <a href="#" 
+                        @click.prevent="$store.sidebar.isExpanded ? openMagazzino = !openMagazzino : null"
+                        class="sidebar-link flex items-center justify-between px-4 py-2.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200 {{ request()->routeIs('admin.warehouse.*') ? 'bg-gray-700/70 text-lime-400 border-r-2 border-lime-500' : 'text-gray-300' }} mb-1">
+                            <div class="flex items-center">
+                                <i class="fa-solid fa-warehouse w-5 h-5 {{ request()->routeIs('admin.warehouse.*') ? 'text-lime-400' : 'text-gray-500' }}"></i>
+                                <span class="sidebar-link-text text-sm font-medium ml-3">Magazzino</span>
+                            </div>
+                            <i class="fas fa-chevron-down text-xs transition-transform duration-200 ml-4 mr-1" 
+                            :class="{ 'rotate-180': openMagazzino }" 
+                            x-show="$store.sidebar.isExpanded"
+                            style="min-width: 12px;"></i>
+                        </a>
+
+                        <div x-show="openMagazzino && $store.sidebar.isExpanded" 
+                            x-transition:enter="transition ease-out duration-200" 
+                            x-transition:enter-start="opacity-0 transform -translate-y-2" 
+                            x-transition:enter-end="opacity-100 transform translate-y-0"
+                            x-transition:leave="transition ease-in duration-100" 
+                            x-transition:leave-start="opacity-100 transform translate-y-0" 
+                            x-transition:leave-end="opacity-0 transform -translate-y-2"
+                            class="ml-6 mt-1 space-y-1">
+
+                            <a href="{{ route('admin.warehouse.products.index') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.warehouse.products.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fa-solid fa-boxes-stacked w-4 h-4 mr-2"></i>
+                                <span>Catalogo Prodotti</span>
+                            </a>
+
+                            <a href="{{ route('admin.warehouse.movements.index') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.warehouse.movements.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fa-solid fa-right-left w-4 h-4 mr-2"></i>
+                                <span>Movimentazioni</span>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
+
                     <!-- Prima Nota -->
                     @if($currentAdmin && $currentAdmin->hasPermission('view_accounting_entries'))
                     <a href="{{ route('admin.accounting-entries.index') }}" 
@@ -709,6 +756,16 @@
                                 // In Evidenza (Task Amministrativi)
                                 elseif (str_starts_with($currentRoute, 'admin.admin-tasks.')) {
                                     $breadcrumbs[] = ['name' => 'In Evidenza', 'url' => null, 'clickable' => false];
+                                }
+                                // Magazzino
+                                elseif (str_starts_with($currentRoute, 'admin.warehouse.')) {
+                                    $breadcrumbs[] = ['name' => 'Magazzino', 'url' => null, 'clickable' => false];
+
+                                    if (str_starts_with($currentRoute, 'admin.warehouse.products.')) {
+                                        $breadcrumbs[] = ['name' => 'Catalogo Prodotti', 'url' => null, 'clickable' => false];
+                                    } elseif (str_starts_with($currentRoute, 'admin.warehouse.movements.')) {
+                                        $breadcrumbs[] = ['name' => 'Movimentazioni', 'url' => null, 'clickable' => false];
+                                    }
                                 }
                                 // Attività
                                 elseif (str_starts_with($currentRoute, 'admin.activities.')) {

@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\VademecumController;
 use App\Http\Controllers\Admin\CostCenterController;
 use App\Http\Controllers\Admin\ServiceController;
 use App\Http\Controllers\Admin\ExpirationAllController;
+use App\Http\Controllers\Admin\WarehouseController;
 use App\Models\Ownership;
 use App\Models\Entity;
 use Illuminate\Support\Facades\Route;
@@ -377,6 +378,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/statistics', [App\Http\Controllers\Admin\InvoiceSentController::class, 'statistics'])->name('statistics');
             Route::get('/{id}', [App\Http\Controllers\Admin\InvoiceSentController::class, 'show'])->name('show');
             Route::get('/{id}/preview', [App\Http\Controllers\Admin\InvoiceSentController::class, 'previewPdf'])->name('preview');
+        });
+
+        // =============================================
+        // MAGAZZINO (CATALOGO PRODOTTI + MOVIMENTAZIONI)
+        // =============================================
+        Route::prefix('warehouse')->name('warehouse.')->group(function () {
+            Route::get('/products', [WarehouseController::class, 'productsIndex'])->name('products.index');
+            Route::get('/movements', [WarehouseController::class, 'movementsIndex'])->name('movements.index');
         });
 
         // =============================================

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WarehouseProduct extends Model
 {
@@ -14,6 +15,7 @@ class WarehouseProduct extends Model
 
     protected $fillable = [
         'sku',
+        'id_category',
         'name',
         'description',
         'unit_of_measure',
@@ -28,6 +30,11 @@ class WarehouseProduct extends Model
         'valid' => 'boolean',
         'deleted_at' => 'datetime',
     ];
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(WarehouseCategory::class, 'id_category');
+    }
 
     public function movements(): HasMany
     {

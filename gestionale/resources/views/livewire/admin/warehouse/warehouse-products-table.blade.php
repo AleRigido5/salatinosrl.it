@@ -4,9 +4,14 @@
             <i class="fa-solid fa-boxes-stacked mr-3 text-lime-600"></i>
             Catalogo Prodotti
         </h1>
-        <button wire:click="openCreateModal" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
-            <i class="fas fa-plus mr-2"></i> Nuovo Prodotto
-        </button>
+        <div class="flex items-center gap-2">
+            <button wire:click="openCategoriesModal" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-50 transition-all duration-200">
+                <i class="fa-solid fa-sitemap mr-2"></i> Gestione Categorie
+            </button>
+            <button wire:click="openCreateModal" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                <i class="fas fa-plus mr-2"></i> Nuovo Prodotto
+            </button>
+        </div>
     </div>
 
     <!-- Filtri -->
@@ -21,6 +26,17 @@
                 </div>
             </div>
             <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Categoria</label>
+                <select wire:model.live="categoryFilter" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
+                    <option value="">Tutte</option>
+                    @foreach($flattenedCategories as $item)
+                        <option value="{{ $item['category']->id }}">
+                            {{ str_repeat('— ', $item['depth']) }}{{ $item['category']->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1">Stato</label>
                 <select wire:model.live="statusFilter" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
                     <option value="">Tutti</option>
@@ -29,7 +45,7 @@
                 </select>
             </div>
         </div>
-        @if($search || $statusFilter !== '1')
+        @if($search || $statusFilter !== '1' || $categoryFilter)
         <div class="mt-3 pt-3 border-t border-gray-200">
             <button wire:click="clearFilters" class="text-xs text-gray-400 hover:text-red-500">
                 <i class="fas fa-trash-alt mr-1"></i> Rimuovi filtri
@@ -46,6 +62,7 @@
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Codice</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Nome</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Categoria</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Descrizione</th>
                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">Giacenza</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500">Stato</th>
@@ -57,6 +74,15 @@
                     <tr class="hover:bg-gray-50" wire:key="product-{{ $product->id }}">
                         <td class="px-4 py-3 text-sm font-mono">{{ $product->sku ?: '-' }}</td>
                         <td class="px-4 py-3 text-sm font-medium text-gray-900">{{ $product->name }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            @if($product->category)
+                                <span class="inline-flex px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 font-medium">
+                                    {{ $product->category->full_name }}
+                                </span>
+                            @else
+                                <span class="text-gray-400">-</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-3 text-sm text-gray-600 max-w-sm truncate" title="{{ $product->description }}">{{ $product->description ?: '-' }}</td>
                         <td class="px-4 py-3 text-sm text-right">{{ $product->quantity_label }}</td>
                         <td class="px-4 py-3 text-center">
@@ -77,7 +103,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="text-center py-8 text-gray-500">
+                        <td colspan="7" class="text-center py-8 text-gray-500">
                             <i class="fa-solid fa-boxes-stacked text-4xl mb-2 text-gray-300 block"></i>
                             Nessun prodotto trovato
                         </td>
@@ -92,7 +118,7 @@
     <div class="mt-4">{{ $products->links() }}</div>
     @endif
 
-    <!-- MODAL CREA/MODIFICA -->
+    <!-- MODAL CREA/MODIFICA PRODOTTO -->
     @if($showFormModal)
     <div class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50">
         <div class="flex items-start justify-center min-h-screen p-4">
@@ -110,8 +136,16 @@
                             @error('sku') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Unità di Misura</label>
-                            <input type="text" wire:model="unit_of_measure" placeholder="pz, kg, lt..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                            <select wire:model="id_category" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                <option value="">Nessuna</option>
+                                @foreach($flattenedCategories as $item)
+                                    <option value="{{ $item['category']->id }}">
+                                        {{ str_repeat('— ', $item['depth']) }}{{ $item['category']->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('id_category') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
                     </div>
 
@@ -126,12 +160,15 @@
                         <textarea wire:model="description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"></textarea>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Unità di Misura</label>
+                            <input type="text" wire:model="unit_of_measure" placeholder="pz, kg, lt..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Giacenza</label>
                             <input type="text" inputmode="decimal" wire:model="quantity" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                             @error('quantity') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                            <p class="text-xs text-gray-400 mt-1">Modifica manuale — normalmente si aggiorna dalle Movimentazioni.</p>
                         </div>
                         <div class="flex items-end pb-2">
                             <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
@@ -140,6 +177,7 @@
                             </label>
                         </div>
                     </div>
+                    <p class="text-xs text-gray-400 -mt-2">Giacenza modificabile manualmente qui — normalmente si aggiorna dalle Movimentazioni.</p>
                 </div>
 
                 <div class="flex justify-end gap-3 px-6 py-4 border-t bg-gray-50 rounded-b-lg">
@@ -153,7 +191,7 @@
     </div>
     @endif
 
-    <!-- MODAL CONFERMA ELIMINAZIONE -->
+    <!-- MODAL CONFERMA ELIMINAZIONE PRODOTTO -->
     @if($deletingId)
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6 text-center">
@@ -163,6 +201,105 @@
             <div class="flex justify-center gap-3">
                 <button wire:click="cancelDelete" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Annulla</button>
                 <button wire:click="delete" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">Elimina</button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- ==================== MODAL GESTIONE CATEGORIE ==================== -->
+    @if($showCategoriesModal)
+    <div class="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50">
+        <div class="flex items-start justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl my-8">
+                <div class="flex justify-between items-center px-6 py-4 border-b">
+                    <h3 class="text-lg font-semibold text-gray-800"><i class="fa-solid fa-sitemap mr-2 text-lime-600"></i> Gestione Categorie</h3>
+                    <button wire:click="closeCategoriesModal" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+                </div>
+
+                <div class="px-6 py-4 space-y-4">
+                    <!-- Form aggiungi/modifica categoria -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">
+                            {{ $editingCategoryId ? 'Modifica categoria' : 'Aggiungi nuova categoria' }}
+                        </label>
+                        <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+                            <div>
+                                <input type="text" wire:model="categoryName" placeholder="Nome categoria..."
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                @error('categoryName') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <select wire:model="categoryParentId" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
+                                    <option value="">— Categoria principale —</option>
+                                    @foreach($flattenedCategories as $item)
+                                        @if($item['depth'] === 0 && $item['category']->id !== $editingCategoryId)
+                                            <option value="{{ $item['category']->id }}">Sotto: {{ $item['category']->name }}</option>
+                                        @endif
+                                    @endforeach
+                                </select>
+                                @error('categoryParentId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div class="flex gap-2">
+                                <button wire:click="saveCategory" class="px-4 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-md text-sm transition-colors whitespace-nowrap">
+                                    <i class="fas fa-check mr-1"></i> {{ $editingCategoryId ? 'Salva' : 'Aggiungi' }}
+                                </button>
+                                @if($editingCategoryId)
+                                <button wire:click="cancelEditCategory" class="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md text-sm transition-colors">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Elenco categorie -->
+                    <div class="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                        @forelse($flattenedCategories as $item)
+                            @php $cat = $item['category']; @endphp
+                            <div class="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50" wire:key="category-{{ $cat->id }}"
+                                style="padding-left: {{ 1 + $item['depth'] * 1.5 }}rem;">
+                                <div class="flex items-center gap-2 text-sm">
+                                    @if($item['depth'] > 0)
+                                        <i class="fas fa-turn-up fa-rotate-90 text-gray-300 text-xs"></i>
+                                    @else
+                                        <i class="fas fa-folder text-lime-500"></i>
+                                    @endif
+                                    <span class="{{ $item['depth'] === 0 ? 'font-semibold text-gray-800' : 'text-gray-600' }}">{{ $cat->name }}</span>
+                                    <span class="text-xs text-gray-400">({{ $cat->products()->count() }} prodotti)</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button wire:click="editCategory({{ $cat->id }})" class="text-yellow-600 hover:text-yellow-800 text-sm" title="Modifica">
+                                        <i class="fas fa-pen-to-square"></i>
+                                    </button>
+                                    <button wire:click="confirmDeleteCategory({{ $cat->id }})" class="text-red-600 hover:text-red-800 text-sm" title="Elimina">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        @empty
+                            <p class="text-center text-gray-400 text-sm py-6">Nessuna categoria presente</p>
+                        @endforelse
+                    </div>
+                </div>
+
+                <div class="flex justify-end px-6 py-4 border-t bg-gray-50 rounded-b-lg">
+                    <button wire:click="closeCategoriesModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Chiudi</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- MODAL CONFERMA ELIMINAZIONE CATEGORIA -->
+    @if($deletingCategoryId)
+    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6 text-center">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4"><i class="fas fa-exclamation-triangle text-red-600 text-xl"></i></div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Conferma eliminazione categoria</h3>
+            <p class="text-sm text-gray-500 mb-4">La categoria verrà eliminata definitivamente. Continuare?</p>
+            <div class="flex justify-center gap-3">
+                <button wire:click="cancelDeleteCategory" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Annulla</button>
+                <button wire:click="deleteCategory" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">Elimina</button>
             </div>
         </div>
     </div>

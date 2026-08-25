@@ -386,8 +386,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::prefix('warehouse')->name('warehouse.')->group(function () {
             Route::get('/products', [WarehouseController::class, 'productsIndex'])->name('products.index');
             Route::get('/movements', [WarehouseController::class, 'movementsIndex'])->name('movements.index');
+            Route::get('/ddt-purchases', [WarehouseController::class, 'ddtPurchasesIndex'])->name('ddt-purchases.index');
+            Route::get('/ddt-sales', [WarehouseController::class, 'ddtSalesIndex'])->name('ddt-sales.index');
         });
-
+        
         // =============================================
         // STATISTICHE GENERALI (Vendite vs Acquisti)
         // =============================================

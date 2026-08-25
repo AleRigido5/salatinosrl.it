@@ -709,6 +709,18 @@
                                 <i class="fa-solid fa-right-left w-4 h-4 mr-2"></i>
                                 <span>Movimentazioni</span>
                             </a>
+
+                            <a href="{{ route('admin.warehouse.ddt-purchases.index') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.warehouse.ddt-purchases.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fa-solid fa-truck-ramp-box w-4 h-4 mr-2"></i>
+                                <span>DDT Acquisto</span>
+                            </a>
+                            
+                            <a href="{{ route('admin.warehouse.ddt-sales.index') }}" 
+                            class="flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 {{ request()->routeIs('admin.warehouse.ddt-sales.*') ? 'bg-gray-700/50 text-lime-400' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30' }}">
+                                <i class="fa-solid fa-truck-ramp-box w-4 h-4 mr-2"></i>
+                                <span>DDT Vendita</span>
+                            </a>
                         </div>
                     </div>
                     @endif

@@ -25,17 +25,33 @@
                         class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
                 </div>
             </div>
-            <div>
+
+            <!-- Autocomplete: filtro Categoria -->
+            <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Categoria</label>
-                <select wire:model.live="categoryFilter" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
-                    <option value="">Tutte</option>
-                    @foreach($flattenedCategories as $item)
-                        <option value="{{ $item['category']->id }}">
-                            {{ str_repeat('— ', $item['depth']) }}{{ $item['category']->name }}
-                        </option>
-                    @endforeach
-                </select>
+                <div class="relative">
+                    <input type="text" wire:model.live.debounce.300ms="categoryFilterSearch"
+                        x-on:focus="open = true"
+                        placeholder="Cerca categoria..."
+                        class="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                    @if($categoryFilter)
+                    <button type="button" wire:click="clearCategoryFilter" class="absolute right-2 top-2.5 text-gray-400 hover:text-red-500">
+                        <i class="fas fa-times-circle text-sm"></i>
+                    </button>
+                    @endif
+                </div>
+                <div x-show="open && @entangle('showCategoryFilterDropdown')" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
+                    @forelse($categoryFilterResults as $item)
+                        <div x-on:click="open = false; @this.call('selectCategoryFilter', {{ $item->id }}, '{{ addslashes($item->full_name) }}')"
+                            class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                            {{ $item->full_name }}
+                        </div>
+                    @empty
+                        <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato</div>
+                    @endforelse
+                </div>
             </div>
+
             <div>
                 <label class="block text-xs font-medium text-gray-500 mb-1">Stato</label>
                 <select wire:model.live="statusFilter" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
@@ -135,16 +151,31 @@
                             <input type="text" wire:model="sku" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                             @error('sku') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
-                        <div>
+
+                        <!-- Autocomplete: Categoria del prodotto -->
+                        <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-                            <select wire:model="id_category" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                                <option value="">Nessuna</option>
-                                @foreach($flattenedCategories as $item)
-                                    <option value="{{ $item['category']->id }}">
-                                        {{ str_repeat('— ', $item['depth']) }}{{ $item['category']->name }}
-                                    </option>
-                                @endforeach
-                            </select>
+                            <div class="relative">
+                                <input type="text" wire:model.live.debounce.300ms="categorySearch"
+                                    x-on:focus="open = true"
+                                    placeholder="Cerca categoria..."
+                                    class="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                @if($id_category)
+                                <button type="button" wire:click="clearCategory" class="absolute right-2 top-2.5 text-gray-400 hover:text-red-500">
+                                    <i class="fas fa-times-circle text-sm"></i>
+                                </button>
+                                @endif
+                            </div>
+                            <div x-show="open && @entangle('showCategoryDropdown')" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
+                                @forelse($categoryResults as $item)
+                                    <div x-on:click="open = false; @this.call('selectCategory', {{ $item->id }}, '{{ addslashes($item->full_name) }}')"
+                                        class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                        {{ $item->full_name }}
+                                    </div>
+                                @empty
+                                    <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato</div>
+                                @endforelse
+                            </div>
                             @error('id_category') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
                     </div>
@@ -228,17 +259,33 @@
                                     class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                                 @error('categoryName') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
-                            <div>
-                                <select wire:model="categoryParentId" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
-                                    <option value="">— Categoria principale —</option>
-                                    @foreach($flattenedCategories as $item)
-                                        @if($item['depth'] === 0 && $item['category']->id !== $editingCategoryId)
-                                            <option value="{{ $item['category']->id }}">Sotto: {{ $item['category']->name }}</option>
-                                        @endif
-                                    @endforeach
-                                </select>
+
+                            <!-- Autocomplete: categoria padre -->
+                            <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                                <div class="relative">
+                                    <input type="text" wire:model.live.debounce.300ms="categoryParentSearch"
+                                        x-on:focus="open = true"
+                                        placeholder="Sotto categoria principale... (vuoto = principale)"
+                                        class="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                    @if($categoryParentId)
+                                    <button type="button" wire:click="clearCategoryParent" class="absolute right-2 top-2.5 text-gray-400 hover:text-red-500">
+                                        <i class="fas fa-times-circle text-sm"></i>
+                                    </button>
+                                    @endif
+                                </div>
+                                <div x-show="open && @entangle('showCategoryParentDropdown')" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
+                                    @forelse($categoryParentResults as $item)
+                                        <div x-on:click="open = false; @this.call('selectCategoryParent', {{ $item->id }}, '{{ addslashes($item->name) }}')"
+                                            class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                            {{ $item->name }}
+                                        </div>
+                                    @empty
+                                        <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessuna categoria principale trovata</div>
+                                    @endforelse
+                                </div>
                                 @error('categoryParentId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
+
                             <div class="flex gap-2">
                                 <button wire:click="saveCategory" class="px-4 py-2 bg-lime-600 hover:bg-lime-700 text-white rounded-md text-sm transition-colors whitespace-nowrap">
                                     <i class="fas fa-check mr-1"></i> {{ $editingCategoryId ? 'Salva' : 'Aggiungi' }}
@@ -252,6 +299,19 @@
                         </div>
                     </div>
 
+                    <!-- Ricerca dinamica nella lista (indispensabile con molte categorie) -->
+                    <div>
+                        <div class="relative">
+                            <i class="fas fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
+                            <input type="text" wire:model.live.debounce.300ms="categoryModalSearch"
+                                placeholder="Cerca tra tutte le categorie e sottocategorie..."
+                                class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        @if(strlen(trim($categoryModalSearch)) >= 2)
+                            <p class="text-xs text-gray-400 mt-1">Risultati per "{{ $categoryModalSearch }}" — cancella la ricerca per vedere l'intero albero.</p>
+                        @endif
+                    </div>
+
                     <!-- Elenco categorie -->
                     <div class="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-96 overflow-y-auto">
                         @forelse($flattenedCategories as $item)
@@ -261,6 +321,9 @@
                                 <div class="flex items-center gap-2 text-sm">
                                     @if($item['depth'] > 0)
                                         <i class="fas fa-turn-up fa-rotate-90 text-gray-300 text-xs"></i>
+                                        @if(strlen(trim($categoryModalSearch)) >= 2)
+                                            <span class="text-xs text-gray-400">{{ $cat->parent->name ?? '' }} ›</span>
+                                        @endif
                                     @else
                                         <i class="fas fa-folder text-lime-500"></i>
                                     @endif
@@ -277,7 +340,9 @@
                                 </div>
                             </div>
                         @empty
-                            <p class="text-center text-gray-400 text-sm py-6">Nessuna categoria presente</p>
+                            <p class="text-center text-gray-400 text-sm py-6">
+                                {{ strlen(trim($categoryModalSearch)) >= 2 ? 'Nessuna categoria trovata per questa ricerca' : 'Nessuna categoria presente' }}
+                            </p>
                         @endforelse
                     </div>
                 </div>

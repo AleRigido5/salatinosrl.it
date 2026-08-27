@@ -10,6 +10,10 @@
                 class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
                 <i class="fas fa-plus mr-2"></i> Nuova Scrittura
             </button>
+            <button wire:click="openImportModal" 
+                class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                <i class="fas fa-file-csv mr-2"></i> Importa CSV
+            </button>
             @endif
             
             <!-- Pulsante Cestino -->
@@ -622,6 +626,215 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+    @endif
+
+        <!-- MODAL IMPORT CSV -->
+    @if($showImportModal)
+    <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ open: true }" x-show="open" x-on:keydown.escape.window="open = false; $wire.closeImportModal()">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75" x-on:click="open = false; $wire.closeImportModal()"></div>
+
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+                <div class="bg-white px-6 pt-5 pb-4 border-b">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-medium text-gray-900">
+                            <i class="fas fa-file-csv mr-2 text-blue-600"></i> Importa Scritture da CSV
+                        </h3>
+                        <button type="button" wire:click="closeImportModal" class="text-gray-400 hover:text-gray-500">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 space-y-4 max-h-[75vh] overflow-y-auto">
+
+                    @if(!$importDone)
+                        <!-- Selettore File -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">File CSV <span class="text-red-500">*</span></label>
+                            <input type="file" wire:model="importFile" accept=".csv,.txt"
+                                class="w-full text-sm border border-gray-300 rounded-md file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-lime-50 file:text-lime-700 hover:file:bg-lime-100">
+                            <p class="text-xs text-gray-500 mt-1">
+                                Colonne attese: <code>entry_date, description, type, id_payments_methods, bank_account_id, amount</code>
+                            </p>
+                            <div wire:loading wire:target="importFile" class="text-xs text-lime-600 mt-1">
+                                <i class="fas fa-spinner fa-spin mr-1"></i> Lettura del file in corso...
+                            </div>
+                            @error('importFile') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        </div>
+
+                        <!-- Campi globali applicati a tutte le righe -->
+                        <div class="grid grid-cols-3 gap-4 p-3 bg-gray-50 rounded-lg">
+                            <!-- Cliente/Fornitore (opzionale) -->
+                            <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Cliente / Fornitore</label>
+                                <div class="relative">
+                                    <input type="text"
+                                        id="import_entity_input"
+                                        wire:model.live.debounce.300ms="importEntitySearch"
+                                        x-on:focus="open = true"
+                                        x-on:input="open = true"
+                                        placeholder="Digita almeno 2 caratteri..."
+                                        class="w-full pr-8 pl-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                                        autocomplete="off">
+                                    @if($importEntityId)
+                                    <button type="button"
+                                        wire:click="clearImportEntity"
+                                        x-on:click="document.getElementById('import_entity_input').value = ''; open = false"
+                                        class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
+                                        <i class="fas fa-times-circle text-sm"></i>
+                                    </button>
+                                    @endif
+                                </div>
+                                <div x-show="open && @entangle('showImportEntityDropdown')"
+                                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                    @if($importEntityResults && $importEntityResults->count() > 0)
+                                        @foreach($importEntityResults as $item)
+                                        @php $itemName = addslashes($item->ragione_sociale ?: trim($item->nome . ' ' . $item->cognome)); @endphp
+                                        <div
+                                            wire:click="selectImportEntity({{ $item->id_cliente }}, '{{ $itemName }}')"
+                                            x-on:click="document.getElementById('import_entity_input').value = '{{ $itemName }}'; open = false"
+                                            class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                            {{ $item->ragione_sociale ?: trim($item->nome . ' ' . $item->cognome) }}
+                                        </div>
+                                        @endforeach
+                                    @else
+                                        <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato</div>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <!-- Centro di Costo (obbligatorio) -->
+                            <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Centro di Costo <span class="text-red-500">*</span></label>
+                                <div class="relative">
+                                    <input type="text"
+                                        id="import_cost_center_input"
+                                        wire:model.live.debounce.300ms="importCostCenterSearch"
+                                        x-on:focus="open = true"
+                                        x-on:input="open = true"
+                                        placeholder="Digita almeno 2 caratteri..."
+                                        class="w-full pr-8 pl-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 {{ $importCostCenterId ? 'border-gray-300' : 'border-red-300' }}"
+                                        autocomplete="off">
+                                    @if($importCostCenterId)
+                                    <button type="button"
+                                        wire:click="clearImportCostCenter"
+                                        x-on:click="document.getElementById('import_cost_center_input').value = ''; open = false"
+                                        class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
+                                        <i class="fas fa-times-circle text-sm"></i>
+                                    </button>
+                                    @endif
+                                </div>
+                                <div x-show="open && @entangle('showImportCostCenterDropdown')"
+                                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                    @if($importCostCenterResults && $importCostCenterResults->count() > 0)
+                                        @foreach($importCostCenterResults as $item)
+                                        <div
+                                            wire:click="selectImportCostCenter({{ $item->id }}, '{{ addslashes($item->Nome) }}')"
+                                            x-on:click="document.getElementById('import_cost_center_input').value = '{{ addslashes($item->Nome) }}'; open = false"
+                                            class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                            {{ $item->Nome }}
+                                        </div>
+                                        @endforeach
+                                    @else
+                                        <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato</div>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <!-- Stato -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Stato <span class="text-red-500">*</span></label>
+                                <select wire:model="importStatus" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                    @foreach($paymentStatuses as $statusOption)
+                                        <option value="{{ $statusOption->valore }}" title="{{ $statusOption->descrizione }}">
+                                            {{ ucfirst(strtolower($statusOption->valore)) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Anteprima -->
+                        @if(!empty($importPreview))
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-sm font-medium text-gray-700">
+                                    Anteprima ({{ count($importPreview) }} righe — 
+                                    <span class="text-green-600">{{ $importValidRowsCount }} valide</span>
+                                    @if(count($importPreview) - $importValidRowsCount > 0)
+                                        , <span class="text-red-600">{{ count($importPreview) - $importValidRowsCount }} con errori</span>
+                                    @endif
+                                    )
+                                </label>
+                            </div>
+                            <div class="border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+                                <table class="min-w-full divide-y divide-gray-200 text-xs">
+                                    <thead class="bg-gray-50 sticky top-0">
+                                        <tr>
+                                            <th class="px-2 py-1 text-left">Riga</th>
+                                            <th class="px-2 py-1 text-left">Data</th>
+                                            <th class="px-2 py-1 text-left">Descrizione</th>
+                                            <th class="px-2 py-1 text-left">Tipo</th>
+                                            <th class="px-2 py-1 text-right">Importo</th>
+                                            <th class="px-2 py-1 text-left">Esito</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        @foreach($importPreview as $row)
+                                        <tr class="{{ $row['is_valid'] ? '' : 'bg-red-50' }}">
+                                            <td class="px-2 py-1">{{ $row['row_number'] }}</td>
+                                            <td class="px-2 py-1 whitespace-nowrap">{{ $row['entry_date'] }}</td>
+                                            <td class="px-2 py-1 max-w-xs truncate" title="{{ $row['description'] }}">{{ $row['description'] }}</td>
+                                            <td class="px-2 py-1">{{ $row['type'] }}</td>
+                                            <td class="px-2 py-1 text-right">{{ $row['amount'] !== null ? number_format($row['amount'], 2, ',', '.') . ' €' : '-' }}</td>
+                                            <td class="px-2 py-1">
+                                                @if($row['is_valid'])
+                                                    <span class="text-green-600"><i class="fas fa-check-circle"></i> OK</span>
+                                                @else
+                                                    <span class="text-red-600" title="{{ implode(', ', $row['errors']) }}">
+                                                        <i class="fas fa-exclamation-circle"></i> {{ implode(', ', $row['errors']) }}
+                                                    </span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        @endif
+                    @else
+                        <!-- Esito import -->
+                        <div class="text-center py-8">
+                            <i class="fas fa-check-circle text-5xl text-green-500 mb-3"></i>
+                            <p class="text-lg font-medium text-gray-800">{{ $importedCount }} scritture importate con successo</p>
+                        </div>
+                    @endif
+
+                </div>
+
+                <div class="bg-gray-50 px-6 py-3 flex justify-end gap-3">
+                    @if(!$importDone)
+                        <button type="button" wire:click="closeImportModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
+                            Annulla
+                        </button>
+                        <button type="button" wire:click="confirmImport" 
+                            {{ empty($importPreview) || $importValidRowsCount === 0 || !$importCostCenterId ? 'disabled' : '' }}
+                            class="px-4 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fas fa-upload mr-2"></i> Importa {{ $importValidRowsCount }} righe
+                        </button>
+                    @else
+                        <button type="button" wire:click="closeImportModal" class="px-4 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-md transition-colors">
+                            Chiudi
+                        </button>
+                    @endif
+                </div>
             </div>
         </div>
     </div>

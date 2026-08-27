@@ -5,6 +5,7 @@ namespace App\Livewire\Admin;
 
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\WithFileUploads;
 use App\Models\AccountingEntry;
 use App\Models\BankAccount;
 use App\Models\PaymentMethod;
@@ -23,7 +24,7 @@ use Illuminate\Support\Collection;
 
 class AccountingEntriesTable extends Component
 {
-    use WithPagination;
+    use WithPagination, WithFileUploads;
     
     public $search = '';
     public $type = '';
@@ -93,6 +94,32 @@ class AccountingEntriesTable extends Component
     public string $trashSearch = '';
     public string $trashSortField = 'deleted_at';
     public string $trashSortDirection = 'desc';
+
+    // ==================== IMPORT CSV ====================
+    public bool $showImportModal = false;
+    public $importFile = null;
+    public array $importPreview = [];
+    public array $importRowErrors = [];
+    public int $importValidRowsCount = 0;
+    public bool $importDone = false;
+    public int $importedCount = 0;
+
+    // Cliente/Fornitore globale per l'import (opzionale)
+    public string $importEntitySearch = '';
+    public Collection $importEntityResults;
+    public $importEntityId = '';
+    public string $importEntityName = '';
+    public bool $showImportEntityDropdown = false;
+
+    // Centro di Costo globale per l'import (obbligatorio)
+    public string $importCostCenterSearch = '';
+    public Collection $importCostCenterResults;
+    public $importCostCenterId = '';
+    public string $importCostCenterName = '';
+    public bool $showImportCostCenterDropdown = false;
+
+    // Stato globale per l'import
+    public string $importStatus = 'COMPLETATO';
     
     protected $rules = [
         'entry_date' => 'required|date',
@@ -105,6 +132,7 @@ class AccountingEntriesTable extends Component
         'invoice_id' => 'nullable|exists:invoices_received,id',
         'formEntityId' => 'nullable|exists:entities,id_cliente',
         'costCenterId' => 'required|exists:cost_centers,id',
+        'importFile' => 'nullable|file|mimes:csv,txt|max:5120',
     ];
     
     protected $messages = [
@@ -127,6 +155,8 @@ class AccountingEntriesTable extends Component
         $this->ownershipResults = new Collection();
         $this->formEntityResults = new Collection();
         $this->costCenterResults = new Collection();
+        $this->importEntityResults = new Collection();
+        $this->importCostCenterResults = new Collection();
     }
     
     public function refreshTable(): void
@@ -852,6 +882,349 @@ class AccountingEntriesTable extends Component
             DB::rollBack();
             Log::error('Errore force delete: ' . $e->getMessage());
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+
+    // ==================== IMPORT CSV ====================
+
+    public function openImportModal(): void
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('create_accounting_entries')) {
+            $this->dispatch('showError', message: 'Non hai i permessi per creare scritture contabili');
+            return;
+        }
+
+        $this->resetImportForm();
+        $this->showImportModal = true;
+    }
+
+    public function closeImportModal(): void
+    {
+        $this->showImportModal = false;
+        $this->resetImportForm();
+    }
+
+    private function resetImportForm(): void
+    {
+        $this->importFile = null;
+        $this->importPreview = [];
+        $this->importRowErrors = [];
+        $this->importValidRowsCount = 0;
+        $this->importDone = false;
+        $this->importedCount = 0;
+
+        $this->importEntitySearch = '';
+        $this->importEntityId = '';
+        $this->importEntityName = '';
+        $this->importEntityResults = new Collection();
+        $this->showImportEntityDropdown = false;
+
+        $this->importCostCenterSearch = '';
+        $this->importCostCenterId = '';
+        $this->importCostCenterName = '';
+        $this->importCostCenterResults = new Collection();
+        $this->showImportCostCenterDropdown = false;
+
+        $this->importStatus = 'COMPLETATO';
+    }
+
+    // --- Autocomplete Cliente/Fornitore (import) ---
+    public function updatedImportEntitySearch(): void
+    {
+        if ($this->importEntityId && $this->importEntitySearch === $this->importEntityName) {
+            $this->showImportEntityDropdown = false;
+            return;
+        }
+        if ($this->importEntityId) {
+            $this->importEntityId = '';
+            $this->importEntityName = '';
+        }
+        if (strlen($this->importEntitySearch) < 2) {
+            $this->importEntityResults = new Collection();
+            $this->showImportEntityDropdown = false;
+            return;
+        }
+        $this->importEntityResults = Entity::where('valid', 1)
+            ->where(function($q) {
+                $q->where('ragione_sociale', 'like', '%' . $this->importEntitySearch . '%')
+                  ->orWhere('nome', 'like', '%' . $this->importEntitySearch . '%')
+                  ->orWhere('cognome', 'like', '%' . $this->importEntitySearch . '%');
+            })
+            ->limit(10)
+            ->get(['id_cliente', 'ragione_sociale', 'nome', 'cognome']);
+        $this->showImportEntityDropdown = $this->importEntityResults->isNotEmpty();
+    }
+
+    public function selectImportEntity($id, $name): void
+    {
+        $this->importEntityId = $id;
+        $this->importEntityName = $name;
+        $this->importEntitySearch = $name;
+        $this->showImportEntityDropdown = false;
+    }
+
+    public function clearImportEntity(): void
+    {
+        $this->importEntityId = '';
+        $this->importEntityName = '';
+        $this->importEntitySearch = '';
+        $this->importEntityResults = new Collection();
+        $this->showImportEntityDropdown = false;
+    }
+
+    // --- Autocomplete Centro di Costo (import) ---
+    public function updatedImportCostCenterSearch(): void
+    {
+        if ($this->importCostCenterId && $this->importCostCenterSearch === $this->importCostCenterName) {
+            $this->showImportCostCenterDropdown = false;
+            return;
+        }
+        if ($this->importCostCenterId) {
+            $this->importCostCenterId = '';
+            $this->importCostCenterName = '';
+        }
+        if (strlen($this->importCostCenterSearch) < 2) {
+            $this->importCostCenterResults = new Collection();
+            $this->showImportCostCenterDropdown = false;
+            return;
+        }
+        $this->importCostCenterResults = CostCenter::where('valid', 1)
+            ->where('Nome', 'like', '%' . $this->importCostCenterSearch . '%')
+            ->orderBy('Nome')
+            ->limit(10)
+            ->get(['id', 'Nome']);
+        $this->showImportCostCenterDropdown = $this->importCostCenterResults->isNotEmpty();
+    }
+
+    public function selectImportCostCenter($id, $name): void
+    {
+        $this->importCostCenterId = $id;
+        $this->importCostCenterName = $name;
+        $this->importCostCenterSearch = $name;
+        $this->showImportCostCenterDropdown = false;
+    }
+
+    public function clearImportCostCenter(): void
+    {
+        $this->importCostCenterId = '';
+        $this->importCostCenterName = '';
+        $this->importCostCenterSearch = '';
+        $this->importCostCenterResults = new Collection();
+        $this->showImportCostCenterDropdown = false;
+    }
+
+    /**
+     * Viene chiamato automaticamente da Livewire quando l'utente sceglie il file
+     * (wire:model="importFile"). Legge e valida il CSV, popola l'anteprima.
+     */
+    public function updatedImportFile(): void
+    {
+        $this->importPreview = [];
+        $this->importRowErrors = [];
+        $this->importValidRowsCount = 0;
+        $this->importDone = false;
+
+        if (!$this->importFile) {
+            return;
+        }
+
+        $this->validate([
+            'importFile' => 'required|file|mimes:csv,txt|max:5120',
+        ]);
+
+        $path = $this->importFile->getRealPath();
+        $handle = fopen($path, 'r');
+        if ($handle === false) {
+            $this->dispatch('showError', message: 'Impossibile leggere il file CSV');
+            return;
+        }
+
+        // FIX: gestisce sia delimitatore , sia ; (LibreOffice/Excel IT usano spesso ;)
+        $firstLine = fgets($handle);
+        rewind($handle);
+        $delimiter = substr_count($firstLine, ';') > substr_count($firstLine, ',') ? ';' : ',';
+
+        $header = fgetcsv($handle, 0, $delimiter);
+        if (!$header) {
+            fclose($handle);
+            $this->dispatch('showError', message: 'File CSV vuoto o non leggibile');
+            return;
+        }
+
+        // Normalizza intestazioni (case-insensitive, trim)
+        $header = array_map(fn($h) => strtolower(trim($h)), $header);
+        $required = ['entry_date', 'description', 'type', 'amount'];
+        foreach ($required as $col) {
+            if (!in_array($col, $header)) {
+                fclose($handle);
+                $this->dispatch('showError', message: "Colonna obbligatoria mancante nel CSV: {$col}");
+                return;
+            }
+        }
+
+        $rowNumber = 1; // header = riga 1
+        $preview = [];
+        $errorsCount = 0;
+
+        while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
+            $rowNumber++;
+            if (count(array_filter($row, fn($v) => trim((string)$v) !== '')) === 0) {
+                continue; // riga vuota
+            }
+
+            $data = array_combine($header, array_pad($row, count($header), null));
+
+            $rowErrors = [];
+
+            // entry_date: accetta Y-m-d o d/m/Y
+            $rawDate = trim($data['entry_date'] ?? '');
+            $entryDate = null;
+            foreach (['Y-m-d', 'd/m/Y', 'd-m-Y'] as $fmt) {
+                try {
+                    $parsed = \Carbon\Carbon::createFromFormat($fmt, $rawDate);
+                    if ($parsed && $parsed->format($fmt) === $rawDate) {
+                        $entryDate = $parsed->format('Y-m-d');
+                        break;
+                    }
+                } catch (\Exception $e) {
+                    // prova formato successivo
+                }
+            }
+            if (!$entryDate) {
+                $rowErrors[] = 'data non valida';
+            }
+
+            $description = trim($data['description'] ?? '');
+            if ($description === '') {
+                $rowErrors[] = 'descrizione mancante';
+            }
+
+            $type = strtolower(trim($data['type'] ?? ''));
+            if (!in_array($type, ['entrata', 'uscita'])) {
+                $rowErrors[] = 'tipo non valido (deve essere entrata/uscita)';
+            }
+
+            // amount: gestisce sia virgola che punto decimale
+            $rawAmount = trim((string)($data['amount'] ?? ''));
+            $normalizedAmount = str_replace(',', '.', $rawAmount);
+            $amount = is_numeric($normalizedAmount) ? (float)$normalizedAmount : null;
+            if ($amount === null || $amount <= 0) {
+                $rowErrors[] = 'importo non valido';
+            }
+
+            // id_payments_methods: opzionale, verifica esistenza se presente
+            $paymentMethodId = trim((string)($data['id_payments_methods'] ?? $data['id_payments_method'] ?? ''));
+            $paymentMethodId = $paymentMethodId !== '' ? (int)$paymentMethodId : null;
+            if ($paymentMethodId && !PaymentMethod::where('id', $paymentMethodId)->exists()) {
+                $rowErrors[] = "metodo pagamento id {$paymentMethodId} inesistente";
+            }
+
+            // bank_account_id: opzionale, verifica esistenza se presente
+            $bankAccountId = trim((string)($data['bank_account_id'] ?? ''));
+            $bankAccountId = $bankAccountId !== '' ? (int)$bankAccountId : null;
+            if ($bankAccountId && !BankAccount::where('id', $bankAccountId)->exists()) {
+                $rowErrors[] = "conto bancario id {$bankAccountId} inesistente";
+            }
+
+            $isValid = empty($rowErrors);
+            if ($isValid) {
+                $this->importValidRowsCount++;
+            } else {
+                $errorsCount++;
+            }
+
+            $preview[] = [
+                'row_number' => $rowNumber,
+                'entry_date' => $entryDate ?? $rawDate,
+                'description' => $description,
+                'type' => $type,
+                'id_payments_methods' => $paymentMethodId,
+                'bank_account_id' => $bankAccountId,
+                'amount' => $amount,
+                'is_valid' => $isValid,
+                'errors' => $rowErrors,
+            ];
+        }
+
+        fclose($handle);
+
+        // Limite di sicurezza per l'anteprima/import in un'unica richiesta
+        if (count($preview) > 500) {
+            $this->dispatch('showError', message: 'Il file contiene troppe righe (max 500 per importazione). Dividilo in più file.');
+            $this->importFile = null;
+            return;
+        }
+
+        $this->importPreview = $preview;
+
+        if ($errorsCount > 0) {
+            $this->dispatch('showError', message: "{$errorsCount} righe contengono errori e non verranno importate (vedi anteprima).");
+        }
+    }
+
+    /**
+     * Crea le scritture contabili per tutte le righe valide dell'anteprima,
+     * applicando id_entities / id_cost_centers / status scelti una sola volta
+     * per l'intero import.
+     */
+    public function confirmImport(): void
+    {
+        if (!Auth::guard('admin')->user()->hasPermission('create_accounting_entries')) {
+            $this->dispatch('showError', message: 'Non hai i permessi per creare scritture contabili');
+            return;
+        }
+
+        if (empty($this->importPreview)) {
+            $this->dispatch('showError', message: 'Nessuna riga da importare');
+            return;
+        }
+
+        if (!$this->importCostCenterId) {
+            $this->dispatch('showError', message: 'Seleziona un Centro di Costo prima di importare');
+            return;
+        }
+
+        $adminId = Auth::guard('admin')->id();
+        $count = 0;
+
+        try {
+            DB::beginTransaction();
+
+            foreach ($this->importPreview as $row) {
+                if (!$row['is_valid']) {
+                    continue;
+                }
+
+                AccountingEntry::create([
+                    'entry_date' => $row['entry_date'],
+                    'description' => $row['description'],
+                    'type' => $row['type'],
+                    'id_payments_methods' => $row['id_payments_methods'],
+                    'bank_account_id' => $row['bank_account_id'],
+                    'amount' => $row['amount'],
+                    'status' => $this->importStatus,
+                    'id_entities' => $this->importEntityId ?: null,
+                    'id_cost_centers' => $this->importCostCenterId,
+                ]);
+
+                $count++;
+            }
+
+            DB::commit();
+
+            $this->importedCount = $count;
+            $this->importDone = true;
+
+            $this->dispatch('showSuccess', message: "{$count} scritture contabili importate con successo!");
+            $this->dispatch('refreshAccountingEntries');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('AccountingEntriesTable::confirmImport error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            $this->dispatch('showError', message: 'Errore durante l\'importazione: ' . $e->getMessage());
         }
     }
     

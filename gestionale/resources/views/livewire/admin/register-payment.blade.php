@@ -168,7 +168,7 @@
                             </div>
                         </div>
                         
-                        <div class="grid grid-cols-3 gap-4 mb-4">
+                        <div class="grid grid-cols-4 gap-4 mb-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Data Pagamento <span class="text-red-500">*</span></label>
                                 <input type="date" wire:model="paymentDate" class="w-full px-3 py-2 border border-gray-300 rounded-md">
@@ -183,6 +183,16 @@
                                     @endforeach
                                 </select>
                                 @error('paymentMethod') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Stato <span class="text-red-500">*</span></label>
+                                <select wire:model="paymentStatus" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                                    <option value="COMPLETATO">Completato</option>
+                                    <option value="INSERITO">Inserito</option>
+                                    <option value="AUTOMATICO">Automatico</option>
+                                    <option value="DA INSERIRE">Da inserire</option>
+                                </select>
+                                @error('paymentStatus') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Conto Bancario</label>
@@ -324,7 +334,7 @@
                                 </div>
                             </div>
                             
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-3 gap-4">
                                 <div class="bg-gray-50 p-3 rounded-md">
                                     <p class="text-xs text-gray-500 uppercase">Data Pagamento</p>
                                     <p class="font-medium">{{ \Carbon\Carbon::parse($paymentDate)->format('d/m/Y') }}</p>
@@ -332,6 +342,10 @@
                                 <div class="bg-gray-50 p-3 rounded-md">
                                     <p class="text-xs text-gray-500 uppercase">Metodo Pagamento</p>
                                     <p class="font-medium">{{ $paymentMethod }}</p>
+                                </div>
+                                <div class="bg-gray-50 p-3 rounded-md">
+                                    <p class="text-xs text-gray-500 uppercase">Stato</p>
+                                    <p class="font-medium">{{ $paymentStatus }}</p>
                                 </div>
                             </div>
                             

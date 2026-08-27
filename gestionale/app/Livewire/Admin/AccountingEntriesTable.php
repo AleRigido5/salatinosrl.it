@@ -11,8 +11,10 @@ use App\Models\PaymentMethod;
 use App\Models\InvoiceReceived;
 use App\Models\Entity;
 use App\Models\Ownership;
+use App\Models\CostCenter;
 use App\Models\InvoicePayment;
 use App\Models\InstallmentTransaction;
+use App\Models\Setting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -29,15 +31,16 @@ class AccountingEntriesTable extends Component
     public $dateTo = '';
     public $bankAccountId = '';
     public $paymentMethodId = '';
+    public $statusFilter = '';
 
-    // Autocomplete Proprietà
+    // Autocomplete Proprietà (FILTRO tabella)
     public string $ownershipSearch = '';
     public Collection $ownershipResults;
     public string $selectedOwnershipId = '';
     public string $selectedOwnershipName = '';
     public bool $showOwnershipDropdown = false;
     
-    // Autocomplete Fornitore
+    // Autocomplete Fornitore (FILTRO tabella)
     public string $entitySearch = '';
     public Collection $filteredEntities;
     public $entityFilter = null;
@@ -58,11 +61,26 @@ class AccountingEntriesTable extends Component
     public $entry_date = '';
     public $description = '';
     public $type_value = '';
+    public $status_value = 'COMPLETATO';
     public $id_payments_methods = '';
     public $bank_account_id = '';
     public $amount = '';
     public $invoice_id = '';
     public $isEditing = false;
+
+    // Autocomplete Cliente/Fornitore (FORM Nuova/Modifica Scrittura)
+    public string $formEntitySearch = '';
+    public Collection $formEntityResults;
+    public $formEntityId = '';
+    public string $formEntityName = '';
+    public bool $showFormEntityDropdown = false;
+
+    // Autocomplete Centro di Costo (FORM Nuova/Modifica Scrittura)
+    public string $costCenterSearch = '';
+    public Collection $costCenterResults;
+    public $costCenterId = '';
+    public string $costCenterName = '';
+    public bool $showCostCenterDropdown = false;
     
     // Variabili per il calcolo in tempo reale
     public $originalAmount = 0;
@@ -80,10 +98,17 @@ class AccountingEntriesTable extends Component
         'entry_date' => 'required|date',
         'description' => 'required|string|min:3',
         'type_value' => 'required|in:entrata,uscita',
+        'status_value' => 'required|in:COMPLETATO,INSERITO,AUTOMATICO,DA INSERIRE',
         'amount' => 'required|numeric|min:0.01',
         'bank_account_id' => 'nullable|exists:bank_accounts,id',
         'id_payments_methods' => 'nullable|exists:payment_methods,id',
         'invoice_id' => 'nullable|exists:invoices_received,id',
+        'formEntityId' => 'nullable|exists:entities,id_cliente',
+        'costCenterId' => 'required|exists:cost_centers,id',
+    ];
+    
+    protected $messages = [
+        'costCenterId.required' => 'Il centro di costo è obbligatorio',
     ];
     
     protected $listeners = [
@@ -100,6 +125,8 @@ class AccountingEntriesTable extends Component
         $this->dateTo = date('Y-m-t');
         $this->filteredEntities = new Collection();
         $this->ownershipResults = new Collection();
+        $this->formEntityResults = new Collection();
+        $this->costCenterResults = new Collection();
     }
     
     public function refreshTable(): void
@@ -136,6 +163,7 @@ class AccountingEntriesTable extends Component
         $this->selectedOwnershipName = '';
         $this->ownershipSearch = '';
         $this->type = '';
+        $this->statusFilter = '';
         $this->bankAccountId = '';
         $this->paymentMethodId = '';
         $this->dateFrom = date('Y-m-01');
@@ -179,19 +207,48 @@ class AccountingEntriesTable extends Component
         $this->entry_date = $entry->entry_date->format('Y-m-d');
         $this->description = $entry->description;
         $this->type_value = $entry->type;
+        $this->status_value = $entry->status ?? 'COMPLETATO';
         $this->id_payments_methods = $entry->id_payments_methods;
         $this->bank_account_id = $entry->bank_account_id;
         $this->amount = (string)$entry->amount;
         $this->displayAmount = number_format($entry->amount, 2, ',', '.');
         $this->originalAmount = $entry->amount;
         $this->invoice_id = $entry->invoice_id;
+
+        // Precompila Cliente/Fornitore
+        $this->formEntityId = $entry->id_entities ?: '';
+        if ($entry->id_entities) {
+            $entityModel = Entity::find($entry->id_entities);
+            if ($entityModel) {
+                $name = $entityModel->ragione_sociale ?: trim($entityModel->nome . ' ' . $entityModel->cognome);
+                $this->formEntitySearch = $name;
+                $this->formEntityName = $name;
+            }
+        } else {
+            $this->formEntitySearch = '';
+            $this->formEntityName = '';
+        }
+
+        // Precompila Centro di Costo
+        $this->costCenterId = $entry->id_cost_centers ?: '';
+        if ($entry->id_cost_centers) {
+            $costCenterModel = CostCenter::find($entry->id_cost_centers);
+            if ($costCenterModel) {
+                $this->costCenterSearch = $costCenterModel->Nome;
+                $this->costCenterName = $costCenterModel->Nome;
+            }
+        } else {
+            $this->costCenterSearch = '';
+            $this->costCenterName = '';
+        }
+
         $this->isEditing = true;
         $this->isAmountChanged = false;
         $this->amountDifference = 0;
         $this->showModal = true;
     }
 
-    // ==================== AUTOCOMPLETE PROPRIETÀ ====================
+    // ==================== AUTOCOMPLETE PROPRIETÀ (FILTRO) ====================
     public function updatedOwnershipSearch(): void
     {
         if ($this->selectedOwnershipId && $this->ownershipSearch === $this->selectedOwnershipName) {
@@ -241,7 +298,7 @@ class AccountingEntriesTable extends Component
         $this->dispatch('clearOwnershipInput');
     }
 
-    // ==================== AUTOCOMPLETE FORNITORE ====================
+    // ==================== AUTOCOMPLETE FORNITORE (FILTRO) ====================
     public function updatedEntitySearch(): void
     {
         if ($this->entityFilter && $this->entitySearch === $this->entityName) {
@@ -281,6 +338,100 @@ class AccountingEntriesTable extends Component
         $this->filteredEntities = new Collection();
         $this->showEntityDropdown = false;
         $this->resetPage();
+    }
+
+    // ==================== AUTOCOMPLETE CLIENTE/FORNITORE (FORM) ====================
+    public function updatedFormEntitySearch(): void
+    {
+        if ($this->formEntityId && $this->formEntitySearch === $this->formEntityName) {
+            $this->showFormEntityDropdown = false;
+            return;
+        }
+
+        if ($this->formEntityId) {
+            $this->formEntityId = '';
+            $this->formEntityName = '';
+        }
+
+        if (strlen($this->formEntitySearch) < 2) {
+            $this->formEntityResults = new Collection();
+            $this->showFormEntityDropdown = false;
+            return;
+        }
+
+        $this->formEntityResults = Entity::where('valid', 1)
+            ->where(function($q) {
+                $q->where('ragione_sociale', 'like', '%' . $this->formEntitySearch . '%')
+                  ->orWhere('nome', 'like', '%' . $this->formEntitySearch . '%')
+                  ->orWhere('cognome', 'like', '%' . $this->formEntitySearch . '%')
+                  ->orWhere('partita_iva', 'like', '%' . $this->formEntitySearch . '%');
+            })
+            ->limit(10)
+            ->get(['id_cliente', 'ragione_sociale', 'nome', 'cognome']);
+
+        $this->showFormEntityDropdown = $this->formEntityResults->isNotEmpty();
+    }
+
+    public function selectFormEntity($id, $name): void
+    {
+        $this->formEntityId = $id;
+        $this->formEntityName = $name;
+        $this->formEntitySearch = $name;
+        $this->showFormEntityDropdown = false;
+    }
+
+    public function clearFormEntity(): void
+    {
+        $this->formEntityId = '';
+        $this->formEntityName = '';
+        $this->formEntitySearch = '';
+        $this->formEntityResults = new Collection();
+        $this->showFormEntityDropdown = false;
+    }
+
+    // ==================== AUTOCOMPLETE CENTRO DI COSTO (FORM) ====================
+    public function updatedCostCenterSearch(): void
+    {
+        if ($this->costCenterId && $this->costCenterSearch === $this->costCenterName) {
+            $this->showCostCenterDropdown = false;
+            return;
+        }
+
+        if ($this->costCenterId) {
+            $this->costCenterId = '';
+            $this->costCenterName = '';
+        }
+
+        if (strlen($this->costCenterSearch) < 2) {
+            $this->costCenterResults = new Collection();
+            $this->showCostCenterDropdown = false;
+            return;
+        }
+
+        $this->costCenterResults = CostCenter::where('valid', 1)
+            ->where('Nome', 'like', '%' . $this->costCenterSearch . '%')
+            ->orderBy('Nome')
+            ->limit(10)
+            ->get(['id', 'Nome']);
+
+        $this->showCostCenterDropdown = $this->costCenterResults->isNotEmpty();
+    }
+
+    public function selectCostCenter($id, $name): void
+    {
+        $this->costCenterId = $id;
+        $this->costCenterName = $name;
+        $this->costCenterSearch = $name;
+        $this->showCostCenterDropdown = false;
+    }
+
+    public function clearCostCenter(): void
+    {
+        $this->costCenterId = '';
+        $this->costCenterName = '';
+        $this->costCenterSearch = '';
+        $this->costCenterResults = new Collection();
+        $this->showCostCenterDropdown = false;
     }
     
     /**
@@ -354,6 +505,7 @@ class AccountingEntriesTable extends Component
         $this->entry_date = date('Y-m-d');
         $this->description = '';
         $this->type_value = '';
+        $this->status_value = 'COMPLETATO';
         $this->id_payments_methods = '';
         $this->bank_account_id = '';
         $this->amount = '';
@@ -363,6 +515,18 @@ class AccountingEntriesTable extends Component
         $this->originalAmount = 0;
         $this->isAmountChanged = false;
         $this->amountDifference = 0;
+
+        $this->formEntityId = '';
+        $this->formEntityName = '';
+        $this->formEntitySearch = '';
+        $this->formEntityResults = new Collection();
+        $this->showFormEntityDropdown = false;
+
+        $this->costCenterId = '';
+        $this->costCenterName = '';
+        $this->costCenterSearch = '';
+        $this->costCenterResults = new Collection();
+        $this->showCostCenterDropdown = false;
     }
     
     public function save()
@@ -388,10 +552,13 @@ class AccountingEntriesTable extends Component
                 'entry_date' => $this->entry_date,
                 'description' => $this->description,
                 'type' => $this->type_value,
+                'status' => $this->status_value,
                 'id_payments_methods' => $this->id_payments_methods ?: null,
                 'bank_account_id' => $this->bank_account_id ?: null,
                 'amount' => $this->amount,
                 'invoice_id' => $this->invoice_id ?: null,
+                'id_entities' => $this->formEntityId ?: null,
+                'id_cost_centers' => $this->costCenterId ?: null,
             ];
             
             if ($this->isEditing && $this->entryId) {
@@ -728,6 +895,11 @@ class AccountingEntriesTable extends Component
             $query->where('type', $this->type);
         }
 
+        // ==================== FILTRO STATO ====================
+        if ($this->statusFilter) {
+            $query->where('status', $this->statusFilter);
+        }
+
         // ==================== FILTRO DATA ====================
         if ($this->dateFrom) {
             $query->whereDate('entry_date', '>=', $this->dateFrom);
@@ -768,7 +940,8 @@ class AccountingEntriesTable extends Component
         // ==================== FILTRO ENTITÀ ====================
         if ($this->entityFilter) {
             $query->where(function($q) {
-                $q->whereHas('invoice', fn($sq) => $sq->where('id_entities', $this->entityFilter))
+                $q->where('id_entities', $this->entityFilter)
+                  ->orWhereHas('invoice', fn($sq) => $sq->where('id_entities', $this->entityFilter))
                   ->orWhereHas('invoicePayment.payable', function($sq) {
                       $sq->where('id_entities', $this->entityFilter);
                   })
@@ -832,6 +1005,14 @@ class AccountingEntriesTable extends Component
     {
         return PaymentMethod::where('is_active', true)->orderBy('sort_order')->get();
     }
+
+    public function getPaymentStatusesProperty()
+    {
+        return Setting::where('tabella_riferimento', 'accounting_entries_status')
+            ->where('valid', 1)
+            ->orderBy('ordinamento')
+            ->get();
+    }
     
     public function getTotalEntrateProperty()
     {
@@ -867,6 +1048,7 @@ class AccountingEntriesTable extends Component
             'entries' => $this->entries,
             'bankAccounts' => $this->bankAccounts,
             'paymentMethods' => $this->paymentMethods,
+            'paymentStatuses' => $this->paymentStatuses,
             'totalEntrate' => $this->totalEntrate,
             'totalUscite' => $this->totalUscite,
             'saldo' => $this->saldo,

@@ -3,6 +3,7 @@
 
 namespace App\Models;
 
+use App\Models\CostCenter;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -23,6 +24,9 @@ class AccountingEntry extends Model
         'invoice_id',
         'invoice_payment_id',
         'amount',
+        'status',
+        'id_entities',      
+        'id_cost_centers',
     ];
     
     protected $casts = [
@@ -31,6 +35,11 @@ class AccountingEntry extends Model
     ];
 
     protected $dates = ['deleted_at'];
+
+    public function costCenter(): BelongsTo
+    {
+        return $this->belongsTo(CostCenter::class, 'id_cost_centers');
+    }
     
     public function paymentMethod(): BelongsTo
     {
@@ -56,12 +65,25 @@ class AccountingEntry extends Model
     {
         return $this->hasMany(InstallmentTransaction::class, 'id_accounting_entries');
     }
+
+    public function getCostCenterNameAttribute(): string
+    {
+        return $this->costCenter->Nome ?? '-';
+    }
     
     /**
      * Ottiene l'entità (cliente/fornitore) tramite le transazioni collegate
      */
     public function getEntityAttribute()
     {
+        // 0. Riferimento diretto (nuovo campo id_entities, impostabile in creazione)
+        if ($this->id_entities) {
+            $direct = Entity::find($this->id_entities);
+            if ($direct) {
+                return $direct;
+            }
+        }
+
         // 1. Prova dalla fattura
         if ($this->invoice && $this->invoice->entity) {
             return $this->invoice->entity;
@@ -183,5 +205,63 @@ class AccountingEntry extends Model
     public function getFormattedAmountAttribute(): string
     {
         return number_format($this->amount, 2, ',', '.') . ' €';
+    }
+
+    /**
+     * Recupera tutte le impostazioni "Stati Pagamento" (tabella settings,
+     * tabella_riferimento = 'accounting_entries_status'), con cache statica
+     * per evitare query ripetute su ogni riga della tabella scritture.
+     */
+    protected static function getStatusSettings()
+    {
+        static $settings = null;
+
+        if ($settings === null) {
+            $settings = \App\Models\Setting::where('tabella_riferimento', 'accounting_entries_status')
+                ->where('valid', 1)
+                ->orderBy('ordinamento')
+                ->get()
+                ->keyBy('valore');
+        }
+
+        return $settings;
+    }
+
+    /**
+     * Etichetta leggibile dello stato pagamento (letta da settings.valore,
+     * capitalizzata per la visualizzazione)
+     */
+    public function getStatusLabelAttribute(): string
+    {
+        $setting = static::getStatusSettings()->get($this->status);
+        if ($setting) {
+            return ucfirst(strtolower($setting->valore));
+        }
+        return $this->status ?? '-';
+    }
+
+    /**
+     * Classe colore badge per lo stato pagamento (mapping fisso via codice,
+     * non gestito da settings)
+     */
+    public function getStatusBadgeClassAttribute(): string
+    {
+        return match ($this->status) {
+            'COMPLETATO' => 'bg-green-100 text-green-800',
+            'INSERITO' => 'bg-blue-100 text-blue-800',
+            'AUTOMATICO' => 'bg-purple-100 text-purple-800',
+            'DA INSERIRE' => 'bg-yellow-100 text-yellow-800',
+            default => 'bg-gray-100 text-gray-800',
+        };
+    }
+
+    /**
+     * Testo esplicativo (tooltip) per lo stato pagamento — letto dalla
+     * colonna "descrizione" dell'impostazione corrispondente in settings
+     */
+    public function getStatusTooltipAttribute(): string
+    {
+        $setting = static::getStatusSettings()->get($this->status);
+        return $setting->descrizione ?? '';
     }
 }

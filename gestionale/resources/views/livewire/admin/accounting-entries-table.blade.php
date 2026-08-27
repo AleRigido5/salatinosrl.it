@@ -38,7 +38,7 @@
         
         <!-- RIGA INFERIORE: Filtri -->
         <div class="p-4">
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
 
                 <!-- Ricerca -->
                 <div class="xl:col-span-1">
@@ -163,6 +163,19 @@
                     </select>
                 </div>
 
+                <!-- Stato Pagamento -->
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Stato Pag.</label>
+                    <select wire:model.live="statusFilter" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md">
+                        <option value="">Tutti</option>
+                        @foreach($paymentStatuses as $statusOption)
+                            <option value="{{ $statusOption->valore }}" title="{{ $statusOption->descrizione }}">
+                                {{ ucfirst(strtolower($statusOption->valore)) }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
                 <!-- Conto Bancario -->
                 <div>
                     <label class="block text-xs font-medium text-gray-500 mb-1">Conto Bancario</label>
@@ -198,7 +211,7 @@
             </div>
 
             <!-- Active Filters Tags -->
-            @if($search || $type || $bankAccountId || $paymentMethodId || $dateFrom || $dateTo || $entityFilter)
+            @if($search || $type || $statusFilter || $bankAccountId || $paymentMethodId || $dateFrom || $dateTo || $entityFilter)
             <div class="mt-4 pt-3 border-t border-gray-200 flex flex-wrap items-center gap-2">
                 <span class="text-xs text-gray-500">Filtri attivi:</span>
                 
@@ -225,6 +238,15 @@
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
                     Tipo: {{ $type === 'entrata' ? 'Entrata' : 'Uscita' }}
                     <button wire:click="$set('type', '')" class="ml-1 hover:text-lime-900">
+                        <i class="fas fa-times text-xs"></i>
+                    </button>
+                </span>
+                @endif
+
+                @if($statusFilter)
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
+                    Stato: {{ $statusFilter }}
+                    <button wire:click="$set('statusFilter', '')" class="ml-1 hover:text-lime-900">
                         <i class="fas fa-times text-xs"></i>
                     </button>
                 </span>
@@ -306,6 +328,7 @@
                             Importo @if($sortField === 'amount')<i class="fas fa-sort-{{ $sortDirection === 'asc' ? 'up' : 'down' }} ml-1"></i>@endif
                         </th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Metodo Pag.</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Stato</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500">Azioni</th>
                     </tr>
                 </thead>
@@ -332,6 +355,12 @@
                         <td class="px-4 py-3 text-sm">{{ $entry->bankAccount->name ?? '-' }}<br><small class="text-gray-400">{{ $entry->bankAccount->n_conto ?? '' }}</small></td>
                         <td class="px-4 py-3 text-sm text-right font-medium">{{ number_format($entry->amount, 2, ',', '.') }} €</td>
                         <td class="px-4 py-3 text-sm">{{ $entry->paymentMethod->name ?? '-' }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium cursor-help {{ $entry->status_badge_class }}"
+                                  title="{{ $entry->status_tooltip }}">
+                                {{ $entry->status_label }}
+                            </span>
+                        </td>
                         <td class="px-4 py-3 text-center">
                             <div class="flex items-center justify-center space-x-2">
                                 @if($canView)
@@ -354,7 +383,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="text-center py-8 text-gray-500">Nessuna scrittura contabile trovata</td>
+                        <td colspan="8" class="text-center py-8 text-gray-500">Nessuna scrittura contabile trovata</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -374,7 +403,7 @@
     </div>
     @endif
 
-    <!-- MODAL CREAZIONE/MODIFICA (stile come STEP 2 pagamento - senza tabella fatture) -->
+        <!-- MODAL CREAZIONE/MODIFICA -->
     @if($showModal)
     <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ open: true }" x-show="open" x-on:keydown.escape.window="open = false; $wire.closeModal()">
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center">
@@ -397,26 +426,6 @@
                 <form wire:submit.prevent="save">
                     <div class="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
                         
-                        <!-- Info (come nel pagamento) -->
-                        <div class="grid grid-cols-2 gap-4 mb-6 p-3 bg-gray-50 rounded-lg">
-                            <div>
-                                <p class="text-xs text-gray-500 uppercase">Data Scrittura</p>
-                                <p class="font-medium text-gray-800">{{ $entry_date ? \Carbon\Carbon::parse($entry_date)->format('d/m/Y') : '-' }}</p>
-                            </div>
-                            <div>
-                                <div class="flex justify-between items-center">
-                                    <div>
-                                        <p class="text-xs text-gray-500 uppercase">Tipo Operazione</p>
-                                        <p class="font-medium text-gray-800">
-                                            <span class="px-2 py-1 rounded-full text-xs font-medium {{ $type_value === 'entrata' ? 'bg-green-100 text-green-800' : ($type_value === 'uscita' ? 'bg-red-100 text-red-800' : 'bg-gray-100') }}">
-                                                {{ $type_value === 'entrata' ? 'Entrata' : ($type_value === 'uscita' ? 'Uscita' : 'Non selezionato') }}
-                                            </span>
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
                         <!-- Descrizione -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Descrizione <span class="text-red-500">*</span></label>
@@ -424,8 +433,8 @@
                             @error('description') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
                         
-                        <!-- Data e Tipo (input) -->
-                        <div class="grid grid-cols-2 gap-4">
+                        <!-- Data, Tipo, Stato -->
+                        <div class="grid grid-cols-3 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Data <span class="text-red-500">*</span></label>
                                 <input type="date" wire:model="entry_date" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
@@ -439,7 +448,6 @@
                                         <option value="entrata">Entrata</option>
                                         <option value="uscita">Uscita</option>
                                     </select>
-                                    <!-- Indicatore visivo del tipo selezionato -->
                                     @if($type_value === 'entrata')
                                         <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                                             <i class="fas fa-arrow-down text-green-500"></i>
@@ -452,9 +460,20 @@
                                 </div>
                                 @error('type_value') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Stato <span class="text-red-500">*</span></label>
+                                <select wire:model="status_value" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                    @foreach($paymentStatuses as $statusOption)
+                                        <option value="{{ $statusOption->valore }}" title="{{ $statusOption->descrizione }}">
+                                            {{ ucfirst(strtolower($statusOption->valore)) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('status_value') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
                         </div>
 
-                        <!-- Conto Bancario e Metodo Pagamento (affiancati) -->
+                        <!-- Conto Bancario e Metodo Pagamento -->
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Conto Bancario</label>
@@ -478,7 +497,93 @@
                             </div>
                         </div>
 
-                        <!-- Importo (col-8 input + col-4 totale) come nel pagamento -->
+                        <!-- Cliente/Fornitore e Centro di Costo (Autocomplete) -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Cliente / Fornitore</label>
+                                <div class="relative">
+                                    <input type="text"
+                                        id="form_entity_input"
+                                        wire:model.live.debounce.300ms="formEntitySearch"
+                                        x-on:focus="open = true"
+                                        x-on:input="open = true"
+                                        placeholder="Digita almeno 2 caratteri..."
+                                        class="w-full pr-16 pl-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
+                                        autocomplete="off">
+                                    @if($formEntityId)
+                                    <span class="absolute right-8 top-2 text-xs text-gray-400">ID: {{ $formEntityId }}</span>
+                                    <button type="button"
+                                        wire:click="clearFormEntity"
+                                        x-on:click="document.getElementById('form_entity_input').value = ''; open = false"
+                                        class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
+                                        <i class="fas fa-times-circle text-sm"></i>
+                                    </button>
+                                    @endif
+                                </div>
+
+                                <div x-show="open && @entangle('showFormEntityDropdown')"
+                                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                    @if($formEntityResults && $formEntityResults->count() > 0)
+                                        @foreach($formEntityResults as $item)
+                                        @php
+                                            $itemName = addslashes($item->ragione_sociale ?: trim($item->nome . ' ' . $item->cognome));
+                                        @endphp
+                                        <div
+                                            wire:click="selectFormEntity({{ $item->id_cliente }}, '{{ $itemName }}')"
+                                            x-on:click="document.getElementById('form_entity_input').value = '{{ $itemName }}'; open = false"
+                                            class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                            <div class="font-medium text-gray-800">{{ $item->ragione_sociale ?: trim($item->nome . ' ' . $item->cognome) }}</div>
+                                        </div>
+                                        @endforeach
+                                    @else
+                                        <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato trovato</div>
+                                    @endif
+                                </div>
+                                @error('formEntityId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Centro di Costo <span class="text-red-500">*</span></label>
+                                <div class="relative">
+                                    <input type="text"
+                                        id="cost_center_input"
+                                        wire:model.live.debounce.300ms="costCenterSearch"
+                                        x-on:focus="open = true"
+                                        x-on:input="open = true"
+                                        placeholder="Digita almeno 2 caratteri..."
+                                        class="w-full pr-16 pl-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 {{ $costCenterId ? 'border-gray-300' : 'border-red-300' }}"
+                                        autocomplete="off">
+                                    @if($costCenterId)
+                                    <span class="absolute right-8 top-2 text-xs text-gray-400">ID: {{ $costCenterId }}</span>
+                                    <button type="button"
+                                        wire:click="clearCostCenter"
+                                        x-on:click="document.getElementById('cost_center_input').value = ''; open = false"
+                                        class="absolute right-2 top-2 text-gray-400 hover:text-red-500">
+                                        <i class="fas fa-times-circle text-sm"></i>
+                                    </button>
+                                    @endif
+                                </div>
+
+                                <div x-show="open && @entangle('showCostCenterDropdown')"
+                                    class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                    @if($costCenterResults && $costCenterResults->count() > 0)
+                                        @foreach($costCenterResults as $item)
+                                        <div
+                                            wire:click="selectCostCenter({{ $item->id }}, '{{ addslashes($item->Nome) }}')"
+                                            x-on:click="document.getElementById('cost_center_input').value = '{{ addslashes($item->Nome) }}'; open = false"
+                                            class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                            <div class="font-medium text-gray-800">{{ $item->Nome }}</div>
+                                        </div>
+                                        @endforeach
+                                    @else
+                                        <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato trovato</div>
+                                    @endif
+                                </div>
+                                @error('costCenterId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                            </div>
+                        </div>
+
+                        <!-- Importo (col-8 input + col-4 totale) -->
                         <div class="grid grid-cols-12 gap-4">
                             <div class="col-span-8">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Importo (€) <span class="text-red-500">*</span></label>
@@ -571,6 +676,16 @@
                             <label class="block text-xs text-gray-500 uppercase">Metodo Pagamento</label>
                             <p>{{ $viewingEntry->paymentMethod->name ?? '-' }}</p>
                         </div>
+                    </div>
+
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <label class="block text-xs text-gray-500 uppercase">Stato</label>
+                        <p>
+                            <span class="px-2 py-1 rounded-full text-xs font-medium cursor-help {{ $viewingEntry->status_badge_class }}"
+                                  title="{{ $viewingEntry->status_tooltip }}">
+                                {{ $viewingEntry->status_label }}
+                            </span>
+                        </p>
                     </div>
                     
                     @if($viewingEntry->invoice)

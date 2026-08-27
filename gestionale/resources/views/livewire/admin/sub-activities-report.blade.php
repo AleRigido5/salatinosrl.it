@@ -456,11 +456,14 @@
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
+                                <th class="w-6"></th>
                                 <th class="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase w-28">Data</th>
                                 <th class="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Coord. GPS</th>
                                 <th class="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Coord. GPS</th>
                                 <th class="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Note</th>
+                                <th class="px-3 py-2 text-center text-xs font-semibold text-gray-600 uppercase w-20">Verificato</th>
                                 <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase w-24">ha</th>
+                                <th class="w-6"></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -474,19 +477,28 @@
                                 @endphp
 
                                 @if($showSpacer)
-                                <tr><td colspan="5" class="py-1.5"></td></tr>
+                                <tr><td colspan="8" class="py-1.5"></td></tr>
                                 @endif
 
                                 <tr class="hover:bg-gray-50">
+                                    <td></td>
                                     <td class="px-3 py-1.5 text-sm text-gray-700 whitespace-nowrap">
                                         {{ optional($row->activity)->data_activities?->format('d/m/Y') ?? '-' }}
                                     </td>
                                     <td class="px-3 py-1.5 text-sm font-mono text-gray-700">{{ $row->Lat_inizio ?: '-' }}</td>
                                     <td class="px-3 py-1.5 text-sm font-mono text-gray-700">{{ $row->Lat_fine ?: '-' }}</td>
                                     <td class="px-3 py-1.5 text-sm text-gray-600">{{ $row->NoteAtt ?: '-' }}</td>
+                                    <td class="px-3 py-1.5 text-center">
+                                        @if($row->verificato)
+                                            <i class="fas fa-check-circle text-green-600" title="Verificato"></i>
+                                        @else
+                                            <i class="fas fa-times-circle text-red-600" title="Non verificato"></i>
+                                        @endif
+                                    </td>
                                     <td class="px-3 py-1.5 text-sm text-right font-medium text-gray-800">
                                         {{ $row->ha ? number_format(floatval(str_replace(',', '.', $row->ha)), 2, ',', '.') : '' }}
                                     </td>
+                                    <td></td>
                                 </tr>
 
                                 @php $lastRowDate = $currentRowDate; @endphp
@@ -494,12 +506,13 @@
                         </tbody>
                         <tfoot class="bg-lime-50 border-t-2 border-lime-200">
                             <tr>
-                                <td colspan="4" class="px-3 py-2 text-right font-bold text-gray-700 uppercase text-sm">
+                                <td colspan="6" class="px-3 py-2 text-right font-bold text-gray-700 uppercase text-sm">
                                     Totale {{ $group['service_name'] }} {{ \Carbon\Carbon::parse($dateFrom)->format('Y') }}
                                 </td>
                                 <td class="px-3 py-2 text-right font-bold text-lime-700">
                                     {{ number_format($group['total_ha'], 2, ',', '.') }}
                                 </td>
+                                <td></td>
                             </tr>
                         </tfoot>
                     </table>

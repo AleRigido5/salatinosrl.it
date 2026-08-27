@@ -45,6 +45,7 @@ class RegisterPayment extends Component
     // STEP 2
     public $paymentDate = '';
     public $paymentMethod = '';
+    public string $paymentStatus = 'COMPLETATO';
     public $availableInvoices = [];
     public $notes = '';
     public $bankAccountId = '';
@@ -60,6 +61,7 @@ class RegisterPayment extends Component
         'selectedEntityId' => 'required|exists:entities,id_cliente',
         'paymentDate' => 'required|date',
         'paymentMethod' => 'required|exists:payment_methods,code',
+        'paymentStatus' => 'required|in:COMPLETATO,INSERITO,AUTOMATICO,DA INSERIRE',
     ];
     
     protected $messages = [
@@ -67,6 +69,7 @@ class RegisterPayment extends Component
         'selectedEntityId.required' => 'Selezionare un cliente o fornitore',
         'paymentDate.required' => 'La data del pagamento è obbligatoria',
         'paymentMethod.required' => 'Il metodo di pagamento è obbligatorio',
+        'paymentStatus.required' => 'Lo stato del pagamento è obbligatorio',
     ];
     
     public function mount(string $invoiceType = 'acquisto'): void
@@ -108,6 +111,7 @@ class RegisterPayment extends Component
         $this->selectedEntityType = '';
         $this->paymentDate = date('Y-m-d');
         $this->paymentMethod = '';
+        $this->paymentStatus = 'COMPLETATO';
         $this->bankAccountId = ''; 
         $this->availableInvoices = [];
         $this->notes = '';
@@ -248,6 +252,7 @@ class RegisterPayment extends Component
             $this->validate([
                 'paymentDate' => 'required|date',
                 'paymentMethod' => 'required',
+                'paymentStatus' => 'required|in:COMPLETATO,INSERITO,AUTOMATICO,DA INSERIRE',
             ]);
             $this->calculateTotal();
         }
@@ -422,6 +427,7 @@ class RegisterPayment extends Component
                 'invoice_id'          => null,
                 'invoice_payment_id'  => null,
                 'amount'              => $this->totalSelectedAmount,
+                'status'              => $this->paymentStatus,
                 'created_by'          => $adminId,
                 'updated_by'          => $adminId,
             ]);

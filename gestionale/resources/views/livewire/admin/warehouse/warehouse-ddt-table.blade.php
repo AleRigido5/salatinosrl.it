@@ -71,6 +71,9 @@
                             </span>
                         </td>
                         <td class="px-4 py-3 text-center whitespace-nowrap">
+                            <a href="{{ route('admin.warehouse.ddt-pdf', $ddt->id) }}" target="_blank" class="text-blue-600 hover:text-blue-800 mr-2" title="Genera PDF">
+                                <i class="fas fa-file-pdf"></i>
+                            </a>
                             @if($ddt->status === 'bozza')
                                 <button wire:click="issueDdt({{ $ddt->id }})"
                                     wire:confirm="Emettere questo DDT? Verranno generati i movimenti di magazzino e le giacenze verranno aggiornate."
@@ -134,7 +137,7 @@
                             @error('ddt_date') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Proprietà</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Proprietà <span class="text-red-500">*</span></label>
                             <div class="relative">
                                 <input type="text" wire:model.live.debounce.300ms="ownershipSearch"
                                     x-on:focus="open = true"
@@ -156,6 +159,7 @@
                                     <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato</div>
                                 @endforelse
                             </div>
+                            @error('selectedOwnershipId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
                     </div>
 
@@ -187,9 +191,124 @@
                         @error('selectedEntityId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
 
+                    <!-- Causale -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Causale</label>
-                        <input type="text" wire:model="causale" placeholder="Es. Reso, Consegna materiale, ..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        <select wire:model="causale" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            <option value="">Seleziona causale...</option>
+                            @foreach($ddtCausali as $c)
+                                <option value="{{ $c->valore }}">{{ $c->valore }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <!-- Dati di trasporto -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Termini di consegna</label>
+                            <input type="text" wire:model="termini_consegna" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Aspetto esteriore beni</label>
+                            <select wire:model="aspetto_esteriore_beni" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                <option value="">Seleziona...</option>
+                                @foreach($ddtAspettoBeni as $a)
+                                    <option value="{{ $a->valore }}">{{ $a->valore }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Numero colli</label>
+                            <input type="number" min="0" wire:model="numero_colli" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Inizio trasporto</label>
+                            <input type="datetime-local" wire:model="inizio_trasporto_at" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Trasporto a mezzo</label>
+                        <div class="flex gap-4">
+                            <label class="inline-flex items-center">
+                                <input type="radio" wire:model="trasporto_a_mezzo" value="mittente" class="text-lime-600 focus:ring-lime-500">
+                                <span class="ml-2 text-sm">Mittente</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" wire:model="trasporto_a_mezzo" value="destinatario" class="text-lime-600 focus:ring-lime-500">
+                                <span class="ml-2 text-sm">Destinatario</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" wire:model="trasporto_a_mezzo" value="vettore" class="text-lime-600 focus:ring-lime-500">
+                                <span class="ml-2 text-sm">Vettore</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    @if($trasporto_a_mezzo === 'vettore')
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 p-3 bg-gray-50 rounded-lg">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nome vettore</label>
+                            <input type="text" wire:model="vettore_nome" placeholder="Es. GLS" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Indirizzo</label>
+                            <input type="text" wire:model="vettore_indirizzo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
+                            <input type="text" wire:model="vettore_telefono" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" wire:model="vettore_email" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            @error('vettore_email') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+                    @endif
+
+                    <!-- Destinatario: override opzionale rispetto all'anagrafica -->
+                    <div class="border border-gray-200 rounded-lg p-3">
+                        <label class="inline-flex items-center mb-2">
+                            <input type="checkbox" wire:click="toggleOverrideDestinatario" {{ $overrideDestinatario ? 'checked' : '' }} class="rounded text-lime-600 focus:ring-lime-500">
+                            <span class="ml-2 text-sm font-medium text-gray-700">Personalizza destinatario (diverso dall'anagrafica)</span>
+                        </label>
+                        @if($overrideDestinatario)
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                            <div class="md:col-span-2">
+                                <input type="text" wire:model="dest_ragione_sociale" placeholder="Ragione sociale" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            </div>
+                            <div class="md:col-span-2">
+                                <input type="text" wire:model="dest_indirizzo" placeholder="Indirizzo" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            </div>
+                            <input type="text" wire:model="dest_cap" placeholder="CAP" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            <input type="text" wire:model="dest_citta" placeholder="Città" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            <input type="text" wire:model="dest_provincia" placeholder="Provincia" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            <input type="text" wire:model="dest_piva" placeholder="P.IVA" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            <input type="text" wire:model="dest_cf" placeholder="Codice Fiscale" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        @endif
+                    </div>
+
+                    <!-- Luogo di destinazione: override opzionale (default = destinatario) -->
+                    <div class="border border-gray-200 rounded-lg p-3">
+                        <label class="inline-flex items-center mb-2">
+                            <input type="checkbox" wire:click="toggleOverrideLuogo" {{ $overrideLuogo ? 'checked' : '' }} class="rounded text-lime-600 focus:ring-lime-500">
+                            <span class="ml-2 text-sm font-medium text-gray-700">Luogo di destinazione diverso dal destinatario</span>
+                        </label>
+                        @if($overrideLuogo)
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                            <div class="md:col-span-2">
+                                <input type="text" wire:model="luogo_ragione_sociale" placeholder="Ragione sociale" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            </div>
+                            <div class="md:col-span-2">
+                                <input type="text" wire:model="luogo_indirizzo" placeholder="Indirizzo" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            </div>
+                            <input type="text" wire:model="luogo_cap" placeholder="CAP" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            <input type="text" wire:model="luogo_citta" placeholder="Città" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                            <input type="text" wire:model="luogo_provincia" placeholder="Provincia" class="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                        </div>
+                        @endif
                     </div>
 
                     <!-- RIGHE -->
@@ -253,7 +372,11 @@
                                         @endif
                                     </div>
 
-                                    <div class="md:col-span-4">
+                                    <div class="md:col-span-1">
+                                        <input type="text" wire:model="rows.{{ $index }}.codice" placeholder="Codice"
+                                            class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                    </div>
+                                    <div class="md:col-span-3">
                                         <input type="text" wire:model="rows.{{ $index }}.description" placeholder="Descrizione"
                                             class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
                                     </div>
@@ -361,6 +484,9 @@
                 </div>
 
                 <div class="flex justify-end px-6 py-4 border-t bg-gray-50 rounded-b-lg">
+                    <a href="{{ route('admin.warehouse.ddt.pdf', $viewingDdt->id) }}" target="_blank" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors mr-2">
+                        <i class="fas fa-file-pdf mr-1"></i> PDF
+                    </a>
                     <button wire:click="closeDetailModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Chiudi</button>
                 </div>
             </div>

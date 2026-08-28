@@ -12,6 +12,7 @@ class WarehouseDdtRow extends Model
     protected $fillable = [
         'id_ddt',
         'id_product',
+        'codice',
         'description',
         'quantity',
         'unit_of_measure',

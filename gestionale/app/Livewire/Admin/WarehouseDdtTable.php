@@ -10,6 +10,7 @@ use App\Models\WarehouseMovement;
 use App\Models\WarehouseProduct;
 use App\Models\Entity;
 use App\Models\Ownership;
+use App\Models\Setting;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +35,35 @@ class WarehouseDdtTable extends Component
     public string $ddt_number = '';
     public string $ddt_date = '';
     public string $causale = '';
+    public string $termini_consegna = '';
+    public string $aspetto_esteriore_beni = '';
+    public string $numero_colli = '';
+    public string $trasporto_a_mezzo = '';
+    public string $inizio_trasporto_at = '';
+
+    // Vettore (campi liberi)
+    public string $vettore_nome = '';
+    public string $vettore_indirizzo = '';
+    public string $vettore_telefono = '';
+    public string $vettore_email = '';
+
+    // Destinatario — override opzionale rispetto all'anagrafica Entity
+    public bool $overrideDestinatario = false;
+    public string $dest_ragione_sociale = '';
+    public string $dest_indirizzo = '';
+    public string $dest_cap = '';
+    public string $dest_citta = '';
+    public string $dest_provincia = '';
+    public string $dest_piva = '';
+    public string $dest_cf = '';
+
+    // Luogo di destinazione — override opzionale (default = destinatario)
+    public bool $overrideLuogo = false;
+    public string $luogo_ragione_sociale = '';
+    public string $luogo_indirizzo = '';
+    public string $luogo_cap = '';
+    public string $luogo_citta = '';
+    public string $luogo_provincia = '';
 
     // Autocomplete Cliente/Fornitore
     public string $entitySearch = '';
@@ -50,7 +80,7 @@ class WarehouseDdtTable extends Component
     public bool $showOwnershipDropdown = false;
 
     // Righe DDT — ogni riga è un array associativo semplice
-    // (id, id_product, product_name, description, quantity, unit_of_measure, note)
+    // (id, id_product, product_name, codice, description, quantity, unit_of_measure, note)
     public array $rows = [];
 
     // FIX (bug segnalato: autocomplete riga non funzionava e bloccava anche
@@ -109,6 +139,22 @@ class WarehouseDdtTable extends Component
         return $query->orderByDesc('ddt_date')->orderByDesc('id')->paginate($this->perPage);
     }
 
+    public function getDdtCausaliProperty()
+    {
+        return Setting::where('tabella_riferimento', 'ddt_causale')
+            ->where('valid', 1)
+            ->orderBy('ordinamento')
+            ->get();
+    }
+
+    public function getDdtAspettoBeniProperty()
+    {
+        return Setting::where('tabella_riferimento', 'ddt_aspetto_beni')
+            ->where('valid', 1)
+            ->orderBy('ordinamento')
+            ->get();
+    }
+
     // ==================== AUTOCOMPLETE CLIENTE/FORNITORE ====================
     public function updatedEntitySearch(): void
     {
@@ -149,6 +195,24 @@ class WarehouseDdtTable extends Component
         $this->selectedEntityName = $name;
         $this->entitySearch = $name;
         $this->showEntityDropdown = false;
+
+        // Precompila destinatario/luogo dall'anagrafica (Entity + indirizzo
+        // principale su Address), solo se l'utente non ha già attivato un
+        // override manuale.
+        if (!$this->overrideDestinatario) {
+            $entity = Entity::with('addresses')->where('id_cliente', $id)->first();
+            if ($entity) {
+                $address = $entity->primary_address;
+
+                $this->dest_ragione_sociale = $entity->ragione_sociale ?: trim($entity->nome . ' ' . $entity->cognome);
+                $this->dest_indirizzo = $address->indirizzo ?? '';
+                $this->dest_cap = $address->cap ?? '';
+                $this->dest_citta = $address->citta ?? '';
+                $this->dest_provincia = $address->provincia ?? '';
+                $this->dest_piva = $entity->partita_iva ?? '';
+                $this->dest_cf = $entity->codice_fiscale ?? '';
+            }
+        }
     }
 
     public function clearEntity(): void
@@ -203,6 +267,27 @@ class WarehouseDdtTable extends Component
         $this->showOwnershipDropdown = false;
     }
 
+    // ==================== TOGGLE OVERRIDE DESTINATARIO/LUOGO ====================
+    public function toggleOverrideDestinatario(): void
+    {
+        $this->overrideDestinatario = !$this->overrideDestinatario;
+    }
+
+    public function toggleOverrideLuogo(): void
+    {
+        $this->overrideLuogo = !$this->overrideLuogo;
+
+        // Se attivo l'override del luogo per la prima volta, precompilo
+        // dal destinatario corrente come punto di partenza comodo da editare.
+        if ($this->overrideLuogo && $this->luogo_ragione_sociale === '') {
+            $this->luogo_ragione_sociale = $this->dest_ragione_sociale;
+            $this->luogo_indirizzo = $this->dest_indirizzo;
+            $this->luogo_cap = $this->dest_cap;
+            $this->luogo_citta = $this->dest_citta;
+            $this->luogo_provincia = $this->dest_provincia;
+        }
+    }
+
     // ==================== RIGHE ====================
     public function addRow(): void
     {
@@ -210,6 +295,7 @@ class WarehouseDdtTable extends Component
             'id' => null,
             'id_product' => '',
             'product_name' => '',
+            'codice' => '',
             'description' => '',
             'quantity' => '',
             'unit_of_measure' => '',
@@ -279,6 +365,7 @@ class WarehouseDdtTable extends Component
         $index = (int) $this->activeRowIndex;
         $this->rows[$index]['id_product'] = (string) $product->id;
         $this->rows[$index]['product_name'] = $product->name;
+        $this->rows[$index]['codice'] = $product->sku ?? '';
         $this->rows[$index]['description'] = $product->name;
         $this->rows[$index]['unit_of_measure'] = $product->unit_of_measure ?? '';
 
@@ -319,10 +406,52 @@ class WarehouseDdtTable extends Component
         $this->ddt_number = $ddt->ddt_number;
         $this->ddt_date = optional($ddt->ddt_date)->format('Y-m-d') ?? '';
         $this->causale = $ddt->causale ?? '';
+        $this->termini_consegna = $ddt->termini_consegna ?? '';
+        $this->aspetto_esteriore_beni = $ddt->aspetto_esteriore_beni ?? '';
+        $this->numero_colli = $ddt->numero_colli !== null ? (string) $ddt->numero_colli : '';
+        $this->trasporto_a_mezzo = $ddt->trasporto_a_mezzo ?? '';
+        $this->inizio_trasporto_at = $ddt->inizio_trasporto_at ? $ddt->inizio_trasporto_at->format('Y-m-d\TH:i') : '';
+
+        $this->vettore_nome = $ddt->vettore_nome ?? '';
+        $this->vettore_indirizzo = $ddt->vettore_indirizzo ?? '';
+        $this->vettore_telefono = $ddt->vettore_telefono ?? '';
+        $this->vettore_email = $ddt->vettore_email ?? '';
+
+        $this->overrideDestinatario = !empty($ddt->dest_ragione_sociale);
+        $this->dest_ragione_sociale = $ddt->dest_ragione_sociale ?? '';
+        $this->dest_indirizzo = $ddt->dest_indirizzo ?? '';
+        $this->dest_cap = $ddt->dest_cap ?? '';
+        $this->dest_citta = $ddt->dest_citta ?? '';
+        $this->dest_provincia = $ddt->dest_provincia ?? '';
+        $this->dest_piva = $ddt->dest_piva ?? '';
+        $this->dest_cf = $ddt->dest_cf ?? '';
+
+        $this->overrideLuogo = !empty($ddt->luogo_ragione_sociale);
+        $this->luogo_ragione_sociale = $ddt->luogo_ragione_sociale ?? '';
+        $this->luogo_indirizzo = $ddt->luogo_indirizzo ?? '';
+        $this->luogo_cap = $ddt->luogo_cap ?? '';
+        $this->luogo_citta = $ddt->luogo_citta ?? '';
+        $this->luogo_provincia = $ddt->luogo_provincia ?? '';
 
         $this->selectedEntityId = (string) $ddt->id_entities;
         $this->selectedEntityName = $ddt->entity ? ($ddt->entity->ragione_sociale ?? trim($ddt->entity->nome . ' ' . $ddt->entity->cognome)) : '';
         $this->entitySearch = $this->selectedEntityName;
+
+        // Se non c'è override salvato, precompila comunque i campi
+        // destinatario dall'anagrafica (Entity + indirizzo principale su
+        // Address) per mostrarli nel form.
+        if (!$this->overrideDestinatario && $ddt->entity) {
+            $entityWithAddress = Entity::with('addresses')->find($ddt->entity->id_cliente);
+            $address = $entityWithAddress ? $entityWithAddress->primary_address : null;
+
+            $this->dest_ragione_sociale = $ddt->entity->ragione_sociale ?? trim($ddt->entity->nome . ' ' . $ddt->entity->cognome);
+            $this->dest_indirizzo = $address->indirizzo ?? '';
+            $this->dest_cap = $address->cap ?? '';
+            $this->dest_citta = $address->citta ?? '';
+            $this->dest_provincia = $address->provincia ?? '';
+            $this->dest_piva = $ddt->entity->partita_iva ?? '';
+            $this->dest_cf = $ddt->entity->codice_fiscale ?? '';
+        }
 
         $this->selectedOwnershipId = (string) ($ddt->id_ownership ?? '');
         $this->selectedOwnershipName = $ddt->ownership ? ($ddt->ownership->RagAbbrev ?? $ddt->ownership->Rag_Soc_intest) : '';
@@ -334,6 +463,7 @@ class WarehouseDdtTable extends Component
                 'id' => $row->id,
                 'id_product' => (string) ($row->id_product ?? ''),
                 'product_name' => $row->product->name ?? '',
+                'codice' => $row->codice ?? '',
                 'description' => $row->description,
                 'quantity' => (string) $row->quantity,
                 'unit_of_measure' => $row->unit_of_measure ?? '',
@@ -360,6 +490,33 @@ class WarehouseDdtTable extends Component
         $this->ddt_number = '';
         $this->ddt_date = now()->format('Y-m-d');
         $this->causale = '';
+        $this->termini_consegna = '';
+        $this->aspetto_esteriore_beni = '';
+        $this->numero_colli = '';
+        $this->trasporto_a_mezzo = '';
+        $this->inizio_trasporto_at = '';
+
+        $this->vettore_nome = '';
+        $this->vettore_indirizzo = '';
+        $this->vettore_telefono = '';
+        $this->vettore_email = '';
+
+        $this->overrideDestinatario = false;
+        $this->dest_ragione_sociale = '';
+        $this->dest_indirizzo = '';
+        $this->dest_cap = '';
+        $this->dest_citta = '';
+        $this->dest_provincia = '';
+        $this->dest_piva = '';
+        $this->dest_cf = '';
+
+        $this->overrideLuogo = false;
+        $this->luogo_ragione_sociale = '';
+        $this->luogo_indirizzo = '';
+        $this->luogo_cap = '';
+        $this->luogo_citta = '';
+        $this->luogo_provincia = '';
+
         $this->clearEntity();
         $this->clearOwnership();
         $this->rows = [];
@@ -374,6 +531,15 @@ class WarehouseDdtTable extends Component
             'ddt_date' => 'required|date',
             'selectedEntityId' => 'required|exists:entities,id_cliente',
             'causale' => 'nullable|string|max:255',
+            'termini_consegna' => 'nullable|string|max:255',
+            'aspetto_esteriore_beni' => 'nullable|string|max:100',
+            'numero_colli' => 'nullable|integer|min:0',
+            'trasporto_a_mezzo' => 'nullable|in:mittente,destinatario,vettore',
+            'inizio_trasporto_at' => 'nullable|date',
+            'vettore_nome' => 'nullable|string|max:255',
+            'vettore_indirizzo' => 'nullable|string|max:255',
+            'vettore_telefono' => 'nullable|string|max:50',
+            'vettore_email' => 'nullable|email|max:150',
             'rows' => 'required|array|min:1',
             'rows.*.description' => 'required|string|max:255',
             'rows.*.quantity' => 'required|numeric|min:0.01',
@@ -399,7 +565,32 @@ class WarehouseDdtTable extends Component
             'id_entities' => $this->selectedEntityId,
             'id_ownership' => $this->selectedOwnershipId ?: null,
             'causale' => $this->causale ?: null,
+            'termini_consegna' => $this->termini_consegna ?: null,
+            'aspetto_esteriore_beni' => $this->aspetto_esteriore_beni ?: null,
+            'numero_colli' => $this->numero_colli !== '' ? (int) $this->numero_colli : null,
+            'trasporto_a_mezzo' => $this->trasporto_a_mezzo ?: null,
+            'inizio_trasporto_at' => $this->inizio_trasporto_at ?: null,
+            'vettore_nome' => $this->vettore_nome ?: null,
+            'vettore_indirizzo' => $this->vettore_indirizzo ?: null,
+            'vettore_telefono' => $this->vettore_telefono ?: null,
+            'vettore_email' => $this->vettore_email ?: null,
             'updated_by' => $adminId,
+
+            // Destinatario: salviamo l'override solo se attivato esplicitamente,
+            // altrimenti il PDF ricadrà sull'anagrafica Entity in automatico
+            'dest_ragione_sociale' => $this->overrideDestinatario ? ($this->dest_ragione_sociale ?: null) : null,
+            'dest_indirizzo' => $this->overrideDestinatario ? ($this->dest_indirizzo ?: null) : null,
+            'dest_cap' => $this->overrideDestinatario ? ($this->dest_cap ?: null) : null,
+            'dest_citta' => $this->overrideDestinatario ? ($this->dest_citta ?: null) : null,
+            'dest_provincia' => $this->overrideDestinatario ? ($this->dest_provincia ?: null) : null,
+            'dest_piva' => $this->overrideDestinatario ? ($this->dest_piva ?: null) : null,
+            'dest_cf' => $this->overrideDestinatario ? ($this->dest_cf ?: null) : null,
+
+            'luogo_ragione_sociale' => $this->overrideLuogo ? ($this->luogo_ragione_sociale ?: null) : null,
+            'luogo_indirizzo' => $this->overrideLuogo ? ($this->luogo_indirizzo ?: null) : null,
+            'luogo_cap' => $this->overrideLuogo ? ($this->luogo_cap ?: null) : null,
+            'luogo_citta' => $this->overrideLuogo ? ($this->luogo_citta ?: null) : null,
+            'luogo_provincia' => $this->overrideLuogo ? ($this->luogo_provincia ?: null) : null,
         ];
 
         DB::beginTransaction();
@@ -425,6 +616,7 @@ class WarehouseDdtTable extends Component
                 WarehouseDdtRow::create([
                     'id_ddt' => $ddt->id,
                     'id_product' => $row['id_product'] ?: null,
+                    'codice' => $row['codice'] ?: null,
                     'description' => $row['description'],
                     'quantity' => (float) str_replace(',', '.', $row['quantity']),
                     'unit_of_measure' => $row['unit_of_measure'] ?: null,
@@ -622,6 +814,8 @@ class WarehouseDdtTable extends Component
     {
         return view('livewire.admin.warehouse.warehouse-ddt-table', [
             'ddts' => $this->ddts,
+            'ddtCausali' => $this->ddtCausali,
+            'ddtAspettoBeni' => $this->ddtAspettoBeni,
         ]);
     }
 }

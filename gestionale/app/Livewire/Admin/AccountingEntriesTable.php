@@ -131,12 +131,8 @@ class AccountingEntriesTable extends Component
         'id_payments_methods' => 'nullable|exists:payment_methods,id',
         'invoice_id' => 'nullable|exists:invoices_received,id',
         'formEntityId' => 'nullable|exists:entities,id_cliente',
-        'costCenterId' => 'required|exists:cost_centers,id',
+        'costCenterId' => 'nullable|exists:cost_centers,id',
         'importFile' => 'nullable|file|mimes:csv,txt|max:5120',
-    ];
-    
-    protected $messages = [
-        'costCenterId.required' => 'Il centro di costo è obbligatorio',
     ];
     
     protected $listeners = [
@@ -1176,11 +1172,6 @@ class AccountingEntriesTable extends Component
 
         if (empty($this->importPreview)) {
             $this->dispatch('showError', message: 'Nessuna riga da importare');
-            return;
-        }
-
-        if (!$this->importCostCenterId) {
-            $this->dispatch('showError', message: 'Seleziona un Centro di Costo prima di importare');
             return;
         }
 

@@ -388,6 +388,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/movements', [WarehouseController::class, 'movementsIndex'])->name('movements.index');
             Route::get('/ddt-purchases', [WarehouseController::class, 'ddtPurchasesIndex'])->name('ddt-purchases.index');
             Route::get('/ddt-sales', [WarehouseController::class, 'ddtSalesIndex'])->name('ddt-sales.index');
+            Route::get('ddt/{id}/pdf', [\App\Http\Controllers\Admin\WarehouseDdtPdfController::class, 'show'])->name('ddt-pdf');
         });
         
         // =============================================

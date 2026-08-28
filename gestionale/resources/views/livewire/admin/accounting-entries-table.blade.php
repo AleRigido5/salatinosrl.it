@@ -547,7 +547,7 @@
                             </div>
 
                             <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Centro di Costo <span class="text-red-500">*</span></label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Centro di Costo</label>
                                 <div class="relative">
                                     <input type="text"
                                         id="cost_center_input"
@@ -555,7 +555,7 @@
                                         x-on:focus="open = true"
                                         x-on:input="open = true"
                                         placeholder="Digita almeno 2 caratteri..."
-                                        class="w-full pr-16 pl-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 {{ $costCenterId ? 'border-gray-300' : 'border-red-300' }}"
+                                        class="w-full pr-16 pl-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                                         autocomplete="off">
                                     @if($costCenterId)
                                     <span class="absolute right-8 top-2 text-xs text-gray-400">ID: {{ $costCenterId }}</span>
@@ -709,9 +709,9 @@
                                 </div>
                             </div>
 
-                            <!-- Centro di Costo (obbligatorio) -->
+                            <!-- Centro di Costo -->
                             <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Centro di Costo <span class="text-red-500">*</span></label>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Centro di Costo</label>
                                 <div class="relative">
                                     <input type="text"
                                         id="import_cost_center_input"
@@ -719,7 +719,7 @@
                                         x-on:focus="open = true"
                                         x-on:input="open = true"
                                         placeholder="Digita almeno 2 caratteri..."
-                                        class="w-full pr-8 pl-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500 {{ $importCostCenterId ? 'border-gray-300' : 'border-red-300' }}"
+                                        class="w-full pr-8 pl-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-lime-500"
                                         autocomplete="off">
                                     @if($importCostCenterId)
                                     <button type="button"
@@ -825,7 +825,7 @@
                             Annulla
                         </button>
                         <button type="button" wire:click="confirmImport" 
-                            {{ empty($importPreview) || $importValidRowsCount === 0 || !$importCostCenterId ? 'disabled' : '' }}
+                            {{ empty($importPreview) || $importValidRowsCount === 0 ? 'disabled' : '' }}
                             class="px-4 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <i class="fas fa-upload mr-2"></i> Importa {{ $importValidRowsCount }} righe
                         </button>

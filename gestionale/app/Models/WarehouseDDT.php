@@ -19,6 +19,10 @@ class WarehouseDdt extends Model
     const STATUS_DRAFT = 'bozza';
     const STATUS_ISSUED = 'emesso';
 
+    const TRASPORTO_MITTENTE = 'mittente';
+    const TRASPORTO_DESTINATARIO = 'destinatario';
+    const TRASPORTO_VETTORE = 'vettore';
+
     protected $fillable = [
         'type',
         'ddt_number',
@@ -30,11 +34,40 @@ class WarehouseDdt extends Model
         'issued_at',
         'created_by',
         'updated_by',
+
+        // Destinatario (sovrascrivibile rispetto all'anagrafica Entity)
+        'dest_ragione_sociale',
+        'dest_indirizzo',
+        'dest_cap',
+        'dest_citta',
+        'dest_provincia',
+        'dest_piva',
+        'dest_cf',
+
+        // Luogo di destinazione (sovrascrivibile, può differire dal destinatario)
+        'luogo_ragione_sociale',
+        'luogo_indirizzo',
+        'luogo_cap',
+        'luogo_citta',
+        'luogo_provincia',
+
+        // Dati di trasporto
+        'termini_consegna',
+        'aspetto_esteriore_beni',
+        'numero_colli',
+        'trasporto_a_mezzo',
+        'inizio_trasporto_at',
+        'vettore_nome',
+        'vettore_indirizzo',
+        'vettore_telefono',
+        'vettore_email',
     ];
 
     protected $casts = [
         'ddt_date' => 'date',
         'issued_at' => 'datetime',
+        'inizio_trasporto_at' => 'datetime',
+        'numero_colli' => 'integer',
     ];
 
     public function rows(): HasMany
@@ -105,5 +138,99 @@ class WarehouseDdt extends Model
     public function referenceType(): string
     {
         return 'ddt_' . $this->type;
+    }
+
+    /**
+     * Etichetta leggibile per "Trasporto a mezzo"
+     */
+    public function getTrasportoAMezzoLabelAttribute(): string
+    {
+        return match ($this->trasporto_a_mezzo) {
+            self::TRASPORTO_MITTENTE => 'Mittente',
+            self::TRASPORTO_DESTINATARIO => 'Destinatario',
+            self::TRASPORTO_VETTORE => 'Vettore',
+            default => '-',
+        };
+    }
+
+    /**
+     * Dati del mittente (azienda) da mostrare nel PDF: presi dalla
+     * Proprietà (Ownership) collegata al DDT — stessa fonte usata dal
+     * template delle fatture di vendita (Rag_Soc_intest, IndirizzoPr,
+     * LocalitPr, ProvinciaPr, PivaPr).
+     */
+    public function getMittenteDatiAttribute(): array
+    {
+        $ownership = $this->ownership;
+
+        return [
+            'ragione_sociale' => $ownership->Rag_Soc_intest ?? '-',
+            'indirizzo' => $ownership->IndirizzoPr ?? '',
+            'citta' => $ownership->LocalitPr ?? '',
+            'provincia' => $ownership->ProvinciaPr ?? '',
+            'piva' => $ownership->PivaPr ?? '',
+            'cf' => $ownership->CFPr ?? $ownership->PivaPr ?? '',
+            'email' => $ownership->EmailPr ?? '',
+        ];
+    }
+
+    /**
+     * Nome/indirizzo del destinatario da mostrare nel PDF: usa i campi
+     * propri del DDT se compilati (permette override), altrimenti
+     * ricade sull'anagrafica Entity + il suo indirizzo principale (address).
+     */
+    public function getDestinatarioDatiAttribute(): array
+    {
+        if ($this->dest_ragione_sociale) {
+            return [
+                'ragione_sociale' => $this->dest_ragione_sociale,
+                'indirizzo' => $this->dest_indirizzo,
+                'cap' => $this->dest_cap,
+                'citta' => $this->dest_citta,
+                'provincia' => $this->dest_provincia,
+                'piva' => $this->dest_piva,
+                'cf' => $this->dest_cf,
+            ];
+        }
+
+        $entity = $this->entity;
+        $address = $entity ? $entity->primary_address : null;
+
+        return [
+            'ragione_sociale' => $entity ? ($entity->ragione_sociale ?? trim(($entity->nome ?? '') . ' ' . ($entity->cognome ?? ''))) : '',
+            'indirizzo' => $address->indirizzo ?? null,
+            'cap' => $address->cap ?? null,
+            'citta' => $address->citta ?? null,
+            'provincia' => $address->provincia ?? null,
+            'piva' => $entity->partita_iva ?? null,
+            'cf' => $entity->codice_fiscale ?? null,
+        ];
+    }
+
+    /**
+     * Luogo di destinazione: usa i campi propri se compilati, altrimenti
+     * ricade sui dati del destinatario (comportamento visto nell'esempio,
+     * dove i due blocchi coincidono di default).
+     */
+    public function getLuogoDestinazioneDatiAttribute(): array
+    {
+        if ($this->luogo_ragione_sociale) {
+            return [
+                'ragione_sociale' => $this->luogo_ragione_sociale,
+                'indirizzo' => $this->luogo_indirizzo,
+                'cap' => $this->luogo_cap,
+                'citta' => $this->luogo_citta,
+                'provincia' => $this->luogo_provincia,
+            ];
+        }
+
+        $dest = $this->destinatario_dati;
+        return [
+            'ragione_sociale' => $dest['ragione_sociale'],
+            'indirizzo' => $dest['indirizzo'],
+            'cap' => $dest['cap'],
+            'citta' => $dest['citta'],
+            'provincia' => $dest['provincia'],
+        ];
     }
 }

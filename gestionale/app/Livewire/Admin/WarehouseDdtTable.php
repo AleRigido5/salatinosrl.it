@@ -100,6 +100,10 @@ class WarehouseDdtTable extends Component
     public ?WarehouseDdt $viewingDdt = null;
     public ?int $deletingId = null;
 
+    // Conferma emissione / annullamento emissione (modal Tailwind, non alert nativo)
+    public ?int $issuingId = null;
+    public ?int $cancellingIssueId = null;
+
     public function mount(string $type = 'acquisto'): void
     {
         $this->type = in_array($type, ['acquisto', 'vendita']) ? $type : 'acquisto';
@@ -758,6 +762,46 @@ class WarehouseDdtTable extends Component
             DB::rollBack();
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
+    }
+
+    // ==================== CONFERMA EMISSIONE (modal Tailwind) ====================
+    public function confirmIssue(int $id): void
+    {
+        $this->issuingId = $id;
+    }
+
+    public function cancelConfirmIssue(): void
+    {
+        $this->issuingId = null;
+    }
+
+    public function issueDdtConfirmed(): void
+    {
+        if (!$this->issuingId) {
+            return;
+        }
+        $this->issueDdt($this->issuingId);
+        $this->issuingId = null;
+    }
+
+    // ==================== CONFERMA ANNULLAMENTO EMISSIONE (modal Tailwind) ====================
+    public function confirmCancelIssue(int $id): void
+    {
+        $this->cancellingIssueId = $id;
+    }
+
+    public function cancelConfirmCancelIssue(): void
+    {
+        $this->cancellingIssueId = null;
+    }
+
+    public function cancelIssueConfirmed(): void
+    {
+        if (!$this->cancellingIssueId) {
+            return;
+        }
+        $this->cancelIssue($this->cancellingIssueId);
+        $this->cancellingIssueId = null;
     }
 
     // ==================== ELIMINAZIONE ====================

@@ -75,8 +75,7 @@
                                 <i class="fas fa-file-pdf"></i>
                             </a>
                             @if($ddt->status === 'bozza')
-                                <button wire:click="issueDdt({{ $ddt->id }})"
-                                    wire:confirm="Emettere questo DDT? Verranno generati i movimenti di magazzino e le giacenze verranno aggiornate."
+                                <button wire:click="confirmIssue({{ $ddt->id }})"
                                     class="text-green-600 hover:text-green-800 mr-2" title="Emetti DDT">
                                     <i class="fas fa-paper-plane"></i>
                                 </button>
@@ -87,8 +86,7 @@
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                             @else
-                                <button wire:click="cancelIssue({{ $ddt->id }})"
-                                    wire:confirm="Annullare l'emissione? I movimenti di magazzino generati verranno rimossi e le giacenze ripristinate."
+                                <button wire:click="confirmCancelIssue({{ $ddt->id }})"
                                     class="text-orange-600 hover:text-orange-800" title="Annulla Emissione">
                                     <i class="fas fa-rotate-left"></i>
                                 </button>
@@ -484,7 +482,7 @@
                 </div>
 
                 <div class="flex justify-end px-6 py-4 border-t bg-gray-50 rounded-b-lg">
-                    <a href="{{ route('admin.warehouse.ddt.pdf', $viewingDdt->id) }}" target="_blank" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors mr-2">
+                    <a href="{{ route('admin.warehouse.ddt-pdf', $viewingDdt->id) }}" target="_blank" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors mr-2">
                         <i class="fas fa-file-pdf mr-1"></i> PDF
                     </a>
                     <button wire:click="closeDetailModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Chiudi</button>
@@ -504,6 +502,54 @@
             <div class="flex justify-center gap-3">
                 <button wire:click="cancelDelete" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">Annulla</button>
                 <button wire:click="delete" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors">Elimina</button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- MODAL CONFERMA EMISSIONE -->
+    @if($issuingId)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6 text-center">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                <i class="fas fa-paper-plane text-green-600 text-xl"></i>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Emettere questo DDT?</h3>
+            <p class="text-sm text-gray-500 mb-4">
+                Verranno generati i movimenti di magazzino e le giacenze verranno aggiornate.<br>
+                <span class="text-xs text-gray-400">Il DDT non sarà più modificabile finché non annulli l'emissione.</span>
+            </p>
+            <div class="flex justify-center gap-3">
+                <button wire:click="cancelConfirmIssue" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
+                    Annulla
+                </button>
+                <button wire:click="issueDdtConfirmed" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+                    <i class="fas fa-paper-plane mr-1"></i> Emetti DDT
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    <!-- MODAL CONFERMA ANNULLAMENTO EMISSIONE -->
+    @if($cancellingIssueId)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6 text-center">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-orange-100 mb-4">
+                <i class="fas fa-rotate-left text-orange-600 text-xl"></i>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Annullare l'emissione?</h3>
+            <p class="text-sm text-gray-500 mb-4">
+                I movimenti di magazzino generati verranno rimossi e le giacenze ripristinate.<br>
+                <span class="text-xs text-gray-400">Il DDT tornerà in stato bozza e sarà di nuovo modificabile.</span>
+            </p>
+            <div class="flex justify-center gap-3">
+                <button wire:click="cancelConfirmCancelIssue" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
+                    Annulla
+                </button>
+                <button wire:click="cancelIssueConfirmed" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors">
+                    <i class="fas fa-rotate-left mr-1"></i> Annulla Emissione
+                </button>
             </div>
         </div>
     </div>

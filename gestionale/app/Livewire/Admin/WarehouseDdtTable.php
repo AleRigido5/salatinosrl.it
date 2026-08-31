@@ -401,11 +401,6 @@ class WarehouseDdtTable extends Component
     {
         $ddt = WarehouseDdt::with('rows.product')->findOrFail($id);
 
-        if ($ddt->isIssued()) {
-            $this->dispatch('showError', message: 'Questo DDT è già emesso: usa "Annulla Emissione" prima di modificarlo.');
-            return;
-        }
-
         $this->editingId = $ddt->id;
         $this->ddt_number = $ddt->ddt_number;
         $this->ddt_date = optional($ddt->ddt_date)->format('Y-m-d') ?? '';
@@ -580,8 +575,6 @@ class WarehouseDdtTable extends Component
             'vettore_email' => $this->vettore_email ?: null,
             'updated_by' => $adminId,
 
-            // Destinatario: salviamo l'override solo se attivato esplicitamente,
-            // altrimenti il PDF ricadrà sull'anagrafica Entity in automatico
             'dest_ragione_sociale' => $this->overrideDestinatario ? ($this->dest_ragione_sociale ?: null) : null,
             'dest_indirizzo' => $this->overrideDestinatario ? ($this->dest_indirizzo ?: null) : null,
             'dest_cap' => $this->overrideDestinatario ? ($this->dest_cap ?: null) : null,
@@ -599,13 +592,20 @@ class WarehouseDdtTable extends Component
 
         DB::beginTransaction();
         try {
+            $wasIssued = false;
+
             if ($this->editingId) {
                 $ddt = WarehouseDdt::findOrFail($this->editingId);
-                if ($ddt->isIssued()) {
-                    throw new \Exception('DDT già emesso, non modificabile.');
+                $wasIssued = $ddt->isIssued();
+
+                // Se il DDT era emesso, annulla prima i vecchi movimenti/giacenze
+                // (stessa logica di cancelIssue), così le nuove righe partono
+                // da uno stato pulito e verranno ri-emesse sotto.
+                if ($wasIssued) {
+                    $this->reverseIssuedMovements($ddt, $adminId);
                 }
+
                 $ddt->update($data);
-                // Righe: elimina tutte e ricrea (semplice e sicuro finché il DDT è in bozza)
                 $ddt->rows()->delete();
             } else {
                 $data['status'] = WarehouseDdt::STATUS_DRAFT;
@@ -628,14 +628,93 @@ class WarehouseDdtTable extends Component
                 ]);
             }
 
+            $message = "DDT '{$ddt->ddt_number}' " . ($this->editingId ? 'aggiornato' : 'creato') . ' con successo';
+
+            // Se era emesso, ri-emettilo subito con le nuove righe: rigenera i
+            // movimenti di magazzino in modo coerente con la modifica appena fatta.
+            if ($wasIssued) {
+                $this->reissueDdt($ddt->fresh('rows.product'), $adminId);
+                $message .= ' e ri-emesso (giacenze aggiornate).';
+            } else {
+                $message .= ' (bozza).';
+            }
+
             DB::commit();
 
-            $this->dispatch('showSuccess', message: "DDT '{$ddt->ddt_number}' " . ($this->editingId ? 'aggiornato' : 'creato') . ' con successo (bozza).');
+            $this->dispatch('showSuccess', message: $message);
             $this->closeFormModal();
         } catch (\Throwable $e) {
             DB::rollBack();
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Annulla i movimenti di magazzino di un DDT emesso e ripristina le
+     * giacenze precedenti, SENZA cambiare lo status del DDT (che verrà
+     * aggiornato subito dopo da chi chiama questo metodo). Estratta da
+     * cancelIssue() per essere riusata anche dentro save() quando si
+     * modifica un DDT già emesso.
+     */
+    private function reverseIssuedMovements(WarehouseDdt $ddt, $adminId): void
+    {
+        $movements = WarehouseMovement::where('reference_type', $ddt->referenceType())
+            ->where('reference_id', $ddt->id)
+            ->get();
+
+        foreach ($movements as $movement) {
+            $product = WarehouseProduct::find($movement->id_product);
+            if ($product) {
+                $delta = $movement->type === WarehouseMovement::TYPE_IN
+                    ? -(float) $movement->quantity
+                    : (float) $movement->quantity;
+                $product->increment('quantity', $delta);
+                $product->update(['updated_by' => $adminId]);
+            }
+            $movement->delete();
+        }
+    }
+
+    /**
+     * Rigenera i movimenti di magazzino per un DDT che era già emesso e
+     * viene ri-emesso dopo una modifica (righe cambiate). Stessa logica
+     * di issueDdt(), ma senza i controlli "già emesso" (qui lo status è
+     * già 'emesso' o sta per esserlo) e senza aprire una nuova transazione
+     * (siamo già dentro quella di save()).
+     */
+    private function reissueDdt(WarehouseDdt $ddt, $adminId): void
+    {
+        $movementType = $ddt->movementType();
+        $referenceType = $ddt->referenceType();
+
+        foreach ($ddt->rows as $row) {
+            if (!$row->id_product || !$row->product) {
+                continue;
+            }
+
+            $qty = (float) $row->quantity;
+
+            WarehouseMovement::create([
+                'id_product' => $row->id_product,
+                'type' => $movementType,
+                'quantity' => $qty,
+                'movement_date' => $ddt->ddt_date,
+                'reference_type' => $referenceType,
+                'reference_id' => $ddt->id,
+                'note' => 'DDT n. ' . $ddt->ddt_number . ' (rettifica dopo modifica)',
+                'created_by' => $adminId,
+            ]);
+
+            $delta = $ddt->isPurchase() ? $qty : -$qty;
+            $row->product->increment('quantity', $delta);
+            $row->product->update(['updated_by' => $adminId]);
+        }
+
+        $ddt->update([
+            'status' => WarehouseDdt::STATUS_ISSUED,
+            'issued_at' => $ddt->issued_at ?? now(),
+            'updated_by' => $adminId,
+        ]);
     }
 
     // ==================== EMISSIONE / ANNULLAMENTO ====================

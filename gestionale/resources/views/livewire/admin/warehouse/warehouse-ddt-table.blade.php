@@ -74,13 +74,15 @@
                             <a href="{{ route('admin.warehouse.ddt-pdf', $ddt->id) }}" target="_blank" class="text-blue-600 hover:text-blue-800 mr-2" title="Genera PDF">
                                 <i class="fas fa-file-pdf"></i>
                             </a>
+
+                            <button wire:click="openEditModal({{ $ddt->id }})" class="text-yellow-600 hover:text-yellow-900 mr-2" title="Modifica">
+                                <i class="fas fa-pen-to-square"></i>
+                            </button>
+
                             @if($ddt->status === 'bozza')
                                 <button wire:click="confirmIssue({{ $ddt->id }})"
                                     class="text-green-600 hover:text-green-800 mr-2" title="Emetti DDT">
                                     <i class="fas fa-paper-plane"></i>
-                                </button>
-                                <button wire:click="openEditModal({{ $ddt->id }})" class="text-yellow-600 hover:text-yellow-900 mr-2" title="Modifica">
-                                    <i class="fas fa-pen-to-square"></i>
                                 </button>
                                 <button wire:click="confirmDelete({{ $ddt->id }})" class="text-red-600 hover:text-red-900" title="Elimina">
                                     <i class="fas fa-trash-alt"></i>

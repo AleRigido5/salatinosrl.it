@@ -489,7 +489,7 @@
                                     <td class="px-3 py-1.5 text-sm font-mono text-gray-700">{{ $row->Lat_fine ?: '-' }}</td>
                                     <td class="px-3 py-1.5 text-sm text-gray-600">{{ $row->NoteAtt ?: '-' }}</td>
                                     <td class="px-3 py-1.5 text-center">
-                                        @if($row->verificato)
+                                        @if(in_array($row->verificato, ['Y', 1, '1', true], true))
                                             <i class="fas fa-check-circle text-green-600" title="Verificato"></i>
                                         @else
                                             <i class="fas fa-times-circle text-red-600" title="Non verificato"></i>

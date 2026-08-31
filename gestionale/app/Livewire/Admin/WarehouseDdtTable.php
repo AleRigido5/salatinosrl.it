@@ -883,6 +883,22 @@ class WarehouseDdtTable extends Component
         $this->cancellingIssueId = null;
     }
 
+    // ==================== RIFERIMENTO FATTURA ====================
+
+    /**
+     * Aggiorna il riferimento fattura di un DDT — editing inline dalla tabella,
+     * stesso pattern di ActivitiesTable::updateInvoiceRef().
+     */
+    public function updateRiferimentoFattura($id, $value): void
+    {
+        try {
+            WarehouseDdt::where('id', $id)->update(['riferimento_fattura' => $value ?: null]);
+            $this->dispatch('showSuccess', message: 'Riferimento fattura aggiornato con successo!');
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+
     // ==================== ELIMINAZIONE ====================
     public function confirmDelete(int $id): void
     {
@@ -931,20 +947,6 @@ class WarehouseDdtTable extends Component
     {
         $this->showDetailModal = false;
         $this->viewingDdt = null;
-    }
-
-    /**
-     * Aggiorna il riferimento fattura di un DDT — editing inline dalla tabella,
-     * stesso pattern di ActivitiesTable::updateInvoiceRef().
-     */
-    public function updateRiferimentoFattura($id, $value): void
-    {
-        try {
-            WarehouseDdt::where('id', $id)->update(['riferimento_fattura' => $value ?: null]);
-            $this->dispatch('showSuccess', message: 'Riferimento fattura aggiornato con successo!');
-        } catch (\Exception $e) {
-            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
-        }
     }
 
     public function render()

@@ -66,9 +66,11 @@
                         <td class="px-4 py-3 text-sm">{{ $ddt->entity->ragione_sociale ?? '-' }}</td>
                         <td class="px-4 py-3 text-sm">{{ $ddt->ownership->RagAbbrev ?? '-' }}</td>
                         <td class="px-4 py-3 text-center text-sm">{{ $ddt->rows_count }}</td>
+
+                        <!-- Rif. Fattura (editing inline con popover teleportato fuori dalla tabella) -->
                         <td class="px-4 py-3 text-sm">
                             @if($ddt->riferimento_fattura)
-                                <div x-data="{
+                                <div wire:key="ddt-invoice-ref-{{ $ddt->id }}-{{ md5($ddt->riferimento_fattura) }}" x-data="{
                                     invoiceRef: '{{ addslashes($ddt->riferimento_fattura) }}',
                                     showTooltip: false,
                                     isEditing: false,
@@ -136,7 +138,7 @@
                                     </template>
                                 </div>
                             @else
-                                <div x-data="{
+                                <div wire:key="ddt-invoice-ref-empty-{{ $ddt->id }}" x-data="{
                                     showTooltip: false,
                                     editedValue: '',
                                     isEditing: false,
@@ -201,6 +203,7 @@
                                 </div>
                             @endif
                         </td>
+
                         <td class="px-4 py-3 text-center">
                             <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $ddt->status_badge_class }}">
                                 {{ $ddt->status_label }}
@@ -582,6 +585,13 @@
                     <div class="bg-gray-50 p-2 rounded-lg">
                         <label class="text-xs text-gray-500 uppercase font-semibold">Causale</label>
                         <p class="text-sm">{{ $viewingDdt->causale }}</p>
+                    </div>
+                    @endif
+
+                    @if($viewingDdt->riferimento_fattura)
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <label class="text-xs text-gray-500 uppercase font-semibold">Riferimento Fattura</label>
+                        <p class="text-sm">{{ $viewingDdt->riferimento_fattura }}</p>
                     </div>
                     @endif
 

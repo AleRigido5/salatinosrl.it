@@ -77,6 +77,7 @@ class AccountStatementController extends Controller
                     'dare'        => $isNC ? 0 : $inv->importo_totale,
                     'avere'       => $isNC ? $inv->importo_totale : 0,
                     'saldo'       => 0,
+                    'stato_pagamento_label' => null,
                 ];
             }
         }
@@ -102,6 +103,7 @@ class AccountStatementController extends Controller
                     'dare'        => $isNC ? $inv->importo_totale : 0,
                     'avere'       => $isNC ? 0 : $inv->importo_totale,
                     'saldo'       => 0,
+                    'stato_pagamento_label' => null,
                 ];
             }
         }
@@ -207,6 +209,7 @@ class AccountStatementController extends Controller
                 'dare'        => $isUscita ? floatval($entry->amount) : 0,
                 'avere'       => $isUscita ? 0 : floatval($entry->amount),
                 'saldo'       => 0,
+                'stato_pagamento_label' => $entry->status_label,
             ];
         }
 
@@ -278,6 +281,7 @@ class AccountStatementController extends Controller
                     <th>Descrizione</th>
                     <th>Data</th>
                     <th>N. Fattura</th>
+                    <th>Stato Pag.</th>
                     <th class="text-right">DARE (€)</th>
                     <th class="text-right">AVERE (€)</th>
                     <th class="text-right">SALDO (€)</th>
@@ -294,6 +298,7 @@ class AccountStatementController extends Controller
                 <td>' . e($t['descrizione']) . '</td>
                 <td>' . $data . '</td>
                 <td>' . e($t['n_fattura']) . '</td>
+                <td>' . e($t['stato_pagamento_label'] ?? '-') . '</td>
                 <td class="text-right">' . ($t['dare']  > 0 ? '<span class="dare">'  . number_format($t['dare'],  2, ',', '.') . '</span>' : '<span style="color:#ccc">-</span>') . '</td>
                 <td class="text-right">' . ($t['avere'] > 0 ? '<span class="avere">' . number_format($t['avere'], 2, ',', '.') . '</span>' : '<span style="color:#ccc">-</span>') . '</td>
                 <td class="text-right"><span class="' . $saldoClass . '">' . number_format($t['saldo'], 2, ',', '.') . '</span></td>
@@ -305,7 +310,7 @@ class AccountStatementController extends Controller
         $html .= '</tbody>
             <tfoot>
                 <tr class="tfoot-row">
-                    <td colspan="4" class="text-right">TOTALI:</td>
+                    <td colspan="5" class="text-right">TOTALI:</td>
                     <td class="text-right dare">'  . number_format($totalDare,    2, ',', '.') . '</td>
                     <td class="text-right avere">' . number_format($totalAvere,   2, ',', '.') . '</td>
                     <td class="text-right" style="color:' . $balanceColor . '; font-weight:bold;">' . number_format($finalBalance, 2, ',', '.') . '</td>
@@ -342,7 +347,7 @@ class AccountStatementController extends Controller
 
         // Titolo
         $sheet->setCellValue('A1', 'Estratto Conto — ' . $entity->full_name);
-        $sheet->mergeCells('A1:G1');
+        $sheet->mergeCells('A1:H1');
         $sheet->getStyle('A1')->applyFromArray([
             'font'      => ['bold' => true, 'size' => 13, 'color' => ['rgb' => '374151']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
@@ -351,18 +356,18 @@ class AccountStatementController extends Controller
 
         // Periodo
         $sheet->setCellValue('A2', 'Periodo: ' . ($request->date_from ?? '-') . ' → ' . ($request->date_to ?? '-'));
-        $sheet->mergeCells('A2:G2');
+        $sheet->mergeCells('A2:H2');
         $sheet->getStyle('A2')->applyFromArray([
             'font'      => ['size' => 9, 'color' => ['rgb' => '6B7280']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
         ]);
 
         // Intestazioni colonne (riga 4)
-        $headers = ['Proprietà', 'Descrizione', 'Data', 'N. Fattura', 'DARE (€)', 'AVERE (€)', 'SALDO (€)'];
+        $headers = ['Proprietà', 'Descrizione', 'Data', 'N. Fattura', 'Stato Pag.', 'DARE (€)', 'AVERE (€)', 'SALDO (€)'];
         foreach ($headers as $i => $header) {
             $sheet->setCellValue(chr(65 + $i) . '4', $header);
         }
-        $sheet->getStyle('A4:G4')->applyFromArray([
+        $sheet->getStyle('A4:H4')->applyFromArray([
             'font'      => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '84cc16']],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
@@ -379,25 +384,26 @@ class AccountStatementController extends Controller
             $sheet->setCellValue('B' . $row, $t['descrizione']);
             $sheet->setCellValue('C' . $row, $data);
             $sheet->setCellValue('D' . $row, $t['n_fattura']);
-            $sheet->setCellValue('E' . $row, $t['dare']  > 0 ? $t['dare']  : '');
-            $sheet->setCellValue('F' . $row, $t['avere'] > 0 ? $t['avere'] : '');
-            $sheet->setCellValue('G' . $row, $t['saldo']);
+            $sheet->setCellValue('E' . $row, $t['stato_pagamento_label'] ?? '-');
+            $sheet->setCellValue('F' . $row, $t['dare']  > 0 ? $t['dare']  : '');
+            $sheet->setCellValue('G' . $row, $t['avere'] > 0 ? $t['avere'] : '');
+            $sheet->setCellValue('H' . $row, $t['saldo']);
 
-            if ($t['dare']  > 0) { $sheet->getStyle('E' . $row)->getFont()->getColor()->setRGB('DC2626'); $sheet->getStyle('E' . $row)->getFont()->setBold(true); }
-            if ($t['avere'] > 0) { $sheet->getStyle('F' . $row)->getFont()->getColor()->setRGB('16A34A'); $sheet->getStyle('F' . $row)->getFont()->setBold(true); }
+            if ($t['dare']  > 0) { $sheet->getStyle('F' . $row)->getFont()->getColor()->setRGB('DC2626'); $sheet->getStyle('F' . $row)->getFont()->setBold(true); }
+            if ($t['avere'] > 0) { $sheet->getStyle('G' . $row)->getFont()->getColor()->setRGB('16A34A'); $sheet->getStyle('G' . $row)->getFont()->setBold(true); }
 
             $saldoColor = $t['saldo'] > 0 ? '16A34A' : ($t['saldo'] < 0 ? 'DC2626' : '374151');
-            $sheet->getStyle('G' . $row)->getFont()->getColor()->setRGB($saldoColor);
-            $sheet->getStyle('G' . $row)->getFont()->setBold(true);
+            $sheet->getStyle('H' . $row)->getFont()->getColor()->setRGB($saldoColor);
+            $sheet->getStyle('H' . $row)->getFont()->setBold(true);
 
-            $sheet->getStyle('E' . $row . ':G' . $row)->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->getStyle('F' . $row . ':H' . $row)->getNumberFormat()->setFormatCode('#,##0.00');
 
             if ($row % 2 === 0) {
-                $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray([
+                $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray([
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F9FAFB']],
                 ]);
             }
-            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray([
+            $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray([
                 'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => 'E5E7EB']]],
             ]);
 
@@ -405,25 +411,25 @@ class AccountStatementController extends Controller
         }
 
         // Riga totali
-        $sheet->setCellValue('D' . $row, 'TOTALI:');
-        $sheet->setCellValue('E' . $row, $totalDare);
-        $sheet->setCellValue('F' . $row, $totalAvere);
-        $sheet->setCellValue('G' . $row, $finalBalance);
-        $sheet->getStyle('D' . $row . ':G' . $row)->applyFromArray([
+        $sheet->setCellValue('E' . $row, 'TOTALI:');
+        $sheet->setCellValue('F' . $row, $totalDare);
+        $sheet->setCellValue('G' . $row, $totalAvere);
+        $sheet->setCellValue('H' . $row, $finalBalance);
+        $sheet->getStyle('E' . $row . ':H' . $row)->applyFromArray([
             'font'    => ['bold' => true, 'size' => 10],
             'fill'    => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F0FDF4']],
             'borders' => ['top' => ['borderStyle' => Border::BORDER_MEDIUM, 'color' => ['rgb' => '84cc16']]],
         ]);
-        $sheet->getStyle('E' . $row)->getFont()->getColor()->setRGB('DC2626');
-        $sheet->getStyle('F' . $row)->getFont()->getColor()->setRGB('16A34A');
+        $sheet->getStyle('F' . $row)->getFont()->getColor()->setRGB('DC2626');
+        $sheet->getStyle('G' . $row)->getFont()->getColor()->setRGB('16A34A');
         $balanceColor = $finalBalance > 0 ? '16A34A' : ($finalBalance < 0 ? 'DC2626' : '374151');
-        $sheet->getStyle('G' . $row)->getFont()->getColor()->setRGB($balanceColor);
-        $sheet->getStyle('E' . $row . ':G' . $row)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('H' . $row)->getFont()->getColor()->setRGB($balanceColor);
+        $sheet->getStyle('F' . $row . ':H' . $row)->getNumberFormat()->setFormatCode('#,##0.00');
 
-        foreach (range('A', 'G') as $col) {
+        foreach (range('A', 'H') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
-        $sheet->setAutoFilter('A4:G' . ($row - 1));
+        $sheet->setAutoFilter('A4:H' . ($row - 1));
         $sheet->freezePane('A5');
 
         $filename = 'estratto_conto_' . str_replace(' ', '_', $entity->full_name) . '_' . date('Y-m-d') . '.xlsx';

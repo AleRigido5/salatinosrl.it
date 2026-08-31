@@ -222,6 +222,10 @@ class AccountStatementTable extends Component
                     'avere'       => $isNC ? $importoAbs : 0,
                     'saldo'       => 0,
                     'type'        => 'invoice',
+                    'stato_pagamento' => null,
+                    'stato_pagamento_label' => null,
+                    'stato_pagamento_badge' => null,
+                    'stato_pagamento_tooltip' => null,
                 ];
             }
         }
@@ -258,6 +262,10 @@ class AccountStatementTable extends Component
                     'avere'       => $isNC ? 0 : $importoAbs,
                     'saldo'       => 0,
                     'type'        => 'invoice',
+                    'stato_pagamento' => null,
+                    'stato_pagamento_label' => null,
+                    'stato_pagamento_badge' => null,
+                    'stato_pagamento_tooltip' => null,
                 ];
             }
         }
@@ -377,6 +385,10 @@ class AccountStatementTable extends Component
             'avere'       => $isUscita ? 0 : $importoAbs,
             'saldo'       => 0,
             'type'        => 'accounting_entry',
+            'stato_pagamento' => $entry->status,
+            'stato_pagamento_label' => $entry->status_label,
+            'stato_pagamento_badge' => $entry->status_badge_class,
+            'stato_pagamento_tooltip' => $entry->status_tooltip,
         ];
     }
 

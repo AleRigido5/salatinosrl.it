@@ -193,6 +193,7 @@
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descrizione</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N. Fattura</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Stato Pag.</th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">DARE (€)</th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">AVERE (€)</th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">SALDO (€)</th>
@@ -207,6 +208,16 @@
                     </td>
                     <td class="px-4 py-3 text-sm whitespace-nowrap">{{ \Carbon\Carbon::parse($transaction['data'])->format('d/m/Y') }}</td>
                     <td class="px-4 py-3 text-sm font-mono">{{ $transaction['n_fattura'] }}</td>
+                    <td class="px-4 py-3 text-sm text-center">
+                        @if(!empty($transaction['stato_pagamento_label']))
+                            <span class="px-2 py-1 rounded-full text-xs font-medium cursor-help {{ $transaction['stato_pagamento_badge'] ?? 'bg-gray-100 text-gray-600' }}"
+                                  title="{{ $transaction['stato_pagamento_tooltip'] ?? '' }}">
+                                {{ $transaction['stato_pagamento_label'] }}
+                            </span>
+                        @else
+                            <span class="text-gray-300">-</span>
+                        @endif
+                    </td>
                     <td class="px-4 py-3 text-sm text-right">
                         @if($transaction['dare'] > 0)
                             <span class="text-red-600 font-semibold">{{ number_format($transaction['dare'], 2, ',', '.') }}</span>
@@ -229,7 +240,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="px-4 py-12 text-center text-gray-500">
+                    <td colspan="8" class="px-4 py-12 text-center text-gray-500">
                         Nessun movimento trovato nel periodo selezionato
                     </td>
                 </tr>
@@ -238,7 +249,7 @@
             @if(count($transactions) > 0)
             <tfoot class="bg-gray-50 border-t-2 border-gray-200">
                 <tr>
-                    <td colspan="4" class="px-4 py-3 text-right font-bold text-gray-700">TOTALI:</td>
+                    <td colspan="5" class="px-4 py-3 text-right font-bold text-gray-700">TOTALI:</td>
                     <td class="px-4 py-3 text-right font-bold text-red-600">{{ number_format($totalDebit, 2, ',', '.') }}</td>
                     <td class="px-4 py-3 text-right font-bold text-green-600">{{ number_format($totalCredit, 2, ',', '.') }}</td>
                     <td class="px-4 py-3 text-right font-bold">

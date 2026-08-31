@@ -933,6 +933,20 @@ class WarehouseDdtTable extends Component
         $this->viewingDdt = null;
     }
 
+    /**
+     * Aggiorna il riferimento fattura di un DDT — editing inline dalla tabella,
+     * stesso pattern di ActivitiesTable::updateInvoiceRef().
+     */
+    public function updateRiferimentoFattura($id, $value): void
+    {
+        try {
+            WarehouseDdt::where('id', $id)->update(['riferimento_fattura' => $value ?: null]);
+            $this->dispatch('showSuccess', message: 'Riferimento fattura aggiornato con successo!');
+        } catch (\Exception $e) {
+            $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
+        }
+    }
+
     public function render()
     {
         return view('livewire.admin.warehouse.warehouse-ddt-table', [

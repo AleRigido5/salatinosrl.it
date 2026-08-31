@@ -49,6 +49,7 @@
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">{{ $type === 'acquisto' ? 'Fornitore' : 'Cliente' }}</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Proprietà</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500">Righe</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Rif. Fattura</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500">Stato</th>
                         <th class="px-4 py-3 text-center text-xs font-medium text-gray-500">Azioni</th>
                     </tr>
@@ -65,6 +66,141 @@
                         <td class="px-4 py-3 text-sm">{{ $ddt->entity->ragione_sociale ?? '-' }}</td>
                         <td class="px-4 py-3 text-sm">{{ $ddt->ownership->RagAbbrev ?? '-' }}</td>
                         <td class="px-4 py-3 text-center text-sm">{{ $ddt->rows_count }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            @if($ddt->riferimento_fattura)
+                                <div x-data="{
+                                    invoiceRef: '{{ addslashes($ddt->riferimento_fattura) }}',
+                                    showTooltip: false,
+                                    isEditing: false,
+                                    editedValue: '{{ addslashes($ddt->riferimento_fattura) }}',
+                                    tooltipTop: 0,
+                                    tooltipLeft: 0,
+
+                                    openTooltip() {
+                                        const rect = this.$refs.trigger.getBoundingClientRect();
+                                        this.tooltipTop = rect.bottom + window.scrollY + 6;
+                                        this.tooltipLeft = rect.left + window.scrollX;
+                                        this.editedValue = this.invoiceRef;
+                                        this.showTooltip = true;
+                                    },
+
+                                    saveInvoiceRef() {
+                                        this.isEditing = true;
+                                        @this.call('updateRiferimentoFattura', {{ $ddt->id }}, this.editedValue)
+                                            .then(() => {
+                                                this.isEditing = false;
+                                                this.showTooltip = false;
+                                                this.invoiceRef = this.editedValue;
+                                            })
+                                            .catch(() => {
+                                                this.isEditing = false;
+                                                @this.dispatch('showError', { message: 'Errore durante l\'aggiornamento' });
+                                            });
+                                    }
+                                }">
+                                    <span x-ref="trigger"
+                                        class="text-xs text-gray-600 font-mono cursor-pointer hover:text-lime-600 hover:underline"
+                                        title="Clicca per modificare"
+                                        x-on:click="openTooltip()"
+                                        x-text="invoiceRef.length > 20 ? invoiceRef.substring(0, 20) + '...' : invoiceRef">
+                                    </span>
+
+                                    <template x-teleport="body">
+                                        <div x-show="showTooltip"
+                                            x-on:click.away="showTooltip = false"
+                                            x-cloak
+                                            class="fixed z-[200] bg-white border border-gray-300 rounded-lg shadow-xl p-3 w-[280px]"
+                                            x-bind:style="`top: ${tooltipTop}px; left: ${tooltipLeft}px;`">
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">Riferimento Fattura</label>
+                                            <input type="text"
+                                                x-model="editedValue"
+                                                class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
+                                                placeholder="es. FV-2024-001"
+                                                x-on:keydown.enter="saveInvoiceRef()">
+                                            <div class="flex justify-end gap-2 mt-2">
+                                                <button type="button"
+                                                        x-on:click="showTooltip = false"
+                                                        class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
+                                                    <i class="fas fa-times"></i> Annulla
+                                                </button>
+                                                <button type="button"
+                                                        x-on:click="saveInvoiceRef()"
+                                                        x-bind:disabled="isEditing"
+                                                        class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
+                                                    <i class="fas fa-check" x-show="!isEditing"></i>
+                                                    <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
+                                                    <span x-show="!isEditing"> Salva</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            @else
+                                <div x-data="{
+                                    showTooltip: false,
+                                    editedValue: '',
+                                    isEditing: false,
+                                    tooltipTop: 0,
+                                    tooltipLeft: 0,
+
+                                    openTooltip() {
+                                        const rect = this.$refs.trigger.getBoundingClientRect();
+                                        this.tooltipTop = rect.bottom + window.scrollY + 6;
+                                        this.tooltipLeft = rect.left + window.scrollX;
+                                        this.editedValue = '';
+                                        this.showTooltip = true;
+                                    },
+
+                                    saveInvoiceRef() {
+                                        this.isEditing = true;
+                                        @this.call('updateRiferimentoFattura', {{ $ddt->id }}, this.editedValue)
+                                            .then(() => {
+                                                this.isEditing = false;
+                                                this.showTooltip = false;
+                                            })
+                                            .catch(() => {
+                                                this.isEditing = false;
+                                                @this.dispatch('showError', { message: 'Errore durante l\'aggiornamento' });
+                                            });
+                                    }
+                                }">
+                                    <div x-ref="trigger" class="cursor-pointer hover:text-lime-600 inline-flex items-center justify-center"
+                                        x-on:click="openTooltip()">
+                                        <i class="fa-solid fa-file-invoice-dollar bg-red-500 px-2.5 py-1.5 rounded-lg text-gray-100 text-md"></i>
+                                    </div>
+
+                                    <template x-teleport="body">
+                                        <div x-show="showTooltip"
+                                            x-on:click.away="showTooltip = false"
+                                            x-cloak
+                                            class="fixed z-[200] bg-white border border-gray-300 rounded-lg shadow-xl p-3 w-[280px]"
+                                            x-bind:style="`top: ${tooltipTop}px; left: ${tooltipLeft}px;`">
+                                            <label class="block text-xs font-medium text-gray-700 mb-1">Riferimento Fattura</label>
+                                            <input type="text"
+                                                x-model="editedValue"
+                                                class="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500 focus:border-lime-500"
+                                                placeholder="es. FV-2024-001"
+                                                x-on:keydown.enter="saveInvoiceRef()">
+                                            <div class="flex justify-end gap-2 mt-2">
+                                                <button type="button"
+                                                        x-on:click="showTooltip = false"
+                                                        class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded">
+                                                    <i class="fas fa-times"></i> Annulla
+                                                </button>
+                                                <button type="button"
+                                                        x-on:click="saveInvoiceRef()"
+                                                        x-bind:disabled="isEditing"
+                                                        class="px-2 py-1 text-xs bg-lime-500 hover:bg-lime-600 text-white rounded disabled:opacity-50">
+                                                    <i class="fas fa-check" x-show="!isEditing"></i>
+                                                    <i class="fas fa-spinner fa-spin" x-show="isEditing"></i>
+                                                    <span x-show="!isEditing"> Salva</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            @endif
+                        </td>
                         <td class="px-4 py-3 text-center">
                             <span class="inline-flex px-2 py-1 rounded-full text-xs font-medium {{ $ddt->status_badge_class }}">
                                 {{ $ddt->status_label }}
@@ -97,7 +233,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="text-center py-8 text-gray-500">
+                        <td colspan="8" class="text-center py-8 text-gray-500">
                             <i class="fa-solid fa-truck-ramp-box text-4xl mb-2 text-gray-300 block"></i>
                             Nessun DDT trovato
                         </td>

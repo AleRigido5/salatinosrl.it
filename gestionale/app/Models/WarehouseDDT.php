@@ -30,6 +30,7 @@ class WarehouseDdt extends Model
         'id_entities',
         'id_ownership',
         'causale',
+        'riferimento_fattura',
         'status',
         'issued_at',
         'created_by',

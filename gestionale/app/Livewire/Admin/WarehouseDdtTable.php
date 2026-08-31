@@ -10,6 +10,7 @@ use App\Models\WarehouseMovement;
 use App\Models\WarehouseProduct;
 use App\Models\Entity;
 use App\Models\Ownership;
+use App\Models\CostCenter;
 use App\Models\Setting;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -79,6 +80,13 @@ class WarehouseDdtTable extends Component
     public string $selectedOwnershipName = '';
     public bool $showOwnershipDropdown = false;
 
+    // Autocomplete Centro di Costo (opzionale)
+    public string $costCenterSearch = '';
+    public Collection $costCenterResults;
+    public string $selectedCostCenterId = '';
+    public string $selectedCostCenterName = '';
+    public bool $showCostCenterDropdown = false;
+
     // Righe DDT — ogni riga è un array associativo semplice
     // (id, id_product, product_name, codice, description, quantity, unit_of_measure, note)
     public array $rows = [];
@@ -110,6 +118,7 @@ class WarehouseDdtTable extends Component
         $this->entityResults = new Collection();
         $this->ownershipResults = new Collection();
         $this->rowProductQueryResults = new Collection();
+        $this->costCenterResults = new Collection();
     }
 
     public function updatingSearch(): void { $this->resetPage(); }
@@ -269,6 +278,48 @@ class WarehouseDdtTable extends Component
         $this->selectedOwnershipName = '';
         $this->ownershipSearch = '';
         $this->showOwnershipDropdown = false;
+    }
+
+    // ==================== AUTOCOMPLETE CENTRO DI COSTO ====================
+    public function updatedCostCenterSearch(): void
+    {
+        if (!empty($this->selectedCostCenterId) && $this->costCenterSearch === $this->selectedCostCenterName) {
+            $this->showCostCenterDropdown = false;
+            return;
+        }
+        if (!empty($this->selectedCostCenterId) && $this->costCenterSearch !== $this->selectedCostCenterName) {
+            $this->selectedCostCenterId = '';
+            $this->selectedCostCenterName = '';
+        }
+        if (strlen(trim($this->costCenterSearch)) < 2) {
+            $this->costCenterResults = new Collection();
+            $this->showCostCenterDropdown = false;
+            return;
+        }
+
+        $this->costCenterResults = CostCenter::where('valid', 1)
+            ->where('Nome', 'like', '%' . $this->costCenterSearch . '%')
+            ->orderBy('Nome')
+            ->limit(10)
+            ->get(['id', 'Nome', 'Localita']);
+
+        $this->showCostCenterDropdown = $this->costCenterResults->isNotEmpty();
+    }
+
+    public function selectCostCenter($id, string $name): void
+    {
+        $this->selectedCostCenterId = (string) $id;
+        $this->selectedCostCenterName = $name;
+        $this->costCenterSearch = $name;
+        $this->showCostCenterDropdown = false;
+    }
+
+    public function clearCostCenter(): void
+    {
+        $this->selectedCostCenterId = '';
+        $this->selectedCostCenterName = '';
+        $this->costCenterSearch = '';
+        $this->showCostCenterDropdown = false;
     }
 
     // ==================== TOGGLE OVERRIDE DESTINATARIO/LUOGO ====================
@@ -456,6 +507,10 @@ class WarehouseDdtTable extends Component
         $this->selectedOwnershipName = $ddt->ownership ? ($ddt->ownership->RagAbbrev ?? $ddt->ownership->Rag_Soc_intest) : '';
         $this->ownershipSearch = $this->selectedOwnershipName;
 
+        $this->selectedCostCenterId = (string) ($ddt->id_cost_centers ?? '');
+        $this->selectedCostCenterName = $ddt->costCenter->Nome ?? '';
+        $this->costCenterSearch = $this->selectedCostCenterName;
+
         $this->rows = [];
         foreach ($ddt->rows as $row) {
             $this->rows[] = [
@@ -518,6 +573,7 @@ class WarehouseDdtTable extends Component
 
         $this->clearEntity();
         $this->clearOwnership();
+        $this->clearCostCenter();
         $this->rows = [];
         $this->deactivateRowSearch();
         $this->resetErrorBag();
@@ -562,6 +618,7 @@ class WarehouseDdtTable extends Component
             'ddt_number' => $this->ddt_number,
             'ddt_date' => $this->ddt_date,
             'id_entities' => $this->selectedEntityId,
+            'id_cost_centers' => $this->selectedCostCenterId ?: null,
             'id_ownership' => $this->selectedOwnershipId ?: null,
             'causale' => $this->causale ?: null,
             'termini_consegna' => $this->termini_consegna ?: null,
@@ -939,7 +996,7 @@ class WarehouseDdtTable extends Component
     // ==================== DETTAGLIO ====================
     public function openDetailModal(int $id): void
     {
-        $this->viewingDdt = WarehouseDdt::with(['entity', 'ownership', 'rows.product', 'creator'])->findOrFail($id);
+        $this->viewingDdt = WarehouseDdt::with(['entity', 'ownership', 'costCenter', 'rows.product', 'creator'])->findOrFail($id);
         $this->showDetailModal = true;
     }
 

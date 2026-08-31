@@ -302,32 +302,62 @@
                         </div>
                     </div>
 
-                    <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
-                            {{ $type === 'acquisto' ? 'Fornitore' : 'Cliente' }} <span class="text-red-500">*</span>
-                        </label>
-                        <div class="relative">
-                            <input type="text" wire:model.live.debounce.300ms="entitySearch"
-                                x-on:focus="open = true"
-                                placeholder="Cerca {{ $type === 'acquisto' ? 'fornitore' : 'cliente' }}..."
-                                class="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
-                            @if($selectedEntityId)
-                            <button type="button" wire:click="clearEntity" class="absolute right-2 top-2.5 text-gray-400 hover:text-red-500">
-                                <i class="fas fa-times-circle text-sm"></i>
-                            </button>
-                            @endif
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                {{ $type === 'acquisto' ? 'Fornitore' : 'Cliente' }} <span class="text-red-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <input type="text" wire:model.live.debounce.300ms="entitySearch"
+                                    x-on:focus="open = true"
+                                    placeholder="Cerca {{ $type === 'acquisto' ? 'fornitore' : 'cliente' }}..."
+                                    class="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                @if($selectedEntityId)
+                                <button type="button" wire:click="clearEntity" class="absolute right-2 top-2.5 text-gray-400 hover:text-red-500">
+                                    <i class="fas fa-times-circle text-sm"></i>
+                                </button>
+                                @endif
+                            </div>
+                            <div x-show="open && @entangle('showEntityDropdown')" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
+                                @forelse($entityResults as $item)
+                                    <div x-on:click="open = false; @this.call('selectEntity', {{ $item->id }}, '{{ addslashes($item->name) }}')"
+                                        class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                        {{ $item->name }}
+                                    </div>
+                                @empty
+                                    <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato</div>
+                                @endforelse
+                            </div>
+                            @error('selectedEntityId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
-                        <div x-show="open && @entangle('showEntityDropdown')" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
-                            @forelse($entityResults as $item)
-                                <div x-on:click="open = false; @this.call('selectEntity', {{ $item->id }}, '{{ addslashes($item->name) }}')"
-                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                    {{ $item->name }}
-                                </div>
-                            @empty
-                                <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato</div>
-                            @endforelse
+
+                        <div class="relative" x-data="{ open: false }" x-on:click.away="open = false">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Centro di Costo</label>
+                            <div class="relative">
+                                <input type="text" wire:model.live.debounce.300ms="costCenterSearch"
+                                    x-on:focus="open = true"
+                                    placeholder="Cerca centro di costo..."
+                                    class="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500">
+                                @if($selectedCostCenterId)
+                                <button type="button" wire:click="clearCostCenter" class="absolute right-2 top-2.5 text-gray-400 hover:text-red-500">
+                                    <i class="fas fa-times-circle text-sm"></i>
+                                </button>
+                                @endif
+                            </div>
+                            <div x-show="open && @entangle('showCostCenterDropdown')" class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
+                                @forelse($costCenterResults as $item)
+                                    <div x-on:click="open = false; @this.call('selectCostCenter', {{ $item->id }}, '{{ addslashes($item->Nome) }}')"
+                                        class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                        <div class="font-medium text-gray-800">{{ $item->Nome }}</div>
+                                        @if($item->Localita)
+                                        <div class="text-xs text-gray-500">{{ $item->Localita }}</div>
+                                        @endif
+                                    </div>
+                                @empty
+                                    <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato</div>
+                                @endforelse
+                            </div>
                         </div>
-                        @error('selectedEntityId') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                     </div>
 
                     <!-- Causale -->
@@ -580,6 +610,13 @@
                             <p class="text-sm font-medium">{{ $viewingDdt->ownership->RagAbbrev ?? '-' }}</p>
                         </div>
                     </div>
+
+                    @if($viewingDdt->costCenter)
+                    <div class="bg-gray-50 p-2 rounded-lg">
+                        <label class="text-xs text-gray-500 uppercase font-semibold">Centro di Costo</label>
+                        <p class="text-sm">{{ $viewingDdt->costCenter->Nome }}</p>
+                    </div>
+                    @endif
 
                     @if($viewingDdt->causale)
                     <div class="bg-gray-50 p-2 rounded-lg">

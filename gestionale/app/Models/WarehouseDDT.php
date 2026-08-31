@@ -29,6 +29,7 @@ class WarehouseDdt extends Model
         'ddt_date',
         'id_entities',
         'id_ownership',
+        'id_cost_centers',
         'causale',
         'riferimento_fattura',
         'status',
@@ -84,6 +85,11 @@ class WarehouseDdt extends Model
     public function ownership(): BelongsTo
     {
         return $this->belongsTo(Ownership::class, 'id_ownership', 'id_proprieta');
+    }
+
+    public function costCenter(): BelongsTo
+    {
+        return $this->belongsTo(CostCenter::class, 'id_cost_centers');
     }
 
     public function creator(): BelongsTo

@@ -1,5 +1,4 @@
 <?php
-// app/Models/BankAccount.php
 
 namespace App\Models;
 
@@ -16,13 +15,16 @@ class BankAccount extends Model
         'name',
         'n_conto',
         'iban',
+        'emittente',  // <--- NUOVO CAMPO
         'opening_balance',
         'valid',
+        'default_invoice',
     ];
     
     protected $casts = [
         'opening_balance' => 'decimal:2',
         'valid' => 'boolean',
+        'default_invoice' => 'boolean',
     ];
     
     public function ownership(): BelongsTo
@@ -40,9 +42,20 @@ class BankAccount extends Model
         return $query->where('valid', 1);
     }
     
+    public function scopeDefaultInvoice($query)
+    {
+        return $query->where('default_invoice', 1);
+    }
+    
     public function getFormattedIbanAttribute(): string
     {
         if (!$this->iban) return '';
         return chunk_split($this->iban, 4, ' ');
+    }
+    
+    // Accessor per il nome della banca
+    public function getBankNameAttribute(): string
+    {
+        return $this->emittente ?? $this->name ?? 'Banca non specificata';
     }
 }

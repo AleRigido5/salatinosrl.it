@@ -67,38 +67,38 @@ class InvoiceSentController extends Controller
     public function previewPdf($id)
     {
         $invoice = InvoiceSent::with([
-            'ownership',  // IMPORTANTE: deve essere caricata
+            'ownership',
             'entity.addresses',
             'rows.costCenter',
             'rows.vehicle',
             'payments'
         ])->findOrFail($id);
 
+        // Recupera il conto bancario con il campo emittente
+        $bankAccount = \Illuminate\Support\Facades\DB::table('bank_accounts')
+            ->where('id_ownership', $invoice->id_ownership)
+            ->where('default_invoice', 1)
+            ->where('valid', 1)
+            ->first();
+
+        // Se il bankAccount esiste e ha il campo emittente, usalo
+        // altrimenti usa il campo name come fallback
+        if ($bankAccount) {
+            $bankName = $bankAccount->emittente ?? $bankAccount->name;
+        }
+
         $data = [
             'invoice' => $invoice,
             'typeDocuments' => config('gestionale.tipo_documento', []),
             'statuses' => config('gestionale.invoice_status', []),
-            // FIX: necessarie al template PDF per risolvere in modo affidabile
-            // l'aliquota IVA di ogni riga tramite vat_rate_id, invece di fidarsi
-            // del solo campo vat_rate salvato sulla riga (che può risultare
-            // 0% per righe con dati sporchi/inconsistenti).
             'vatRates' => VatRate::all()->keyBy('id'),
-            // FIX: fallback per i riferimenti bancari — IBAN di default della
-            // proprietà dalla tabella bank_accounts, usato quando né il primo
-            // pagamento né l'anagrafica ownership (IbanPr, spesso vuota) hanno
-            // un IBAN salvato.
-            'bankAccount' => \Illuminate\Support\Facades\DB::table('bank_accounts')
-                ->where('id_ownership', $invoice->id_ownership)
-                ->where('default_invoice', 1)
-                ->where('valid', 1)
-                ->first(),
+            'bankAccount' => $bankAccount,  // Include emittente
         ];
 
         $pdf = Pdf::loadView('admin.invoice-sent.invoice-sent-pdf', $data);
         $pdf->setPaper('a4', 'portrait');
 
-        $nInvoiceSafe = str_replace(['/', '\\'], '-', $invoice->n_invoice);
-        return $pdf->stream('fattura_' . $nInvoiceSafe . '.pdf');
+        return $pdf->stream('fattura_' . str_replace(['/', '\\'], '-', $invoice->n_invoice) . '.pdf');
     }
 
     /**

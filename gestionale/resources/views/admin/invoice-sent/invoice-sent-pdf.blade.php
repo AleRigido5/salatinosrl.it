@@ -58,330 +58,283 @@
 
         body {
             font-family: 'Poppins', 'DejaVu Sans', sans-serif;
-            font-size: 8pt;
+            font-size: 9pt;
             color: #1c1c1c;
             background: white;
-            padding: 16px 22px;
+            padding: 20px 24px;
         }
 
-        .watermark {
-            position: fixed;
-            top: 36%;
-            left: 46%;
-            transform: translate(-50%, -50%);
-            font-size: 1000pt;
-            font-weight: 900;
-            color: rgba(70, 130, 50, 0.055);
-            font-family: 'Poppins', 'DejaVu Sans', sans-serif;
-            z-index: 0;
-            line-height: 1;
-        }
-
-        .page { position: relative; z-index: 1; }
-
-        .header-outer {
-            border: 1pt solid #b0b8a8;
-            margin-bottom: 0;
-            overflow: hidden;
-        }
-
-        .header-main {
+        /* ===== HEADER (stile DDT) ===== */
+        .header {
+            display: table;
             width: 100%;
-            border-collapse: collapse;
+            margin-bottom: 14px;
         }
-
         .header-left {
-            padding: 9px 12px 7px 12px;
-            width: 65%;
-            vertical-align: top;
-        }
-
-        .header-right {
-            padding: 9px 12px 7px 12px;
+            display: table-cell;
             width: 35%;
-            border-left: 1pt solid #b0b8a8;
-            vertical-align: middle;
-            text-align: center;
-        }
-
-        .co-name {
-            font-size: 20pt;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            line-height: 1.05;
-            color: #111;
-            margin-bottom: 1px;
-        }
-
-        .co-tagline {
-            font-style: italic;
-            font-size: 8pt;
-            font-weight: 300;
-            color: #555;
-            margin-bottom: 3px;
-        }
-
-        .co-detail {
-            font-size: 7.5pt;
-            font-weight: 400;
-            line-height: 1.6;
-            color: #333;
-        }
-
-        .co-detail strong { font-weight: 600; }
-
-        .contacts-row {
-            width: 100%;
-            border-collapse: collapse;
-            border-top: 1pt solid #b0b8a8;
-        }
-
-        .contacts-row td {
-            padding: 3px 12px;
-            font-size: 7.8pt;
-            font-weight: 400;
-            color: #444;
-            text-align: center;
-        }
-
-        .doc-wrap {
-            border-left: 1pt solid #b0b8a8;
-            border-right: 1pt solid #b0b8a8;
-            border-bottom: 1pt solid #b0b8a8;
-            margin-bottom: 9px;
-            overflow: hidden;
-        }
-
-        .doc-table { width: 100%; border-collapse: collapse; }
-
-        .cell-fattura {
-            background-color: #e6ece0;
-            padding: 5px 10px;
-            font-weight: 700;
-            font-size: 10pt;
-            letter-spacing: 0.3px;
-            width: 18%;
-            border-right: 1pt solid #b0b8a8;
-            border-bottom: 1pt solid #b0b8a8;
-        }
-
-        .cell-pag {
-            padding: 5px 10px;
-            font-size: 8pt;
-            font-weight: 400;
-            color: #555;
-            width: 22%;
-            border-right: 1pt solid #b0b8a8;
-            border-bottom: 1pt solid #b0b8a8;
-            vertical-align: middle;
-        }
-
-        .cell-cliente {
-            background-color: #e6ece0;
-            padding: 5px 10px;
-            font-weight: 700;
-            font-size: 10pt;
-            letter-spacing: 0.3px;
-            border-bottom: 1pt solid #b0b8a8;
-        }
-
-        .cell-docinfo {
-            padding: 10px 10px;
             vertical-align: top;
-            width: 40%;
-            border-right: 1pt solid #b0b8a8;
         }
-
-        .cell-clientdata { padding: 10px 10px; vertical-align: top; }
-
-        .doc-number { font-size: 9pt; font-weight: 600; margin-bottom: 5px; color: #111; }
-        .doc-date   { font-size: 9pt; font-weight: 600; color: #111; }
-        .cli-name   { font-size: 10pt; font-weight: 700; line-height: 1.35; margin-bottom: 2px; color: #111; }
-        .cli-info   { font-size: 8.5pt; font-weight: 600; line-height: 1.55; color: #222; }
-
-        .prod-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 8px;
-            border: 1pt solid #a8b49e;
+        .header-left img {
+            max-height: 85px;
         }
-
-        .prod-table th {
-            background-color: #c8d4b8;
-            border: 1pt solid #9aaa8e;
-            padding: 5px 5px;
-            font-size: 8pt;
-            font-weight: 600;
-            text-align: center;
+        .header-right {
+            display: table-cell;
+            width: 65%;
+            text-align: right;
+            vertical-align: top;
+        }
+        .co-name {
+            font-size: 15pt;
+            font-weight: bold;
             color: #1a1a1a;
         }
-
-        .prod-table td {
-            border-right: 0.5pt solid #d0d8c8;
-            border-bottom: 0.5pt solid #e8ede4;
-            padding: 4px 4px;
-            font-size: 8pt;
-            font-weight: 400;
-            vertical-align: top;
+        .co-detail {
+            font-size: 8.5pt;
+            color: #444;
+            line-height: 1.5;
+            margin-top: 2px;
         }
 
-        .td-desc { padding-left: 7px !important; }
-        .tr { text-align: right; padding-right: 6px !important; }
-        .tc { text-align: center; }
-
-        .privacy {
-            font-size: 6.2pt;
-            font-weight: 400;
+        /* ===== TITLE BAR (stile DDT) ===== */
+        .title-bar {
+            display: table;
+            width: 100%;
+            background-color: #dbe6f0;
+            padding: 9px 14px;
+            margin-bottom: 14px;
+        }
+        .title-bar-left {
+            display: table-cell;
+            font-size: 12pt;
+            font-weight: bold;
+            color: #1a1a1a;
+            vertical-align: middle;
+        }
+        .title-bar-right {
+            display: table-cell;
+            text-align: right;
+            font-size: 9pt;
             color: #333;
-            line-height: 1.4;
-            margin-bottom: 9px;
-            border: 0.8pt solid #c0c8b8;
-            padding: 5px 8px;
-            background-color: #fafbf9;
+            vertical-align: middle;
         }
+        .title-bar-right strong { font-weight: bold; }
 
-        .privacy-title {
-            font-weight: 700;
-            font-size: 6.5pt;
+        /* ===== DESTINATARIO / LUOGO (stile DDT) ===== */
+        .box-row {
+            display: table;
+            width: 100%;
+            margin-bottom: 12px;
+            border-bottom: 0.75pt solid #ddd;
+            padding-bottom: 10px;
+        }
+        .box {
+            display: table-cell;
+            width: 50%;
+            vertical-align: top;
+            padding-right: 20px;
+        }
+        .box-label {
+            font-size: 7.5pt;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
             margin-bottom: 2px;
         }
-
-        .bottom-outer {
-            border: 1pt solid #a8b49e;
-            overflow: hidden;
+        .box-title {
+            font-weight: bold;
+            font-size: 9.5pt;
+            color: #1a1a1a;
+            margin-bottom: 2px;
+        }
+        .box-line {
+            font-size: 8.5pt;
+            color: #333;
+            line-height: 1.55;
         }
 
-        .bottom-table { width: 100%; border-collapse: collapse; }
+        /* ===== TABELLA RIGHE (stile DDT) ===== */
+        table.rows {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table.rows thead th {
+            background-color: #f2f2f2;
+            text-align: left;
+            padding: 6px 8px;
+            font-size: 7.5pt;
+            font-weight: bold;
+            color: #555;
+            text-transform: uppercase;
+            border-bottom: 0.75pt solid #ddd;
+        }
+        table.rows tbody td {
+            padding: 7px 8px;
+            font-size: 8.5pt;
+            color: #333;
+            border-bottom: 0.5pt solid #f0f0f0;
+        }
+        .col-qty { text-align: right; }
+        .col-price { text-align: right; }
+        .col-total { text-align: right; font-weight: 500; }
 
-        .pay-col {
-            width: 37%;
-            border-right: 1pt solid #a8b49e;
+        /* ===== TOTALE (stile DDT ma più evidenziato) ===== */
+        .total-box {
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
+        .total-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .total-table td {
+            padding: 5px 10px;
+            font-size: 8.5pt;
+            border-bottom: 0.5pt solid #eee;
+        }
+        .total-label {
+            text-align: right;
+            font-weight: 600;
+            width: 70%;
+            background-color: #f9fafb;
+            padding-right: 20px;
+        }
+        .total-value {
+            text-align: right;
+            font-weight: 600;
+            width: 30%;
+        }
+        .grand-total td {
+            font-size: 10pt;
+            font-weight: 700;
+            border-top: 1.5pt solid #2d5a1e;
+            border-bottom: 1.5pt solid #2d5a1e;
+            background-color: #f0f7ea;
+            padding: 8px 10px;
+        }
+        .grand-total .total-label {
+            color: #1a4a0e;
+            font-size: 10pt;
+        }
+        .grand-total .total-value {
+            color: #1a4a0e;
+            font-size: 11pt;
+        }
+
+        /* ===== PAGAMENTO / BANCA (stile DDT) ===== */
+        .footer-info {
+            display: table;
+            width: 100%;
+            margin-top: 10px;
+            border-top: 1pt solid #ddd;
+            padding-top: 10px;
+        }
+        .footer-info-row {
+            display: table-row;
+        }
+        .footer-info-cell {
+            display: table-cell;
+            width: 50%;
+            padding: 5px 10px 5px 0;
+            border-bottom: 0.5pt solid #eee;
             vertical-align: top;
         }
-
-        .tot-col { width: 63%; vertical-align: top; }
-
-        .pay-header {
-            background-color: #e6ece0;
-            font-weight: 700;
+        .footer-info-label {
+            font-size: 7.5pt;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 2px;
+        }
+        .footer-info-value {
             font-size: 8.5pt;
-            padding: 5px 9px;
-            border-bottom: 1pt solid #b0b8a8;
-            letter-spacing: 0.2px;
+            color: #222;
+        }
+        .footer-info-cell-full {
+            display: table-cell;
+            width: 100%;
+            padding: 5px 0;
+            border-bottom: 0.5pt solid #eee;
         }
 
-        .pay-content {
-            padding: 6px 9px;
-            font-size: 8pt;
-            font-weight: 400;
-            border-bottom: 1pt solid #b0b8a8;
-            min-height: 26px;
-        }
-
-        .bank-header {
-            background-color: #e6ece0;
-            font-weight: 700;
-            font-size: 8.5pt;
-            padding: 5px 9px;
-            border-bottom: 1pt solid #b0b8a8;
-            letter-spacing: 0.2px;
-        }
-
-        .bank-content {
-            padding: 6px 9px;
-            font-size: 7.8pt;
-            font-weight: 400;
-            line-height: 1.6;
-        }
-
+        /* IBAN monospace */
         .iban-mono {
             font-family: 'DejaVu Sans Mono', monospace;
             font-size: 7.5pt;
             font-weight: 700;
         }
 
-        .tot-table { width: 100%; border-collapse: collapse; }
-
-        .tot-table tr td {
-            padding: 4.5px 8px;
-            font-size: 8pt;
-            border-bottom: 0.8pt solid #d0d8c8;
-        }
-
-        .tot-lbl {
-            text-align: right;
-            font-weight: 600;
-            width: 56%;
-            background-color: #f0f4ec;
-            border-right: 0.8pt solid #b0b8a8;
-        }
-
-        .tot-eur {
-            text-align: center;
-            width: 9%;
-            font-weight: 600;
-            background-color: #f0f4ec;
-            border-right: 0.8pt solid #b0b8a8;
-        }
-
-        .tot-val {
-            text-align: right;
-            padding-right: 10px;
-            width: 35%;
-            font-weight: 500;
-        }
-
-        .tot-final .tot-lbl {
-            background-color: #2d5a1e;
-            color: white;
-            font-size: 9pt;
-            font-weight: 700;
-            padding: 7px 8px;
-        }
-
-        .tot-final .tot-eur {
-            background-color: #2d5a1e;
-            color: white;
-            font-weight: 700;
-            font-size: 9pt;
-            padding: 7px 8px;
-        }
-
-        .tot-final .tot-val {
-            background-color: #2d5a1e;
-            color: white;
-            font-size: 10pt;
-            font-weight: 700;
-            padding: 7px 10px;
-        }
-
-        .final-nb {
+        /* ===== PRIVACY / NOTE LEGALI (stile DDT compatto) ===== */
+        .privacy {
             font-size: 6.2pt;
             font-weight: 400;
+            color: #555;
+            line-height: 1.4;
+            margin-top: 12px;
+            border: 0.8pt solid #e0e4e0;
+            padding: 5px 8px;
+            background-color: #fafbf9;
+        }
+        .privacy-title {
+            font-weight: 700;
+            font-size: 6.5pt;
+            margin-bottom: 2px;
             color: #333;
-            margin-top: 9px;
-            line-height: 1.42;
         }
 
-        .footer-txt {
-            text-align: center;
-            font-size: 6pt;
-            color: #bbb;
-            margin-top: 7px;
-            font-weight: 300;
+        /* ===== FIRME (stile DDT) ===== */
+        .signatures {
+            display: table;
+            width: 100%;
+            margin-top: 55px;
+            border-top: 0.75pt solid #ccc;
+            padding-top: 5px;
         }
+        .signature-cell {
+            display: table-cell;
+            width: 33.33%;
+            text-align: center;
+            font-size: 7.5pt;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        /* ===== FOOTER PAGINA (stile DDT) ===== */
+        .page-footer {
+            display: table;
+            width: 100%;
+            margin-top: 14px;
+            padding-top: 6px;
+            border-top: 0.5pt solid #eee;
+        }
+        .page-footer-left {
+            display: table-cell;
+            font-size: 7.5pt;
+            color: #999;
+        }
+        .page-footer-right {
+            display: table-cell;
+            text-align: right;
+            font-size: 7.5pt;
+            color: #999;
+        }
+        .page-footer-left strong { color: #666; }
+
+        /* ===== UTILITY ===== */
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .font-mono { font-family: 'DejaVu Sans Mono', monospace; }
     </style>
 </head>
 <body>
-
-<div class="watermark">S</div>
 
 @php
     $ownership = $invoice->ownership;
 
     $companyData = [
-        'name' => $ownership->Rag_Soc_intest,
-        'tagline' => $ownership->Rag_Soc_intest ?? '',
+        'name' => $ownership->Rag_Soc_intest ?? 'Azienda',
         'address' => $ownership->IndirizzoPr && $ownership->LocalitPr 
             ? $ownership->IndirizzoPr . ' - ' . $ownership->LocalitPr . ' (' . ($ownership->ProvinciaPr ?? 'BA') . ')'
             : $ownership->IndirizzoPr,
@@ -391,7 +344,6 @@
         'iban' => $ownership->IbanPr,
         'bank' => $ownership->BancaPr,
         'owner_name' => $ownership->NomeRapprPr,
-        'registration' => true,
         'province' => $ownership->ProvinciaPr ?? 'Bari',
     ];
 
@@ -399,17 +351,6 @@
 
     // ============================================================
     // FIX: risoluzione affidabile dell'aliquota IVA per riga.
-    //
-    // Prima il template leggeva direttamente $row->vat_rate, un campo
-    // che a seconda del percorso con cui la riga è stata creata (import
-    // XML, creazione manuale, modifica) può essere salvato come
-    // percentuale (22), come decimale (0.22) o restare a 0/null. Questo
-    // causava il bug "22% mostrato come 0%".
-    //
-    // Ora si usa PRIMA vat_rate_id (FK verso la tabella vat_rates, fonte
-    // affidabile perché è la stessa usata dai form di creazione/modifica),
-    // e solo se assente si ricade sul campo vat_rate della riga,
-    // normalizzandone il formato.
     // ============================================================
     $vatRatesById = $vatRates ?? collect();
 
@@ -421,110 +362,248 @@
         $raw = (float) ($row->vat_rate ?? 0);
 
         if ($raw > 0 && $raw <= 1) {
-            return $raw * 100; // era salvato come decimale (es. 0.22)
+            return $raw * 100;
         }
 
         if ($raw > 1) {
-            return $raw; // già in percentuale (es. 22)
+            return $raw;
         }
 
-        return 0.0; // nessuna informazione affidabile: 0% esplicito, non un valore indovinato
+        return 0.0;
     };
 
-    // Formatta la percentuale senza decimali inutili (22, non 22,00) ma
-    // conservando eventuali decimali reali (es. aliquote particolari).
     $formatVatPercent = function ($percent) {
         return rtrim(rtrim(number_format($percent, 2, ',', '.'), '0'), ',');
     };
+
+    // ============================================================
+    // Calcolo totali IVA
+    // ============================================================
+    $vatTotals = [];
+    foreach($invoice->rows as $row) {
+        $rate = $resolveVatRatePercent($row);
+        $vatTotals[$rate] = ($vatTotals[$rate] ?? 0) + $row->total;
+    }
+    ksort($vatTotals);
+
+    $imponibileTotale = array_sum($vatTotals);
+    $ivaTotale = 0;
+    foreach($vatTotals as $rate => $imponibile) {
+        $ivaTotale += $imponibile * $rate / 100;
+    }
+
+    // ============================================================
+    // Risoluzione IBAN con supporto al campo emittente
+    // ============================================================
+    $firstPayment = $invoice->payments->first();
+    $resolvedBankAccount = $bankAccount ?? null;
+
+    if ($firstPayment && !empty($firstPayment->iban)) {
+        $bankIban = $firstPayment->iban;
+        $bankName = $firstPayment->bank_name ?? null;
+        $bankHolder = $firstPayment->bank_account_holder ?? null;
+    } elseif (!empty($companyData['iban'])) {
+        $bankIban = $companyData['iban'];
+        $bankName = $companyData['bank'] ?? null;
+        $bankHolder = $companyData['name'] ?? null;
+    } elseif (!empty($resolvedBankAccount->iban ?? null)) {
+        $bankIban = $resolvedBankAccount->iban;
+        // PRIORITÀ AL CAMPO EMITTENTE, POI NAME COME FALLBACK
+        $bankName = $resolvedBankAccount->emittente ?? $resolvedBankAccount->name ?? null;
+        $bankHolder = $companyData['name'] ?? null;
+    } else {
+        $bankIban = null;
+        $bankName = null;
+        $bankHolder = null;
+    }
+
+    // Determina il tipo di documento
+    $docTypeLabel = $invoice->type_invoice_label ?? $invoice->type_invoice ?? 'FATTURA';
+    $isCreditNote = in_array($invoice->type_invoice, ['TD04', 'TD08']);
+
+    // Logo path
+    $logoPath = public_path('images/logo-pdf-ddt.png');
 @endphp
 
-<div class="page">
-
-<div class="header-outer">
-    <table class="header-main">
-        <tr>
-            <td class="header-left">
-                <div class="co-name">{{ $companyData['name'] }}</div>
-                <div class="co-detail">
-                    {{ $companyData['address'] }}<br>
-                    {!! $companyData['registration_text'] !!}<br>
-                </div>
-            </td>
-            <td class="header-right">
-                <div style="font-size:7.8pt; font-weight:400; color:#444; line-height:1.9;">
-                    {{ $companyData['email'] }}<br>{{ $companyData['website'] }}
-                </div>
-            </td>
-        </tr>
-    </table>
+<!-- HEADER -->
+<div class="header">
+    <div class="header-left">
+        @if(file_exists($logoPath))
+            <img src="{{ $logoPath }}" alt="Logo">
+        @endif
+    </div>
+    <div class="header-right">
+        <div class="co-name">{{ $companyData['name'] }}</div>
+        <div class="co-detail">
+            {{ $companyData['address'] }}<br>
+            {!! $companyData['registration_text'] !!}
+        </div>
+    </div>
 </div>
 
-<div class="doc-wrap">
-    <table class="doc-table">
-        <tr>
-            <td class="cell-fattura">FATTURA</td>
-            <td class="cell-pag">Pag.: 1/1</td>
-            <td class="cell-cliente">CLIENTE</td>
-        </tr>
-        <tr>
-            <td class="cell-docinfo" colspan="2">
-                <div class="doc-number">Numero: {{ $invoice->n_invoice }}</div>
-                <div class="doc-date">Data: {{ $invoice->data_invoice->format('d/m/Y') }}</div>
-            </td>
-            <td class="cell-clientdata">
-                @php 
-                    $entity = $invoice->entity;
-                    $addr = $entity ? $entity->primary_address : null;
-                @endphp
-                @if($entity)
-                    <div class="cli-name">{{ $entity->full_name }}</div>
-                    <div class="cli-info">
-                        @if($addr)
-                            @if(!empty($addr->indirizzo)){{ $addr->indirizzo }}<br>@endif
-                            @if(!empty($addr->cap) || !empty($addr->citta))
-                                {{ $addr->cap ?? '' }}{{ !empty($addr->cap) && !empty($addr->citta) ? ' - ' : '' }}{{ !empty($addr->citta) ? strtoupper($addr->citta) : '' }}@if(!empty($addr->provincia)) ({{ strtoupper($addr->provincia) }})@endif<br>
-                            @endif
-                        @endif
-                        @if(!empty($entity->partita_iva))P.IVA: {{ $entity->partita_iva }}<br>@endif
-                        @if(!empty($entity->codice_fiscale))Cod. Fisc: {{ $entity->codice_fiscale }}@endif
-                    </div>
-                @else
-                    <div class="cli-name">{{ $invoice->customer_name }}</div>
+<!-- TITLE BAR -->
+<div class="title-bar">
+    <div class="title-bar-left">{{ strtoupper($docTypeLabel) }}</div>
+    <div class="title-bar-right">
+        nr. <strong>{{ $invoice->n_invoice }}</strong> 
+        del <strong>{{ $invoice->data_invoice->format('d.m.y') }}</strong>
+        @if($isCreditNote)
+            <span style="color: #c0392b; margin-left: 10px; font-weight: bold;">(NOTA DI CREDITO)</span>
+        @endif
+    </div>
+</div>
+
+<!-- DESTINATARIO -->
+<div class="box-row">
+    <div class="box">
+        <div class="box-label">Cliente / Destinatario</div>
+        @php 
+            $entity = $invoice->entity;
+            $addr = $entity ? $entity->primary_address : null;
+        @endphp
+        @if($entity)
+            <div class="box-title">{{ $entity->full_name }}</div>
+            <div class="box-line">
+                @if($addr)
+                    @if(!empty($addr->indirizzo)){{ $addr->indirizzo }}<br>@endif
+                    @if(!empty($addr->cap) || !empty($addr->citta))
+                        {{ $addr->cap ?? '' }}{{ !empty($addr->cap) && !empty($addr->citta) ? ' ' : '' }}{{ !empty($addr->citta) ? strtoupper($addr->citta) : '' }}@if(!empty($addr->provincia)) ({{ strtoupper($addr->provincia) }})@endif<br>
+                    @endif
                 @endif
-            </td>
-        </tr>
-    </table>
+                @if(!empty($entity->partita_iva))P.IVA: {{ $entity->partita_iva }}<br>@endif
+                @if(!empty($entity->codice_fiscale))C.F.: {{ $entity->codice_fiscale }}@endif
+            </div>
+        @else
+            <div class="box-title">{{ $invoice->customer_name }}</div>
+        @endif
+    </div>
+    <div class="box">
+        <div class="box-label">Dati Fattura</div>
+        <div class="box-line">
+            <strong>Numero:</strong> {{ $invoice->n_invoice }}<br>
+            <strong>Data:</strong> {{ $invoice->data_invoice->format('d/m/Y') }}<br>
+            @if($invoice->causale)
+                <strong>Causale:</strong> {{ $invoice->causale }}<br>
+            @endif
+            @if($invoice->sdi_id)
+                <strong>SDI ID:</strong> <span class="font-mono" style="font-size:7.5pt;">{{ $invoice->sdi_id }}</span>
+            @endif
+        </div>
+    </div>
 </div>
 
-<table class="prod-table">
+<!-- TABELLA RIGHE -->
+<table class="rows">
     <thead>
         <tr>
-            <th style="width:46%; text-align:left; padding-left:7px;">Descrizione</th>
-            <th style="width:8%;">UM</th>
-            <th style="width:10%;">Q.tà</th>
-            <th style="width:12%;">Prezzo</th>
-            <th style="width:14%;">Importo</th>
-            <th style="width:10%;">IVA</th>
+            <th style="width: 5%;">#</th>
+            <th style="width: 45%;">Descrizione</th>
+            <th style="width: 8%;" class="col-qty">Q.tà</th>
+            <th style="width: 10%;" class="col-price">Prezzo</th>
+            <th style="width: 12%;" class="col-price">Sconto</th>
+            <th style="width: 10%;" class="col-price">IVA</th>
+            <th style="width: 10%;" class="col-total">Totale</th>
         </tr>
     </thead>
     <tbody>
-        @foreach($invoice->rows as $row)
+        @foreach($invoice->rows as $index => $row)
         <tr>
-            <td class="td-desc">{{ $row->description }}</td>
-            <td class="tc">{{ $row->unit_measure ?? 'Pz.' }}</td>
-            <td class="tr">{{ number_format($row->quantity, 2, ',', '.') }}</td>
-            <td class="tr">{{ number_format($row->unit_price, 3, ',', '.') }}</td>
-            <td class="tr">{{ number_format($row->total, 2, ',', '.') }}</td>
-            <td class="tc">{{ $formatVatPercent($resolveVatRatePercent($row)) }}%</td>
+            <td class="text-center">{{ $index + 1 }}</td>
+            <td>{{ $row->description }}</td>
+            <td class="col-qty">{{ number_format($row->quantity, 2, ',', '.') }}</td>
+            <td class="col-price">{{ number_format($row->unit_price, 3, ',', '.') }}</td>
+            <td class="col-price">{{ $row->discount_percentage > 0 ? number_format($row->discount_percentage, 2, ',', '.') . '%' : '-' }}</td>
+            <td class="text-center">{{ $formatVatPercent($resolveVatRatePercent($row)) }}%</td>
+            <td class="col-total">{{ number_format($row->total, 2, ',', '.') }}</td>
         </tr>
         @endforeach
-        @php $fill = max(0, 14 - count($invoice->rows)); @endphp
+        
+        <!-- Righe vuote per riempimento (minimo 12 righe) -->
+        @php $fill = max(0, 12 - count($invoice->rows)); @endphp
         @for($i = 0; $i < $fill; $i++)
-        <tr style="height:15px;"><td class="td-desc"></td><td class="tc"></td><td class="tr"></td><td class="tr"></td><td class="tr"></td><td class="tc"></td></tr>
+        <tr>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+            <td>&nbsp;</td>
+        </tr>
         @endfor
     </tbody>
 </table>
 
+<!-- TOTALI -->
+<div class="total-box">
+    <table class="total-table">
+        @foreach($vatTotals as $rate => $imponibile)
+        <tr>
+            <td class="total-label">IMPONIBILE AL {{ $formatVatPercent($rate) }}%</td>
+            <td class="total-value">€ {{ number_format($imponibile, 2, ',', '.') }}</td>
+        </tr>
+        <tr>
+            <td class="total-label">IVA AL {{ $formatVatPercent($rate) }}%</td>
+            <td class="total-value">€ {{ number_format($imponibile * $rate / 100, 2, ',', '.') }}</td>
+        </tr>
+        @endforeach
+        <tr class="grand-total">
+            <td class="total-label">TOTALE A PAGARE s.e. &amp; o.</td>
+            <td class="total-value">€ {{ number_format($invoice->importo_totale, 2, ',', '.') }}</td>
+        </tr>
+        @if($isCreditNote)
+        <tr>
+            <td colspan="2" class="text-center" style="color: #c0392b; font-weight: 600; padding-top: 8px; border: none; background: #fff5f5;">
+                <i class="fas fa-info-circle" style="margin-right: 5px;"></i>
+                DOCUMENTO DI CREDITO - Da detrarre dal totale fatture
+            </td>
+        </tr>
+        @endif
+    </table>
+</div>
+
+<!-- DATI DI PAGAMENTO -->
+<div class="footer-info">
+    <div class="footer-info-row">
+        <div class="footer-info-cell">
+            <div class="footer-info-label">Condizioni di pagamento</div>
+            <div class="footer-info-value">{{ $firstPayment->payment_method_label ?? 'Bonifico bancario' }}</div>
+        </div>
+        <div class="footer-info-cell">
+            <div class="footer-info-label">Scadenza</div>
+            <div class="footer-info-value">{{ $firstPayment->due_date ? $firstPayment->due_date->format('d/m/Y') : 'Vedi scadenze' }}</div>
+        </div>
+    </div>
+    <div class="footer-info-row">
+        <div class="footer-info-cell">
+            <div class="footer-info-label">Riferimenti bancari</div>
+            <div class="footer-info-value">
+                @if($bankIban)
+                    @if($bankName)
+                        <strong>{{ $bankName }}</strong><br>
+                    @endif
+                    <span class="iban-mono">IBAN: {{ $bankIban }}</span>
+                    @if($bankHolder)
+                        <br>Intestato a: {{ $bankHolder }}
+                    @endif
+                @else
+                    <span style="color:#999;">Riferimenti bancari non disponibili</span>
+                @endif
+            </div>
+        </div>
+        <div class="footer-info-cell">
+            <div class="footer-info-label">Stato fattura</div>
+            <div class="footer-info-value">
+                @php
+                    $statusMap = ['draft' => 'Bozza', 'issued' => 'Emessa', 'approved' => 'Approvata', 'paid' => 'Pagata'];
+                @endphp
+                {{ $statusMap[$invoice->status] ?? $invoice->status }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PRIVACY / NOTE LEGALI -->
 <div class="privacy">
     <div class="privacy-title">INFORMATIVA AI SENSI DELL'ART. 13 DLGS 196/2003</div>
     I dati personali sono raccolti direttamente presso gli interessati e sono trattati nell'ambito della normale attività amministrativa dell'azienda
@@ -538,108 +617,29 @@
     @endif
 </div>
 
-@php
-    $firstPayment = $invoice->payments->first();
-
-    // FIX: usa la stessa risoluzione affidabile dell'aliquota anche per il
-    // riepilogo IVA in fondo alla pagina, invece di raggruppare per
-    // $row->vat_rate grezzo (stesso bug del 0% invece di 22%).
-    $vatTotals = [];
-    foreach($invoice->rows as $row) {
-        $rate = $resolveVatRatePercent($row);
-        $vatTotals[$rate] = ($vatTotals[$rate] ?? 0) + $row->total;
-    }
-    ksort($vatTotals);
-
-    // ============================================================
-    // FIX: risoluzione affidabile dei riferimenti bancari.
-    //
-    // Prima la catena si fermava a $ownership->IbanPr, che nella
-    // maggior parte dei casi è vuoto (l'IBAN vero è salvato nella
-    // tabella dedicata bank_accounts, non sui campi dell'anagrafica
-    // proprietà) — se anche il primo pagamento non aveva un IBAN
-    // proprio, la sezione restava vuota nel PDF.
-    //
-    // Ordine di risoluzione: IBAN del pagamento -> IBAN della
-    // proprietà (IbanPr) -> conto bancario di default della proprietà
-    // (tabella bank_accounts, $bankAccount passato dal controller) ->
-    // messaggio esplicito se nessuna delle tre fonti ha un IBAN.
-    // ============================================================
-    $resolvedBankAccount = $bankAccount ?? null;
-
-    if ($firstPayment && !empty($firstPayment->iban)) {
-        $bankIban = $firstPayment->iban;
-        $bankName = $firstPayment->bank_name ?? null;
-        $bankHolder = $firstPayment->bank_account_holder ?? null;
-    } elseif (!empty($companyData['iban'])) {
-        $bankIban = $companyData['iban'];
-        $bankName = $companyData['bank'] ?? null;
-        $bankHolder = $companyData['name'] ?? null;
-    } elseif (!empty($resolvedBankAccount->iban ?? null)) {
-        $bankIban = $resolvedBankAccount->iban;
-        $bankName = $resolvedBankAccount->name ?? null;
-        $bankHolder = $companyData['name'] ?? null;
-    } else {
-        $bankIban = null;
-        $bankName = null;
-        $bankHolder = null;
-    }
-@endphp
-
-<div class="bottom-outer">
-    <table class="bottom-table">
-        <tr>
-            <td class="pay-col">
-                <div class="pay-header">PAGAMENTO</div>
-                <div class="pay-content">{{ $firstPayment->payment_method_label ?? 'Bonifico vista fattura' }}</div>
-                <div class="bank-header">NS RIF. BANCARI</div>
-                <div class="bank-content">
-                    @if($bankIban)
-                        @if($bankName)<strong>{{ $bankName }}</strong><br>@endif
-                        <span class="iban-mono">IBAN: {{ $bankIban }}</span><br>
-                        @if($bankHolder)intestato a {{ $bankHolder }}@endif
-                    @else
-                        <span style="color:#999;">Riferimenti bancari non disponibili</span>
-                    @endif
-                </div>
-            </td>
-            <td class="tot-col">
-                <table class="tot-table">
-                    @foreach($vatTotals as $rate => $imponibile)
-                    <tr>
-                        <td class="tot-lbl">IMPONIBILE AL {{ $formatVatPercent($rate) }}%</td>
-                        <td class="tot-eur">€</td>
-                        <td class="tot-val">{{ number_format($imponibile, 2, ',', '.') }}</td>
-                    </tr>
-                    @endforeach
-                    @foreach($vatTotals as $rate => $imponibile)
-                    <tr>
-                        <td class="tot-lbl">IVA AL {{ $formatVatPercent($rate) }}%</td>
-                        <td class="tot-eur">€</td>
-                        <td class="tot-val">{{ number_format($imponibile * $rate / 100, 2, ',', '.') }}</td>
-                    </tr>
-                    @endforeach
-                    <tr class="tot-final">
-                        <td class="tot-lbl">TOTALE A PAGARE s.e. &amp; o.</td>
-                        <td class="tot-eur">€</td>
-                        <td class="tot-val">{{ number_format($invoice->importo_totale, 2, ',', '.') }}</td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</div>
-
-<div class="final-nb">
-    NB. {{ $companyData['name'] }} si riserva la proprietà di tutta la merce fornita e descritta con il presente documento sino al pagamento
+<div style="font-size: 6.5pt; color: #666; margin-top: 8px; line-height: 1.4;">
+    <strong>NB.</strong> {{ $companyData['name'] }} si riserva la proprietà di tutta la merce fornita e descritta con il presente documento sino al pagamento
     integrale del prezzo e degli interessi eventualmente maturati. Vogliate controllare l'esattezza dei dati anagrafici da Voi forniti e
     riportati al fine di comunicare eventuali errori o integrazioni, la {{ $companyData['name'] }} trascorsi 3gg dalla data fattura riterrà
     gli stessi corrispondenti. Eventuali reclami e/o contestazioni saranno accettati entro 3gg. dal ricevimento della presente
     esclusivamente a mezzo raccomandata a.r. all'indirizzo della {{ $companyData['name'] }}, decorsi tali termini non saranno ritenuti validi.
 </div>
 
-<div class="footer-txt">Documento generato elettronicamente · {{ $companyData['name'] }}</div>
-
+<!-- FIRME (stile DDT) -->
+<div class="signatures">
+    <div class="signature-cell">Data e firma mittente</div>
+    <div class="signature-cell">Data e firma cliente</div>
+    <div class="signature-cell">Data e firma per quietanza</div>
 </div>
+
+<!-- FOOTER PAGINA (stile DDT) -->
+<div class="page-footer">
+    <div class="page-footer-left">
+        <strong>{{ $companyData['name'] }}</strong> 
+        &nbsp; P.IVA: {{ $companyData['vat'] }}
+        @if($companyData['email'])&nbsp; Email: {{ $companyData['email'] }}@endif
+    </div>
+</div>
+
 </body>
 </html>

@@ -25,7 +25,7 @@ use Illuminate\Support\Collection;
 class AccountingEntriesTable extends Component
 {
     use WithPagination, WithFileUploads;
-    
+
     public $search = '';
     public $type = '';
     public $dateFrom = '';
@@ -33,6 +33,7 @@ class AccountingEntriesTable extends Component
     public $bankAccountId = '';
     public $paymentMethodId = '';
     public $statusFilter = '';
+    public string $dateFilterMode = 'entry_date'; // 'entry_date' (Data Pagamento) | 'registration_date' (Data Registrazione Pagamento, su updated_at)
 
     // Autocomplete Proprietà (FILTRO tabella)
     public string $ownershipSearch = '';
@@ -40,24 +41,24 @@ class AccountingEntriesTable extends Component
     public string $selectedOwnershipId = '';
     public string $selectedOwnershipName = '';
     public bool $showOwnershipDropdown = false;
-    
+
     // Autocomplete Fornitore (FILTRO tabella)
     public string $entitySearch = '';
     public Collection $filteredEntities;
     public $entityFilter = null;
     public string $entityName = '';
     public bool $showEntityDropdown = false;
-    
+
     public $sortField = 'entry_date';
     public $sortDirection = 'desc';
     public $perPage = 100;
-    
+
     public $showModal = false;
     public $showDeleteModal = false;
     public $showViewModal = false;
     public $viewingEntry = null;
     public $entryToDelete = null;
-    
+
     public $entryId = null;
     public $entry_date = '';
     public $description = '';
@@ -82,13 +83,13 @@ class AccountingEntriesTable extends Component
     public $costCenterId = '';
     public string $costCenterName = '';
     public bool $showCostCenterDropdown = false;
-    
+
     // Variabili per il calcolo in tempo reale
     public $originalAmount = 0;
     public $displayAmount = '0,00';
     public $amountDifference = 0;
     public $isAmountChanged = false;
-    
+
     // Cestino
     public bool $showTrashModal = false;
     public string $trashSearch = '';
@@ -120,7 +121,7 @@ class AccountingEntriesTable extends Component
 
     // Stato globale per l'import
     public string $importStatus = 'COMPLETATO';
-    
+
     protected $rules = [
         'entry_date' => 'required|date',
         'description' => 'required|string|min:3',
@@ -134,14 +135,14 @@ class AccountingEntriesTable extends Component
         'costCenterId' => 'nullable|exists:cost_centers,id',
         'importFile' => 'nullable|file|mimes:csv,txt|max:5120',
     ];
-    
+
     protected $listeners = [
         'refreshAccountingEntries' => '$refresh',
         'refreshPayments' => 'refreshTable',
         'refreshInvoices' => 'refreshTable',
         'dateRangeUpdated' => 'handleDateRangeUpdated',
     ];
-    
+
     public function mount()
     {
         $this->entry_date = date('Y-m-d');
@@ -154,16 +155,21 @@ class AccountingEntriesTable extends Component
         $this->importEntityResults = new Collection();
         $this->importCostCenterResults = new Collection();
     }
-    
+
     public function refreshTable(): void
     {
         $this->resetPage();
     }
-    
+
     public function handleDateRangeUpdated(array $data): void
     {
         $this->dateFrom = $data['date_from'] ?? '';
         $this->dateTo   = $data['date_to']   ?? '';
+        $this->resetPage();
+    }
+
+    public function updatedDateFilterMode(): void
+    {
         $this->resetPage();
     }
 
@@ -176,7 +182,7 @@ class AccountingEntriesTable extends Component
             $this->sortDirection = 'asc';
         }
     }
-    
+
     public function resetFilters()
     {
         $this->search = '';
@@ -192,25 +198,26 @@ class AccountingEntriesTable extends Component
         $this->statusFilter = '';
         $this->bankAccountId = '';
         $this->paymentMethodId = '';
+        $this->dateFilterMode = 'entry_date';
         $this->dateFrom = date('Y-m-01');
         $this->dateTo = date('Y-m-t');
         $this->resetPage();
     }
-    
+
     public function clearDates()
     {
         $this->dateFrom = '';
         $this->dateTo = '';
         $this->resetPage();
     }
-    
+
     public function openCreateModal()
     {
         if (!Auth::guard('admin')->user()->hasPermission('create_accounting_entries')) {
             $this->dispatch('showError', message: 'Non hai i permessi per creare scritture contabili');
             return;
         }
-        
+
         $this->resetForm();
         $this->isEditing = false;
         $this->entryId = null;
@@ -220,14 +227,14 @@ class AccountingEntriesTable extends Component
         $this->amountDifference = 0;
         $this->showModal = true;
     }
-    
+
     public function openEditModal($id)
     {
         if (!Auth::guard('admin')->user()->hasPermission('edit_accounting_entries')) {
             $this->dispatch('showError', message: 'Non hai i permessi per modificare scritture contabili');
             return;
         }
-        
+
         $entry = AccountingEntry::with(['installmentTransactions.invoicePayment.payable'])->findOrFail($id);
         $this->entryId = $entry->id;
         $this->entry_date = $entry->entry_date->format('Y-m-d');
@@ -302,7 +309,7 @@ class AccountingEntriesTable extends Component
             })
             ->limit(10)
             ->get(['id_proprieta as id', 'RagAbbrev as name']);
-        
+
         $this->showOwnershipDropdown = $this->ownershipResults->isNotEmpty();
     }
 
@@ -459,7 +466,7 @@ class AccountingEntriesTable extends Component
         $this->costCenterResults = new Collection();
         $this->showCostCenterDropdown = false;
     }
-    
+
     /**
      * Aggiorna l'importo in tempo reale quando l'utente digita
      */
@@ -470,7 +477,7 @@ class AccountingEntriesTable extends Component
         $this->isAmountChanged = abs($this->amountDifference) > 0.01;
         $this->displayAmount = number_format($newAmount, 2, ',', '.');
     }
-    
+
     /**
      * Gestisce l'aggiornamento in tempo reale del tipo di operazione
      */
@@ -488,7 +495,7 @@ class AccountingEntriesTable extends Component
             ]);
         }
     }
-    
+
     /**
      * Formatta l'importo quando l'utente esce dal campo
      */
@@ -496,35 +503,35 @@ class AccountingEntriesTable extends Component
     {
         $this->amount = number_format((float)$this->amount, 2, '.', '');
     }
-    
+
     public function viewEntry($id)
     {
         if (!Auth::guard('admin')->user()->hasPermission('view_accounting_entries')) {
             $this->dispatch('showError', message: 'Non hai i permessi per visualizzare le scritture contabili');
             return;
         }
-        
+
         $this->viewingEntry = AccountingEntry::with([
-            'bankAccount', 
-            'paymentMethod', 
+            'bankAccount',
+            'paymentMethod',
             'invoice',
             'installmentTransactions.invoicePayment.payable'
         ])->findOrFail($id);
         $this->showViewModal = true;
     }
-    
+
     public function closeViewModal()
     {
         $this->showViewModal = false;
         $this->viewingEntry = null;
     }
-    
+
     public function closeModal()
     {
         $this->showModal = false;
         $this->resetForm();
     }
-    
+
     public function resetForm()
     {
         $this->entryId = null;
@@ -554,7 +561,7 @@ class AccountingEntriesTable extends Component
         $this->costCenterResults = new Collection();
         $this->showCostCenterDropdown = false;
     }
-    
+
     public function save()
     {
         if ($this->isEditing) {
@@ -568,12 +575,12 @@ class AccountingEntriesTable extends Component
                 return;
             }
         }
-        
+
         $this->validate();
-        
+
         try {
             DB::beginTransaction();
-            
+
             $data = [
                 'entry_date' => $this->entry_date,
                 'description' => $this->description,
@@ -586,33 +593,33 @@ class AccountingEntriesTable extends Component
                 'id_entities' => $this->formEntityId ?: null,
                 'id_cost_centers' => $this->costCenterId ?: null,
             ];
-            
+
             if ($this->isEditing && $this->entryId) {
                 $originalEntry = AccountingEntry::find($this->entryId);
                 $originalAmount = $originalEntry->amount;
                 $newAmount = (float)$this->amount;
-                
+
                 // Aggiorna la scrittura
                 $originalEntry->update($data);
-                
+
                 // Se l'importo è cambiato, aggiorna i pagamenti collegati
                 if (abs($newAmount - $originalAmount) > 0.01) {
                     $this->updateLinkedPayments($originalEntry, $originalAmount, $newAmount);
                 }
-                
+
                 $message = 'Scrittura contabile aggiornata con successo!';
             } else {
                 AccountingEntry::create($data);
                 $message = 'Scrittura contabile creata con successo!';
             }
-            
+
             DB::commit();
             $this->closeModal();
             $this->dispatch('showSuccess', message: $message);
             $this->dispatch('refreshPayments');
             $this->dispatch('refreshInvoices');
             $this->dispatch('refreshAccountingEntries');
-            
+
         } catch (\Exception $e) {
             DB::rollBack();
             \Illuminate\Support\Facades\Log::error('AccountingEntriesTable::save error', [
@@ -622,53 +629,53 @@ class AccountingEntriesTable extends Component
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
-    
+
     /**
      * Aggiorna i pagamenti collegati quando cambia l'importo della scrittura
      */
     private function updateLinkedPayments(AccountingEntry $entry, float $originalAmount, float $newAmount): void
     {
         $transactions = $entry->installmentTransactions()->with('invoicePayment')->get();
-        
+
         if ($transactions->isEmpty()) {
             return;
         }
-        
+
         // Calcola il fattore di proporzione
         $factor = $newAmount / $originalAmount;
-        
+
         foreach ($transactions as $transaction) {
             $payment = $transaction->invoicePayment;
             if (!$payment) continue;
-            
+
             $invoice = $payment->payable;
             if (!$invoice) continue;
-            
+
             // Calcola il nuovo importo allocato
             $oldAllocatedAmount = $transaction->allocated_amount;
             $newAllocatedAmount = round($oldAllocatedAmount * $factor, 2);
-            
+
             // Aggiorna la transazione
             $transaction->update(['allocated_amount' => $newAllocatedAmount]);
-            
+
             // Ricalcola il totale pagato per questo payment
             $totalPaidForThisPayment = $payment->installmentTransactions()->sum('allocated_amount');
-            
+
             // Aggiorna il pagamento
             $newResidual = $payment->amount - $totalPaidForThisPayment;
-            
+
             $payment->update([
                 'paid_amount' => $totalPaidForThisPayment,
                 'residual_amount' => max(0, $newResidual),
                 'status' => $newResidual <= 0.01 ? 'paid' : ($totalPaidForThisPayment > 0 ? 'partially_paid' : 'issued'),
                 'paid_at' => $newResidual <= 0.01 ? now() : null,
             ]);
-            
+
             // Aggiorna lo stato della fattura
             $this->updateInvoiceStatus($invoice);
         }
     }
-    
+
     /**
      * Aggiorna lo stato della fattura in base ai pagamenti
      */
@@ -676,7 +683,7 @@ class AccountingEntriesTable extends Component
     {
         $totalPaid = $invoice->payments()->sum('paid_amount');
         $residual = $invoice->importo_totale - $totalPaid;
-        
+
         if ($residual <= 0.01) {
             $newStatus = 'paid';
         } elseif ($totalPaid > 0) {
@@ -684,10 +691,10 @@ class AccountingEntriesTable extends Component
         } else {
             $newStatus = 'issued';
         }
-        
+
         if ($invoice->status !== $newStatus) {
             $invoice->update(['status' => $newStatus]);
-            
+
             // Aggiorna anche il primo payment associato alla fattura
             $mainPayment = $invoice->payments()->first();
             if ($mainPayment && $mainPayment->status !== $newStatus) {
@@ -698,84 +705,84 @@ class AccountingEntriesTable extends Component
             }
         }
     }
-    
+
     public function confirmDelete($id)
     {
         if (!Auth::guard('admin')->user()->hasPermission('delete_accounting_entries')) {
             $this->dispatch('showError', message: 'Non hai i permessi per eliminare scritture contabili');
             return;
         }
-        
+
         $this->entryToDelete = AccountingEntry::find($id);
         $this->showDeleteModal = true;
     }
-    
+
     public function deleteEntry()
     {
         try {
             DB::beginTransaction();
-            
+
             $entry = $this->entryToDelete;
-            
+
             // Se la scrittura ha transazioni collegate, gestiscile
             $transactions = $entry->installmentTransactions()->get();
             foreach ($transactions as $transaction) {
                 $payment = $transaction->invoicePayment;
                 if ($payment) {
                     $invoice = $payment->payable;
-                    
+
                     // Rimuovi l'importo allocato
                     $newPaidAmount = max(0, $payment->paid_amount - $transaction->allocated_amount);
                     $newResidual = $payment->amount - $newPaidAmount;
-                    
+
                     $payment->update([
                         'paid_amount' => $newPaidAmount,
                         'residual_amount' => $newResidual,
                         'status' => $newResidual <= 0.01 ? 'paid' : ($newPaidAmount > 0 ? 'partially_paid' : 'issued'),
                     ]);
-                    
+
                     if ($invoice) {
                         $this->updateInvoiceStatus($invoice);
                     }
                 }
                 $transaction->delete();
             }
-            
+
             $entry->delete();
-            
+
             DB::commit();
             $this->showDeleteModal = false;
             $this->entryToDelete = null;
             $this->dispatch('showSuccess', message: 'Scrittura contabile eliminata con successo!');
             $this->dispatch('refreshAccountingEntries');
             $this->dispatch('refreshPayments');
-            
+
         } catch (\Exception $e) {
             DB::rollBack();
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
-    
+
     public function cancelDelete()
     {
         $this->showDeleteModal = false;
         $this->entryToDelete = null;
     }
-    
+
     // ==================== CESTINO ====================
-    
+
     public function openTrashModal(): void
     {
         $this->trashSearch = '';
         $this->showTrashModal = true;
     }
-    
+
     public function closeTrashModal(): void
     {
         $this->showTrashModal = false;
         $this->trashSearch = '';
     }
-    
+
     public function trashSortBy(string $field): void
     {
         if ($this->trashSortField === $field) {
@@ -785,11 +792,11 @@ class AccountingEntriesTable extends Component
             $this->trashSortDirection = 'asc';
         }
     }
-    
+
     public function getTrashedEntriesProperty()
     {
         $query = AccountingEntry::onlyTrashed()->with(['bankAccount', 'paymentMethod']);
-        
+
         if ($this->trashSearch) {
             $searchTerm = '%' . $this->trashSearch . '%';
             $query->where(function($q) use ($searchTerm) {
@@ -797,36 +804,36 @@ class AccountingEntriesTable extends Component
                   ->orWhere('amount', 'like', $searchTerm);
             });
         }
-        
+
         return $query->orderBy($this->trashSortField, $this->trashSortDirection)
                      ->paginate(10);
     }
-    
+
     public function getTrashCountProperty(): int
     {
         return AccountingEntry::onlyTrashed()->count();
     }
-    
+
     public function restoreFromTrash(int $id): void
     {
         try {
             DB::beginTransaction();
-            
+
             $entry = AccountingEntry::onlyTrashed()->find($id);
             if ($entry) {
                 $description = $entry->description;
-                
+
                 // Ripristina la scrittura
                 $entry->restore();
-                
+
                 // Ripristina anche le transazioni collegate
                 $transactions = InstallmentTransaction::onlyTrashed()
                     ->where('id_accounting_entries', $entry->id)
                     ->get();
-                    
+
                 foreach ($transactions as $transaction) {
                     $transaction->restore();
-                    
+
                     // Aggiorna il pagamento collegato
                     $payment = $transaction->invoicePayment;
                     if ($payment) {
@@ -836,9 +843,9 @@ class AccountingEntriesTable extends Component
                         }
                     }
                 }
-                
+
                 DB::commit();
-                
+
                 $this->dispatch('showSuccess', message: "Scrittura '{$description}' ripristinata con successo!");
                 $this->dispatch('refreshAccountingEntries');
                 $this->dispatch('refreshPayments');
@@ -848,28 +855,28 @@ class AccountingEntriesTable extends Component
             $this->dispatch('showError', message: 'Errore: ' . $e->getMessage());
         }
     }
-    
+
     public function forceDeleteFromTrash(int $id): void
     {
         try {
             DB::beginTransaction();
-            
+
             $entry = AccountingEntry::onlyTrashed()->find($id);
             if ($entry) {
                 $entryName = 'Scrittura del ' . $entry->entry_date->format('d/m/Y') . ' - ' . number_format($entry->amount, 2, ',', '.') . ' €';
-                
+
                 // Elimina le installment_transactions collegate
                 if (method_exists(InstallmentTransaction::class, 'onlyTrashed')) {
                     $entry->installmentTransactions()->forceDelete();
                 } else {
                     $entry->installmentTransactions()->delete();
                 }
-                
+
                 // Elimina definitivamente la scrittura contabile
                 $entry->forceDelete();
-                
+
                 DB::commit();
-                
+
                 $this->dispatch('showSuccess', message: "{$entryName} eliminata definitivamente.");
                 $this->dispatch('refreshAccountingEntries');
                 $this->closeTrashModal();
@@ -1218,15 +1225,52 @@ class AccountingEntriesTable extends Component
             $this->dispatch('showError', message: 'Errore durante l\'importazione: ' . $e->getMessage());
         }
     }
-    
+
+    // ==================== FILTRO DATA (helper condiviso) ====================
+
+    /**
+     * Applica il filtro data alla query passata, in base alla modalità scelta
+     * dall'utente tramite i radio button ($this->dateFilterMode):
+     * - 'entry_date'        => "Data Pagamento": filtra su entry_date (data della scrittura)
+     * - 'registration_date' => "Data Registrazione Pagamento": filtra su updated_at.
+     *
+     * ATTENZIONE: updated_at viene valorizzato anche in fase di INSERT (Eloquent
+     * imposta created_at e updated_at allo stesso istante alla creazione), ma NON
+     * è stabile nel tempo: ogni successiva modifica alla scrittura (es. cambio
+     * importo) aggiorna updated_at alla data della modifica, spostando quindi il
+     * record fuori dal range di data storico e facendolo comparire in quello odierno.
+     */
+    private function applyDateFilter($query)
+    {
+        if ($this->dateFilterMode === 'registration_date') {
+            if ($this->dateFrom) {
+                $query->whereDate('updated_at', '>=', $this->dateFrom);
+            }
+
+            if ($this->dateTo) {
+                $query->whereDate('updated_at', '<=', $this->dateTo);
+            }
+        } else {
+            if ($this->dateFrom) {
+                $query->whereDate('entry_date', '>=', $this->dateFrom);
+            }
+
+            if ($this->dateTo) {
+                $query->whereDate('entry_date', '<=', $this->dateTo);
+            }
+        }
+
+        return $query;
+    }
+
     // ==================== PROPRIETÀ ====================
-    
+
     public function getEntriesProperty()
     {
         // Inizia con TUTTE le scritture contabili
         $query = AccountingEntry::with([
-            'bankAccount', 
-            'paymentMethod', 
+            'bankAccount',
+            'paymentMethod',
             'invoice',
             'invoicePayment.payable',
             'installmentTransactions.invoicePayment.payable.ownership',
@@ -1265,13 +1309,7 @@ class AccountingEntriesTable extends Component
         }
 
         // ==================== FILTRO DATA ====================
-        if ($this->dateFrom) {
-            $query->whereDate('entry_date', '>=', $this->dateFrom);
-        }
-
-        if ($this->dateTo) {
-            $query->whereDate('entry_date', '<=', $this->dateTo);
-        }
+        $this->applyDateFilter($query);
 
         // ==================== FILTRO CONTO BANCARIO ====================
         if ($this->bankAccountId) {
@@ -1336,7 +1374,7 @@ class AccountingEntriesTable extends Component
         return $query->orderBy($this->sortField, $this->sortDirection)
                     ->paginate($this->perPage);
     }
-    
+
     public function getBankAccountsProperty()
     {
         return BankAccount::with('ownership')
@@ -1348,11 +1386,11 @@ class AccountingEntriesTable extends Component
             ->map(function($account) {
                 $ownershipAbbrev = $account->ownership->RagAbbrev ?? $account->ownership->Rag_Soc_intest ?? 'N/A';
                 $displayName = trim($ownershipAbbrev . ' - ' . $account->name);
-                
+
                 if (!empty($account->n_conto)) {
                     $displayName .= ' - ' . $account->n_conto;
                 }
-                
+
                 $result = new \stdClass();
                 $result->id = $account->id;
                 $result->name = $displayName;
@@ -1360,11 +1398,11 @@ class AccountingEntriesTable extends Component
                 $result->bank_name = $account->name;
                 $result->n_conto = $account->n_conto;
                 $result->iban = $account->iban;
-                
+
                 return $result;
             });
     }
-    
+
     public function getPaymentMethodsProperty()
     {
         return PaymentMethod::where('is_active', true)->orderBy('sort_order')->get();
@@ -1377,23 +1415,21 @@ class AccountingEntriesTable extends Component
             ->orderBy('ordinamento')
             ->get();
     }
-    
+
     public function getTotalEntrateProperty()
     {
         $query = AccountingEntry::query();
-        if ($this->dateFrom) $query->whereDate('entry_date', '>=', $this->dateFrom);
-        if ($this->dateTo) $query->whereDate('entry_date', '<=', $this->dateTo);
+        $this->applyDateFilter($query);
         return $query->where('type', 'entrata')->sum('amount');
     }
-    
+
     public function getTotalUsciteProperty()
     {
         $query = AccountingEntry::query();
-        if ($this->dateFrom) $query->whereDate('entry_date', '>=', $this->dateFrom);
-        if ($this->dateTo) $query->whereDate('entry_date', '<=', $this->dateTo);
+        $this->applyDateFilter($query);
         return $query->where('type', 'uscita')->sum('amount');
     }
-    
+
     public function getSaldoProperty()
     {
         return $this->totalEntrate - $this->totalUscite;
@@ -1403,11 +1439,11 @@ class AccountingEntriesTable extends Component
     {
         return Carbon::parse($date)->format('d/m/Y');
     }
-    
+
     public function render()
     {
         $currentUser = Auth::guard('admin')->user();
-        
+
         return view('livewire.admin.accounting-entries-table', [
             'entries' => $this->entries,
             'bankAccounts' => $this->bankAccounts,

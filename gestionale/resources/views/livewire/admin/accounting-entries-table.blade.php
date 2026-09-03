@@ -6,20 +6,20 @@
         </h1>
         <div class="flex gap-2">
             @if($canCreate)
-            <button wire:click="openCreateModal" 
+            <button wire:click="openCreateModal"
                 class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" title="Nuova Scrittura [ALT + N]">
-                <i class="fas fa-plus"></i> 
+                <i class="fas fa-plus"></i>
             </button>
-            <button wire:click="openImportModal" 
+            <button wire:click="openImportModal"
                 class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" title="Importa CSV">
                 <i class="fas fa-file-csv"></i>
             </button>
             @endif
-            
+
             <!-- Pulsante Cestino -->
             <div class="relative group">
-                <button wire:click="openTrashModal" 
-                    class="relative px-5 py-2.5 rounded-lg shadow-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all duration-200" 
+                <button wire:click="openTrashModal"
+                    class="relative px-5 py-2.5 rounded-lg shadow-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all duration-200"
                     title="Cestino">
                     <i class="fas fa-trash-alt"></i>
                     @if($trashCount > 0)
@@ -34,12 +34,24 @@
 
     <!-- Card Filtri -->
     <div class="bg-white rounded-lg shadow mb-4 border border-gray-200">
-        
+
         <!-- RIGA SUPERIORE: Date Range Filter -->
         <div class="p-4 border-b border-gray-200">
+            <div class="flex justify-end gap-6 mb-2">
+                <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                    <input type="radio" wire:model.live="dateFilterMode" value="entry_date"
+                        class="text-lime-600 focus:ring-lime-500">
+                    Data Pagamento
+                </label>
+                <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                    <input type="radio" wire:model.live="dateFilterMode" value="registration_date"
+                        class="text-lime-600 focus:ring-lime-500">
+                    Data Registrazione Pagamento
+                </label>
+            </div>
             @livewire('components.date-range-filter', ['dateFrom' => $dateFrom, 'dateTo' => $dateTo])
         </div>
-        
+
         <!-- RIGA INFERIORE: Filtri -->
         <div class="p-4">
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
@@ -107,9 +119,9 @@
                     <label class="block text-xs font-medium text-gray-500 mb-1">Cliente / Fornitore</label>
                     <div class="relative">
                         <i class="fas fa-user absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-                        <input type="text" 
+                        <input type="text"
                             id="entity_input"
-                            wire:model.live.debounce.300ms="entitySearch" 
+                            wire:model.live.debounce.300ms="entitySearch"
                             x-on:focus="open = true"
                             x-on:input="open = true; @this.set('entitySearch', $event.target.value)"
                             placeholder="Cerca cliente/fornitore..."
@@ -124,15 +136,15 @@
                         </span>
                         @endif
                     </div>
-                    
-                    <div x-show="open && @entangle('showEntityDropdown')" 
+
+                    <div x-show="open && @entangle('showEntityDropdown')"
                         class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                         @if($filteredEntities && $filteredEntities->count() > 0)
                             @foreach($filteredEntities as $entity)
                             @php
                                 $entityName = addslashes($entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome));
                             @endphp
-                            <div 
+                            <div
                                 x-on:click="
                                     open = false;
                                     document.getElementById('entity_input').value = '{{ $entityName }}';
@@ -141,7 +153,7 @@
                                     @this.set('entityName', '{{ $entityName }}');
                                     @this.set('showEntityDropdown', false);
                                     @this.call('resetPage');
-                                " 
+                                "
                                 class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
                                 <div class="font-medium text-gray-800">{{ $entity->ragione_sociale ?: ($entity->nome . ' ' . $entity->cognome) }}</div>
                                 @if($entity->partita_iva)
@@ -218,17 +230,17 @@
             @if($search || $type || $statusFilter || $bankAccountId || $paymentMethodId || $dateFrom || $dateTo || $entityFilter)
             <div class="mt-4 pt-3 border-t border-gray-200 flex flex-wrap items-center gap-2">
                 <span class="text-xs text-gray-500">Filtri attivi:</span>
-                
+
                 @if($dateFrom || $dateTo)
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
                     <i class="fas fa-calendar mr-1 text-xs"></i>
-                    {{ $dateFrom ?: '...' }} → {{ $dateTo ?: '...' }}
+                    {{ $dateFilterMode === 'registration_date' ? 'Registrazione: ' : '' }}{{ $dateFrom ?: '...' }} → {{ $dateTo ?: '...' }}
                     <button wire:click="clearDates" class="ml-1 hover:text-lime-900">
                         <i class="fas fa-times text-xs"></i>
                     </button>
                 </span>
                 @endif
-                
+
                 @if($search)
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
                     Ricerca: "{{ $search }}"
@@ -237,7 +249,7 @@
                     </button>
                 </span>
                 @endif
-                
+
                 @if($type)
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
                     Tipo: {{ $type === 'entrata' ? 'Entrata' : 'Uscita' }}
@@ -255,7 +267,7 @@
                     </button>
                 </span>
                 @endif
-                
+
                 @if($bankAccountId)
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
                     Conto Bancario
@@ -264,7 +276,7 @@
                     </button>
                 </span>
                 @endif
-                
+
                 @if($paymentMethodId)
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-lime-100 text-lime-800">
                     Metodo Pag.
@@ -273,7 +285,7 @@
                     </button>
                 </span>
                 @endif
-                
+
                 <button wire:click="resetFilters" class="text-xs text-red-500 hover:text-red-700">
                     <i class="fas fa-trash-alt mr-1"></i> Rimuovi tutti
                 </button>
@@ -412,7 +424,7 @@
     <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ open: true }" x-show="open" x-on:keydown.escape.window="open = false; $wire.closeModal()">
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75" x-on:click="open = false; $wire.closeModal()"></div>
-            
+
             <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
                 <div class="bg-white px-6 pt-5 pb-4 border-b">
                     <div class="flex justify-between items-center">
@@ -426,17 +438,17 @@
                         </button>
                     </div>
                 </div>
-                
+
                 <form wire:submit.prevent="save">
                     <div class="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
-                        
+
                         <!-- Descrizione -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Descrizione <span class="text-red-500">*</span></label>
                             <textarea wire:model="description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" placeholder="Inserisci una descrizione..."></textarea>
                             @error('description') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                         </div>
-                        
+
                         <!-- Data, Tipo, Stato -->
                         <div class="grid grid-cols-3 gap-4">
                             <div>
@@ -591,11 +603,11 @@
                         <div class="grid grid-cols-12 gap-4">
                             <div class="col-span-8">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Importo (€) <span class="text-red-500">*</span></label>
-                                <input type="number" 
-                                    step="0.01" 
-                                    wire:model.live="amount" 
+                                <input type="number"
+                                    step="0.01"
+                                    wire:model.live="amount"
                                     wire:blur="formatAmount"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-lime-500"
                                     placeholder="0.00">
                                 @error('amount') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
                             </div>
@@ -616,7 +628,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="bg-gray-50 px-6 py-3 flex justify-end gap-3">
                         <button type="button" wire:click="closeModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
                             Annulla
@@ -765,7 +777,7 @@
                         <div>
                             <div class="flex items-center justify-between mb-2">
                                 <label class="block text-sm font-medium text-gray-700">
-                                    Anteprima ({{ count($importPreview) }} righe — 
+                                    Anteprima ({{ count($importPreview) }} righe —
                                     <span class="text-green-600">{{ $importValidRowsCount }} valide</span>
                                     @if(count($importPreview) - $importValidRowsCount > 0)
                                         , <span class="text-red-600">{{ count($importPreview) - $importValidRowsCount }} con errori</span>
@@ -824,7 +836,7 @@
                         <button type="button" wire:click="closeImportModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
                             Annulla
                         </button>
-                        <button type="button" wire:click="confirmImport" 
+                        <button type="button" wire:click="confirmImport"
                             {{ empty($importPreview) || $importValidRowsCount === 0 ? 'disabled' : '' }}
                             class="px-4 py-2 bg-lime-500 hover:bg-lime-600 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <i class="fas fa-upload mr-2"></i> Importa {{ $importValidRowsCount }} righe
@@ -845,7 +857,7 @@
     <div class="fixed inset-0 z-50 overflow-y-auto" x-data="{ open: true }" x-show="open" x-on:keydown.escape.window="open = false; $wire.closeViewModal()">
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-75" x-on:click="open = false; $wire.closeViewModal()"></div>
-            
+
             <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
                 <div class="bg-white px-6 pt-5 pb-4 border-b">
                     <div class="flex justify-between items-center">
@@ -857,7 +869,7 @@
                         </button>
                     </div>
                 </div>
-                
+
                 <div class="px-6 py-4 space-y-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div class="bg-gray-50 p-3 rounded-lg">
@@ -869,17 +881,17 @@
                             <p><span class="px-2 py-1 rounded-full text-xs font-medium {{ $viewingEntry->type_badge_class }}">{{ $viewingEntry->type_label }}</span></p>
                         </div>
                     </div>
-                    
+
                     <div class="bg-gray-50 p-3 rounded-lg">
                         <label class="block text-xs text-gray-500 uppercase">Descrizione</label>
                         <p class="whitespace-pre-wrap">{{ $viewingEntry->description }}</p>
                     </div>
-                    
+
                     <div class="bg-gray-50 p-3 rounded-lg">
                         <label class="block text-xs text-gray-500 uppercase">Conto Bancario</label>
                         <p class="font-medium">{{ $viewingEntry->bankAccount->name ?? '-' }} - {{ $viewingEntry->bankAccount->n_conto ?? '' }}</p>
                     </div>
-                    
+
                     <div class="grid grid-cols-2 gap-4">
                         <div class="bg-gray-50 p-3 rounded-lg">
                             <label class="block text-xs text-gray-500 uppercase">Importo</label>
@@ -900,7 +912,7 @@
                             </span>
                         </p>
                     </div>
-                    
+
                     @if($viewingEntry->invoice)
                     <div class="bg-gray-50 p-3 rounded-lg">
                         <label class="block text-xs text-gray-500 uppercase">Fattura Associata</label>
@@ -908,7 +920,7 @@
                     </div>
                     @endif
                 </div>
-                
+
                 <div class="bg-gray-50 px-6 py-3 flex justify-end gap-3">
                     <button type="button" wire:click="closeViewModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md">
                         Chiudi
@@ -958,16 +970,16 @@
                     <i class="fas fa-times text-2xl"></i>
                 </button>
             </div>
-            
+
             <div class="bg-gray-50 rounded-lg p-4 mb-6">
                 <div class="relative">
                     <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
-                    <input type="text" wire:model.live="trashSearch" 
-                        placeholder="Cerca per descrizione o importo..." 
+                    <input type="text" wire:model.live="trashSearch"
+                        placeholder="Cerca per descrizione o importo..."
                         class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
                 </div>
             </div>
-            
+
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -999,15 +1011,15 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <div class="flex space-x-3 justify-center">
                                     <!-- Bottone RIPRISTINA -->
-                                    <button wire:click="restoreFromTrash({{ $entry->id }})" 
-                                        class="text-green-600 hover:text-green-900 transition-colors" 
+                                    <button wire:click="restoreFromTrash({{ $entry->id }})"
+                                        class="text-green-600 hover:text-green-900 transition-colors"
                                         title="Ripristina">
                                         <i class="fas fa-trash-restore text-lg"></i>
                                     </button>
                                     <!-- Bottone ELIMINA DEFINITIVAMENTE -->
-                                    <button wire:click="forceDeleteFromTrash({{ $entry->id }})" 
-                                        onclick="return confirm('Eliminazione definitiva? Operazione non reversibile.')" 
-                                        class="text-red-600 hover:text-red-900 transition-colors" 
+                                    <button wire:click="forceDeleteFromTrash({{ $entry->id }})"
+                                        onclick="return confirm('Eliminazione definitiva? Operazione non reversibile.')"
+                                        class="text-red-600 hover:text-red-900 transition-colors"
                                         title="Elimina definitivamente">
                                         <i class="fas fa-trash-alt text-lg"></i>
                                     </button>
@@ -1025,14 +1037,14 @@
                     </tbody>
                 </table>
             </div>
-            
+
             @if($trashedEntries->hasPages())
             <div class="mt-4">
                 <div class="text-sm text-gray-500 mb-2">{{ $trashedEntries->firstItem() }} - {{ $trashedEntries->lastItem() }} di {{ $trashedEntries->total() }} elementi</div>
                 <div class="flex justify-center">{{ $trashedEntries->links() }}</div>
             </div>
             @endif
-            
+
             <div class="flex justify-end mt-6 pt-4 border-t">
                 <button wire:click="closeTrashModal" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition-colors">
                     <i class="fas fa-times mr-2"></i> Chiudi

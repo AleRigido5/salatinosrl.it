@@ -20,14 +20,14 @@ class PaymentRegistrationModal extends Component
 {
     public $showModal = false;
     public $currentStep = 1;
-    
+
     // STEP 1 - Proprietà
     public string $ownershipSearch = '';
     public Collection $ownershipResults;
     public string $selectedOwnershipId = '';
     public string $selectedOwnershipName = '';
     public bool $showOwnershipDropdown = false;
-    
+
     // STEP 1 - Entità (Cliente/Fornitore)
     public string $entitySearch = '';
     public Collection $entityResults;
@@ -35,7 +35,7 @@ class PaymentRegistrationModal extends Component
     public string $selectedEntityName = '';
     public string $selectedEntityType = '';
     public bool $showEntityDropdown = false;
-    
+
     // STEP 2
     public string $paymentDate = '';
     public string $paymentMethod = '';
@@ -43,11 +43,11 @@ class PaymentRegistrationModal extends Component
     public array $bankAccounts = [];
     public array $availableInvoices = [];
     public string $notes = '';
-    
+
     // STEP 3
     public float $totalAmount = 0;
     public float $totalSelectedAmount = 0;
-    
+
     protected $rules = [
         'selectedOwnershipId' => 'required|exists:ownership,id_proprieta',
         'selectedEntityId' => 'required|exists:entities,id_cliente',
@@ -55,14 +55,14 @@ class PaymentRegistrationModal extends Component
         'paymentMethod' => 'required|exists:payment_methods,code',
         'bankAccountId' => 'nullable|exists:bank_accounts,id',
     ];
-    
+
     protected $messages = [
         'selectedOwnershipId.required' => 'Selezionare una proprietà',
         'selectedEntityId.required' => 'Selezionare un cliente o fornitore',
         'paymentDate.required' => 'La data del pagamento è obbligatoria',
         'paymentMethod.required' => 'Il metodo di pagamento è obbligatorio',
     ];
-    
+
     public function mount(): void
     {
         $this->paymentDate = date('Y-m-d');
@@ -70,7 +70,7 @@ class PaymentRegistrationModal extends Component
         $this->entityResults = new Collection();
         $this->loadBankAccounts();
     }
-    
+
     public function loadBankAccounts(): void
     {
         $this->bankAccounts = DB::table('bank_accounts as ba')
@@ -82,9 +82,9 @@ class PaymentRegistrationModal extends Component
                 'ba.n_conto',
                 'ba.iban',
                 'ba.id_ownership',
-                DB::raw("CONCAT_WS(' - ', 
-                    COALESCE(o.RagAbbrev, o.Rag_Soc_intest, 'N/A'), 
-                    ba.name, 
+                DB::raw("CONCAT_WS(' - ',
+                    COALESCE(o.RagAbbrev, o.Rag_Soc_intest, 'N/A'),
+                    ba.name,
                     ba.n_conto
                 ) as display_name")
             )
@@ -96,31 +96,31 @@ class PaymentRegistrationModal extends Component
             })
             ->toArray();
     }
-    
+
     public function openModal(): void
     {
         $this->resetForm();
         $this->showModal = true;
         $this->currentStep = 1;
     }
-    
+
     public function closeModal(): void
     {
         $this->showModal = false;
         $this->resetForm();
     }
-    
+
     public function resetForm(): void
     {
         $this->currentStep = 1;
-        
+
         // Reset proprietà
         $this->ownershipSearch = '';
         $this->selectedOwnershipId = '';
         $this->selectedOwnershipName = '';
         $this->ownershipResults = new Collection();
         $this->showOwnershipDropdown = false;
-        
+
         // Reset entità
         $this->entitySearch = '';
         $this->selectedEntityId = '';
@@ -128,7 +128,7 @@ class PaymentRegistrationModal extends Component
         $this->selectedEntityType = '';
         $this->entityResults = new Collection();
         $this->showEntityDropdown = false;
-        
+
         $this->paymentDate = date('Y-m-d');
         $this->paymentMethod = '';
         $this->bankAccountId = null;
@@ -137,7 +137,7 @@ class PaymentRegistrationModal extends Component
         $this->totalAmount = 0;
         $this->totalSelectedAmount = 0;
     }
-    
+
     // ==================== AUTOCOMPLETE PROPRIETÀ ====================
     public function updatedOwnershipSearch(): void
     {
@@ -165,10 +165,10 @@ class PaymentRegistrationModal extends Component
             })
             ->limit(10)
             ->get(['id_proprieta as id', 'RagAbbrev as name', 'Rag_Soc_intest as ragione_sociale']);
-        
+
         $this->showOwnershipDropdown = $this->ownershipResults->isNotEmpty();
     }
-    
+
     public function selectOwnership(int $id, string $name): void
     {
         $this->selectedOwnershipId = (string)$id;
@@ -177,7 +177,7 @@ class PaymentRegistrationModal extends Component
         $this->showOwnershipDropdown = false;
         $this->dispatch('ownershipSelected', name: $name);
     }
-    
+
     public function clearOwnership(): void
     {
         $this->selectedOwnershipId = '';
@@ -186,7 +186,7 @@ class PaymentRegistrationModal extends Component
         $this->showOwnershipDropdown = false;
         $this->dispatch('clearOwnershipInput');
     }
-    
+
     // ==================== AUTOCOMPLETE ENTITÀ ====================
     public function updatedEntitySearch(): void
     {
@@ -215,17 +215,17 @@ class PaymentRegistrationModal extends Component
                   ->orWhere('partita_iva', 'like', '%' . $this->entitySearch . '%');
             })
             ->limit(10)
-            ->get(['id_cliente as id', 
-                   DB::raw("CASE 
-                       WHEN ragione_sociale IS NOT NULL AND ragione_sociale != '' THEN ragione_sociale 
-                       ELSE CONCAT(nome, ' ', cognome) 
-                   END as name"), 
+            ->get(['id_cliente as id',
+                   DB::raw("CASE
+                       WHEN ragione_sociale IS NOT NULL AND ragione_sociale != '' THEN ragione_sociale
+                       ELSE CONCAT(nome, ' ', cognome)
+                   END as name"),
                    'entity_type as type',
                    'partita_iva as piva']);
-        
+
         $this->showEntityDropdown = $this->entityResults->isNotEmpty();
     }
-    
+
     public function selectEntity(int $id, string $name, string $type): void
     {
         $this->selectedEntityId = (string)$id;
@@ -236,7 +236,7 @@ class PaymentRegistrationModal extends Component
         $this->loadInvoices(); // Carica le fatture subito
         $this->dispatch('entitySelected', name: $name);
     }
-    
+
     public function clearEntity(): void
     {
         $this->selectedEntityId = '';
@@ -247,7 +247,7 @@ class PaymentRegistrationModal extends Component
         $this->availableInvoices = [];
         $this->dispatch('clearEntityInput');
     }
-    
+
     public function goToStep($step): void
     {
         if ($step == 2) {
@@ -257,7 +257,7 @@ class PaymentRegistrationModal extends Component
             ]);
             $this->loadInvoices();
         }
-        
+
         if ($step == 3) {
             $this->validate([
                 'paymentDate' => 'required|date',
@@ -265,17 +265,17 @@ class PaymentRegistrationModal extends Component
             ]);
             $this->calculateTotal();
         }
-        
+
         $this->currentStep = $step;
     }
-    
+
     public function loadInvoices(): void
     {
         if (!$this->selectedEntityId) {
             $this->availableInvoices = [];
             return;
         }
-        
+
         // Ottieni tutte le fatture del fornitore
         $invoices = InvoiceReceived::where('id_entities', $this->selectedEntityId)
             ->whereIn('status', ['issued', 'partially_paid'])
@@ -285,24 +285,28 @@ class PaymentRegistrationModal extends Component
             }])
             ->orderBy('data_invoice', 'asc')
             ->get();
-        
+
         $this->availableInvoices = [];
-        
+
         foreach ($invoices as $invoice) {
             // Per ogni pagamento (scadenza) della fattura
             foreach ($invoice->payments as $payment) {
                 // Calcola il residuo per questa specifica scadenza
                 $residual = $payment->residual_amount;
-                
+
                 // Mostra solo se ha un residuo positivo
                 if ($residual > 0.01) {
                     // Recupera la proprietà dalla fattura
                     $ownershipName = $invoice->ownership->RagAbbrev ?? $invoice->ownership_name ?? '-';
-                    
+
                     $this->availableInvoices[] = [
                         'id' => $payment->id,  // ID del pagamento, non della fattura
                         'invoice_id' => $invoice->id,
                         'invoice_number' => $invoice->n_invoice,
+                        // Data della FATTURA (non della scadenza): serve per comporre
+                        // automaticamente la description della scrittura contabile
+                        // ("fattura nr. X del gg/mm/aaaa").
+                        'invoice_date' => $invoice->data_invoice ? $invoice->data_invoice->format('d/m/Y') : null,
                         'due_date' => $payment->due_date ? $payment->due_date->format('d/m/Y') : '-',
                         'total_amount' => $payment->amount,
                         'residual_amount' => $residual,
@@ -314,11 +318,11 @@ class PaymentRegistrationModal extends Component
             }
         }
     }
-    
+
     public function toggleInvoice($index): void
     {
         if (!isset($this->availableInvoices[$index])) return;
-        
+
         if ($this->availableInvoices[$index]['selected']) {
             $this->availableInvoices[$index]['selected'] = false;
             $this->availableInvoices[$index]['selected_amount'] = 0;
@@ -328,26 +332,26 @@ class PaymentRegistrationModal extends Component
         }
         $this->calculateTotal();
     }
-    
+
     public function updateSelectedAmount($index, $amount): void
     {
         if (!isset($this->availableInvoices[$index])) return;
-        
+
         $amount = floatval(str_replace(',', '.', $amount));
         $maxAmount = $this->availableInvoices[$index]['residual_amount'];
-        
+
         if ($amount > $maxAmount) {
             $amount = $maxAmount;
         }
         if ($amount < 0) {
             $amount = 0;
         }
-        
+
         $this->availableInvoices[$index]['selected_amount'] = round($amount, 2);
         $this->availableInvoices[$index]['selected'] = $amount > 0;
         $this->calculateTotal();
     }
-    
+
     public function calculateTotal(): void
     {
         $total = 0;
@@ -359,25 +363,56 @@ class PaymentRegistrationModal extends Component
         $this->totalSelectedAmount = round($total, 2);
         $this->totalAmount = $this->totalSelectedAmount;
     }
-    
+
+    /**
+     * Compone la description della scrittura contabile a partire dalle
+     * fatture effettivamente selezionate, nel formato:
+     * "fattura nr. X del gg/mm/aaaa + fattura nr. Y del gg/mm/aaaa".
+     *
+     * L'entità (cliente/fornitore) NON viene più inclusa qui: in Prima
+     * Nota è già visualizzata nella sua colonna dedicata.
+     *
+     * Deduplica per fattura (invoice_id), perché una stessa fattura può
+     * avere più scadenze selezionate contemporaneamente.
+     */
+    private function buildDescriptionFromSelectedInvoices(): string
+    {
+        $invoicesDescription = collect($this->availableInvoices)
+            ->filter(fn ($item) => $item['selected'] && $item['selected_amount'] != 0)
+            ->unique('invoice_id')
+            ->map(function ($item) {
+                $date = $item['invoice_date'] ?? null;
+                return 'fattura nr. ' . $item['invoice_number'] . ($date ? ' del ' . $date : '');
+            })
+            ->implode(' + ');
+
+        // Fallback difensivo: non dovrebbe mai capitare perché register()
+        // già verifica totalSelectedAmount > 0 prima di arrivare qui.
+        if ($invoicesDescription === '') {
+            $invoicesDescription = 'Pagamento';
+        }
+
+        return $invoicesDescription . ($this->notes ? ' - ' . $this->notes : '');
+    }
+
     public function register(): void
     {
         $this->validate();
-        
+
         if ($this->totalSelectedAmount <= 0) {
             $this->dispatch('showError', message: 'Selezionare almeno un importo da pagare');
             return;
         }
-        
+
         try {
             DB::beginTransaction();
-            
+
             $adminId = Auth::guard('admin')->id();
-            
+
             // === 1. REGISTRAZIONE IN PRIMA NOTA ===
             $accountingEntry = AccountingEntry::create([
                 'entry_date' => $this->paymentDate,
-                'description' => 'Pagamento fatture ' . $this->selectedEntityName . ($this->notes ? ' - ' . $this->notes : ''),
+                'description' => $this->buildDescriptionFromSelectedInvoices(),
                 'type' => 'uscita',
                 'id_payments_methods' => $this->getPaymentMethodId(),
                 'bank_account_id' => $this->bankAccountId ?: null,
@@ -387,21 +422,21 @@ class PaymentRegistrationModal extends Component
                 'created_by' => $adminId,
                 'updated_by' => $adminId,
             ]);
-            
+
             // === 2. REGISTRA I PAGAMENTI SULLE SCADENZE ===
             foreach ($this->availableInvoices as $invoiceData) {
                 if (!$invoiceData['selected'] || $invoiceData['selected_amount'] <= 0) {
                     continue;
                 }
-                
+
                 // Trova il pagamento (scadenza) specifico
                 $payment = InvoicePayment::find($invoiceData['id']);
                 if (!$payment) continue;
-                
+
                 $paidAmount = $invoiceData['selected_amount'];
                 $newPaidAmount = $payment->paid_amount + $paidAmount;
                 $newResidual = $payment->amount - $newPaidAmount;
-                
+
                 // Aggiorna il pagamento
                 $payment->update([
                     'paid_amount' => $newPaidAmount,
@@ -409,14 +444,14 @@ class PaymentRegistrationModal extends Component
                     'status' => $newResidual <= 0.01 ? 'paid' : 'partially_paid',
                     'paid_at' => $newResidual <= 0.01 ? now() : null,
                 ]);
-                
+
                 // === 3. COLLEGA LA SCRITTURA CONTABILE AL PAGAMENTO ===
                 InstallmentTransaction::create([
                     'id_accounting_entries' => $accountingEntry->id,
                     'id_invoice_payment' => $payment->id,
                     'allocated_amount' => $paidAmount,
                 ]);
-                
+
                 // Aggiorna lo stato della fattura se necessario
                 $invoice = $payment->payable;
                 if ($invoice) {
@@ -428,15 +463,15 @@ class PaymentRegistrationModal extends Component
                     }
                 }
             }
-            
+
             DB::commit();
-            
+
             $this->dispatch('showSuccess', message: 'Pagamento registrato con successo!');
             $this->closeModal();
             $this->dispatch('refreshPayments');
             $this->dispatch('refreshAccountingEntries');
             $this->dispatch('refreshInvoices');
-            
+
         } catch (\Exception $e) {
             DB::rollBack();
             \Illuminate\Support\Facades\Log::error('PaymentRegistrationModal::register error', [
@@ -452,12 +487,12 @@ class PaymentRegistrationModal extends Component
         $method = PaymentMethod::where('code', $this->paymentMethod)->first();
         return $method ? $method->id : null;
     }
-    
+
     public function getPaymentMethodsProperty()
     {
         return PaymentMethod::where('is_active', true)->orderBy('sort_order')->get();
     }
-    
+
     public function render()
     {
         return view('livewire.admin.payment-registration-modal', [

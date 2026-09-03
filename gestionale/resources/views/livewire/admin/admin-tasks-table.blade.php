@@ -4,8 +4,8 @@
             <i class="fa-solid fa-bell mr-3 text-lime-600"></i>
             Gestione Task Amministrativi
         </h1>
-        <button wire:click="openCreateModal" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
-            <i class="fas fa-plus mr-2"></i> Nuovo Task
+        <button wire:click="openCreateModal" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" title="Nuovo Task [ALT + N]">
+            <i class="fas fa-plus"></i>
         </button>
     </div>
 
@@ -548,6 +548,22 @@
     @push('scripts')
     <script>
         document.addEventListener('livewire:initialized', () => {
+            // Shortcut ALT+N per aprire velocemente "Nuovo Task"
+            document.addEventListener('keydown', function (e) {
+                if (e.altKey && (e.key === 'n' || e.key === 'N')) {
+                    // Non intercettare se l'utente sta scrivendo dentro un
+                    // campo di testo, textarea o select (evita di rubare
+                    // il focus durante la digitazione).
+                    const tag = document.activeElement.tagName;
+                    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+                        return;
+                    }
+
+                    e.preventDefault();
+                    @this.call('openCreateModal');
+                }
+            });
+
             // Gestione click sui pulsanti della toolbar WYSIWYG (se presenti)
             const toolbar = document.getElementById('wysiwygToolbar');
             if (toolbar) {

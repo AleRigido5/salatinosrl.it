@@ -7,12 +7,12 @@
         <div class="flex gap-2">
             @if($canCreate)
             <button wire:click="openCreateModal" 
-                class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
-                <i class="fas fa-plus mr-2"></i> Nuova Scrittura
+                class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" title="Nuova Scrittura [ALT + N]">
+                <i class="fas fa-plus"></i> 
             </button>
             <button wire:click="openImportModal" 
-                class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
-                <i class="fas fa-file-csv mr-2"></i> Importa CSV
+                class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" title="Importa CSV">
+                <i class="fas fa-file-csv"></i>
             </button>
             @endif
             
@@ -1065,3 +1065,16 @@
         nav[role="navigation"] > div:first-child > div:first-child { display: none !important; }
     </style>
 </div>
+
+<script>
+    document.addEventListener('keydown', function(e) {
+        if (e.altKey && (e.key === "n" || e.key === "N")) {
+            const tag = document.activeElement.tagName;
+            if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+                return;
+            }
+            e.preventDefault();
+            @this.call('openCreateModal');
+        }
+    });
+</script>

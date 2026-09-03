@@ -19,7 +19,7 @@
                     <i class="fas fa-plus"></i>
                 </button>
                 <div class="absolute bottom-full transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                    Nuovo Cliente / Fornitore
+                    Nuovo Cliente / Fornitore [ALT + N]
                     <div class="absolute top-full transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-800"></div>
                 </div>
             </div>
@@ -69,6 +69,22 @@
         // Aggiorna il badge anche quando il componente viene renderizzato
         Livewire.on('tableRefreshed', () => {
             Livewire.dispatch('updateTrashCount');
+        });
+
+        // Shortcut ALT+N per aprire velocemente "Nuovo Cliente / Fornitore"
+        document.addEventListener('keydown', function (e) {
+            if (e.altKey && (e.key === 'n' || e.key === 'N')) {
+                // Non intercettare se l'utente sta scrivendo dentro un
+                // campo di testo, textarea o select (evita di rubare
+                // il focus durante la digitazione).
+                const tag = document.activeElement.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+                    return;
+                }
+
+                e.preventDefault();
+                Livewire.dispatch('openCreateModal');
+            }
         });
     });
 </script>

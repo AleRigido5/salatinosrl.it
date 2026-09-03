@@ -10,7 +10,7 @@
             <div class="flex gap-3">
                 @if(auth()->guard('admin')->user()->hasPermission('create_vehicles'))
                 <button wire:click="openCreateModal" 
-                        class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                        class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" title="Nuovo Mezzo [ALT + N]">
                     <i class="fas fa-plus"></i>
                 </button>
                 @endif
@@ -817,5 +817,16 @@
                 });
             });
         });
-    </script> 
+
+        document.addEventListener('keydown', function(event) {
+            if (event.altKey && (event.key === "n" || event.key === "N")) {
+                const tag = document.activeElement.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+                    return;
+                }
+                event.preventDefault();
+                @this.call('openCreateModal');
+            }
+        });
+    </script>
 </div>

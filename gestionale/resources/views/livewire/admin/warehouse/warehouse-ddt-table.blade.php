@@ -4,8 +4,8 @@
             <i class="fa-solid fa-truck-ramp-box mr-3 text-lime-600"></i>
             DDT di {{ $type === 'acquisto' ? 'Acquisto' : 'Vendita' }}
         </h1>
-        <button wire:click="openCreateModal" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
-            <i class="fas fa-plus mr-2"></i> Nuovo DDT
+        <button wire:click="openCreateModal" class="bg-gradient-to-r from-lime-500 to-lime-600 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" title='Nuovo DDT [ALT + N]'>
+            <i class="fas fa-plus"></i>
         </button>
     </div>
 
@@ -740,3 +740,16 @@
     </div>
     @endif
 </div>
+
+<script>
+    document.addEventListener('keydown', function(e) {
+        if (e.altKey && (e.key === "n" || e.key === "N")) {
+            const tag = document.activeElement.tagName;
+            if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+                return;
+            }
+            e.preventDefault();
+            @this.call('openCreateModal');
+        }
+    });
+</script>

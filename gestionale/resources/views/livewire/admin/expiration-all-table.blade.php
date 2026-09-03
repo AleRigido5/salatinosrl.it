@@ -15,7 +15,7 @@
                         <i class="fas fa-plus"></i>
                     </button>
                     <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-                        Nuova scadenza
+                        Nuova scadenza [ALT + N]
                     </div>
                 </div>
             </div>
@@ -659,3 +659,18 @@
     </div>
     @endif
 </div>
+
+<script>
+    document.addEventListener('livewire:initialized', () => {
+        document.addEventListener('keydown', function (e) {
+            if (e.altKey && (e.key === 'n' || e.key === 'N')) {
+                const tag = document.activeElement.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+                    return;
+                }
+                e.preventDefault();
+                @this.call('openCreateModal');
+            }
+        });
+    });
+</script>

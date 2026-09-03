@@ -18,18 +18,16 @@
                 {{ $entity->full_name }}
             </p>
         </div>
-        <a href="{{ route('admin.communications.index') }}"
-           class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1.5 transition-colors">
-            <i class="fas fa-arrow-left"></i>
-        </a>
-    </div>
-
-    {{-- Pulsante Nuova Comunicazione --}}
-    <div class="mb-4">
-        <button onclick="openCreateModal()"
-                class="bg-lime-600 hover:bg-lime-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm">
-            <i class="fas fa-plus"></i> Nuova Comunicazione
-        </button>
+        <div class="flex items-center gap-2">
+            <button onclick="openCreateModal()"
+                    class="bg-lime-600 hover:bg-lime-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm" title="Nuova Comunicazione [ALT + N]">
+                <i class="fas fa-plus"></i>
+            </button>
+            <a href="{{ route('admin.communications.index') }}"
+               class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1.5 transition-colors">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+        </div>
     </div>
 
     {{-- TABELLA COMUNICAZIONI --}}
@@ -636,6 +634,17 @@ document.addEventListener('click', function(e) {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeNotification();
+    }
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.altKey && (e.key === "n" || e.key === "N")) {
+        const tag = document.activeElement.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+            return;
+        } 
+        e.preventDefault();
+        openCreateModal();
     }
 });
 </script>

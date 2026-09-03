@@ -17,12 +17,10 @@ use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
-    // Porzioni di nome usate per identificare le due Proprietà nei grafici.
-    // Se l'anagrafica cambia ragione sociale, aggiorna solo qui.
-    private const OWNERSHIP_NAMES = [
-        'agricola' => 'Agricola Salatino',
-        'vitivinicola' => 'Vitivinicola Salatino',
-    ];
+    // ID reali delle due Proprietà (verificati su tabella ownership).
+    // Se in futuro cambiano, aggiorna solo qui.
+    private const AGRICOLA_OWNERSHIP_ID = 5;      // Agr. SRL — Agricola Salatino srl
+    private const VITIVINICOLA_OWNERSHIP_ID = 2;  // Vit. SS — Soc. Agr. Vit. SALATINO S.S.
 
     public function index()
     {
@@ -53,8 +51,8 @@ class DashboardController extends Controller
             ->get();
 
         // ==================== PROPRIETÀ (per i grafici) ====================
-        $agricolaOwnership = $this->findOwnership(self::OWNERSHIP_NAMES['agricola']);
-        $vitivinicolaOwnership = $this->findOwnership(self::OWNERSHIP_NAMES['vitivinicola']);
+        $agricolaOwnership = Ownership::find(self::AGRICOLA_OWNERSHIP_ID);
+        $vitivinicolaOwnership = Ownership::find(self::VITIVINICOLA_OWNERSHIP_ID);
 
         $year = now()->year;
 
@@ -82,18 +80,6 @@ class DashboardController extends Controller
             'vitivinicolaSalesMonthly', 'vitivinicolaPurchasesMonthly',
             'year'
         ));
-    }
-
-    /**
-     * Cerca una Proprietà per nome parziale (RagAbbrev o Rag_Soc_intest).
-     * Ritorna null se non trovata — i grafici corrispondenti mostreranno
-     * tutti zeri invece di generare un errore.
-     */
-    private function findOwnership(string $namePart): ?Ownership
-    {
-        return Ownership::where('RagAbbrev', 'like', '%' . $namePart . '%')
-            ->orWhere('Rag_Soc_intest', 'like', '%' . $namePart . '%')
-            ->first();
     }
 
     /**

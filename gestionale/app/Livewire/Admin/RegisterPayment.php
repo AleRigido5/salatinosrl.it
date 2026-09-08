@@ -269,12 +269,12 @@ class RegisterPayment extends Component
 
         if ($this->invoiceType === 'vendita') {
             $invoices = \App\Models\InvoiceSent::where('id_entities', $this->selectedEntityId)
-                ->with(['payments' => fn($q) => $q->orderBy('due_date', 'asc')])
+                ->with(['payments' => fn($q) => $q->orderBy('due_date', 'asc'), 'ownership'])
                 ->orderBy('data_invoice', 'asc')
                 ->get();
         } else {
             $invoices = InvoiceReceived::where('id_entities', $this->selectedEntityId)
-                ->with(['payments' => fn($q) => $q->orderBy('due_date', 'asc')])
+                ->with(['payments' => fn($q) => $q->orderBy('due_date', 'asc'), 'ownership'])
                 ->orderBy('data_invoice', 'asc')
                 ->get();
         }
@@ -291,6 +291,13 @@ class RegisterPayment extends Component
             $creditAllocated = $this->invoiceType === 'vendita'
                 ? 0.0
                 : (float) CreditNoteInvoiceRelation::where('invoice_id', $invoice->id)->sum('allocated_amount');
+
+            // Nome proprietà associata alla fattura, con lo stesso pattern
+            // di fallback già usato per i conti bancari (RagAbbrev prima,
+            // Rag_Soc_intest come ripiego).
+            $ownershipName = $invoice->ownership->RagAbbrev
+                ?? $invoice->ownership->Rag_Soc_intest
+                ?? 'N/A';
 
             foreach ($invoice->payments as $payment) {
                 // FIX (bug segnalato): prima si leggeva $payment->residual_amount,
@@ -323,6 +330,7 @@ class RegisterPayment extends Component
                         'id'             => $payment->id,
                         'invoice_id'     => $invoice->id,
                         'invoice_number' => $invoice->n_invoice,
+                        'ownership_name' => $ownershipName,
                         'due_date'       => $payment->due_date ? \Carbon\Carbon::parse($payment->due_date)->format('d/m/Y') : '-',
                         'due_date_raw'   => $payment->due_date,
                         'total_amount'   => $payment->amount,

@@ -239,6 +239,7 @@
                                     <thead class="bg-gray-50">
                                         <tr>
                                             <th class="px-3 py-2 text-left text-xs font-medium">N. Fattura</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium">Proprietà</th>
                                             <th class="px-3 py-2 text-left text-xs font-medium">Data Scadenza</th>
                                             <th class="px-3 py-2 text-right text-xs font-medium">Totale Scadenza</th>
                                             <th class="px-3 py-2 text-right text-xs font-medium">Residuo</th>
@@ -257,6 +258,7 @@
                                                     <span class="ml-1 inline-flex px-1.5 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800">Credito</span>
                                                 @endif
                                             </td>
+                                            <td class="px-3 py-2 text-sm text-gray-600">{{ $item['ownership_name'] }}</td>
                                             <td class="px-3 py-2 text-sm {{ 
                                                 !empty($item['due_date_raw']) && \Carbon\Carbon::parse($item['due_date_raw'])->isPast() && $item['residual_amount'] > 0 
                                                     ? 'text-red-600 font-bold' 
@@ -294,7 +296,7 @@
                                         </tr>
                                         @empty
                                         <tr>
-                                            <td colspan="5" class="px-3 py-8 text-center text-gray-500">
+                                            <td colspan="6" class="px-3 py-8 text-center text-gray-500">
                                                 Nessuna scadenza aperta per questa controparte
                                             </td>
                                         </tr>

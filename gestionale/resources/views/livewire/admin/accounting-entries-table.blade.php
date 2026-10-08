@@ -92,21 +92,20 @@
                         class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                         @if($ownershipResults && $ownershipResults->count() > 0)
                             @foreach($ownershipResults as $item)
-                                <div x-on:click="
-                                        open = false;
-                                        document.getElementById('ownership_input').value = '{{ addslashes($item->RagAbbrev ?? $item->Rag_Soc_intest) }}';
-                                        @this.set('ownershipSearch', '{{ addslashes($item->RagAbbrev ?? $item->Rag_Soc_intest) }}');
-                                        @this.set('selectedOwnershipId', '{{ $item->id_proprieta }}');
-                                        @this.set('selectedOwnershipName', '{{ addslashes($item->RagAbbrev ?? $item->Rag_Soc_intest) }}');
-                                        @this.set('showOwnershipDropdown', false);
-                                        @this.call('resetPage');
-                                    "
-                                    class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
-                                    <div class="font-medium text-gray-800">{{ $item->RagAbbrev ?? $item->Rag_Soc_intest }}</div>
-                                    @if($item->RagSocialePr)
-                                        <div class="text-xs text-gray-500">{{ $item->RagSocialePr }}</div>
-                                    @endif
-                                </div>
+                            @php
+                                $itemDisplayName = addslashes($item->RagAbbrev ?: $item->Rag_Soc_intest);
+                            @endphp
+                            <div wire:click="selectOwnership({{ $item->id_proprieta }}, '{{ $itemDisplayName }}')"
+                                x-on:click="
+                                    open = false;
+                                    document.getElementById('ownership_input').value = '{{ $itemDisplayName }}';
+                                "
+                                class="px-3 py-2 hover:bg-lime-50 cursor-pointer text-sm border-b border-gray-100 last:border-0">
+                                <div class="font-medium text-gray-800">{{ $item->RagAbbrev ?: $item->Rag_Soc_intest }}</div>
+                                @if($item->RagSocialePr)
+                                    <div class="text-xs text-gray-500">{{ $item->RagSocialePr }}</div>
+                                @endif
+                            </div>
                             @endforeach
                         @else
                             <div class="px-3 py-2 text-sm text-gray-500 text-center">Nessun risultato trovato</div>

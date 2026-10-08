@@ -304,16 +304,16 @@ class AccountingEntriesTable extends Component
         $this->ownershipResults = Ownership::where('valid', 1)
             ->where(function($q) {
                 $q->where('RagAbbrev', 'like', '%' . $this->ownershipSearch . '%')
-                  ->orWhere('Rag_Soc_intest', 'like', '%' . $this->ownershipSearch . '%')
-                  ->orWhere('RagSocialePr', 'like', '%' . $this->ownershipSearch . '%');
+                ->orWhere('Rag_Soc_intest', 'like', '%' . $this->ownershipSearch . '%')
+                ->orWhere('RagSocialePr', 'like', '%' . $this->ownershipSearch . '%');
             })
             ->limit(10)
-            ->get(['id_proprieta as id', 'RagAbbrev as name']);
+            ->get(['id_proprieta', 'RagAbbrev', 'Rag_Soc_intest', 'RagSocialePr']);
 
         $this->showOwnershipDropdown = $this->ownershipResults->isNotEmpty();
     }
 
-    public function selectOwnership(int $id, string $name): void
+    public function selectOwnership($id, string $name): void
     {
         $this->selectedOwnershipId = (string)$id;
         $this->selectedOwnershipName = $name;

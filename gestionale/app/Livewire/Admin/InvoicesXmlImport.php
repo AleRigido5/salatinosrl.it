@@ -1188,6 +1188,7 @@ class InvoicesXmlImport extends Component
         }
 
         // CERCA FORNITORE NEL DB
+        $this->id_entities = null;   
         $this->supplier_found    = false;
         $this->supplier_not_found = false;
 
@@ -1229,6 +1230,7 @@ class InvoicesXmlImport extends Component
         }
 
         // CERCA PROPRIETÀ - priorità: P.IVA > Codice Fiscale > Denominazione
+        $this->id_ownership = null; 
         $ownership = null;
 
         // 1. Match per P.IVA committente (il più affidabile)
